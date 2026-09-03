@@ -1,0 +1,68 @@
+// Social Circle - Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  avatarColor  String   @default("teal")
+  bio          String?
+  postsCount   Int      @default(0)
+  followersCount Int    @default(0)
+  likesCount   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products     Product[]
+  followsFrom  Follow[]  @relation("FollowFrom")
+  followsTo    Follow[]  @relation("FollowTo")
+  likes        Like[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  quantity    String
+  country     String
+  currency    String
+  price       Float
+  unit        String?
+  gender      String?
+  description String?
+  imageUrl    String?
+  category    String   @default("Other")
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes       Like[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followeeId  String
+  follower    User     @relation("FollowFrom", fields: [followerId], references: [id], onDelete: Cascade)
+  followee    User     @relation("FollowTo", fields: [followeeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followeeId])
+}
+
+model Like {
+  id          String   @id @default(cuid())
+  userId      String
+  productId   String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, productId])
+}
