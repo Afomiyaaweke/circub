@@ -1,4 +1,4 @@
-// Social Circle - Prisma Schema (LinkedIn-style)
+// Social Circle - Prisma Schema (LinkedIn-style + Local Price Posts)
 generator client {
   provider = "prisma-client-js"
 }
@@ -23,11 +23,22 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Local contributor profile
+  isLocal        Boolean  @default(false)
+  verifiedLocal  Boolean  @default(false)
+  rating         Float    @default(0)
+  expertiseTags  String? // comma-separated: "Coffee,Markets,Handicrafts"
+  helpfulVotes   Int      @default(0)
+  localPostCount Int      @default(0)
+
   products       Product[]
   posts          Post[]
   postLikes      PostLike[]
   comments       Comment[]
   productLikes   Like[]
+  localPricePosts LocalPricePost[]
+  localPriceVotes LocalPriceVote[]
+  localPriceReports LocalPriceReport[]
 
   // Connections (LinkedIn mutual)
   connRequested  Connection[] @relation("ConnRequester")
@@ -127,4 +138,78 @@ model Message {
   sender     User     @relation("MsgSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver   User     @relation("MsgReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+}
+
+// =====================================================
+// LOCAL PRICE POSTS — community price intelligence
+// =====================================================
+
+model LocalPricePost {
+  id                String   @id @default(cuid())
+  postType          String   @default("PRODUCT") // PRODUCT | SERVICE
+  productName       String
+  description       String?
+
+  // Location (multi-level)
+  country           String
+  city              String?
+  neighborhood      String?
+  market            String?
+
+  // Price information
+  currency          String
+  priceMin          Float
+  priceMax          Float
+  recommendedPrice   Float?  // fair price
+  touristPrice      Float?  // what tourists are commonly charged
+  personalPrice     Float?  // what author would personally pay
+
+  // Local knowledge
+  localTip          String?
+
+  // Categorization
+  category          String   @default("Other")
+  imageUrl          String?
+
+  // Author
+  authorId         String
+  author           User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Votes & reports
+  votes            LocalPriceVote[]
+  reports          LocalPriceReport[]
+
+  helpfulCount     Int      @default(0)
+  notAccurateCount Int      @default(0)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([country, city, productName])
+  @@index([category])
+}
+
+model LocalPriceVote {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  voteType  String   // HELPFUL | NOT_ACCURATE
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      LocalPricePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model LocalPriceReport {
+  id          String   @id @default(cuid())
+  userId      String
+  postId      String
+  reportType  String   // INCORRECT_PRICE | OUTDATED | FAKE_POST | WRONG_LOCATION | SELLER_PROMOTION | SPAM
+  note        String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post        LocalPricePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, postId])
 }

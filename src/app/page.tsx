@@ -7,16 +7,22 @@ import { RightSidebar } from '@/components/social/right-sidebar'
 import { FeedTab } from '@/components/social/feed-tab'
 import { NetworkTab } from '@/components/social/network-tab'
 import { MainContent } from '@/components/social/main-content'
+import { LocalFeedTab } from '@/components/social/local-feed-tab'
+import { PriceDetailModal } from '@/components/social/price-detail-modal'
+import { LocalProfileModal } from '@/components/social/local-profile-modal'
 import { MessageModal } from '@/components/social/message-modal'
 import type { User, TabKey } from '@/lib/types'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabKey>('feed')
+  const [activeTab, setActiveTab] = useState<TabKey>('local')
   const [me, setMe] = useState<User | null>(null)
   const [userLoading, setUserLoading] = useState(true)
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
+  // Local price modals (accessible from any tab via right sidebar)
+  const [localPriceId, setLocalPriceId] = useState<string | null>(null)
+  const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
 
   const fetchMe = useCallback(async () => {
     setUserLoading(true)
@@ -76,6 +82,10 @@ export default function Home() {
             />
           )}
 
+          {activeTab === 'local' && (
+            <LocalFeedTab onRefreshUser={fetchMe} />
+          )}
+
           {activeTab === 'network' && me && (
             <NetworkTab
               me={me}
@@ -84,7 +94,7 @@ export default function Home() {
             />
           )}
 
-          {(activeTab === 'discover' || activeTab === 'bookmark') && (
+          {activeTab === 'bookmark' && (
             <MainContent
               user={me}
               activeTab={activeTab}
@@ -99,6 +109,9 @@ export default function Home() {
             onMessage={handleMessageUser}
             onOpenMessages={handleOpenMessages}
             incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
+            onOpenLocalPrice={setLocalPriceId}
+            onOpenLocalProfile={setLocalProfileUserId}
+            onGoToFeed={() => setActiveTab('local')}
           />
         </div>
       </div>
@@ -106,8 +119,7 @@ export default function Home() {
       <footer className="mt-auto border-t border-border bg-white">
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <p>
-            © {new Date().getFullYear()} Social Circle — Connect, share, and grow
-            your personalized network.
+            © {new Date().getFullYear()} Social Circle — Local price intelligence for travelers.
           </p>
           <p className="flex items-center gap-3">
             <a href="#" className="hover:text-primary transition-colors">
@@ -128,6 +140,18 @@ export default function Home() {
         onOpenChange={setMessagesOpen}
         targetUserId={messageTargetId}
         me={me}
+      />
+
+      <PriceDetailModal
+        postId={localPriceId}
+        onClose={() => setLocalPriceId(null)}
+        onAuthorClick={setLocalProfileUserId}
+      />
+
+      <LocalProfileModal
+        userId={localProfileUserId}
+        onClose={() => setLocalProfileUserId(null)}
+        onOpenPost={setLocalPriceId}
       />
     </div>
   )

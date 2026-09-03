@@ -1,4 +1,4 @@
-// Shared types for Social Circle (LinkedIn-style)
+// Shared types for Social Circle (LinkedIn-style + Local Price Posts)
 export interface User {
   id: string
   name: string
@@ -14,7 +14,16 @@ export interface User {
   followingCount?: number
   isFollowing?: boolean
   isConnected?: boolean
-  hasPendingRequest?: boolean // outgoing pending
+  hasPendingRequest?: boolean
+
+  // Local contributor fields
+  isLocal?: boolean
+  verifiedLocal?: boolean
+  rating?: number
+  expertiseTags?: string[] | string | null
+  helpfulVotes?: number
+  localPostCount?: number
+  incomingInvitationsCount?: number
 }
 
 export interface Product {
@@ -75,9 +84,8 @@ export interface Connection {
   status: 'PENDING' | 'ACCEPTED' | 'IGNORED'
   note?: string | null
   createdAt: string
-  // Populated fields
   otherUser?: User
-  isIncoming?: boolean // true if receiverId = me, false if requesterId = me
+  isIncoming?: boolean
 }
 
 export interface Message {
@@ -95,4 +103,83 @@ export interface Conversation {
   unreadCount: number
 }
 
-export type TabKey = 'feed' | 'discover' | 'network' | 'bookmark'
+// =====================================================
+// LOCAL PRICE POSTS types
+// =====================================================
+
+export type LocalPricePostType = 'PRODUCT' | 'SERVICE'
+
+export interface LocalPricePost {
+  id: string
+  postType: LocalPricePostType
+  productName: string
+  description?: string | null
+  country: string
+  city?: string | null
+  neighborhood?: string | null
+  market?: string | null
+  currency: string
+  priceMin: number
+  priceMax: number
+  recommendedPrice?: number | null
+  touristPrice?: number | null
+  personalPrice?: number | null
+  localTip?: string | null
+  category: string
+  imageUrl?: string | null
+  authorId: string
+  author: LocalPriceAuthor
+  helpfulCount: number
+  notAccurateCount: number
+  myVote?: 'HELPFUL' | 'NOT_ACCURATE' | null
+  createdAt: string
+}
+
+export interface LocalPriceAuthor {
+  id: string
+  name: string
+  avatarColor: string
+  isLocal?: boolean
+  verifiedLocal?: boolean
+  rating?: number
+  helpfulVotes?: number
+  localPostCount?: number
+  headline?: string | null
+  location?: string | null
+  expertiseTags?: string[] | null
+}
+
+export interface LocalPriceConsensus {
+  productName: string
+  country: string
+  city?: string | null
+  currency: string
+  avgPriceMin: number
+  avgPriceMax: number
+  recommendedPrice: number | null
+  avgTouristPrice: number | null
+  reportCount: number
+  // Fair price verdict
+  verdict: 'fair' | 'expensive' | 'cheap' | 'unknown'
+  // Posts that contributed
+  contributingPosts: LocalPricePost[]
+}
+
+export interface PriceHistoryPoint {
+  label: string // e.g. "Current", "3 months ago"
+  priceMin: number
+  priceMax: number
+  recommendedPrice: number | null
+  sampleCount: number
+  date?: string
+}
+
+export interface LocalPriceHistory {
+  productName: string
+  country: string
+  city?: string | null
+  currency: string
+  history: PriceHistoryPoint[]
+}
+
+export type TabKey = 'feed' | 'local' | 'network' | 'bookmark'

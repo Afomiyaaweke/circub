@@ -1,28 +1,46 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Flame, Trophy, TrendingUp, Mail } from 'lucide-react'
+import {
+  UserPlus,
+  Flame,
+  Trophy,
+  TrendingUp,
+  Mail,
+  MapPin,
+  MessageSquareText,
+  Star,
+  BadgeCheck,
+  ThumbsUp,
+} from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import type { User, Trend } from '@/lib/types'
+import type { User, Trend, LocalPricePost } from '@/lib/types'
 
 interface RightSidebarProps {
   refreshSignal: number
   onMessage: (userId: string) => void
   onOpenMessages: () => void
   incomingInvitationsCount: number
+  onOpenLocalPrice: (postId: string) => void
+  onOpenLocalProfile: (userId: string) => void
+  onGoToFeed: () => void
 }
 
 export function RightSidebar({
   refreshSignal,
   onOpenMessages,
   incomingInvitationsCount,
+  onOpenLocalPrice,
+  onOpenLocalProfile,
+  onGoToFeed,
 }: RightSidebarProps) {
   const [suggestions, setSuggestions] = useState<User[]>([])
   const [trends, setTrends] = useState<Trend[]>([])
   const [posters, setPosters] = useState<User[]>([])
+  const [recentPrices, setRecentPrices] = useState<LocalPricePost[]>([])
   const [connecting, setConnecting] = useState<string | null>(null)
   const { toast } = useToast()
 
@@ -31,11 +49,13 @@ export function RightSidebar({
       fetch('/api/suggested').then((r) => r.json()),
       fetch('/api/trending').then((r) => r.json()),
       fetch('/api/top-posters').then((r) => r.json()),
+      fetch('/api/recent-local-prices').then((r) => r.json()),
     ])
-      .then(([s, t, p]) => {
+      .then(([s, t, p, r]) => {
         setSuggestions(s.suggestions || [])
         setTrends(t.trends || [])
         setPosters(p.posters || [])
+        setRecentPrices(r.posts || [])
       })
       .catch(() => {})
   }, [refreshSignal])
@@ -70,6 +90,11 @@ export function RightSidebar({
     }
   }
 
+  const formatPrice = (value: number, currency: string) => {
+    if (value >= 1000) return `${currency} ${value.toLocaleString()}`
+    return `${currency} ${value}`
+  }
+
   return (
     <aside className="w-full lg:w-72 shrink-0 space-y-4">
       {/* Messages shortcut card */}
@@ -87,6 +112,67 @@ export function RightSidebar({
               {incomingInvitationsCount}
             </span>
           )}
+        </button>
+      </Card>
+
+      {/* What locals are saying — NEW widget */}
+      <Card className="p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <MessageSquareText className="w-4 h-4 text-primary" />
+            What locals are saying
+          </h3>
+          <button
+            onClick={onGoToFeed}
+            className="text-[10px] text-primary font-medium hover:underline"
+          >
+            View all
+          </button>
+        </div>
+        {recentPrices.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-3">
+            No local price posts yet.
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            {recentPrices.slice(0, 4).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onOpenLocalPrice(p.id)}
+                className="w-full text-left hover:bg-accent/40 -mx-2 px-2 py-1.5 rounded-md transition-colors"
+              >
+                <p className="text-sm font-medium text-foreground truncate">
+                  {p.productName}
+                </p>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3" />
+                  <span className="truncate">
+                    {[p.city, p.country].filter(Boolean).join(', ')}
+                  </span>
+                </p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-primary">
+                    {formatPrice(p.priceMin, p.currency)} – {formatPrice(p.priceMax, p.currency)}
+                  </p>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5">
+                      <ThumbsUp className="w-3 h-3 text-primary" />
+                      {p.helpfulCount}
+                    </span>
+                    {p.author.verifiedLocal && (
+                      <BadgeCheck className="w-3 h-3 text-primary" />
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={onGoToFeed}
+          className="w-full mt-3 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent rounded-md transition-colors border border-primary/20"
+        >
+          Browse Local Price Feed →
         </button>
       </Card>
 

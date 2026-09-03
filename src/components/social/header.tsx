@@ -1,6 +1,6 @@
 'use client'
 
-import { Newspaper, Compass, Users, Bookmark, MessageSquare } from 'lucide-react'
+import { MapPin, Users, Bookmark, MessageSquare, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TabKey } from '@/lib/types'
 
@@ -11,9 +11,9 @@ interface HeaderProps {
   incomingInvitationsCount: number
 }
 
-const TABS: { key: TabKey; label: string; icon: typeof Newspaper }[] = [
-  { key: 'feed', label: 'Feed', icon: Newspaper },
-  { key: 'discover', label: 'Discover', icon: Compass },
+const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
+  { key: 'feed', label: 'Feed', icon: Sparkles },
+  { key: 'local', label: 'Local', icon: MapPin },
   { key: 'network', label: 'Network', icon: Users },
   { key: 'bookmark', label: 'Bookmark', icon: Bookmark },
 ]
@@ -49,7 +49,7 @@ export function Header({
               Social Circle
             </h1>
             <p className="hidden sm:block text-xs text-muted-foreground italic truncate">
-              Connect, share, and grow your personalized network
+              Local price intelligence for travelers
             </p>
           </div>
         </div>

@@ -49,14 +49,14 @@ export function MainContent({
 
   const { toast } = useToast()
 
-  const TAB_TITLES: Record<TabKey, { title: string; subtitle: string; icon: typeof Globe }> = {
+  const TAB_TITLES: Record<string, { title: string; subtitle: string; icon: typeof Globe }> = {
     feed: {
       title: 'Country Product Prices',
       subtitle: 'See fresh listings from your network and the wider world.',
       icon: Globe,
     },
-    discover: {
-      title: 'Discover Global Prices',
+    local: {
+      title: 'Discover Local Prices',
       subtitle: 'Explore trending product prices from across the world.',
       icon: Sparkles,
     },
