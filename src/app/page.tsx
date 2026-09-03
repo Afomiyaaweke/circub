@@ -3,15 +3,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Header } from '@/components/social/header'
 import { LeftSidebar } from '@/components/social/left-sidebar'
-import { MainContent } from '@/components/social/main-content'
 import { RightSidebar } from '@/components/social/right-sidebar'
+import { FeedTab } from '@/components/social/feed-tab'
+import { NetworkTab } from '@/components/social/network-tab'
+import { MainContent } from '@/components/social/main-content'
+import { MessageModal } from '@/components/social/message-modal'
 import type { User, TabKey } from '@/lib/types'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabKey>('network')
+  const [activeTab, setActiveTab] = useState<TabKey>('feed')
   const [me, setMe] = useState<User | null>(null)
   const [userLoading, setUserLoading] = useState(true)
   const [refreshSignal, setRefreshSignal] = useState(0)
+  const [messagesOpen, setMessagesOpen] = useState(false)
+  const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
 
   const fetchMe = useCallback(async () => {
     setUserLoading(true)
@@ -34,23 +39,67 @@ export default function Home() {
     setRefreshSignal((s) => s + 1)
   }, [])
 
+  const handleMessageUser = useCallback((userId: string) => {
+    setMessageTargetId(userId)
+    setMessagesOpen(true)
+  }, [])
+
+  const handleOpenMessages = useCallback(() => {
+    setMessageTargetId(null)
+    setMessagesOpen(true)
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenMessages={handleOpenMessages}
+        incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
+      />
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-4 sm:px-6 py-4 sm:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-          <LeftSidebar user={me} loading={userLoading} />
-
-          <MainContent
+          <LeftSidebar
             user={me}
-            activeTab={activeTab}
-            refreshSignal={refreshSignal}
-            onUserChanged={fetchMe}
-            onRefreshAll={handleRefreshAll}
+            loading={userLoading}
+            onMessage={handleOpenMessages}
+            onManageNetwork={() => setActiveTab('network')}
           />
 
-          <RightSidebar refreshSignal={refreshSignal} />
+          {/* Main content - changes per tab */}
+          {activeTab === 'feed' && me && (
+            <FeedTab
+              user={me}
+              onMessage={handleMessageUser}
+              onRefreshUser={fetchMe}
+            />
+          )}
+
+          {activeTab === 'network' && me && (
+            <NetworkTab
+              me={me}
+              onMessage={handleMessageUser}
+              onRefreshUser={fetchMe}
+            />
+          )}
+
+          {(activeTab === 'discover' || activeTab === 'bookmark') && (
+            <MainContent
+              user={me}
+              activeTab={activeTab}
+              refreshSignal={refreshSignal}
+              onUserChanged={fetchMe}
+              onRefreshAll={handleRefreshAll}
+            />
+          )}
+
+          <RightSidebar
+            refreshSignal={refreshSignal}
+            onMessage={handleMessageUser}
+            onOpenMessages={handleOpenMessages}
+            incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
+          />
         </div>
       </div>
 
@@ -73,6 +122,13 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      <MessageModal
+        open={messagesOpen}
+        onOpenChange={setMessagesOpen}
+        targetUserId={messageTargetId}
+        me={me}
+      />
     </div>
   )
 }

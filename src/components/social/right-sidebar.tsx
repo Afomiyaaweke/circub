@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Flame, Trophy, TrendingUp } from 'lucide-react'
+import { UserPlus, Flame, Trophy, TrendingUp, Mail } from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
@@ -9,13 +10,20 @@ import type { User, Trend } from '@/lib/types'
 
 interface RightSidebarProps {
   refreshSignal: number
+  onMessage: (userId: string) => void
+  onOpenMessages: () => void
+  incomingInvitationsCount: number
 }
 
-export function RightSidebar({ refreshSignal }: RightSidebarProps) {
+export function RightSidebar({
+  refreshSignal,
+  onOpenMessages,
+  incomingInvitationsCount,
+}: RightSidebarProps) {
   const [suggestions, setSuggestions] = useState<User[]>([])
   const [trends, setTrends] = useState<Trend[]>([])
   const [posters, setPosters] = useState<User[]>([])
-  const [followLoading, setFollowLoading] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -32,39 +40,65 @@ export function RightSidebar({ refreshSignal }: RightSidebarProps) {
       .catch(() => {})
   }, [refreshSignal])
 
-  const handleFollow = async (id: string, name: string) => {
-    setFollowLoading(id)
+  const handleConnect = async (id: string, name: string) => {
+    setConnecting(id)
     try {
-      const res = await fetch(`/api/users/${id}/follow`, { method: 'POST' })
+      const res = await fetch('/api/connections/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverId: id }),
+      })
       const data = await res.json()
-      if (data.following) {
-        toast({ title: `You are now following ${name}` })
+      if (data.status === 'ACCEPTED') {
+        toast({ title: `Connected with ${name}` })
+      } else if (data.status === 'PENDING') {
+        toast({ title: `Connection request sent to ${name}` })
+      } else if (data.error === 'Already connected') {
+        toast({ title: `Already connected with ${name}` })
+      } else if (data.error === 'Request already pending') {
+        toast({ title: `Request to ${name} is already pending` })
       } else {
-        toast({ title: `Unfollowed ${name}` })
+        toast({ title: `Connection request sent to ${name}` })
       }
       // Refresh suggestions
       const s = await fetch('/api/suggested').then((r) => r.json())
       setSuggestions(s.suggestions || [])
-      const p = await fetch('/api/top-posters').then((r) => r.json())
-      setPosters(p.posters || [])
     } catch {
-      toast({ title: 'Action failed', variant: 'destructive' })
+      toast({ title: 'Failed to connect', variant: 'destructive' })
     } finally {
-      setFollowLoading(null)
+      setConnecting(null)
     }
   }
 
   return (
     <aside className="w-full lg:w-72 shrink-0 space-y-4">
+      {/* Messages shortcut card */}
+      <Card className="p-4 shadow-sm">
+        <button
+          onClick={onOpenMessages}
+          className="w-full flex items-center justify-between gap-2"
+        >
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Mail className="w-4 h-4 text-primary" />
+            Messages
+          </h3>
+          {incomingInvitationsCount > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
+              {incomingInvitationsCount}
+            </span>
+          )}
+        </button>
+      </Card>
+
       {/* Suggested for You */}
       <Card className="p-4 shadow-sm">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
           <UserPlus className="w-4 h-4 text-primary" />
-          Suggested for you
+          Add to your network
         </h3>
         {suggestions.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4 text-center">
-            You&apos;re following everyone we know!
+            You&apos;ve connected with everyone we know!
           </p>
         ) : (
           <div className="space-y-3">
@@ -74,26 +108,35 @@ export function RightSidebar({ refreshSignal }: RightSidebarProps) {
                 className="flex items-center justify-between gap-2"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold shrink-0">
-                    {u.name.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar className="w-9 h-9 border border-accent">
+                    <AvatarFallback className="bg-primary/15 text-primary font-semibold text-sm">
+                      {u.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
                       {u.name}
                     </p>
                     <p className="text-[11px] text-muted-foreground truncate">
-                      {u.followersCount} followers
+                      {u.headline || `${u.followersCount} followers`}
                     </p>
                   </div>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleFollow(u.id, u.name)}
-                  disabled={followLoading === u.id}
-                  className="h-7 px-3 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  onClick={() => handleConnect(u.id, u.name)}
+                  disabled={connecting === u.id}
+                  className="h-7 px-3 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground gap-1.5"
                 >
-                  {followLoading === u.id ? '...' : 'Follow'}
+                  {connecting === u.id ? (
+                    '...'
+                  ) : (
+                    <>
+                      <UserPlus className="w-3 h-3" />
+                      Connect
+                    </>
+                  )}
                 </Button>
               </div>
             ))}
@@ -155,9 +198,11 @@ export function RightSidebar({ refreshSignal }: RightSidebarProps) {
                     <span className={`text-xs font-bold ${medal} w-4 shrink-0`}>
                       #{idx + 1}
                     </span>
-                    <div className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar className="w-7 h-7 border border-accent">
+                      <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+                        {p.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
                     <span className="text-sm text-foreground font-medium truncate">
                       {p.name}
                     </span>

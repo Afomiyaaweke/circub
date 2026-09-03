@@ -1,4 +1,5 @@
-// Follow / unfollow a user
+// DEPRECATED: legacy follow endpoint, redirected to connection request
+// Use /api/connections/request instead for LinkedIn-style mutual connections
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
@@ -8,56 +9,52 @@ export async function POST(
 ) {
   try {
     const { id: targetId } = await params
-
     const me = await db.user.findUnique({
       where: { email: 'ma@socialcircle.app' },
     })
-    if (!me) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
+    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
     if (me.id === targetId) {
-      return NextResponse.json(
-        { error: 'Cannot follow yourself' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Cannot connect with yourself' }, { status: 400 })
     }
 
-    const target = await db.user.findUnique({ where: { id: targetId } })
-    if (!target) {
-      return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
-    }
-
-    const existing = await db.follow.findUnique({
+    const existing = await db.connection.findFirst({
       where: {
-        followerId_followeeId: { followerId: me.id, followeeId: targetId },
+        OR: [
+          { requesterId: me.id, receiverId: targetId },
+          { requesterId: targetId, receiverId: me.id },
+        ],
       },
     })
 
     if (existing) {
-      // Unfollow
-      await db.follow.delete({ where: { id: existing.id } })
-      await db.user.update({
-        where: { id: targetId },
-        data: { followersCount: { decrement: 1 } },
-      })
-      return NextResponse.json({ following: false })
-    } else {
-      // Follow
-      await db.follow.create({
-        data: { followerId: me.id, followeeId: targetId },
-      })
-      await db.user.update({
-        where: { id: targetId },
-        data: { followersCount: { increment: 1 } },
-      })
-      return NextResponse.json({ following: true })
+      if (existing.status === 'ACCEPTED') {
+        // Remove connection
+        await db.connection.delete({ where: { id: existing.id } })
+        await db.user.update({
+          where: { id: me.id },
+          data: { connectionsCount: { decrement: 1 } },
+        })
+        await db.user.update({
+          where: { id: targetId },
+          data: { connectionsCount: { decrement: 1 } },
+        })
+        return NextResponse.json({ following: false })
+      }
+      if (existing.status === 'PENDING') {
+        // Cancel pending request
+        await db.connection.delete({ where: { id: existing.id } })
+        return NextResponse.json({ following: false })
+      }
+      // IGNORED - reset and send fresh
+      await db.connection.delete({ where: { id: existing.id } })
     }
+
+    await db.connection.create({
+      data: { requesterId: me.id, receiverId: targetId, status: 'PENDING' },
+    })
+    return NextResponse.json({ following: true, pending: true })
   } catch (error) {
     console.error('Failed to toggle follow:', error)
-    return NextResponse.json(
-      { error: 'Failed to toggle follow' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }

@@ -1,12 +1,14 @@
 'use client'
 
-import { Newspaper, Compass, Users, Bookmark } from 'lucide-react'
+import { Newspaper, Compass, Users, Bookmark, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TabKey } from '@/lib/types'
 
 interface HeaderProps {
   activeTab: TabKey
   onTabChange: (tab: TabKey) => void
+  onOpenMessages: () => void
+  incomingInvitationsCount: number
 }
 
 const TABS: { key: TabKey; label: string; icon: typeof Newspaper }[] = [
@@ -16,7 +18,12 @@ const TABS: { key: TabKey; label: string; icon: typeof Newspaper }[] = [
   { key: 'bookmark', label: 'Bookmark', icon: Bookmark },
 ]
 
-export function Header({ activeTab, onTabChange }: HeaderProps) {
+export function Header({
+  activeTab,
+  onTabChange,
+  onOpenMessages,
+  incomingInvitationsCount,
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
@@ -69,6 +76,21 @@ export function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             )
           })}
+
+          {/* Messages button with badge */}
+          <button
+            onClick={onOpenMessages}
+            className="relative flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            aria-label="Messages"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden sm:inline">Messages</span>
+            {incomingInvitationsCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
+                {incomingInvitationsCount}
+              </span>
+            )}
+          </button>
         </nav>
       </div>
     </header>

@@ -1,4 +1,4 @@
-// Social Circle - Prisma Schema
+// Social Circle - Prisma Schema (LinkedIn-style)
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,21 +9,33 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  avatarColor  String   @default("teal")
-  bio          String?
-  postsCount   Int      @default(0)
-  followersCount Int    @default(0)
-  likesCount   Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  avatarColor    String   @default("teal")
+  bio            String?
+  headline       String?
+  location       String?
+  postsCount     Int      @default(0)
+  followersCount Int      @default(0)
+  likesCount     Int      @default(0)
+  connectionsCount Int    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  products     Product[]
-  followsFrom  Follow[]  @relation("FollowFrom")
-  followsTo    Follow[]  @relation("FollowTo")
-  likes        Like[]
+  products       Product[]
+  posts          Post[]
+  postLikes      PostLike[]
+  comments       Comment[]
+  productLikes   Like[]
+
+  // Connections (LinkedIn mutual)
+  connRequested  Connection[] @relation("ConnRequester")
+  connReceived  Connection[] @relation("ConnReceiver")
+
+  // Direct messages
+  msgsSent       Message[]    @relation("MsgSender")
+  msgsReceived   Message[]    @relation("MsgReceiver")
 }
 
 model Product {
@@ -45,17 +57,6 @@ model Product {
   updatedAt   DateTime @updatedAt
 }
 
-model Follow {
-  id          String   @id @default(cuid())
-  followerId  String
-  followeeId  String
-  follower    User     @relation("FollowFrom", fields: [followerId], references: [id], onDelete: Cascade)
-  followee    User     @relation("FollowTo", fields: [followeeId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-
-  @@unique([followerId, followeeId])
-}
-
 model Like {
   id          String   @id @default(cuid())
   userId      String
@@ -65,4 +66,65 @@ model Like {
   createdAt   DateTime @default(now())
 
   @@unique([userId, productId])
+}
+
+// LinkedIn-style mutual connections (replaces Follow)
+model Connection {
+  id           String   @id @default(cuid())
+  requesterId  String
+  receiverId   String
+  status       String   @default("PENDING") // PENDING | ACCEPTED | IGNORED
+  note         String?
+  requester    User     @relation("ConnRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver     User     @relation("ConnReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([requesterId, receiverId])
+}
+
+// LinkedIn-style social posts (text + image)
+model Post {
+  id          String     @id @default(cuid())
+  content     String
+  imageUrl    String?
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes       PostLike[]
+  comments    Comment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  postId    String
+  authorId  String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// Direct messages between two users
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  content    String
+  read       Boolean  @default(false)
+  sender     User     @relation("MsgSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("MsgReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 }
