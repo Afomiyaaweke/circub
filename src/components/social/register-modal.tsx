@@ -143,7 +143,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
-            Join Social Circle
+            Join circub
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Create your free account in seconds. Choose between a personal profile or a company page.

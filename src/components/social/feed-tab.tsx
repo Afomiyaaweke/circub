@@ -152,7 +152,7 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
           ))}
           <div className="text-center py-6 text-xs text-muted-foreground flex items-center justify-center gap-2">
             <TrendingUp className="w-3.5 h-3.5" />
-            You&apos;ve reached the end — add more connections for more posts.
+            You&apos;ve reached the end · add more connections for more posts.
           </div>
         </div>
       )}

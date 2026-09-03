@@ -1,4 +1,4 @@
-// Simple session helper — stores current user email in a signed cookie
+// Simple session helper · stores current user email in a signed cookie
 // Using a simple base64-encoded cookie for demo (no JWT lib needed)
 import { cookies } from 'next/headers'
 import { db } from '@/lib/db'
@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 const SESSION_COOKIE = 'sc_session'
 const SESSION_SECRET = process.env.SESSION_SECRET || 'social-circle-demo-secret-2024'
 
-// Simple base64 encoding (NOT cryptographically secure — demo only)
+// Simple base64 encoding (NOT cryptographically secure · demo only)
 function encodeSession(payload: string) {
   return Buffer.from(`${SESSION_SECRET}:${payload}`).toString('base64')
 }

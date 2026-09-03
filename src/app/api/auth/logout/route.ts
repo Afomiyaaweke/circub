@@ -1,4 +1,4 @@
-// Logout — clear session cookie
+// Logout · clear session cookie
 import { NextResponse } from 'next/server'
 import { clearSessionCookie } from '@/lib/session'
 

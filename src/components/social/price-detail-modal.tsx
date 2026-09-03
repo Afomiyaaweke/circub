@@ -60,7 +60,7 @@ const REPORT_OPTIONS = [
 ]
 
 function formatPrice(value: number | null | undefined, currency: string) {
-  if (value == null) return '—'
+  if (value == null) return '-'
   if (value >= 1000) return `${currency} ${value.toLocaleString()}`
   return `${currency} ${value}`
 }
@@ -187,7 +187,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick }: PriceDetail
       if (!res.ok) throw new Error(data.error || 'Failed')
       toast({
         title: 'Report submitted',
-        description: 'Thanks — our team will review this post.',
+        description: 'Thanks · our team will review this post.',
       })
       setShowReport(false)
       setReportType('')
@@ -336,7 +336,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick }: PriceDetail
                 {!consensus ? (
                   <p className="text-sm text-muted-foreground">
                     No other local reports yet for this product in this area.
-                    Be the first to confirm or challenge this price — or wait for more locals to weigh in.
+                    Be the first to confirm or challenge this price · or wait for more locals to weigh in.
                   </p>
                 ) : (
                   <div>

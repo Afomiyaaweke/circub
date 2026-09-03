@@ -1,4 +1,4 @@
-// Shared types for Social Circle (LinkedIn-style + Local Price Posts)
+// Shared types for circub (LinkedIn-style + Local Price Posts)
 export interface User {
   id: string
   name: string

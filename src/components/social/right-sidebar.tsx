@@ -115,7 +115,7 @@ export function RightSidebar({
         </button>
       </Card>
 
-      {/* What locals are saying — NEW widget */}
+      {/* What locals are saying · NEW widget */}
       <Card className="p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">

@@ -52,3 +52,18 @@ prompt
 server.log
 # Skills directory
 /skills/
+# Database (local SQLite)
+/db/
+/prisma/*.db
+/prisma/*.db-journal
+
+# Sandbox runtime files
+/.zscripts/
+/.next/
+/examples/
+/mini-services/
+/Caddyfile
+/.z-ai-config
+
+# User uploads (sandbox)
+/upload/

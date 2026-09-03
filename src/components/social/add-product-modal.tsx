@@ -381,7 +381,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
                     or drag and drop
                   </span>
                   <span className="text-[10px] text-muted-foreground/70 mt-1">
-                    PNG, JPEG, WebP, GIF — max 5 MB
+                    PNG, JPEG, WebP, GIF · max 5 MB
                   </span>
                 </button>
               )}

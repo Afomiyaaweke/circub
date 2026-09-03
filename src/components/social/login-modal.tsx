@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail, Lock, ArrowRight, Sparkles, Building2, User } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -61,16 +61,6 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
     }
   }
 
-  const fillDemo = (kind: 'personal' | 'company') => {
-    if (kind === 'personal') {
-      setEmail('ma@socialcircle.app')
-      setPassword('demo1234')
-    } else {
-      setEmail('contact@yirgacheffe-coop.com')
-      setPassword('demo1234')
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-6 sm:p-8 gap-0">
@@ -80,7 +70,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
             Welcome back
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Sign in to your Social Circle account.
+            Sign in to your circub account.
           </DialogDescription>
         </DialogHeader>
 
@@ -130,35 +120,6 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
               </>
             )}
           </Button>
-
-          {/* Demo credentials */}
-          <div className="pt-3 border-t border-border space-y-2">
-            <p className="text-[11px] text-muted-foreground text-center uppercase tracking-wide">
-              Try a demo account
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => fillDemo('personal')}
-                className="flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-primary hover:bg-accent/40 transition-colors text-left"
-              >
-                <User className="w-4 h-4 text-primary shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground">Personal</p>
-                  <p className="text-[10px] text-muted-foreground truncate">MA traveler</p>
-                </div>
-              </button>
-              <button
-                onClick={() => fillDemo('company')}
-                className="flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:border-primary hover:bg-accent/40 transition-colors text-left"
-              >
-                <Building2 className="w-4 h-4 text-primary shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground">Company</p>
-                  <p className="text-[10px] text-muted-foreground truncate">Yirgacheffe Co-op</p>
-                </div>
-              </button>
-            </div>
-          </div>
 
           <p className="text-xs text-center text-muted-foreground pt-2">
             Don&apos;t have an account?{' '}

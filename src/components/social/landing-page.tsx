@@ -1,9 +1,10 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   MapPin, Users, Building2, Sparkles, Lightbulb, ShieldCheck, Globe,
   TrendingUp, BadgeCheck, ArrowRight, MessageSquare, Eye, ThumbsUp,
-  UserPlus, Search, Heart, Star, ChevronRight, Plane, Compass
+  UserPlus, Search, Heart, Star, ChevronRight, Plane, Compass, PackageOpen
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -15,17 +16,32 @@ interface LandingPageProps {
   onLogin: () => void
 }
 
-const SAMPLE_PRICES = [
-  { emoji: '☕', name: 'Ethiopian Coffee', location: 'Addis Ababa', price: 'ETB 1,500–2,200' },
-  { emoji: '👜', name: 'Leather Bag', location: 'Nairobi', price: 'KES 2,000–4,500' },
-  { emoji: '🎁', name: 'Handmade Basket', location: 'Kampala', price: 'UGX 30,000–60,000' },
-]
+interface RecentPrice {
+  id: string
+  productName: string
+  postType: string
+  country: string
+  city: string | null
+  currency: string
+  priceMin: number
+  priceMax: number
+  category: string
+  helpfulCount: number
+  author: {
+    id: string
+    name: string
+    avatarColor: string
+    isLocal: boolean
+    verifiedLocal: boolean
+    location: string | null
+  }
+}
 
 const FEATURES = [
   {
     icon: MapPin,
     title: 'Real local prices',
-    description: 'Locals post what things actually cost — not tourist prices. See typical ranges, fair prices, and what tourists commonly get charged.',
+    description: 'Locals post what things actually cost · not tourist prices. See typical ranges, fair prices, and what tourists commonly get charged.',
     color: 'text-primary',
   },
   {
@@ -55,7 +71,7 @@ const FEATURES = [
   {
     icon: Building2,
     title: 'Personal & Company accounts',
-    description: 'Travelers join with a personal profile. Businesses — co-ops, exporters, shops, hotels — join with a company page to share listings and connect directly with travelers.',
+    description: 'Travelers join with a personal profile. Businesses · co-ops, exporters, shops, hotels · join with a company page to share listings and connect directly with travelers.',
     color: 'text-rose-600',
   },
 ]
@@ -77,23 +93,39 @@ const STEPS = [
     number: '03',
     icon: Lightbulb,
     title: 'Read local tips',
-    description: 'Verified locals share tips on bargaining, quality, hidden markets, and where to find the best deals — knowledge that guidebooks don\'t have.',
+    description: 'Verified locals share tips on bargaining, quality, hidden markets, and where to find the best deals · knowledge that guidebooks don\'t have.',
   },
   {
     number: '04',
     icon: MessageSquare,
     title: 'Ask a local',
-    description: 'If you can\'t find what you need, send a direct message to a local expert. Get personalized help in minutes — not from a chatbot, from a real person who lives there.',
+    description: 'If you can\'t find what you need, send a direct message to a local expert. Get personalized help in minutes · not from a chatbot, from a real person who lives there.',
   },
   {
     number: '05',
     icon: ThumbsUp,
     title: 'Vote & give back',
-    description: 'Vote on posts you found helpful. Report outdated info. Help future travelers — and build the local\'s reputation.',
+    description: 'Vote on posts you found helpful. Report outdated info. Help future travelers · and build the local\'s reputation.',
   },
 ]
 
 export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
+  const [recentPrices, setRecentPrices] = useState<RecentPrice[]>([])
+  const [loadedPrices, setLoadedPrices] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/recent-local-prices')
+      .then((r) => r.json())
+      .then((d) => {
+        setRecentPrices(d.posts || [])
+        setLoadedPrices(true)
+      })
+      .catch(() => setLoadedPrices(true))
+  }, [])
+
+  const formatPrice = (v: number, c: string) =>
+    v >= 1000 ? `${c} ${v.toLocaleString()}` : `${c} ${v}`
+
   return (
     <div className="min-h-screen bg-background">
       {/* ===== Hero ===== */}
@@ -108,14 +140,11 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
             <div className="space-y-6">
               {/* Brand */}
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
-                  <img
-                    src="/logo.svg"
-                    alt="Social Circle"
-                    className="w-7 h-7"
-                  />
-                </div>
-                <span className="font-bold text-lg text-foreground">Social Circle</span>
+                <img
+                  src="/logo.svg"
+                  alt="circub"
+                  className="w-28 h-10"
+                />
               </div>
 
               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 gap-1.5">
@@ -124,12 +153,12 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               </Badge>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.1]">
-                Know what things <span className="text-primary">actually cost</span> — before you travel.
+                Know what things <span className="text-primary">actually cost</span> · before you travel.
               </h1>
 
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Locals post real prices for products, services, restaurants, transport and more in their cities.
-                Travelers get verified, up-to-date local knowledge — and can ask a local directly when they can\'t find what they need.
+                Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can\'t find what they need.
               </p>
 
               <div className="flex items-center gap-3 flex-wrap pt-2">
@@ -138,7 +167,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
                   size="lg"
                   className="bg-primary hover:bg-primary/90 gap-2 h-12 px-6"
                 >
-                  Get started — it&apos;s free
+                  Get started · it&apos;s free
                   <ArrowRight className="w-4 h-4" />
                 </Button>
                 <Button
@@ -154,15 +183,15 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               <div className="flex items-center gap-6 pt-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-primary" />
-                  <span><strong className="text-foreground">156</strong> verified locals</span>
+                  <span>Verified local contributors</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Globe className="w-4 h-4 text-primary" />
-                  <span><strong className="text-foreground">42</strong> countries</span>
+                  <span>Available worldwide</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <ThumbsUp className="w-4 h-4 text-primary" />
-                  <span><strong className="text-foreground">1,240</strong> helpful votes</span>
+                  <span>Community-voted trust</span>
                 </div>
               </div>
             </div>
@@ -179,30 +208,52 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">Live</Badge>
                 </div>
                 <div className="space-y-3">
-                  {SAMPLE_PRICES.map((s, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-accent/40 hover:bg-accent transition-colors cursor-default"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-xl shrink-0">
-                        {s.emoji}
+                  {!loadedPrices ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">
+                      Loading recent prices...
+                    </p>
+                  ) : recentPrices.length === 0 ? (
+                    <div className="text-center py-6">
+                      <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-accent mb-2">
+                        <PackageOpen className="w-5 h-5 text-primary" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground text-sm truncate">{s.name}</p>
-                        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {s.location}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-primary text-sm">{s.price}</p>
-                        <p className="text-[10px] text-emerald-700 flex items-center justify-end gap-0.5">
-                          <BadgeCheck className="w-3 h-3" />
-                          Verified
-                        </p>
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Be the first local to post a price.
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/80 mt-1">
+                        Join circub and share what things really cost in your city.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    recentPrices.slice(0, 3).map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-accent/40 hover:bg-accent transition-colors cursor-default"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold shrink-0">
+                          {p.productName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-sm truncate">{p.productName}</p>
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {[p.city, p.country].filter(Boolean).join(', ')}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-primary text-sm">
+                            {formatPrice(p.priceMin, p.currency)} · {formatPrice(p.priceMax, p.currency)}
+                          </p>
+                          {p.author.verifiedLocal && (
+                            <p className="text-[10px] text-emerald-700 flex items-center justify-end gap-0.5">
+                              <BadgeCheck className="w-3 h-3" />
+                              Verified
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <Button
                   onClick={onSignUp}
@@ -224,7 +275,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
           <div className="text-center max-w-2xl mx-auto mb-12">
             <Badge variant="secondary" className="bg-primary/10 text-primary mb-3">
               <Sparkles className="w-3 h-3 mr-1" />
-              Why Social Circle
+              Why circub
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
               The local price layer for travelers
@@ -266,7 +317,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               From traveler to informed in 5 steps
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Whether you\'re planning your next trip or already at the market, here\'s how to use Social Circle.
+              Whether you\'re planning your next trip or already at the market, here\'s how to use circub.
             </p>
           </div>
 
@@ -313,7 +364,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               Who is it for
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-              Three ways to use Social Circle
+              Three ways to use circub
             </h2>
           </div>
 
@@ -327,7 +378,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <span>Browse real prices before your trip — no more tourist traps.</span>
+                  <span>Browse real prices before your trip · no more tourist traps.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-primary shrink-0 mt-0.5" />
@@ -339,7 +390,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
                 </li>
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <span>Vote on posts you found helpful — give back to the community.</span>
+                  <span>Vote on posts you found helpful · give back to the community.</span>
                 </li>
               </ul>
             </Card>
@@ -353,7 +404,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Share what things really cost in your city — don\'t wait for travelers to ask.</span>
+                  <span>Share what things really cost in your city · don\'t wait for travelers to ask.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -411,40 +462,43 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               Multiple locals. One fair price.
             </h2>
             <p className="mt-3 text-muted-foreground">
-              When several locals post about the same product, we aggregate their reports into a single trusted price range — and show how it changes over time.
+              When several locals post about the same product, we aggregate their reports into a single trusted price range · and show how it changes over time.
             </p>
           </div>
 
           <Card className="p-6 shadow-xl border-primary/20 max-w-2xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-xl font-bold text-foreground">Ethiopian Coffee Set</h3>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold text-foreground">Example product</h3>
+                  <Badge variant="secondary" className="bg-accent text-muted-foreground text-[10px]">Illustrative</Badge>
+                </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3 h-3" />
-                  Mercato Market • Addis Ababa, Ethiopia
+                  Any city, any country
                 </p>
               </div>
-              <Badge className="bg-orange-500 text-white">🟠 Tourists pay more</Badge>
+              <Badge className="bg-orange-500 text-white">Tourists pay more</Badge>
             </div>
 
             <div className="grid grid-cols-3 gap-3 mb-5">
               <div className="rounded-lg bg-accent/40 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Typical</p>
-                <p className="text-sm font-bold text-foreground mt-0.5">ETB 1,500–2,200</p>
+                <p className="text-sm font-bold text-foreground mt-0.5">Range low · high</p>
               </div>
               <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wide text-emerald-700">Fair price</p>
-                <p className="text-sm font-bold text-emerald-700 mt-0.5">ETB 1,800</p>
+                <p className="text-sm font-bold text-emerald-700 mt-0.5">Recommended</p>
               </div>
               <div className="rounded-lg bg-orange-50 border border-orange-200 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wide text-orange-700">Tourists pay</p>
-                <p className="text-sm font-bold text-orange-700 mt-0.5">ETB 3,000+</p>
+                <p className="text-sm font-bold text-orange-700 mt-0.5">Often much more</p>
               </div>
             </div>
 
             <div className="rounded-lg bg-emerald-50/50 border border-emerald-200 p-4 mb-3">
-              <p className="text-sm font-semibold text-foreground mb-1">🟢 Local consensus: ETB 1,700 – 2,200</p>
-              <p className="text-xs text-muted-foreground italic">Based on 23 community-reported prices.</p>
+              <p className="text-sm font-semibold text-foreground mb-1">Local consensus: aggregated range</p>
+              <p className="text-xs text-muted-foreground italic">Based on multiple community-reported prices.</p>
             </div>
 
             <div className="rounded-lg border border-border p-4">
@@ -452,24 +506,24 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">Current</span>
-                  <span className="font-medium text-foreground">ETB 1,700 – 2,200</span>
-                  <span className="text-emerald-600">2 reports</span>
+                  <span className="font-medium text-foreground">Latest range</span>
+                  <span className="text-emerald-600">live data</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">3 months ago</span>
-                  <span className="font-medium text-foreground">ETB 1,500 – 2,000</span>
-                  <span className="text-orange-600">↑ 11.1%</span>
+                  <span className="font-medium text-foreground">Previous range</span>
+                  <span className="text-orange-600">↑ or ↓ shift</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">6 months ago</span>
-                  <span className="font-medium text-foreground">ETB 1,400 – 1,900</span>
-                  <span className="text-orange-600">↑ 5.0%</span>
+                  <span className="font-medium text-foreground">Older range</span>
+                  <span className="text-orange-600">trend visible</span>
                 </div>
               </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground/80 italic mt-3">
-              Based on community-reported prices. Not guaranteed truth — consensus reflects what multiple locals have shared.
+              Based on community-reported prices. Not guaranteed truth · consensus reflects what multiple locals have shared.
             </p>
           </Card>
         </div>
@@ -482,7 +536,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
             Join the local price revolution.
           </h2>
           <p className="text-lg text-primary-foreground/90 mb-8 max-w-xl mx-auto">
-            Whether you\'re a traveler looking for honest prices, a local sharing your knowledge, or a business reaching customers worldwide — there\'s a place for you on Social Circle.
+            Whether you\'re a traveler looking for honest prices, a local sharing your knowledge, or a business reaching customers worldwide · there\'s a place for you on circub.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <Button
@@ -503,7 +557,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
             </Button>
           </div>
           <p className="text-xs text-primary-foreground/70 mt-6">
-            Free forever. No credit card. Personal or Company account — your choice.
+            Free forever. No credit card. Personal or Company account · your choice.
           </p>
         </div>
       </section>
@@ -513,13 +567,10 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
         <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-                <img src="/logo.svg" alt="Logo" className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="font-bold">Social Circle</p>
-                <p className="text-xs text-background/60">Local price intelligence for travelers</p>
-              </div>
+              <img src="/logo.svg" alt="circub" className="w-24 h-9" />
+            </div>
+            <div className="sm:ml-6">
+              <p className="text-xs text-background/60">Local price intelligence for travelers</p>
             </div>
             <div className="flex items-center gap-6 text-sm text-background/80">
               <a href="#" className="hover:text-primary">Privacy</a>
@@ -529,7 +580,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-background/10 text-xs text-background/60 text-center">
-            © {new Date().getFullYear()} Social Circle — Connecting travelers with verified local knowledge, one price at a time.
+            © {new Date().getFullYear()} circub · Connecting travelers with verified local knowledge, one price at a time.
           </div>
         </div>
       </footer>

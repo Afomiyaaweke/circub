@@ -54,21 +54,20 @@ export function Header({
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         {/* Logo + brand */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
-            <img src="/logo.svg" alt="Social Circle" className="w-7 h-7" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-foreground truncate">
-              Social Circle
-            </h1>
-            <p className="hidden sm:block text-xs text-muted-foreground italic truncate">
-              {isCompany ? `${user?.companyName || 'Company'} • Business account` : 'Local price intelligence for travelers'}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img
+            src="/logo.svg"
+            alt="circub"
+            className="w-24 h-9 shrink-0"
+          />
+          <div className="min-w-0 hidden sm:block">
+            <p className="text-xs text-muted-foreground italic truncate">
+              {isCompany ? `${user?.companyName || 'Company'} · Business account` : 'Local price intelligence for travelers'}
             </p>
           </div>
         </div>
 
-        {/* Nav tabs — only show when logged in */}
+        {/* Nav tabs · only show when logged in */}
         {user && (
           <nav className="flex items-center gap-1 sm:gap-2">
             {TABS.map((tab) => {

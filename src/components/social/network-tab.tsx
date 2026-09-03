@@ -331,7 +331,7 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
         </Card>
       )}
 
-      {/* Grow your network — People you may know */}
+      {/* Grow your network · People you may know */}
       <Card className="p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -433,10 +433,10 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
                     {p.user.name}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {p.user.headline || '—'}
+                    {p.user.headline || '-'}
                   </p>
                   <p className="text-[11px] text-amber-600 mt-0.5">
-                    Pending — waiting for response
+                    Pending · waiting for response
                   </p>
                 </div>
                 <button

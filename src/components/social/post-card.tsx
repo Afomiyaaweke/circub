@@ -151,7 +151,7 @@ export function PostCard({
                         <button
                           onClick={() => {
                             setShowMenu(false)
-                            toast({ title: 'Reported — thanks for letting us know' })
+                            toast({ title: 'Reported · thanks for letting us know' })
                           }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground"
                         >

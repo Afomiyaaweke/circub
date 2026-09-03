@@ -443,7 +443,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
                   {uploading ? 'Uploading...' : 'Add product photo'}
                 </span>
                 <span className="text-xs text-muted-foreground mt-0.5">
-                  or drag and drop • PNG, JPEG, WebP, GIF — max 5 MB
+                  or drag and drop • PNG, JPEG, WebP, GIF · max 5 MB
                 </span>
               </button>
             )}

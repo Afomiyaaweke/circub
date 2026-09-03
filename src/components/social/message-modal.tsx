@@ -220,7 +220,7 @@ export function MessageModal({
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {c.lastMessage
                           ? `${c.lastMessage.senderId === me?.id ? 'You: ' : ''}${c.lastMessage.content}`
-                          : '—'}
+                          : '-'}
                       </p>
                       {c.lastMessage && (
                         <p className="text-[10px] text-muted-foreground/70 mt-0.5">

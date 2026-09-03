@@ -1,4 +1,4 @@
-// People you may know — exclude existing connections (ACCEPTED, PENDING) and myself
+// People you may know · exclude existing connections (ACCEPTED, PENDING) and myself
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'

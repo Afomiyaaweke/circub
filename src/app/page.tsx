@@ -87,10 +87,12 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-xl bg-primary mx-auto mb-3 flex items-center justify-center animate-pulse">
-            <img src="/logo.svg" alt="Logo" className="w-7 h-7" />
-          </div>
-          <p className="text-sm text-muted-foreground">Loading Social Circle...</p>
+          <img
+            src="/logo.svg"
+            alt="circub"
+            className="w-32 h-12 mx-auto mb-3 animate-pulse"
+          />
+          <p className="text-sm text-muted-foreground">Loading circub...</p>
         </div>
       </div>
     )
@@ -188,7 +190,7 @@ export default function Home() {
       <footer className="mt-auto border-t border-border bg-white">
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <p>
-            © {new Date().getFullYear()} Social Circle — Local price intelligence for travelers.
+            © {new Date().getFullYear()} circub · Local price intelligence for travelers.
           </p>
           <p className="flex items-center gap-3">
             <a href="#" className="hover:text-primary transition-colors">Privacy</a>

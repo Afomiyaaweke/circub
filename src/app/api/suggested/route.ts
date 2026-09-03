@@ -1,4 +1,4 @@
-// Suggested users — exclude already connected / pending (for right sidebar)
+// Suggested users · exclude already connected / pending (for right sidebar)
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'

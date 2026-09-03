@@ -1,4 +1,4 @@
-// Get all users except current — with connection status
+// Get all users except current · with connection status
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'

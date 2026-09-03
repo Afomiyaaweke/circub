@@ -14,22 +14,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Social Circle — Connect, share, and grow your network",
+  title: "circub · Connect, share, and grow your network",
   description: "A social marketplace to discover, share, and trade country-specific product prices with your network.",
-  keywords: ["Social Circle", "marketplace", "product pricing", "country pricing", "trade", "social network"],
-  authors: [{ name: "Social Circle Team" }],
+  keywords: ["circub", "marketplace", "product pricing", "country pricing", "trade", "social network"],
+  authors: [{ name: "circub Team" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "Social Circle",
+    title: "circub",
     description: "Connect, share, and grow your personalized network of product prices.",
-    siteName: "Social Circle",
+    siteName: "circub",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Social Circle",
+    title: "circub",
     description: "Connect, share, and grow your personalized network of product prices.",
   },
 };
