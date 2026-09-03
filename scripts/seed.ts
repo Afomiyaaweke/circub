@@ -1,4 +1,5 @@
 // Seed script - LinkedIn-style + Local Price Posts demo data
+import bcrypt from 'bcryptjs'
 import { db } from '../src/lib/db'
 
 async function seed() {
@@ -17,27 +18,35 @@ async function seed() {
   await db.connection.deleteMany()
   await db.user.deleteMany()
 
+  // Shared password for all demo accounts: "demo1234"
+  const demoPassword = await bcrypt.hash('demo1234', 10)
+
   // =====================================================
   // USERS
   // =====================================================
 
-  // Current user (MA)
+  // Current user (MA) — Personal account
   const ma = await db.user.create({
     data: {
       name: 'MA',
       email: 'ma@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Connecting the world, one product at a time.',
       headline: 'Founder @ Social Circle • Global trade enthusiast',
       location: 'Kuala Lumpur, Malaysia',
+      isLocal: true,
     },
   })
 
-  // Existing LinkedIn-style users
+  // Existing LinkedIn-style users — personal accounts
   const ron = await db.user.create({
     data: {
       name: 'Ron Kebede',
       email: 'ron@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Coffee trader from Ethiopia.',
       headline: 'Coffee Exporter at Yirgacheffe Co-op',
@@ -45,6 +54,7 @@ async function seed() {
       postsCount: 23,
       followersCount: 142,
       likesCount: 387,
+      isLocal: true,
     },
   })
 
@@ -52,6 +62,8 @@ async function seed() {
     data: {
       name: 'Theodore Razafy',
       email: 'theodore@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Spice merchant based in Madagascar.',
       headline: 'Spice Merchant • Vanilla & Cloves exporter',
@@ -59,6 +71,7 @@ async function seed() {
       postsCount: 18,
       followersCount: 91,
       likesCount: 254,
+      isLocal: true,
     },
   })
 
@@ -66,6 +79,8 @@ async function seed() {
     data: {
       name: 'Amelia Perera',
       email: 'amelia@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Tea exporter from Sri Lanka.',
       headline: 'Founder @ Ceylon Leaf • Tea exporter',
@@ -73,6 +88,7 @@ async function seed() {
       postsCount: 14,
       followersCount: 73,
       likesCount: 198,
+      isLocal: true,
     },
   })
 
@@ -80,6 +96,8 @@ async function seed() {
     data: {
       name: 'Kai Tanaka',
       email: 'kai@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Seafood distributor in Okinawa.',
       headline: 'Seafood Distributor • Okinawa Fresh Co.',
@@ -87,6 +105,7 @@ async function seed() {
       postsCount: 9,
       followersCount: 47,
       likesCount: 121,
+      isLocal: true,
     },
   })
 
@@ -94,6 +113,8 @@ async function seed() {
     data: {
       name: 'Sara Okonkwo',
       email: 'sara@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Cocoa exporter from Nigeria.',
       headline: 'Cocoa Bean Exporter at Lagos Trade',
@@ -101,6 +122,51 @@ async function seed() {
       postsCount: 11,
       followersCount: 64,
       likesCount: 156,
+      isLocal: true,
+    },
+  })
+
+  // =====================================================
+  // COMPANY accounts
+  // =====================================================
+
+  const yirgacheffeCo = await db.user.create({
+    data: {
+      name: 'Yirgacheffe Co-op',
+      email: 'contact@yirgacheffe-coop.com',
+      password: demoPassword,
+      accountType: 'COMPANY',
+      avatarColor: 'teal',
+      companyName: 'Yirgacheffe Coffee Co-op',
+      companyWebsite: 'https://yirgacheffe-coop.com',
+      companySize: '51-200',
+      companyIndustry: 'Coffee Export',
+      headline: 'Yirgacheffe Coffee Co-op • Coffee Export',
+      location: 'Addis Ababa, Ethiopia',
+      bio: 'Ethiopia’s largest fair-trade coffee co-operative. We export single-origin Arabica beans to 18 countries.',
+      postsCount: 47,
+      followersCount: 312,
+      likesCount: 892,
+    },
+  })
+
+  const ceylonLeafCo = await db.user.create({
+    data: {
+      name: 'Ceylon Leaf Exports',
+      email: 'hello@ceylonleaf.lk',
+      password: demoPassword,
+      accountType: 'COMPANY',
+      avatarColor: 'teal',
+      companyName: 'Ceylon Leaf Exports',
+      companyWebsite: 'https://ceylonleaf.lk',
+      companySize: '11-50',
+      companyIndustry: 'Tea Export',
+      headline: 'Ceylon Leaf Exports • Tea Export',
+      location: 'Colombo, Sri Lanka',
+      bio: 'Premium single-estate Ceylon tea exporter. Direct from the hill country to your cup.',
+      postsCount: 28,
+      followersCount: 156,
+      likesCount: 423,
     },
   })
 
@@ -112,6 +178,8 @@ async function seed() {
     data: {
       name: 'Abebe M.',
       email: 'abebe@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Born and raised in Addis Ababa. I know every corner of Mercato market. Helping travelers avoid tourist traps since 2018.',
       headline: 'Verified Local • Addis Ababa, Ethiopia',
@@ -129,6 +197,8 @@ async function seed() {
     data: {
       name: 'Wanjiru K.',
       email: 'wanjiru@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Nairobi-based market expert. I grew up next to Maasai Market. Specializing in handicrafts and traditional goods.',
       headline: 'Verified Local • Nairobi, Kenya',
@@ -146,6 +216,8 @@ async function seed() {
     data: {
       name: 'Aisha N.',
       email: 'aisha@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Kampala local and crafts enthusiast. I weave baskets with my grandmother every weekend at Owino Market.',
       headline: 'Verified Local • Kampala, Uganda',
@@ -164,6 +236,8 @@ async function seed() {
     data: {
       name: 'Selam T.',
       email: 'selam@socialcircle.app',
+      password: demoPassword,
+      accountType: 'PERSONAL',
       avatarColor: 'teal',
       bio: 'Coffee shop owner in Addis. I know the wholesale bean market inside out.',
       headline: 'Verified Local • Addis Ababa, Ethiopia',
@@ -612,7 +686,11 @@ async function seed() {
   })
 
   console.log('✅ Database seeded:')
-  console.log('   Users: 10 (MA, Ron, Theodore, Amelia, Kai, Sara + 4 verified locals: Abebe, Wanjiru, Aisha, Selam)')
+  console.log('   Users: 12 (MA + 5 personal users + 2 COMPANY users + 4 verified locals)')
+  console.log('   All demo accounts use password: demo1234')
+  console.log('   Demo logins:')
+  console.log('     • Personal: ma@socialcircle.app / demo1234')
+  console.log('     • Company: contact@yirgacheffe-coop.com / demo1234')
   console.log('   LinkedIn connections: 2 ACCEPTED, 2 PENDING incoming')
   console.log('   LinkedIn posts: 5 with comments and likes')
   console.log('   LinkedIn messages: 3 DM with Theodore')

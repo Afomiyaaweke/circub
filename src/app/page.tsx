@@ -11,29 +11,38 @@ import { LocalFeedTab } from '@/components/social/local-feed-tab'
 import { PriceDetailModal } from '@/components/social/price-detail-modal'
 import { LocalProfileModal } from '@/components/social/local-profile-modal'
 import { MessageModal } from '@/components/social/message-modal'
+import { LandingPage } from '@/components/social/landing-page'
+import { RegisterModal } from '@/components/social/register-modal'
+import { LoginModal } from '@/components/social/login-modal'
+import { useToast } from '@/hooks/use-toast'
 import type { User, TabKey } from '@/lib/types'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabKey>('local')
   const [me, setMe] = useState<User | null>(null)
-  const [userLoading, setUserLoading] = useState(true)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabKey>('local')
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
-  // Local price modals (accessible from any tab via right sidebar)
   const [localPriceId, setLocalPriceId] = useState<string | null>(null)
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const { toast } = useToast()
 
   const fetchMe = useCallback(async () => {
-    setUserLoading(true)
     try {
-      const res = await fetch('/api/me')
+      const res = await fetch('/api/auth/me')
+      if (res.status === 401) {
+        setMe(null)
+        return
+      }
       const data = await res.json()
       setMe(data)
     } catch {
       setMe(null)
     } finally {
-      setUserLoading(false)
+      setAuthChecked(true)
     }
   }, [])
 
@@ -55,6 +64,63 @@ export default function Home() {
     setMessagesOpen(true)
   }, [])
 
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      /* ignore */
+    }
+    setMe(null)
+    setMessagesOpen(false)
+    setRegisterOpen(false)
+    setLoginOpen(false)
+    toast({ title: 'Signed out' })
+  }, [toast])
+
+  const handleAuthed = useCallback(() => {
+    // Fetch fresh user data from /api/auth/me
+    fetchMe()
+  }, [fetchMe])
+
+  // While auth state is being checked, show a tiny loader
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-xl bg-primary mx-auto mb-3 flex items-center justify-center animate-pulse">
+            <img src="/logo.svg" alt="Logo" className="w-7 h-7" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading Social Circle...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Logged-out → landing page
+  if (!me) {
+    return (
+      <>
+        <LandingPage
+          onSignUp={() => setRegisterOpen(true)}
+          onLogin={() => setLoginOpen(true)}
+        />
+        <RegisterModal
+          open={registerOpen}
+          onOpenChange={setRegisterOpen}
+          onAuthed={handleAuthed}
+          onSwitchToLogin={() => setLoginOpen(true)}
+        />
+        <LoginModal
+          open={loginOpen}
+          onOpenChange={setLoginOpen}
+          onAuthed={handleAuthed}
+          onSwitchToRegister={() => setRegisterOpen(true)}
+        />
+      </>
+    )
+  }
+
+  // Logged-in → dashboard
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header
@@ -62,19 +128,22 @@ export default function Home() {
         onTabChange={setActiveTab}
         onOpenMessages={handleOpenMessages}
         incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
+        user={me}
+        onSignUp={() => setRegisterOpen(true)}
+        onLogin={() => setLoginOpen(true)}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-4 sm:px-6 py-4 sm:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           <LeftSidebar
             user={me}
-            loading={userLoading}
+            loading={false}
             onMessage={handleOpenMessages}
             onManageNetwork={() => setActiveTab('network')}
           />
 
-          {/* Main content - changes per tab */}
-          {activeTab === 'feed' && me && (
+          {activeTab === 'feed' && (
             <FeedTab
               user={me}
               onMessage={handleMessageUser}
@@ -86,7 +155,7 @@ export default function Home() {
             <LocalFeedTab onRefreshUser={fetchMe} />
           )}
 
-          {activeTab === 'network' && me && (
+          {activeTab === 'network' && (
             <NetworkTab
               me={me}
               onMessage={handleMessageUser}
@@ -122,15 +191,9 @@ export default function Home() {
             © {new Date().getFullYear()} Social Circle — Local price intelligence for travelers.
           </p>
           <p className="flex items-center gap-3">
-            <a href="#" className="hover:text-primary transition-colors">
-              Privacy
-            </a>
-            <a href="#" className="hover:text-primary transition-colors">
-              Terms
-            </a>
-            <a href="#" className="hover:text-primary transition-colors">
-              Help
-            </a>
+            <a href="#" className="hover:text-primary transition-colors">Privacy</a>
+            <a href="#" className="hover:text-primary transition-colors">Terms</a>
+            <a href="#" className="hover:text-primary transition-colors">Help</a>
           </p>
         </div>
       </footer>

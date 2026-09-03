@@ -1,6 +1,7 @@
 // Get messages with a specific user, and send a new message to that user
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET(
   _req: NextRequest,
@@ -8,10 +9,7 @@ export async function GET(
 ) {
   try {
     const { userId: otherId } = await params
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
 
     const messages = await db.message.findMany({
       where: {
@@ -52,10 +50,7 @@ export async function POST(
       return NextResponse.json({ error: 'Content required' }, { status: 400 })
     }
 
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
     if (me.id === receiverId) {
       return NextResponse.json(
         { error: 'Cannot send messages to yourself' },

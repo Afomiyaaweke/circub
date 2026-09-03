@@ -1,6 +1,7 @@
 // Like / unlike a product
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function POST(
   _req: NextRequest,
@@ -9,9 +10,7 @@ export async function POST(
   try {
     const { id } = await params
 
-    const user = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
+    const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }

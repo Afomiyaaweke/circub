@@ -2,6 +2,7 @@
 // Use /api/connections/request instead for LinkedIn-style mutual connections
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function POST(
   _req: NextRequest,
@@ -9,10 +10,7 @@ export async function POST(
 ) {
   try {
     const { id: targetId } = await params
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
     if (me.id === targetId) {
       return NextResponse.json({ error: 'Cannot connect with yourself' }, { status: 400 })
     }

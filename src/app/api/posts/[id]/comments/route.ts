@@ -1,6 +1,7 @@
 // Comments on a post: GET (list) and POST (add)
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET(
   _req: NextRequest,
@@ -40,10 +41,7 @@ export async function POST(
       return NextResponse.json({ error: 'Content required' }, { status: 400 })
     }
 
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
 
     const post = await db.post.findUnique({ where: { id } })
     if (!post) {

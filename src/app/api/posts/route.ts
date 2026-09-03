@@ -1,6 +1,7 @@
 // Posts: list (with author, likes, comments) and create
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 // GET /api/posts?authorId=...&limit=20
 export async function GET(req: NextRequest) {
@@ -58,10 +59,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Content required' }, { status: 400 })
     }
 
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
+    if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const post = await db.post.create({
       data: {

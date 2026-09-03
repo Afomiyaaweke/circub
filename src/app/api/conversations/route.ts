@@ -1,12 +1,11 @@
 // List all conversations for current user (DM threads with other users)
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET() {
   try {
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
+    const me = await getCurrentUser()
     if (!me) return NextResponse.json({ conversations: [] })
 
     // Get all messages involving me

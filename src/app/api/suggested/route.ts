@@ -1,31 +1,27 @@
 // Suggested users — exclude already connected / pending (for right sidebar)
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET() {
   try {
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-      include: { connRequested: true, connReceived: true },
-    })
+    const me = await getCurrentUser()
     if (!me) return NextResponse.json({ suggestions: [] })
 
-    const excludeIds = new Set<string>([me.id])
-    for (const c of me.connRequested) excludeIds.add(c.receiverId)
-    for (const c of me.connReceived) excludeIds.add(c.requesterId)
+    // Fetch my connections separately (getCurrentUser doesn't include)
+    const myConns = await db.connection.findMany({
+      where: { OR: [{ requesterId: me.id }, { receiverId: me.id }] },
+    })
 
-    // IGNORED ones we don't re-suggest either
-    const ignoredIds = new Set<string>([
-      ...me.connRequested.filter((c) => c.status === 'IGNORED').map((c) => c.receiverId),
-      ...me.connReceived.filter((c) => c.status === 'IGNORED').map((c) => c.requesterId),
-    ])
+    const excludeIds = new Set<string>([me.id])
+    for (const c of myConns) {
+      if (c.requesterId === me.id) excludeIds.add(c.receiverId)
+      else excludeIds.add(c.requesterId)
+    }
 
     const candidates = await db.user.findMany({
       where: {
-        id: {
-          notIn: Array.from(excludeIds),
-          // ensure ignored are also excluded (they are via excludeIds already)
-        },
+        id: { notIn: Array.from(excludeIds) },
       },
       orderBy: { followersCount: 'desc' },
       take: 4,
@@ -39,10 +35,12 @@ export async function GET() {
         postsCount: true,
         followersCount: true,
         connectionsCount: true,
+        isLocal: true,
+        verifiedLocal: true,
+        companyName: true,
+        companyIndustry: true,
       },
     })
-
-    void ignoredIds
 
     return NextResponse.json({ suggestions: candidates })
   } catch (error) {

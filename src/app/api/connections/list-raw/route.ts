@@ -1,12 +1,11 @@
 // Raw connections list (with connection IDs) for UI to find/remove
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET() {
   try {
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
+    const me = await getCurrentUser()
     if (!me) return NextResponse.json({ connections: [] })
 
     const conns = await db.connection.findMany({

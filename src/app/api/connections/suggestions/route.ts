@@ -1,39 +1,26 @@
 // People you may know — exclude existing connections (ACCEPTED, PENDING) and myself
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET() {
   try {
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-      include: {
-        connRequested: true,
-        connReceived: true,
-      },
-    })
+    const me = await getCurrentUser()
     if (!me) return NextResponse.json({ suggestions: [] })
 
-    // Collect all user IDs already connected (any status) to me
-    const excludeIds = new Set<string>([me.id])
-    for (const c of me.connRequested) excludeIds.add(c.receiverId)
-    for (const c of me.connReceived) excludeIds.add(c.requesterId)
+    // Fetch my connections
+    const myConns = await db.connection.findMany({
+      where: { OR: [{ requesterId: me.id }, { receiverId: me.id }] },
+    })
 
-    // Find users not in excludeIds, optionally exclude IGNORED previous invites
-    const ignoredTargets = me.connRequested
-      .filter((c) => c.status === 'IGNORED')
-      .map((c) => c.receiverId)
-    const ignoredRequesters = me.connReceived
-      .filter((c) => c.status === 'IGNORED')
-      .map((c) => c.requesterId)
+    const excludeIds = new Set<string>([me.id])
+    for (const c of myConns) {
+      if (c.requesterId === me.id) excludeIds.add(c.receiverId)
+      else excludeIds.add(c.requesterId)
+    }
 
     const suggestions = await db.user.findMany({
-      where: {
-        id: { notIn: Array.from(excludeIds) },
-        // Don't re-suggest people who ignored / were ignored
-        NOT: {
-          id: { in: [...ignoredTargets, ...ignoredRequesters] },
-        },
-      },
+      where: { id: { notIn: Array.from(excludeIds) } },
       orderBy: { followersCount: 'desc' },
       take: 8,
       select: {
@@ -46,10 +33,14 @@ export async function GET() {
         postsCount: true,
         followersCount: true,
         connectionsCount: true,
+        isLocal: true,
+        verifiedLocal: true,
+        companyName: true,
+        companyIndustry: true,
       },
     })
 
-    // For each suggestion, find mutual connections (count of common ACCEPTED connections)
+    // For each suggestion, find mutual connections
     const allMyConns = await db.connection.findMany({
       where: {
         status: 'ACCEPTED',

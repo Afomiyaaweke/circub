@@ -1,6 +1,7 @@
 // Products API: list (with filters) + create
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 // GET /api/products?search=...&category=...&authorId=...
 export async function GET(req: NextRequest) {
@@ -63,9 +64,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const user = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
+    const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }

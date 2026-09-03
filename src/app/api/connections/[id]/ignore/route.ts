@@ -1,6 +1,7 @@
 // Ignore / decline a connection request
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function POST(
   _req: NextRequest,
@@ -8,10 +9,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
 
     const conn = await db.connection.findUnique({ where: { id } })
     if (!conn) {

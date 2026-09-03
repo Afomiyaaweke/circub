@@ -1,22 +1,26 @@
-// Get all users except current (MA)
+// Get all users except current — with connection status
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET() {
   try {
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-      include: {
-        connRequested: true,
-        connReceived: true,
+    const me = await getCurrentUser()
+    if (!me) return NextResponse.json({ users: [] })
+
+    // Fetch my connections separately (getCurrentUser doesn't include)
+    const myConns = await db.connection.findMany({
+      where: {
+        OR: [{ requesterId: me.id }, { receiverId: me.id }],
       },
     })
-    if (!me) return NextResponse.json({ users: [] })
 
     // Build set of ids already connected to me (any status)
     const connIds = new Set<string>()
-    for (const c of me.connRequested) connIds.add(c.receiverId)
-    for (const c of me.connReceived) connIds.add(c.requesterId)
+    for (const c of myConns) {
+      if (c.requesterId === me.id) connIds.add(c.receiverId)
+      else connIds.add(c.requesterId)
+    }
 
     const users = await db.user.findMany({
       where: { id: { not: me.id } },
@@ -32,25 +36,26 @@ export async function GET() {
         followersCount: true,
         likesCount: true,
         connectionsCount: true,
+        isLocal: true,
+        verifiedLocal: true,
+        companyName: true,
+        companyIndustry: true,
       },
     })
 
     // Mark connection status
-    // ACCEPTED: both sides connected with status=ACCEPTED
-    // PENDING_OUTGOING: I requested, status=PENDING
-    // PENDING_INCOMING: They requested me, status=PENDING
     const usersWithStatus = users.map((u) => {
-      const acceptedTo = me.connRequested.find(
-        (c) => c.receiverId === u.id && c.status === 'ACCEPTED'
+      const acceptedTo = myConns.find(
+        (c) => c.requesterId === me.id && c.receiverId === u.id && c.status === 'ACCEPTED'
       )
-      const acceptedFrom = me.connReceived.find(
-        (c) => c.requesterId === u.id && c.status === 'ACCEPTED'
+      const acceptedFrom = myConns.find(
+        (c) => c.receiverId === me.id && c.requesterId === u.id && c.status === 'ACCEPTED'
       )
-      const pendingOut = me.connRequested.find(
-        (c) => c.receiverId === u.id && c.status === 'PENDING'
+      const pendingOut = myConns.find(
+        (c) => c.requesterId === me.id && c.receiverId === u.id && c.status === 'PENDING'
       )
-      const pendingIn = me.connReceived.find(
-        (c) => c.requesterId === u.id && c.status === 'PENDING'
+      const pendingIn = myConns.find(
+        (c) => c.receiverId === me.id && c.requesterId === u.id && c.status === 'PENDING'
       )
 
       return {

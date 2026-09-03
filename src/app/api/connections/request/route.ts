@@ -2,6 +2,7 @@
 // Body: { receiverId: string, note?: string }
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,10 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'receiverId required' }, { status: 400 })
     }
 
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
-    if (!me) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    const me = await getCurrentUser()
     if (me.id === receiverId) {
       return NextResponse.json({ error: 'Cannot connect with yourself' }, { status: 400 })
     }

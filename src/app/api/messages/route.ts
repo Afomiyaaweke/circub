@@ -1,12 +1,11 @@
 // Get all messages involving current user (raw list)
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET() {
   try {
-    const me = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
+    const me = await getCurrentUser()
     if (!me) return NextResponse.json({ messages: [] })
 
     const messages = await db.message.findMany({

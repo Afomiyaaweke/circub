@@ -1,6 +1,7 @@
 // Single product: GET, DELETE
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getCurrentUser } from '@/lib/session'
 
 export async function GET(
   _req: NextRequest,
@@ -38,9 +39,7 @@ export async function DELETE(
     const { id } = await params
 
     // Get current user (MA)
-    const user = await db.user.findUnique({
-      where: { email: 'ma@socialcircle.app' },
-    })
+    const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
