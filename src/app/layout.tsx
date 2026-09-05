@@ -14,23 +14,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "circub · Connect, share, and grow your network",
-  description: "A social marketplace to discover, share, and trade country-specific product prices with your network.",
-  keywords: ["circub", "marketplace", "product pricing", "country pricing", "trade", "social network"],
+  title: "circub · Know what things actually cost while you travel, from the locals",
+  description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
+  keywords: ["circub", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge"],
   authors: [{ name: "circub Team" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-64.png", type: "image/png", sizes: "64x64" },
+      { url: "/favicon-256.png", type: "image/png", sizes: "256x256" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "circub",
-    description: "Connect, share, and grow your personalized network of product prices.",
+    title: "circub · Know what things actually cost while you travel, from the locals",
+    description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
     siteName: "circub",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "circub",
-    description: "Connect, share, and grow your personalized network of product prices.",
+    title: "circub · Know what things actually cost while you travel, from the locals",
+    description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
   },
 };
 

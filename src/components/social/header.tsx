@@ -56,7 +56,7 @@ export function Header({
         {/* Logo + brand */}
         <div className="flex items-center gap-2.5 min-w-0">
           <img
-            src="/logo.svg"
+            src="/logo.png"
             alt="circub"
             className="w-24 h-9 shrink-0"
           />

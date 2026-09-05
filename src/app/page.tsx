@@ -88,7 +88,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <img
-            src="/logo.svg"
+            src="/logo.png"
             alt="circub"
             className="w-32 h-12 mx-auto mb-3 animate-pulse"
           />
