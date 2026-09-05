@@ -10,6 +10,7 @@ export async function GET(
   try {
     const { userId: otherId } = await params
     const me = await getCurrentUser()
+    if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const messages = await db.message.findMany({
       where: {
@@ -51,6 +52,7 @@ export async function POST(
     }
 
     const me = await getCurrentUser()
+    if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     if (me.id === receiverId) {
       return NextResponse.json(
         { error: 'Cannot send messages to yourself' },

@@ -43,6 +43,7 @@ export async function GET() {
         id: true,
         name: true,
         avatarColor: true,
+        profilePicture: true,
         bio: true,
         headline: true,
         location: true,

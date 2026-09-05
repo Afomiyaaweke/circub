@@ -201,10 +201,18 @@ export function MessageModal({
                       activeUserId === c.user.id && 'bg-accent/60'
                     )}
                   >
-                    <Avatar className="w-10 h-10 border border-accent">
-                      <AvatarFallback className="bg-primary/15 text-primary font-semibold text-sm">
-                        {c.user.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
+                    <Avatar className="w-10 h-10 border border-accent overflow-hidden">
+                      {c.user.profilePicture ? (
+                        <img
+                          src={c.user.profilePicture}
+                          alt={c.user.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <AvatarFallback className="bg-primary/15 text-primary font-semibold text-sm">
+                          {c.user.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
@@ -284,10 +292,18 @@ export function MessageModal({
                     </p>
                   ) : messages.length === 0 ? (
                     <div className="text-center py-10">
-                      <Avatar className="w-14 h-14 mx-auto border-2 border-accent">
-                        <AvatarFallback className="bg-primary/15 text-primary text-lg font-semibold">
-                          {activeUser.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
+                      <Avatar className="w-14 h-14 mx-auto border-2 border-accent overflow-hidden">
+                        {activeUser.profilePicture ? (
+                          <img
+                            src={activeUser.profilePicture}
+                            alt={activeUser.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <AvatarFallback className="bg-primary/15 text-primary text-lg font-semibold">
+                            {activeUser.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                       <p className="mt-3 text-sm font-medium text-foreground">
                         {activeUser.name}
