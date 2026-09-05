@@ -73,7 +73,7 @@ export function MessageModal({
     }
     setLoadingMsgs(true)
     Promise.all([
-      fetch(`/api/auth/messages/${activeUserId}`).then((r) => r.json()),
+      fetch(`/api/messages/${activeUserId}`).then((r) => r.json()),
       fetch('/api/users').then((r) => r.json()),
     ])
       .then(([msgs, usersData]) => {
@@ -122,7 +122,7 @@ export function MessageModal({
     if (!draft.trim() || !activeUserId) return
     setSending(true)
     try {
-      const res = await fetch(`/api/auth/messages/${activeUserId}`, {
+      const res = await fetch(`/api/messages/${activeUserId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: draft }),
