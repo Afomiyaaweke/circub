@@ -90,7 +90,7 @@ export default function Home() {
           <img
             src="/logo.png"
             alt="circub"
-            className="w-32 h-12 mx-auto mb-3 animate-pulse"
+            className="w-16 h-16 mx-auto mb-3 animate-pulse object-contain"
           />
           <p className="text-sm text-muted-foreground">Loading circub...</p>
         </div>

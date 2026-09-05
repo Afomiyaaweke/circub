@@ -143,7 +143,7 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
                 <img
                   src="/logo.png"
                   alt="circub"
-                  className="w-28 h-10"
+                  className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
                 />
               </div>
 
@@ -567,10 +567,11 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
         <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="circub" className="w-24 h-9" />
-            </div>
-            <div className="sm:ml-6">
-              <p className="text-xs text-background/60">Local price intelligence for travelers</p>
+              <img src="/logo.png" alt="circub" className="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-lg" />
+              <div>
+                <p className="font-bold text-background">circub</p>
+                <p className="text-xs text-background/60">Local price intelligence for travelers</p>
+              </div>
             </div>
             <div className="flex items-center gap-6 text-sm text-background/80">
               <a href="#" className="hover:text-primary">Privacy</a>

@@ -53,12 +53,12 @@ export function Header({
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        {/* Logo + brand */}
-        <div className="flex items-center gap-2.5 min-w-0">
+        {/* Logo */}
+        <div className="flex items-center gap-2 shrink-0">
           <img
-            src="/logo.png"
+            src="/logo-mark.png"
             alt="circub"
-            className="w-24 h-9 shrink-0"
+            className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
           />
           <div className="min-w-0 hidden sm:block">
             <p className="text-xs text-muted-foreground italic truncate">
