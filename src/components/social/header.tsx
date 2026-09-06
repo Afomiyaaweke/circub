@@ -16,6 +16,7 @@ interface HeaderProps {
   onSignUp: () => void
   onLogin: () => void
   onLogout: () => void
+  onEditProfile: () => void
 }
 
 const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
@@ -35,6 +36,7 @@ export function Header({
   onSignUp,
   onLogin,
   onLogout,
+  onEditProfile,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -177,6 +179,16 @@ export function Header({
                     )}
                   </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onEditProfile()
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
+                >
+                  <UserCircle className="w-4 h-4 text-muted-foreground" />
+                  Edit profile
+                </button>
                 <button
                   onClick={() => {
                     setMenuOpen(false)

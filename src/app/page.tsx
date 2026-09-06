@@ -158,6 +158,7 @@ export default function Home() {
         onSignUp={() => setRegisterOpen(true)}
         onLogin={() => setLoginOpen(true)}
         onLogout={handleLogout}
+        onEditProfile={() => setEditProfileOpen(true)}
       />
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-4 sm:px-6 py-4 sm:py-6">
@@ -167,6 +168,8 @@ export default function Home() {
             loading={false}
             onMessage={handleOpenMessages}
             onManageNetwork={() => setActiveTab('network')}
+            onEditProfile={() => setEditProfileOpen(true)}
+            editProfileOpen={editProfileOpen}
           />
 
           {activeTab === 'feed' && (
