@@ -17,9 +17,28 @@ interface GuideRegisterModalProps {
   onSaved: () => void
 }
 
-const LANGUAGES = ['English', 'Amharic', 'French', 'Arabic', 'Swahili', 'Spanish', 'Portuguese', 'Mandarin', 'Japanese', 'German', 'Italian', 'Hindi', 'Oromo', 'Tigrinya', 'Wolaytta']
-const SPECIALTIES = ['Historical', 'Food & Culinary', 'Adventure', 'Cultural', 'Nature & Wildlife', 'Photography', 'Shopping', 'Nightlife', 'Religious', 'Architecture']
-const CURRENCIES = ['USD', 'ETB', 'EUR', 'KES', 'UGX', 'NGN', 'INR', 'CNY', 'JPY', 'MYR']
+const LANGUAGES = [
+  // Africa
+  'Amharic', 'Swahili', 'Arabic', 'Oromo', 'Tigrinya', 'Wolaytta', 'Yoruba', 'Igbo', 'Hausa', 'Zulu', 'Xhosa', 'Afrikaans', 'Somali', 'Shona', 'Kinyarwanda', 'Lingala', 'Bambara', 'Wolof', 'Malagasy', 'Twi',
+  // Europe
+  'English', 'French', 'Spanish', 'Portuguese', 'German', 'Italian', 'Dutch', 'Russian', 'Polish', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Greek', 'Turkish', 'Czech', 'Romanian', 'Hungarian', 'Ukrainian', 'Catalan',
+  // Asia
+  'Mandarin', 'Cantonese', 'Japanese', 'Korean', 'Hindi', 'Bengali', 'Tamil', 'Telugu', 'Urdu', 'Persian', 'Thai', 'Vietnamese', 'Indonesian', 'Malay', 'Tagalog', 'Khmer', 'Burmese', 'Nepali', 'Sinhala', 'Kazakh',
+  // Americas
+  'Quechua', 'Guarani', 'Haitian Creole', 'Maya',
+  // Middle East
+  'Hebrew', 'Kurdish', 'Pashto', 'Dari',
+  // Sign
+  'Sign Language (ASL)', 'Sign Language (BSL)',
+]
+const SPECIALTIES = [
+  'Historical', 'Food & Culinary', 'Adventure', 'Cultural', 'Nature & Wildlife',
+  'Photography', 'Shopping', 'Nightlife', 'Religious', 'Architecture',
+  'Beach & Islands', 'Hiking & Trekking', 'Safari', 'Diving & Snorkeling',
+  'Wine & Spirits', 'Art & Museums', 'Local Markets', 'Festivals',
+  'Wellness & Spa', 'Family Friendly',
+]
+const CURRENCIES = ['USD', 'ETB', 'EUR', 'KES', 'UGX', 'NGN', 'INR', 'CNY', 'JPY', 'MYR', 'GBP', 'AUD', 'CAD', 'ZAR', 'BRL', 'MAD', 'EGP', 'GHS', 'TZS', 'RWF']
 
 export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideRegisterModalProps) {
   const [license, setLicense] = useState('')

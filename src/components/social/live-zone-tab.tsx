@@ -22,6 +22,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [guides, setGuides] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [location, setLocation] = useState('')
   const [language, setLanguage] = useState('')
   const [specialty, setSpecialty] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
@@ -31,6 +32,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
+      if (location) params.set('country', location)
       if (language) params.set('language', language)
       if (specialty) params.set('specialty', specialty)
       if (availableOnly) params.set('available', 'true')
@@ -38,7 +40,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const data = await res.json()
       setGuides(data.guides || [])
     } catch { setGuides([]) } finally { setLoading(false) }
-  }, [search, language, specialty, availableOnly])
+  }, [search, location, language, specialty, availableOnly])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
@@ -101,36 +103,129 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             className="pl-9 bg-card"
           />
         </div>
+        {/* Location search */}
+        <div className="relative min-w-[140px]">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="City or country..."
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="pl-9 bg-card h-9"
+          />
+        </div>
+        {/* Language filter — world-class list */}
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground"
+          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px]"
         >
           <option value="">All languages</option>
-          <option value="English">English</option>
-          <option value="Amharic">Amharic</option>
-          <option value="French">French</option>
-          <option value="Arabic">Arabic</option>
-          <option value="Swahili">Swahili</option>
-          <option value="Spanish">Spanish</option>
-          <option value="Mandarin">Mandarin</option>
-          <option value="Japanese">Japanese</option>
-          <option value="German">German</option>
+          <optgroup label="Africa">
+            <option value="Amharic">Amharic</option>
+            <option value="Swahili">Swahili</option>
+            <option value="Arabic">Arabic</option>
+            <option value="Oromo">Oromo</option>
+            <option value="Tigrinya">Tigrinya</option>
+            <option value="Yoruba">Yoruba</option>
+            <option value="Igbo">Igbo</option>
+            <option value="Hausa">Hausa</option>
+            <option value="Zulu">Zulu</option>
+            <option value="Xhosa">Xhosa</option>
+            <option value="Somali">Somali</option>
+            <option value="Shona">Shona</option>
+            <option value="Kinyarwanda">Kinyarwanda</option>
+            <option value="Lingala">Lingala</option>
+            <option value="Wolof">Wolof</option>
+            <option value="Malagasy">Malagasy</option>
+            <option value="Twi">Twi</option>
+          </optgroup>
+          <optgroup label="Europe">
+            <option value="English">English</option>
+            <option value="French">French</option>
+            <option value="Spanish">Spanish</option>
+            <option value="Portuguese">Portuguese</option>
+            <option value="German">German</option>
+            <option value="Italian">Italian</option>
+            <option value="Dutch">Dutch</option>
+            <option value="Russian">Russian</option>
+            <option value="Polish">Polish</option>
+            <option value="Swedish">Swedish</option>
+            <option value="Norwegian">Norwegian</option>
+            <option value="Danish">Danish</option>
+            <option value="Finnish">Finnish</option>
+            <option value="Greek">Greek</option>
+            <option value="Turkish">Turkish</option>
+            <option value="Czech">Czech</option>
+            <option value="Romanian">Romanian</option>
+            <option value="Hungarian">Hungarian</option>
+            <option value="Ukrainian">Ukrainian</option>
+            <option value="Catalan">Catalan</option>
+          </optgroup>
+          <optgroup label="Asia">
+            <option value="Mandarin">Mandarin</option>
+            <option value="Cantonese">Cantonese</option>
+            <option value="Japanese">Japanese</option>
+            <option value="Korean">Korean</option>
+            <option value="Hindi">Hindi</option>
+            <option value="Bengali">Bengali</option>
+            <option value="Tamil">Tamil</option>
+            <option value="Telugu">Telugu</option>
+            <option value="Urdu">Urdu</option>
+            <option value="Persian">Persian</option>
+            <option value="Thai">Thai</option>
+            <option value="Vietnamese">Vietnamese</option>
+            <option value="Indonesian">Indonesian</option>
+            <option value="Malay">Malay</option>
+            <option value="Tagalog">Tagalog</option>
+            <option value="Khmer">Khmer</option>
+            <option value="Burmese">Burmese</option>
+            <option value="Nepali">Nepali</option>
+            <option value="Sinhala">Sinhala</option>
+            <option value="Kazakh">Kazakh</option>
+          </optgroup>
+          <optgroup label="Middle East">
+            <option value="Hebrew">Hebrew</option>
+            <option value="Kurdish">Kurdish</option>
+            <option value="Pashto">Pashto</option>
+            <option value="Dari">Dari</option>
+          </optgroup>
+          <optgroup label="Americas">
+            <option value="Quechua">Quechua</option>
+            <option value="Guarani">Guarani</option>
+            <option value="Haitian Creole">Haitian Creole</option>
+          </optgroup>
+          <optgroup label="Sign Language">
+            <option value="Sign Language (ASL)">Sign Language (ASL)</option>
+            <option value="Sign Language (BSL)">Sign Language (BSL)</option>
+          </optgroup>
         </select>
+        {/* Specialty filter — expanded list */}
         <select
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
-          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground"
+          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px]"
         >
           <option value="">All specialties</option>
           <option value="Historical">Historical</option>
-          <option value="Food">Food</option>
+          <option value="Food">Food & Culinary</option>
           <option value="Adventure">Adventure</option>
           <option value="Cultural">Cultural</option>
-          <option value="Nature">Nature</option>
+          <option value="Nature">Nature & Wildlife</option>
           <option value="Photography">Photography</option>
           <option value="Shopping">Shopping</option>
           <option value="Nightlife">Nightlife</option>
+          <option value="Religious">Religious</option>
+          <option value="Architecture">Architecture</option>
+          <option value="Beach">Beach & Islands</option>
+          <option value="Hiking">Hiking & Trekking</option>
+          <option value="Safari">Safari</option>
+          <option value="Diving">Diving & Snorkeling</option>
+          <option value="Wine">Wine & Spirits</option>
+          <option value="Art">Art & Museums</option>
+          <option value="Markets">Local Markets</option>
+          <option value="Festivals">Festivals</option>
+          <option value="Wellness">Wellness & Spa</option>
+          <option value="Family">Family Friendly</option>
         </select>
         <button
           onClick={() => setAvailableOnly(!availableOnly)}
