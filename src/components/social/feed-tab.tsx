@@ -91,6 +91,10 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
     onRefreshUser()
   }
 
+  const handleEdit = (postId: string, updatedPost: Post) => {
+    setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)))
+  }
+
   return (
     <div className="space-y-4">
       <PostComposer user={user} onPosted={handlePosted} />
@@ -147,6 +151,7 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
               onLike={handleLike}
               onComment={handleComment}
               onDelete={handleDelete}
+              onEdit={handleEdit}
               onMessage={onMessage}
             />
           ))}

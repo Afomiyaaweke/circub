@@ -67,6 +67,31 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
 
   const handleCreated = () => { fetchPosts(); onRefreshUser() }
 
+  const handleEditPost = async (post: any) => {
+    // Simple inline edit: prompt for new price and description
+    const newPrice = prompt('Edit min price:', String(post.priceMin))
+    if (newPrice == null) return
+    const newMax = prompt('Edit max price:', String(post.priceMax))
+    if (newMax == null) return
+    const newTip = prompt('Edit local tip (leave empty to keep):', post.localTip || '')
+    try {
+      const res = await fetch(`/api/local-prices/${post.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priceMin: Number(newPrice),
+          priceMax: Number(newMax),
+          localTip: newTip !== '' ? newTip : post.localTip,
+        }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
+      toast({ title: 'Post updated' })
+      fetchPosts()
+    } catch (e) {
+      toast({ title: 'Edit failed', description: (e as Error).message, variant: 'destructive' })
+    }
+  }
+
   const handleDelete = async (postId: string) => {
     if (!confirm('Delete this price post? This cannot be undone.')) return
     try {
@@ -184,7 +209,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {posts.map((p) => (
-              <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} />
+              <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
             ))}
           </div>
         </>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2 } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -15,7 +15,9 @@ interface LocalPriceCardProps {
   onVote?: (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => void
   onAuthorClick?: (authorId: string) => void
   onDelete?: (postId: string) => void
+  onEdit?: (post: LocalPricePost) => void
   canDelete?: boolean
+  canEdit?: boolean
   compact?: boolean
 }
 
@@ -24,7 +26,7 @@ function formatPrice(value: number, currency: string) {
   return `${currency} ${value}`
 }
 
-export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, canDelete = false, compact = false }: LocalPriceCardProps) {
+export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const detailedLocation = [post.market, post.neighborhood, post.city, post.country].filter(Boolean).join(' · ')
 
@@ -36,7 +38,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
         </Badge>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground">{post.category}</span>
-          {canDelete && (
+          {(canDelete || canEdit) && (
             <div className="relative">
               <button onClick={() => setShowMenu(!showMenu)} className="p-1 rounded-full hover:bg-accent text-muted-foreground transition-colors" aria-label="More options">
                 <MoreHorizontal className="w-3.5 h-3.5" />
@@ -45,10 +47,18 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                   <div className="absolute right-0 top-7 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
-                    <button onClick={() => { setShowMenu(false); onDelete?.(post.id) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2">
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete post
-                    </button>
+                    {canEdit && (
+                      <button onClick={() => { setShowMenu(false); onEdit?.(post) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2">
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit post
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button onClick={() => { setShowMenu(false); onDelete?.(post.id) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2">
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete post
+                      </button>
+                    )}
                   </div>
                 </>
               )}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Image as ImageIcon } from 'lucide-react'
+import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,6 +15,7 @@ interface PostCardProps {
   onLike: (postId: string) => void
   onComment: (postId: string, comment: Comment) => void
   onDelete: (postId: string) => void
+  onEdit?: (postId: string, updatedPost: Post) => void
   onMessage?: (userId: string) => void
 }
 
@@ -35,16 +36,35 @@ export function PostCard({
   onLike,
   onComment,
   onDelete,
+  onEdit,
   onMessage,
 }: PostCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(post.content)
+  const [savingEdit, setSavingEdit] = useState(false)
   const { toast } = useToast()
 
   const isLiked = post.likes.some((l) => l.userId === currentUserId)
   const isOwn = post.authorId === currentUserId
+
+  const handleEditSave = async () => {
+    if (!editContent.trim()) { toast({ title: 'Post cannot be empty', variant: 'destructive' }); return }
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/posts/${post.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: editContent }) })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
+      const data = await res.json()
+      toast({ title: 'Post updated' })
+      setIsEditing(false)
+      onEdit?.(post.id, data.post)
+    } catch (e) {
+      toast({ title: 'Edit failed', description: (e as Error).message, variant: 'destructive' })
+    } finally { setSavingEdit(false) }
+  }
 
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return
@@ -117,16 +137,29 @@ export function PostCard({
                   />
                   <div className="absolute right-0 top-8 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
                     {isOwn ? (
-                      <button
-                        onClick={() => {
-                          setShowMenu(false)
-                          onDelete(post.id)
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete post
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setShowMenu(false)
+                            setEditContent(post.content)
+                            setIsEditing(true)
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Edit post
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowMenu(false)
+                            onDelete(post.id)
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete post
+                        </button>
+                      </>
                     ) : (
                       <>
                         <button
@@ -167,22 +200,53 @@ export function PostCard({
         </div>
       </div>
 
-      {/* Content */}
-      {post.content && (
-        <div className="px-4 pb-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-          {post.content}
-        </div>
-      )}
-
-      {/* Image */}
-      {post.imageUrl && (
-        <div className="border-t border-border bg-accent/20">
-          <img
-            src={post.imageUrl}
-            alt="Post image"
-            className="w-full max-h-[480px] object-cover"
+      {/* Content: editing mode vs display mode */}
+      {isEditing ? (
+        <div className="px-4 pb-3">
+          <Textarea
+            autoFocus
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="min-h-[80px] resize-y bg-card border-border"
+            placeholder="Edit your post..."
           />
+          {post.imageUrl && (
+            <div className="mt-2 relative rounded-lg overflow-hidden border border-border">
+              {post.imageUrl.startsWith('data:video') ? (
+                <video src={post.imageUrl} controls className="w-full max-h-64 object-contain bg-black" />
+              ) : (
+                <img src={post.imageUrl} alt="Post image" className="w-full max-h-64 object-cover" />
+              )}
+            </div>
+          )}
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setEditContent(post.content) }} disabled={savingEdit}>
+              <X className="w-4 h-4 mr-1" />Cancel
+            </Button>
+            <Button size="sm" onClick={handleEditSave} disabled={savingEdit || !editContent.trim()} className="bg-primary hover:bg-primary/90 gap-1.5">
+              <Save className="w-3.5 h-3.5" />{savingEdit ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
         </div>
+      ) : (
+        <>
+          {post.content && (
+            <div className="px-4 pb-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+              {post.content}
+            </div>
+          )}
+
+          {/* Image */}
+          {post.imageUrl && (
+            <div className="border-t border-border bg-accent/20">
+              {post.imageUrl.startsWith('data:video') ? (
+                <video src={post.imageUrl} controls className="w-full max-h-[480px] object-contain bg-black" />
+              ) : (
+                <img src={post.imageUrl} alt="Post image" className="w-full max-h-[480px] object-cover" />
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Likes + comments count summary */}
