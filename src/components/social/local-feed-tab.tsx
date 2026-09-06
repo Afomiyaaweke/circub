@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
 import { CreatePricePostModal } from './create-price-post-modal'
+import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
 import { useToast } from '@/hooks/use-toast'
@@ -31,6 +32,8 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
+  const [editPost, setEditPost] = useState<LocalPricePost | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [searchImage, setSearchImage] = useState<string | null>(null)
   const [searchingByImage, setSearchingByImage] = useState(false)
@@ -67,29 +70,9 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
 
   const handleCreated = () => { fetchPosts(); onRefreshUser() }
 
-  const handleEditPost = async (post: any) => {
-    // Simple inline edit: prompt for new price and description
-    const newPrice = prompt('Edit min price:', String(post.priceMin))
-    if (newPrice == null) return
-    const newMax = prompt('Edit max price:', String(post.priceMax))
-    if (newMax == null) return
-    const newTip = prompt('Edit local tip (leave empty to keep):', post.localTip || '')
-    try {
-      const res = await fetch(`/api/local-prices/${post.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          priceMin: Number(newPrice),
-          priceMax: Number(newMax),
-          localTip: newTip !== '' ? newTip : post.localTip,
-        }),
-      })
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
-      toast({ title: 'Post updated' })
-      fetchPosts()
-    } catch (e) {
-      toast({ title: 'Edit failed', description: (e as Error).message, variant: 'destructive' })
-    }
+  const handleEditPost = (post: LocalPricePost) => {
+    setEditPost(post)
+    setEditModalOpen(true)
   }
 
   const handleDelete = async (postId: string) => {
@@ -216,6 +199,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       )}
 
       <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={handleCreated} />
+      <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} />
     </div>
