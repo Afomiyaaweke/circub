@@ -33,6 +33,7 @@ export async function GET() {
       name: me.name,
       email: me.email,
       avatarColor: me.avatarColor,
+      profilePicture: me.profilePicture,
       bio: me.bio,
       headline: me.headline,
       location: me.location,
@@ -48,6 +49,14 @@ export async function GET() {
       incomingInvitationsCount: incomingPending,
       isLocal: me.isLocal,
       verifiedLocal: me.verifiedLocal,
+      isGuide: me.isGuide,
+      guideLicense: me.guideLicense,
+      guideLanguages: me.guideLanguages ? me.guideLanguages.split(',').filter(Boolean) : [],
+      guideSpecialties: me.guideSpecialties ? me.guideSpecialties.split(',').filter(Boolean) : [],
+      guideHourlyRate: me.guideHourlyRate,
+      guideCurrency: me.guideCurrency,
+      guideBio: me.guideBio,
+      guideAvailable: me.guideAvailable,
     })
   } catch (error) {
     console.error('Failed to fetch current user:', error)

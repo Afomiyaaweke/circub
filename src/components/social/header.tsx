@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, Bookmark, MessageSquare, Sparkles, Building2, LogOut, ChevronDown } from 'lucide-react'
+import { MapPin, Users, Bookmark, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ interface HeaderProps {
 const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
   { key: 'feed', label: 'Feed', icon: Sparkles },
   { key: 'local', label: 'Local', icon: MapPin },
+  { key: 'guides', label: 'Guides', icon: Compass },
   { key: 'network', label: 'Network', icon: Users },
   { key: 'bookmark', label: 'Bookmark', icon: Bookmark },
 ]

@@ -24,6 +24,16 @@ export interface User {
   helpfulVotes?: number
   localPostCount?: number
   incomingInvitationsCount?: number
+
+  // Guide fields
+  isGuide?: boolean
+  guideLicense?: string | null
+  guideLanguages?: string[] | string | null
+  guideSpecialties?: string[] | string | null
+  guideHourlyRate?: number | null
+  guideCurrency?: string | null
+  guideBio?: string | null
+  guideAvailable?: boolean
 }
 
 export interface Product {
@@ -182,4 +192,4 @@ export interface LocalPriceHistory {
   history: PriceHistoryPoint[]
 }
 
-export type TabKey = 'feed' | 'local' | 'network' | 'bookmark'
+export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark'

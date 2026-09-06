@@ -11,6 +11,9 @@ import { LocalFeedTab } from '@/components/social/local-feed-tab'
 import { PriceDetailModal } from '@/components/social/price-detail-modal'
 import { LocalProfileModal } from '@/components/social/local-profile-modal'
 import { MessageModal } from '@/components/social/message-modal'
+import { EditProfileModal } from '@/components/social/edit-profile-modal'
+import { LiveZoneTab } from '@/components/social/live-zone-tab'
+import { GuideRegisterModal } from '@/components/social/guide-register-modal'
 import { LandingPage } from '@/components/social/landing-page'
 import { RegisterModal } from '@/components/social/register-modal'
 import { LoginModal } from '@/components/social/login-modal'
@@ -28,6 +31,8 @@ export default function Home() {
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
+  const [guideRegisterOpen, setGuideRegisterOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchMe = useCallback(async () => {
@@ -63,6 +68,21 @@ export default function Home() {
     setMessageTargetId(null)
     setMessagesOpen(true)
   }, [])
+
+  const handleToggleGuideAvailability = useCallback(async () => {
+    if (!me) return
+    try {
+      await fetch(`/api/guides/${me.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guideAvailable: !(me as any).guideAvailable }),
+      })
+      fetchMe()
+      toast({ title: (me as any).guideAvailable ? 'You are now offline' : 'You are now available' })
+    } catch {
+      toast({ title: 'Failed to toggle availability', variant: 'destructive' })
+    }
+  }, [me, fetchMe, toast])
 
   const handleLogout = useCallback(async () => {
     try {
@@ -157,6 +177,15 @@ export default function Home() {
             <LocalFeedTab onRefreshUser={fetchMe} />
           )}
 
+          {activeTab === 'guides' && (
+            <LiveZoneTab
+              me={me}
+              onMessage={handleMessageUser}
+              onBecomeGuide={() => setGuideRegisterOpen(true)}
+              onToggleAvailability={handleToggleGuideAvailability}
+            />
+          )}
+
           {activeTab === 'network' && (
             <NetworkTab
               me={me}
@@ -217,6 +246,20 @@ export default function Home() {
         userId={localProfileUserId}
         onClose={() => setLocalProfileUserId(null)}
         onOpenPost={setLocalPriceId}
+      />
+
+      <EditProfileModal
+        open={editProfileOpen}
+        onOpenChange={setEditProfileOpen}
+        user={me}
+        onSaved={fetchMe}
+      />
+
+      <GuideRegisterModal
+        open={guideRegisterOpen}
+        onOpenChange={setGuideRegisterOpen}
+        user={me}
+        onSaved={() => { fetchMe(); setActiveTab('guides') }}
       />
     </div>
   )

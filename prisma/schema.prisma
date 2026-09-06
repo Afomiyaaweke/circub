@@ -42,6 +42,17 @@ model User {
   helpfulVotes   Int      @default(0)
   localPostCount Int      @default(0)
 
+  // Tour guide (Live Zone)
+  isGuide        Boolean  @default(false)
+  guideLicense   String?
+  guideLanguages String? // comma-separated: "English,Amharic,French"
+  guideSpecialties String? // comma-separated: "Historical,Food,Adventure"
+  guideHourlyRate Float?
+  guideCurrency  String?
+  guideBio       String?
+  guideAvailable Boolean  @default(true)
+  profilePicture String?
+
   products       Product[]
   posts          Post[]
   postLikes      PostLike[]
