@@ -1,23 +1,27 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Header } from '@/components/social/header'
 import { LeftSidebar } from '@/components/social/left-sidebar'
 import { RightSidebar } from '@/components/social/right-sidebar'
-import { FeedTab } from '@/components/social/feed-tab'
-import { NetworkTab } from '@/components/social/network-tab'
-import { MainContent } from '@/components/social/main-content'
-import { LocalFeedTab } from '@/components/social/local-feed-tab'
-import { PriceDetailModal } from '@/components/social/price-detail-modal'
-import { LocalProfileModal } from '@/components/social/local-profile-modal'
-import { MessageModal } from '@/components/social/message-modal'
-import { EditProfileModal } from '@/components/social/edit-profile-modal'
-import { LiveZoneTab } from '@/components/social/live-zone-tab'
-import { GuideRegisterModal } from '@/components/social/guide-register-modal'
 import { LandingPage } from '@/components/social/landing-page'
 import { RegisterModal } from '@/components/social/register-modal'
 import { LoginModal } from '@/components/social/login-modal'
 import { useToast } from '@/hooks/use-toast'
+
+// Lazy-load heavy tab components (only loaded when user switches to that tab)
+const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
+const NetworkTab = lazy(() => import('@/components/social/network-tab').then(m => ({ default: m.NetworkTab })))
+const LocalFeedTab = lazy(() => import('@/components/social/local-feed-tab').then(m => ({ default: m.LocalFeedTab })))
+const LiveZoneTab = lazy(() => import('@/components/social/live-zone-tab').then(m => ({ default: m.LiveZoneTab })))
+const MainContent = lazy(() => import('@/components/social/main-content').then(m => ({ default: m.MainContent })))
+
+// Lazy-load modals (only loaded when opened)
+const PriceDetailModal = lazy(() => import('@/components/social/price-detail-modal').then(m => ({ default: m.PriceDetailModal })))
+const LocalProfileModal = lazy(() => import('@/components/social/local-profile-modal').then(m => ({ default: m.LocalProfileModal })))
+const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
+const EditProfileModal = lazy(() => import('@/components/social/edit-profile-modal').then(m => ({ default: m.EditProfileModal })))
+const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
 import type { User, TabKey } from '@/lib/types'
 
 export default function Home() {
@@ -166,42 +170,33 @@ export default function Home() {
           />
 
           {activeTab === 'feed' && (
-            <FeedTab
-              user={me}
-              onMessage={handleMessageUser}
-              onRefreshUser={fetchMe}
-            />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <FeedTab user={me} onMessage={handleMessageUser} onRefreshUser={fetchMe} />
+            </Suspense>
           )}
 
           {activeTab === 'local' && (
-            <LocalFeedTab onRefreshUser={fetchMe} />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <LocalFeedTab onRefreshUser={fetchMe} />
+            </Suspense>
           )}
 
           {activeTab === 'guides' && (
-            <LiveZoneTab
-              me={me}
-              onMessage={handleMessageUser}
-              onBecomeGuide={() => setGuideRegisterOpen(true)}
-              onToggleAvailability={handleToggleGuideAvailability}
-            />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={() => setGuideRegisterOpen(true)} onToggleAvailability={handleToggleGuideAvailability} />
+            </Suspense>
           )}
 
           {activeTab === 'network' && (
-            <NetworkTab
-              me={me}
-              onMessage={handleMessageUser}
-              onRefreshUser={fetchMe}
-            />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <NetworkTab me={me} onMessage={handleMessageUser} onRefreshUser={fetchMe} />
+            </Suspense>
           )}
 
           {activeTab === 'bookmark' && (
-            <MainContent
-              user={me}
-              activeTab={activeTab}
-              refreshSignal={refreshSignal}
-              onUserChanged={fetchMe}
-              onRefreshAll={handleRefreshAll}
-            />
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <MainContent user={me} activeTab={activeTab} refreshSignal={refreshSignal} onUserChanged={fetchMe} onRefreshAll={handleRefreshAll} />
+            </Suspense>
           )}
 
           <RightSidebar
@@ -229,38 +224,25 @@ export default function Home() {
         </div>
       </footer>
 
-      <MessageModal
-        open={messagesOpen}
-        onOpenChange={setMessagesOpen}
-        targetUserId={messageTargetId}
-        me={me}
-      />
+      <Suspense fallback={null}>
+        <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />
+      </Suspense>
 
-      <PriceDetailModal
-        postId={localPriceId}
-        onClose={() => setLocalPriceId(null)}
-        onAuthorClick={setLocalProfileUserId}
-      />
+      <Suspense fallback={null}>
+        <PriceDetailModal postId={localPriceId} onClose={() => setLocalPriceId(null)} onAuthorClick={setLocalProfileUserId} />
+      </Suspense>
 
-      <LocalProfileModal
-        userId={localProfileUserId}
-        onClose={() => setLocalProfileUserId(null)}
-        onOpenPost={setLocalPriceId}
-      />
+      <Suspense fallback={null}>
+        <LocalProfileModal userId={localProfileUserId} onClose={() => setLocalProfileUserId(null)} onOpenPost={setLocalPriceId} />
+      </Suspense>
 
-      <EditProfileModal
-        open={editProfileOpen}
-        onOpenChange={setEditProfileOpen}
-        user={me}
-        onSaved={fetchMe}
-      />
+      <Suspense fallback={null}>
+        <EditProfileModal open={editProfileOpen} onOpenChange={setEditProfileOpen} user={me} onSaved={fetchMe} />
+      </Suspense>
 
-      <GuideRegisterModal
-        open={guideRegisterOpen}
-        onOpenChange={setGuideRegisterOpen}
-        user={me}
-        onSaved={() => { fetchMe(); setActiveTab('guides') }}
-      />
+      <Suspense fallback={null}>
+        <GuideRegisterModal open={guideRegisterOpen} onOpenChange={setGuideRegisterOpen} user={me} onSaved={() => { fetchMe(); setActiveTab('guides') }} />
+      </Suspense>
     </div>
   )
 }

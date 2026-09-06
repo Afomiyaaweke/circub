@@ -4,10 +4,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Disable query logging in production for faster performance
+const isProd = process.env.NODE_ENV === 'production'
+
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: ['query'],
+    log: isProd ? ['error'] : ['query'],
   })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+if (!isProd) globalForPrisma.prisma = db
