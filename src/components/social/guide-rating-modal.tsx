@@ -20,7 +20,7 @@ interface RatingModalProps {
   onRated: () => void
 }
 
-export function RatingModal({ open, onOpenChange, guide, onRated }: RatingModalProps) {
+export function GuideRatingModal({ open, onOpenChange, guide, onRated }: RatingModalProps) {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [comment, setComment] = useState('')
