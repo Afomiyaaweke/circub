@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/session'
 
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: max 20 uploads per minute per IP
+    const ip = req.headers.get('x-forwarded-for') || 'unknown'
+    const { allowed } = checkRateLimit(`upload:${ip}`, 20, 60000)
+    if (!allowed) return NextResponse.json({ error: 'Too many uploads. Try again soon.' }, { status: 429 })
+
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })

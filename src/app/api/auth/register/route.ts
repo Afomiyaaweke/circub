@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
-import { setSessionCookie } from '@/lib/session'
+import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
 
 interface RegisterBody {
   accountType: 'PERSONAL' | 'COMPANY'
@@ -25,20 +25,29 @@ interface RegisterBody {
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: max 5 registrations per minute per IP
+    const ip = req.headers.get('x-forwarded-for') || 'unknown'
+    const { allowed } = checkRateLimit(`register:${ip}`, 5, 60000)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Please try again in a minute.' },
+        { status: 429 }
+      )
+    }
+
     const body: RegisterBody = await req.json()
 
     // Validate required
     if (!body.email || !body.password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
     }
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
+    }
+    // Validate password strength
     if (body.password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
     }
     if (!body.accountType || !['PERSONAL', 'COMPANY'].includes(body.accountType)) {
       return NextResponse.json(
@@ -80,19 +89,18 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.accountType === 'PERSONAL') {
-      userData.name = body.name!.trim()
-      userData.headline = body.headline?.trim() || null
-      userData.location = body.location?.trim() || null
-      userData.bio = body.bio?.trim() || null
-      userData.isLocal = true // personal users can be local contributors
+      userData.name = sanitizeInput(body.name!, 100)
+      userData.headline = sanitizeInput(body.headline || '', 200) || null
+      userData.location = sanitizeInput(body.location || '', 200) || null
+      userData.bio = sanitizeInput(body.bio || '', 2000) || null
+      userData.isLocal = true
     } else {
-      // Company account
-      userData.name = body.contactName?.trim() || body.companyName!.trim()
-      userData.companyName = body.companyName!.trim()
-      userData.companyWebsite = body.companyWebsite?.trim() || null
-      userData.companySize = body.companySize?.trim() || null
-      userData.companyIndustry = body.companyIndustry?.trim() || null
-      userData.headline = `${body.companyName!.trim()} • ${body.companyIndustry || 'Company'}`
+      userData.name = sanitizeInput(body.contactName || body.companyName!, 100)
+      userData.companyName = sanitizeInput(body.companyName!, 200)
+      userData.companyWebsite = sanitizeInput(body.companyWebsite || '', 500) || null
+      userData.companySize = sanitizeInput(body.companySize || '', 20) || null
+      userData.companyIndustry = sanitizeInput(body.companyIndustry || '', 100) || null
+      userData.headline = sanitizeInput(`${body.companyName!.trim()} • ${body.companyIndustry || 'Company'}`, 200)
     }
 
     const user = await db.user.create({ data: userData })
