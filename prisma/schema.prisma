@@ -61,6 +61,8 @@ model User {
   localPricePosts LocalPricePost[]
   localPriceVotes LocalPriceVote[]
   localPriceReports LocalPriceReport[]
+  guideRatingsReceived GuideRating[] @relation("GuideRatingReceiver")
+  guideRatingsGiven GuideRating[] @relation("GuideRatingRater")
 
   // Connections (LinkedIn mutual)
   connRequested  Connection[] @relation("ConnRequester")
@@ -234,4 +236,18 @@ model LocalPriceReport {
   createdAt   DateTime @default(now())
 
   @@unique([userId, postId])
+}
+
+// Guide ratings: travelers rate tour guides (1-5 stars + optional comment)
+model GuideRating {
+  id          String   @id @default(cuid())
+  raterId     String
+  guideId     String
+  rating      Int      // 1-5 stars
+  comment     String?
+  rater       User     @relation("GuideRatingRater", fields: [raterId], references: [id], onDelete: Cascade)
+  guide       User     @relation("GuideRatingReceiver", fields: [guideId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([raterId, guideId])
 }

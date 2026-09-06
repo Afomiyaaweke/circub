@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck, MessageSquare, Radio, UserCircle } from 'lucide-react'
+import { Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck, MessageSquare, Radio, UserCircle, StarIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { GuideRatingModal } from './guide-rating-modal'
 import type { User } from '@/lib/types'
 
 interface LiveZoneTabProps {
@@ -26,6 +27,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [language, setLanguage] = useState('')
   const [specialty, setSpecialty] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
+  const [ratingGuide, setRatingGuide] = useState<{ id: string; name: string; profilePicture?: string | null } | null>(null)
+  const [ratingModalOpen, setRatingModalOpen] = useState(false)
 
   const fetchGuides = useCallback(async () => {
     setLoading(true)
@@ -363,15 +366,29 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     <span className="text-xs text-muted-foreground">Rate on request</span>
                   )}
                   {!isOwn ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onMessage(g.id)}
-                      className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      Message
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onMessage(g.id)}
+                        className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Message
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setRatingGuide({ id: g.id, name: g.name, profilePicture: g.profilePicture })
+                          setRatingModalOpen(true)
+                        }}
+                        className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1.5"
+                      >
+                        <Star className="w-3.5 h-3.5" />
+                        Rate
+                      </Button>
+                    </div>
                   ) : (
                     <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">You</Badge>
                   )}
@@ -381,6 +398,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           })}
         </div>
       )}
+
+      {/* Guide rating modal */}
+      <GuideRatingModal
+        open={ratingModalOpen}
+        onOpenChange={setRatingModalOpen}
+        guide={ratingGuide}
+        onRated={() => fetchGuides()}
+      />
     </div>
   )
 }
