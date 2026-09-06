@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Image as ImageIcon, Smile, Calendar, FileText, X, Send, Video } from 'lucide-react'
+import { Image as ImageIcon, Smile, Calendar, FileText, X, Send, Video, Camera } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,6 +20,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
   const [posting, setPosting] = useState(false)
   const [open, setOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const handleUpload = async (file: File) => {
@@ -113,17 +114,17 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
 
               {imageUrl && (
                 <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
-                  <img
-                    src={imageUrl}
-                    alt="Preview"
-                    className="w-full max-h-64 object-cover"
-                  />
+                  {imageUrl.startsWith('data:video') ? (
+                    <video src={imageUrl} controls className="w-full max-h-64 object-contain bg-black" />
+                  ) : (
+                    <img src={imageUrl} alt="Preview" className="w-full max-h-64 object-cover" />
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     className="absolute top-2 right-2 h-7 w-7 p-0 bg-white/90 hover:bg-white"
                     onClick={() => setImageUrl('')}
-                    aria-label="Remove image"
+                    aria-label="Remove"
                   >
                     <X className="w-3.5 h-3.5" />
                   </Button>
@@ -151,11 +152,21 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                     <ImageIcon className="w-4 h-4 text-primary" />
                     <span className="hidden sm:inline">Photo</span>
                   </button>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    ref={videoRef}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleUpload(f)
+                      if (videoRef.current) videoRef.current.value = ''
+                    }}
+                    className="hidden"
+                  />
                   <button
                     type="button"
-                    onClick={() =>
-                      toast({ title: 'Coming soon', description: 'Video uploads coming soon.' })
-                    }
+                    onClick={() => videoRef.current?.click()}
+                    disabled={uploading}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Video className="w-4 h-4 text-emerald-500" />
@@ -163,9 +174,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setContent((c) => c + ' 😊')
-                    }
+                    onClick={() => setContent((c) => c + ' 😊')}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Smile className="w-4 h-4 text-amber-500" />
@@ -173,9 +182,10 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      toast({ title: 'Coming soon', description: 'Schedule for later.' })
-                    }
+                    onClick={() => {
+                      const date = prompt('Schedule date (e.g. "Tomorrow at 3pm")')
+                      if (date) setContent((c) => (c ? c + '\n' : '') + `📅 ${date}`)
+                    }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Calendar className="w-4 h-4 text-rose-500" />
