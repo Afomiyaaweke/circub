@@ -191,6 +191,11 @@ model LocalPricePost {
   // Local knowledge
   localTip          String?
 
+  // Contact info (for travelers to reach the local)
+  contactPhone      String?
+  contactEmail      String?
+  contactWhatsApp   String? // WhatsApp number or link
+
   // Categorization
   category          String   @default("Other")
   imageUrl          String?

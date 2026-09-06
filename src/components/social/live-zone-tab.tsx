@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck, MessageSquare, Radio, UserCircle, StarIcon } from 'lucide-react'
+import { Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck, MessageSquare, Radio, UserCircle, Share2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -387,6 +387,21 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       >
                         <Star className="w-3.5 h-3.5" />
                         Rate
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const url = `${window.location.origin}/?guide=${g.id}`
+                          if (navigator.share) {
+                            navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
+                          } else {
+                            navigator.clipboard.writeText(url)
+                          }
+                        }}
+                        className="border-muted text-muted-foreground hover:bg-accent text-xs gap-1.5"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   ) : (

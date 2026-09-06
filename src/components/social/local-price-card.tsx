@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import type { LocalPricePost } from '@/lib/types'
 
 interface LocalPriceCardProps {
@@ -105,6 +106,54 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
         <div className="mt-3 flex gap-2">
           <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-sm text-foreground italic leading-relaxed flex-1">&ldquo;{post.localTip}&rdquo;</p>
+        </div>
+      )}
+
+      {/* Contact info */}
+      {!compact && (post.contactPhone || post.contactEmail || post.contactWhatsApp) && (
+        <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+          <p className="text-[11px] font-semibold text-blue-900 mb-2">Contact the local</p>
+          <div className="flex flex-wrap gap-2">
+            {post.contactPhone && (
+              <a href={`tel:${post.contactPhone}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white border border-blue-200 text-xs text-foreground hover:bg-blue-50 transition-colors">
+                <Phone className="w-3.5 h-3.5 text-blue-600" />
+                {post.contactPhone}
+              </a>
+            )}
+            {post.contactEmail && (
+              <a href={`mailto:${post.contactEmail}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white border border-blue-200 text-xs text-foreground hover:bg-blue-50 transition-colors">
+                <Mail className="w-3.5 h-3.5 text-blue-600" />
+                {post.contactEmail}
+              </a>
+            )}
+            {post.contactWhatsApp && (
+              <a href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white border border-blue-200 text-xs text-foreground hover:bg-blue-50 transition-colors">
+                <MessageCircle className="w-3.5 h-3.5 text-green-600" />
+                WhatsApp
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Share button */}
+      {!compact && (
+        <div className="mt-2 flex justify-end">
+          <button
+            onClick={() => {
+              const url = typeof window !== 'undefined' ? `${window.location.origin}/?post=${post.id}` : ''
+              if (navigator.share) {
+                navigator.share({ title: post.productName, text: `Check this price on circub: ${post.productName} in ${post.country}`, url })
+              } else {
+                navigator.clipboard.writeText(url)
+                // toast would be nice but we don't have access here without prop drilling
+              }
+            }}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+          >
+            <Share2 className="w-3 h-3" />
+            Share
+          </button>
         </div>
       )}
 

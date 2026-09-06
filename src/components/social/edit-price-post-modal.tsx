@@ -37,6 +37,9 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [recommendedPrice, setRecommendedPrice] = useState('')
   const [touristPrice, setTouristPrice] = useState('')
   const [localTip, setLocalTip] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactWhatsApp, setContactWhatsApp] = useState('')
   const [category, setCategory] = useState('Other')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
@@ -55,6 +58,9 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setRecommendedPrice(post.recommendedPrice ? String(post.recommendedPrice) : '')
       setTouristPrice(post.touristPrice ? String(post.touristPrice) : '')
       setLocalTip(post.localTip || '')
+      setContactPhone(post.contactPhone || '')
+      setContactEmail(post.contactEmail || '')
+      setContactWhatsApp(post.contactWhatsApp || '')
       setCategory(post.category || 'Other')
     }
   }, [open, post])
@@ -83,6 +89,9 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           recommendedPrice: recommendedPrice ? Number(recommendedPrice) : null,
           touristPrice: touristPrice ? Number(touristPrice) : null,
           localTip: localTip.trim() || null,
+          contactPhone: contactPhone.trim() || null,
+          contactEmail: contactEmail.trim() || null,
+          contactWhatsApp: contactWhatsApp.trim() || null,
           category: category,
         }),
       })
@@ -164,6 +173,16 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5 text-amber-500" />Local tip</label>
             <Textarea placeholder="Tell travelers anything they should know..." value={localTip} onChange={(e) => setLocalTip(e.target.value)} className="min-h-[60px] resize-y" />
+          </div>
+
+          {/* Contact info */}
+          <div className="space-y-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+            <p className="text-xs font-semibold text-foreground">Contact info (optional)</p>
+            <div className="space-y-2">
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Phone number</label><Input placeholder="+251 911 234 567" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} /></div>
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Email</label><Input type="email" placeholder="you@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} /></div>
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">WhatsApp number or link</label><Input placeholder="+251 911 234 567 or wa.me/..." value={contactWhatsApp} onChange={(e) => setContactWhatsApp(e.target.value)} /></div>
+            </div>
           </div>
         </div>
 

@@ -58,6 +58,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
   const [touristPrice, setTouristPrice] = useState('')
   const [personalPrice, setPersonalPrice] = useState('')
   const [localTip, setLocalTip] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactWhatsApp, setContactWhatsApp] = useState('')
   const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -148,6 +151,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
           touristPrice: touristPrice ? Number(touristPrice) : undefined,
           personalPrice: personalPrice ? Number(personalPrice) : undefined,
           localTip,
+          contactPhone,
+          contactEmail,
+          contactWhatsApp,
           category,
           imageUrl,
         }),
@@ -396,6 +402,26 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
               onChange={(e) => setLocalTip(e.target.value)}
               className="min-h-[80px] resize-y"
             />
+          </div>
+
+          {/* Contact info */}
+          <div className="space-y-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+            <p className="text-xs font-semibold text-foreground">Contact info (optional)</p>
+            <p className="text-[11px] text-muted-foreground">Travelers can reach you directly from this post.</p>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Phone number</label>
+                <Input placeholder="+251 911 234 567" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Email</label>
+                <Input type="email" placeholder="you@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">WhatsApp number or link</label>
+                <Input placeholder="+251 911 234 567 or wa.me/..." value={contactWhatsApp} onChange={(e) => setContactWhatsApp(e.target.value)} />
+              </div>
+            </div>
           </div>
 
           {/* Image upload */}

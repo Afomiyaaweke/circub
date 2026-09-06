@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { getCurrentUser, sanitizeInput } from '@/lib/session'
 
 export async function GET(req: NextRequest) {
   try {
@@ -38,7 +38,28 @@ export async function POST(req: NextRequest) {
     const updates: any = { localPostCount: { increment: 1 } }
     if (!me.isLocal) updates.isLocal = true
     const post = await db.localPricePost.create({
-      data: { postType: body.postType || 'PRODUCT', productName: body.productName.trim(), description: body.description?.trim() || null, country: body.country.trim(), city: body.city?.trim() || null, neighborhood: body.neighborhood?.trim() || null, market: body.market?.trim() || null, currency: body.currency.trim(), priceMin: Number(body.priceMin), priceMax: Number(body.priceMax), recommendedPrice: body.recommendedPrice ? Number(body.recommendedPrice) : null, touristPrice: body.touristPrice ? Number(body.touristPrice) : null, personalPrice: body.personalPrice ? Number(body.personalPrice) : null, localTip: body.localTip?.trim() || null, category: body.category || 'Other', imageUrl: body.imageUrl || null, authorId: me.id },
+      data: {
+        postType: body.postType || 'PRODUCT',
+        productName: sanitizeInput(body.productName, 200),
+        description: sanitizeInput(body.description || '', 2000) || null,
+        country: sanitizeInput(body.country, 100),
+        city: sanitizeInput(body.city || '', 100) || null,
+        neighborhood: sanitizeInput(body.neighborhood || '', 100) || null,
+        market: sanitizeInput(body.market || '', 100) || null,
+        currency: sanitizeInput(body.currency, 10),
+        priceMin: Number(body.priceMin),
+        priceMax: Number(body.priceMax),
+        recommendedPrice: body.recommendedPrice ? Number(body.recommendedPrice) : null,
+        touristPrice: body.touristPrice ? Number(body.touristPrice) : null,
+        personalPrice: body.personalPrice ? Number(body.personalPrice) : null,
+        localTip: sanitizeInput(body.localTip || '', 2000) || null,
+        contactPhone: sanitizeInput(body.contactPhone || '', 50) || null,
+        contactEmail: sanitizeInput(body.contactEmail || '', 200) || null,
+        contactWhatsApp: sanitizeInput(body.contactWhatsApp || '', 200) || null,
+        category: body.category || 'Other',
+        imageUrl: body.imageUrl || null,
+        authorId: me.id,
+      },
       include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } } },
     })
     await db.user.update({ where: { id: me.id }, data: updates })

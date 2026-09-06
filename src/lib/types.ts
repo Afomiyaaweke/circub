@@ -135,6 +135,9 @@ export interface LocalPricePost {
   touristPrice?: number | null
   personalPrice?: number | null
   localTip?: string | null
+  contactPhone?: string | null
+  contactEmail?: string | null
+  contactWhatsApp?: string | null
   category: string
   imageUrl?: string | null
   authorId: string
