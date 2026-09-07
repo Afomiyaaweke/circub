@@ -60,6 +60,25 @@ export default function Home() {
     fetchMe()
   }, [fetchMe])
 
+  // Show a clear toast when NextAuth redirects back with ?error=google
+  // (Google OAuth couldn't start because the client secret is missing on the server).
+  // Without this, the user just sees the landing page with no feedback.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err === 'google' || err === 'OAuthCallback' || err === 'Configuration') {
+      toast({
+        title: 'Google sign-in failed',
+        description: 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.',
+        variant: 'destructive',
+      })
+      // Clean the URL so the toast doesn't re-fire on refresh.
+      const url = window.location.origin + window.location.pathname
+      window.history.replaceState({}, '', url)
+    }
+  }, [toast])
+
   // Listen for auth-expired events from authFetch (401 on publish/edit/etc.)
   // Bounce user back to landing + open login modal with a clear toast.
   useEffect(() => {
