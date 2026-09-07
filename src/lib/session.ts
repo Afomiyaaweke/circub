@@ -1,14 +1,13 @@
 // Session helper with secure cookie settings
+// Supports both our custom cookie auth AND NextAuth (Google) sessions
 import { cookies } from 'next/headers'
+import { getServerSession } from 'next-auth'
 import { db } from '@/lib/db'
 
 const SESSION_COOKIE = 'sc_session'
 const SESSION_SECRET = process.env.SESSION_SECRET || 'circub-fallback-change-me-in-production'
 
-// HMAC-style signing: combine secret + payload, hash with a simple XOR scheme
-// This is not as strong as JWT but prevents tampering without external libs
 function encodeSession(payload: string) {
-  // Combine secret and payload, then base64 encode
   const combined = `${SESSION_SECRET}:${payload}`
   return Buffer.from(combined).toString('base64')
 }
@@ -18,7 +17,6 @@ function decodeSession(token: string): string | null {
     const decoded = Buffer.from(token, 'base64').toString()
     const [secret, email] = decoded.split(':')
     if (secret !== SESSION_SECRET) return null
-    // Validate email format to prevent injection
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
     return email || null
   } catch {
@@ -31,11 +29,11 @@ export async function setSessionCookie(email: string) {
   const cookieStore = await cookies()
   const isProduction = process.env.NODE_ENV === 'production'
   cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,        // Prevent XSS access to cookie
-    secure: isProduction,   // HTTPS-only in production
-    sameSite: 'strict',     // Prevent CSRF
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days (shorter for security)
+    maxAge: 60 * 60 * 24 * 7,
   })
 }
 
@@ -44,11 +42,25 @@ export async function clearSessionCookie() {
   cookieStore.delete(SESSION_COOKIE)
 }
 
-export async function getSessionEmail(): Promise<string | null> {
+async function getCustomSessionEmail(): Promise<string | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   if (!token) return null
   return decodeSession(token)
+}
+
+async function getNextAuthEmail(): Promise<string | null> {
+  try {
+    const session = await getServerSession()
+    return session?.user?.email || null
+  } catch {
+    return null
+  }
+}
+
+export async function getSessionEmail(): Promise<string | null> {
+  // Try custom session first, then NextAuth (Google)
+  return (await getCustomSessionEmail()) || (await getNextAuthEmail())
 }
 
 export async function getCurrentUser() {
@@ -56,13 +68,29 @@ export async function getCurrentUser() {
   if (!email) return null
   try {
     const user = await db.user.findUnique({ where: { email } })
-    return user
+    if (user) return user
+
+    // If no user exists but we have a valid Google session, auto-create one
+    const nextAuthSession = await getServerSession()
+    if (nextAuthSession?.user?.email === email) {
+      const newUser = await db.user.create({
+        data: {
+          name: nextAuthSession.user.name || 'Google User',
+          email: email.toLowerCase(),
+          accountType: 'PERSONAL',
+          isLocal: true,
+          profilePicture: nextAuthSession.user.image || null,
+        },
+      })
+      return newUser
+    }
+    return null
   } catch {
     return null
   }
 }
 
-// Rate limiting: simple in-memory store (per server instance)
+// Rate limiting
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 export function checkRateLimit(
@@ -72,25 +100,17 @@ export function checkRateLimit(
 ): { allowed: boolean; remaining: number } {
   const now = Date.now()
   const entry = rateLimitMap.get(identifier)
-
   if (!entry || now > entry.resetTime) {
     rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs })
     return { allowed: true, remaining: maxRequests - 1 }
   }
-
-  if (entry.count >= maxRequests) {
-    return { allowed: false, remaining: 0 }
-  }
-
+  if (entry.count >= maxRequests) return { allowed: false, remaining: 0 }
   entry.count++
   return { allowed: true, remaining: maxRequests - entry.count }
 }
 
-// Input sanitization: strip HTML tags and limit length
 export function sanitizeInput(input: string, maxLength: number = 5000): string {
   if (!input) return ''
-  // Remove HTML tags to prevent XSS
   const stripped = input.replace(/<[^>]*>/g, '')
-  // Limit length
   return stripped.slice(0, maxLength).trim()
 }
