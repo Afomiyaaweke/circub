@@ -1,17 +1,23 @@
-// Posts: list (with author, likes, comments) and create
+// Posts: list (with author, likes, comments) + create
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { getCurrentUser, sanitizeInput } from '@/lib/session'
 
-// GET /api/posts?authorId=...&limit=20
+// GET /api/posts?authorId=...&search=...&limit=20
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const authorId = searchParams.get('authorId')
+    const search = searchParams.get('search')?.trim() || ''
     const limit = parseInt(searchParams.get('limit') || '50', 10)
 
     const where: any = {}
     if (authorId) where.authorId = authorId
+    if (search) {
+      where.OR = [
+        { content: { contains: search } },
+      ]
+    }
 
     const posts = await db.post.findMany({
       where,
@@ -20,11 +26,8 @@ export async function GET(req: NextRequest) {
       include: {
         author: {
           select: {
-            id: true,
-            name: true,
-            avatarColor: true,
-            headline: true,
-            location: true,
+            id: true, name: true, avatarColor: true, profilePicture: true,
+            headline: true, location: true,
           },
         },
         likes: true,
@@ -32,9 +35,7 @@ export async function GET(req: NextRequest) {
           include: {
             author: {
               select: {
-                id: true,
-                name: true,
-                avatarColor: true,
+                id: true, name: true, avatarColor: true, profilePicture: true,
                 headline: true,
               },
             },
@@ -64,25 +65,22 @@ export async function POST(req: NextRequest) {
 
     const post = await db.post.create({
       data: {
-        content: body.content.trim(),
+        content: sanitizeInput(body.content, 10000),
         imageUrl: body.imageUrl || null,
         authorId: me.id,
       },
       include: {
         author: {
           select: {
-            id: true,
-            name: true,
-            avatarColor: true,
-            headline: true,
-            location: true,
+            id: true, name: true, avatarColor: true, profilePicture: true,
+            headline: true, location: true,
           },
         },
         likes: true,
         comments: {
           include: {
             author: {
-              select: { id: true, name: true, avatarColor: true, headline: true },
+              select: { id: true, name: true, avatarColor: true, profilePicture: true, headline: true },
             },
           },
         },
