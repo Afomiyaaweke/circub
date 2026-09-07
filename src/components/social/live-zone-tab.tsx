@@ -391,12 +391,26 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
+                        onClick={async () => {
                           const url = `${window.location.origin}/?guide=${g.id}`
-                          if (navigator.share) {
-                            navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
-                          } else {
-                            navigator.clipboard.writeText(url)
+                          try {
+                            if (navigator.share) {
+                              await navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
+                            } else if (navigator.clipboard) {
+                              await navigator.clipboard.writeText(url)
+                              toast({ title: 'Link copied!', description: 'Share it anywhere.' })
+                            } else {
+                              window.prompt('Copy this link:', url)
+                            }
+                          } catch (e) {
+                            if (e instanceof Error && e.name !== 'AbortError') {
+                              try {
+                                await navigator.clipboard.writeText(url)
+                                toast({ title: 'Link copied!' })
+                              } catch {
+                                window.prompt('Copy this link:', url)
+                              }
+                            }
                           }
                         }}
                         className="border-muted text-muted-foreground hover:bg-accent text-xs gap-1.5"

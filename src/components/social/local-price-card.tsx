@@ -29,6 +29,7 @@ function formatPrice(value: number, currency: string) {
 
 export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
+  const { toast } = useToast()
   const detailedLocation = [post.market, post.neighborhood, post.city, post.country].filter(Boolean).join(' · ')
 
   return (
@@ -140,13 +141,33 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
       {!compact && (
         <div className="mt-2 flex justify-end">
           <button
-            onClick={() => {
-              const url = typeof window !== 'undefined' ? `${window.location.origin}/?post=${post.id}` : ''
-              if (navigator.share) {
-                navigator.share({ title: post.productName, text: `Check this price on circub: ${post.productName} in ${post.country}`, url })
-              } else {
-                navigator.clipboard.writeText(url)
-                // toast would be nice but we don't have access here without prop drilling
+            onClick={async () => {
+              const url = `${window.location.origin}/?post=${post.id}`
+              const shareData = {
+                title: `${post.productName} — circub`,
+                text: `Check this price on circub: ${post.productName} in ${post.country} — ${post.currency} ${post.priceMin}-${post.priceMax}`,
+                url,
+              }
+              try {
+                if (navigator.share) {
+                  await navigator.share(shareData)
+                } else if (navigator.clipboard) {
+                  await navigator.clipboard.writeText(url)
+                  toast({ title: 'Link copied!', description: 'Share it anywhere.' })
+                } else {
+                  // Fallback: open in a text prompt
+                  window.prompt('Copy this link:', url)
+                }
+              } catch (e) {
+                // User cancelled share or clipboard failed — try fallback
+                if (e instanceof Error && e.name !== 'AbortError') {
+                  try {
+                    await navigator.clipboard.writeText(url)
+                    toast({ title: 'Link copied!', description: 'Share it anywhere.' })
+                  } catch {
+                    window.prompt('Copy this link:', url)
+                  }
+                }
               }
             }}
             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
