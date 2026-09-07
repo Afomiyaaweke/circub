@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
+import { authFetch } from '@/lib/auth-fetch'
 import type { User, Post } from '@/lib/types'
 
 interface PostComposerProps {
@@ -59,7 +60,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
     }
     setPosting(true)
     try {
-      const res = await fetch('/api/posts', {
+      const res = await authFetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, imageUrl }),

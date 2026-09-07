@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { authFetch } from '@/lib/auth-fetch'
 import type { LocalPricePost } from '@/lib/types'
 
 interface EditPricePostModalProps {
@@ -95,7 +96,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
     }
     setSaving(true)
     try {
-      const res = await fetch(`/api/local-prices/${post.id}`, {
+      const res = await authFetch(`/api/local-prices/${post.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

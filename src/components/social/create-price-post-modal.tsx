@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface CreatePricePostModalProps {
   open: boolean
@@ -133,7 +134,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
 
     setSaving(true)
     try {
-      const res = await fetch('/api/local-prices', {
+      const res = await authFetch('/api/local-prices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

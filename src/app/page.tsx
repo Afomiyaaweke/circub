@@ -8,6 +8,7 @@ import { LandingPage } from '@/components/social/landing-page'
 import { RegisterModal } from '@/components/social/register-modal'
 import { LoginModal } from '@/components/social/login-modal'
 import { useToast } from '@/hooks/use-toast'
+import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
 const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
@@ -58,6 +59,24 @@ export default function Home() {
   useEffect(() => {
     fetchMe()
   }, [fetchMe])
+
+  // Listen for auth-expired events from authFetch (401 on publish/edit/etc.)
+  // Bounce user back to landing + open login modal with a clear toast.
+  useEffect(() => {
+    const handler = () => {
+      setMe(null)
+      setMessagesOpen(false)
+      setRegisterOpen(false)
+      setLoginOpen(true)
+      toast({
+        title: 'Session expired',
+        description: 'Your login has expired. Please sign in again to continue.',
+        variant: 'destructive',
+      })
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, handler)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
+  }, [toast])
 
   const handleRefreshAll = useCallback(() => {
     setRefreshSignal((s) => s + 1)
