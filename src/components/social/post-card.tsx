@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,7 +45,11 @@ export function PostCard({
   const [showMenu, setShowMenu] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(post.content)
+  const [editImageUrl, setEditImageUrl] = useState(post.imageUrl || '')
+  const [imageRemoved, setImageRemoved] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
+  const editFileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const isLiked = post.likes.some((l) => l.userId === currentUserId)
@@ -55,15 +59,36 @@ export function PostCard({
     if (!editContent.trim()) { toast({ title: 'Post cannot be empty', variant: 'destructive' }); return }
     setSavingEdit(true)
     try {
-      const res = await fetch(`/api/posts/${post.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: editContent }) })
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editContent, imageUrl: imageRemoved ? null : (editImageUrl || post.imageUrl) }),
+      })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
       const data = await res.json()
       toast({ title: 'Post updated' })
       setIsEditing(false)
+      setEditImageUrl('')
+      setImageRemoved(false)
       onEdit?.(post.id, data.post)
     } catch (e) {
       toast({ title: 'Edit failed', description: (e as Error).message, variant: 'destructive' })
     } finally { setSavingEdit(false) }
+  }
+
+  const handleEditImageUpload = async (file: File) => {
+    if (!file) return
+    setUploadingImage(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Upload failed') }
+      const data = await res.json()
+      setEditImageUrl(data.url)
+      setImageRemoved(false)
+    } catch (e) {
+      toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' })
+    } finally { setUploadingImage(false) }
   }
 
   const handleSubmitComment = async () => {
@@ -210,17 +235,36 @@ export function PostCard({
             className="min-h-[80px] resize-y bg-card border-border"
             placeholder="Edit your post..."
           />
-          {post.imageUrl && (
+          {/* Image editing */}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" ref={editFileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditImageUpload(f); if (editFileRef.current) editFileRef.current.value = '' }} className="hidden" />
+          {(editImageUrl || (!imageRemoved && post.imageUrl)) ? (
             <div className="mt-2 relative rounded-lg overflow-hidden border border-border">
-              {post.imageUrl.startsWith('data:video') ? (
+              {editImageUrl && editImageUrl.startsWith('data:video') ? (
+                <video src={editImageUrl} controls className="w-full max-h-64 object-contain bg-black" />
+              ) : editImageUrl ? (
+                <img src={editImageUrl} alt="New image" className="w-full max-h-64 object-cover" />
+              ) : post.imageUrl && post.imageUrl.startsWith('data:video') ? (
                 <video src={post.imageUrl} controls className="w-full max-h-64 object-contain bg-black" />
               ) : (
-                <img src={post.imageUrl} alt="Post image" className="w-full max-h-64 object-cover" />
+                <img src={post.imageUrl || ''} alt="Post image" className="w-full max-h-64 object-cover" />
               )}
+              <div className="absolute top-2 right-2 flex gap-1.5">
+                <button onClick={() => editFileRef.current?.click()} disabled={uploadingImage} className="p-1.5 rounded-md bg-white/90 hover:bg-white text-muted-foreground" title="Replace image">
+                  {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                </button>
+                <button onClick={() => { setEditImageUrl(''); setImageRemoved(true) }} className="p-1.5 rounded-md bg-white/90 hover:bg-white text-destructive" title="Remove image">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
+          ) : (
+            <button type="button" onClick={() => editFileRef.current?.click()} disabled={uploadingImage} className="mt-2 w-full rounded-lg border-2 border-dashed border-border bg-accent/20 px-4 py-4 flex flex-col items-center hover:border-primary hover:bg-accent/40 transition-colors">
+              {uploadingImage ? <Loader2 className="w-5 h-5 text-primary mb-1 animate-spin" /> : <Camera className="w-5 h-5 text-primary mb-1" />}
+              <span className="text-sm text-foreground">{uploadingImage ? 'Uploading...' : 'Add photo'}</span>
+            </button>
           )}
           <div className="mt-3 flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setEditContent(post.content) }} disabled={savingEdit}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setEditContent(post.content); setEditImageUrl(''); setImageRemoved(false) }} disabled={savingEdit}>
               <X className="w-4 h-4 mr-1" />Cancel
             </Button>
             <Button size="sm" onClick={handleEditSave} disabled={savingEdit || !editContent.trim()} className="bg-primary hover:bg-primary/90 gap-1.5">

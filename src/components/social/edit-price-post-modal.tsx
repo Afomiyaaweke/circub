@@ -41,7 +41,11 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [contactEmail, setContactEmail] = useState('')
   const [contactWhatsApp, setContactWhatsApp] = useState('')
   const [category, setCategory] = useState('Other')
+  const [imageUrl, setImageUrl] = useState('')
+  const [imageRemoved, setImageRemoved] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -62,8 +66,26 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setContactEmail(post.contactEmail || '')
       setContactWhatsApp(post.contactWhatsApp || '')
       setCategory(post.category || 'Other')
+      setImageUrl(post.imageUrl || '')
+      setImageRemoved(false)
     }
   }, [open, post])
+
+  const handleImageUpload = async (file: File) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Upload failed') }
+      const data = await res.json()
+      setImageUrl(data.url)
+      setImageRemoved(false)
+      toast({ title: 'Image updated' })
+    } catch (e) {
+      toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' })
+    } finally { setUploading(false) }
+  }
 
   const handleSave = async () => {
     if (!post) return
@@ -93,6 +115,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           contactEmail: contactEmail.trim() || null,
           contactWhatsApp: contactWhatsApp.trim() || null,
           category: category,
+          imageUrl: imageRemoved ? null : (imageUrl || null),
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed to save') }
@@ -183,6 +206,31 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Email</label><Input type="email" placeholder="you@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">WhatsApp number or link</label><Input placeholder="+251 911 234 567 or wa.me/..." value={contactWhatsApp} onChange={(e) => setContactWhatsApp(e.target.value)} /></div>
             </div>
+          </div>
+
+          {/* Image management */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Camera className="w-3.5 h-3.5" />Product photo</label>
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" ref={fileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); if (fileRef.current) fileRef.current.value = '' }} className="hidden" />
+            {(imageUrl || (!imageRemoved && post?.imageUrl)) ? (
+              <div className="relative rounded-lg overflow-hidden border border-border">
+                <img src={imageUrl || post?.imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
+                <div className="absolute top-2 right-2 flex gap-1.5">
+                  <Button size="sm" variant="ghost" className="h-7 px-2 bg-white/90 hover:bg-white" onClick={() => fileRef.current?.click()} disabled={uploading} title="Replace image">
+                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 bg-white/90 hover:bg-white" onClick={() => { setImageUrl(''); setImageRemoved(true) }} title="Remove image">
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full rounded-lg border-2 border-dashed border-border bg-accent/20 px-4 py-5 flex flex-col items-center hover:border-primary hover:bg-accent/40 transition-colors">
+                {uploading ? <Loader2 className="w-5 h-5 text-primary mb-1 animate-spin" /> : <Upload className="w-5 h-5 text-primary mb-1" />}
+                <span className="text-sm font-medium text-foreground">{uploading ? 'Uploading...' : 'Add photo'}</span>
+                <span className="text-xs text-muted-foreground">or drag and drop</span>
+              </button>
+            )}
           </div>
         </div>
 
