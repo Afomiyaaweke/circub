@@ -85,9 +85,11 @@ export async function getCurrentUser() {
     const user = await db.user.findUnique({ where: { email } })
     if (user) return user
 
-    // If no user exists but we have a valid Google session, auto-create one
+    // If no user exists but we have a valid Google session, auto-create one.
+    // This is the first-sign-in path for Google OAuth users.
     const nextAuthSession = await getServerSession()
     if (nextAuthSession?.user?.email === email) {
+      console.log('[session] Auto-creating user for Google OAuth:', email)
       const newUser = await db.user.create({
         data: {
           name: nextAuthSession.user.name || 'Google User',
@@ -97,10 +99,13 @@ export async function getCurrentUser() {
           profilePicture: nextAuthSession.user.image || null,
         },
       })
+      console.log('[session] Created user:', newUser.id)
       return newUser
     }
     return null
-  } catch {
+  } catch (e) {
+    // Log the error so Google sign-in failures are diagnosable in Vercel logs
+    console.error('[session] getCurrentUser failed:', e)
     return null
   }
 }
