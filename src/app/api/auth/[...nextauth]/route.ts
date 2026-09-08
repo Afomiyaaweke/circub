@@ -1,22 +1,28 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 
-// Dynamic NextAuth URL — works on Vercel preview/prod URLs + localhost + network IPs.
+// Dynamic NextAuth URL — works on Vercel production + preview + localhost.
 //
-// Resolution order (with safety checks at each step):
+// CRITICAL for Google OAuth: the redirect_uri we send to Google MUST match
+// what's in Google Cloud Console → Authorized redirect URIs.
+//
+// Resolution order:
 //   1. NEXTAUTH_URL env var IF it's not a localhost URL on Vercel production
-//      (catches the common mistake of accidentally setting NEXTAUTH_URL=http://localhost:3000
-//       in Vercel env vars, which breaks Google OAuth because NextAuth sends redirect_uri
-//       = http://localhost:3000/api/auth/callback/google to Google, who rejects it)
-//   2. VERCEL_URL env var (auto-set by Vercel for every deployment — works for previews)
+//      (catches the common mistake of accidentally setting
+//       NEXTAUTH_URL=http://localhost:3000 in Vercel env vars)
+//   2. VERCEL_URL env var (auto-set by Vercel for every deployment)
 //   3. NODE_ENV=development → http://localhost:3000 (local dev fallback)
 //   4. undefined (let NextAuth infer from the request host)
 //
-// On Vercel production (NODE_ENV=production, VERCEL_ENV=production):
-//   - If NEXTAUTH_URL starts with localhost → ignore it, use VERCEL_URL instead
-//   - Otherwise use NEXTAUTH_URL (custom domain)
+// IMPORTANT — the user MUST add the matching redirect URI to Google Console:
+//   - For production: https://circub.vercel.app/api/auth/callback/google
+//   - For each preview URL you want to test: https://<preview>.vercel.app/api/auth/callback/google
+//   - For local dev: http://localhost:3000/api/auth/callback/google
 //
-// This defensive check prevents the most common Vercel OAuth failure mode.
+// To get a STABLE redirect_uri that doesn't change per deploy, set
+// NEXTAUTH_URL=https://circub.vercel.app in Vercel env vars (Production only).
+// Then add that single URL to Google Console and Google OAuth works for
+// every production deploy.
 function getAuthUrl(): string | undefined {
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
 
@@ -40,8 +46,6 @@ function getAuthUrl(): string | undefined {
 const handler = NextAuth({
   providers: [
     GoogleProvider({
-      // Hardcoded client ID is fine (public, like an API key for read-only OAuth).
-      // The client secret MUST come from env (GOOGLE_CLIENT_SECRET) — never commit it.
       clientId:
         process.env.GOOGLE_CLIENT_ID ||
         '349861539680-usdnfntjka3jkm5n2violbmqdq986jik.apps.googleusercontent.com',
@@ -50,7 +54,6 @@ const handler = NextAuth({
   ],
   callbacks: {
     async signIn() {
-      // Allow sign in — user is auto-created in getCurrentUser() on first /api/auth/me call.
       return true
     },
     async jwt({ token, user, account }) {
@@ -78,8 +81,6 @@ const handler = NextAuth({
   secret: process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET || 'circub-fallback-secret',
   url: getAuthUrl(),
   cookies: {
-    // Use lax sameSite so the OAuth callback redirect works on Vercel HTTPS
-    // (cross-site redirect from accounts.google.com back to your app).
     sessionToken: {
       name: 'next-auth.session-token',
       options: {

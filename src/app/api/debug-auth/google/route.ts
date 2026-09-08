@@ -4,10 +4,10 @@
 //
 // Usage: visit https://your-app.vercel.app/api/debug-auth/google
 // (or http://localhost:3000/api/debug-auth/google)
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   let session: any = null
   try {
     session = await getServerSession()
@@ -22,16 +22,23 @@ export async function GET() {
 
   if (process.env.NEXTAUTH_URL) {
     if (isProd && process.env.NEXTAUTH_URL.startsWith('http://localhost')) {
-      // Will be ignored by NextAuth in production
-      urlSource = 'NEXTAUTH_URL (ignored in production — falls through to VERCEL_URL)'
+      urlSource = 'NEXTAUTH_URL (ignored in production — falls through to request host / VERCEL_URL)'
     } else {
       runtimeUrl = process.env.NEXTAUTH_URL
       urlSource = 'NEXTAUTH_URL'
     }
   }
+  if (!runtimeUrl) {
+    const requestHost = req.headers.get('host')
+    const requestProto = req.headers.get('x-forwarded-proto') || (isProd ? 'https' : 'http')
+    if (requestHost) {
+      runtimeUrl = `${requestProto}://${requestHost}`
+      urlSource = 'request host header'
+    }
+  }
   if (!runtimeUrl && process.env.VERCEL_URL) {
     runtimeUrl = `https://${process.env.VERCEL_URL}`
-    urlSource = urlSource || 'VERCEL_URL'
+    urlSource = 'VERCEL_URL'
   }
   if (!runtimeUrl && process.env.NODE_ENV !== 'production') {
     runtimeUrl = 'http://localhost:3000'
@@ -50,6 +57,8 @@ export async function GET() {
       vercelEnv: process.env.VERCEL_ENV || null,
       vercelUrl: process.env.VERCEL_URL || null,
       nextauthUrl: process.env.NEXTAUTH_URL || null,
+      requestHost: req.headers.get('host'),
+      requestProto: req.headers.get('x-forwarded-proto'),
       detectedRuntimeUrl: runtimeUrl,
       urlSource,
     },
