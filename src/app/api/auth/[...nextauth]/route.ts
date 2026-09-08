@@ -3,25 +3,35 @@ import GoogleProvider from 'next-auth/providers/google'
 
 // Dynamic NextAuth URL — works on Vercel preview/prod URLs + localhost + network IPs.
 //
-// Resolution order:
-//   1. NEXTAUTH_URL env var (explicit, always wins — use for custom domains on Vercel)
+// Resolution order (with safety checks at each step):
+//   1. NEXTAUTH_URL env var IF it's not a localhost URL on Vercel production
+//      (catches the common mistake of accidentally setting NEXTAUTH_URL=http://localhost:3000
+//       in Vercel env vars, which breaks Google OAuth because NextAuth sends redirect_uri
+//       = http://localhost:3000/api/auth/callback/google to Google, who rejects it)
 //   2. VERCEL_URL env var (auto-set by Vercel for every deployment — works for previews)
 //   3. NODE_ENV=development → http://localhost:3000 (local dev fallback)
 //   4. undefined (let NextAuth infer from the request host)
 //
-// On Vercel:
-//   - For production deployments at circub.vercel.app: VERCEL_URL is set to that host
-//   - For preview deployments at circub-xyz.vercel.app: VERCEL_URL is the preview host
-//   - If you want a custom domain, set NEXTAUTH_URL=https://yourdomain.com in Vercel env vars
+// On Vercel production (NODE_ENV=production, VERCEL_ENV=production):
+//   - If NEXTAUTH_URL starts with localhost → ignore it, use VERCEL_URL instead
+//   - Otherwise use NEXTAUTH_URL (custom domain)
 //
-// IMPORTANT: Google OAuth only allows redirect URIs that are registered in the
-// Google Cloud Console. For each environment (production URL, preview URL, localhost)
-// you must add the corresponding /api/auth/callback/google URI. Google does not
-// support wildcards, so preview URLs each need to be added individually OR you
-// set NEXTAUTH_URL=https://circub.vercel.app in Vercel so previews also use the
-// production URL (recommended for OAuth).
+// This defensive check prevents the most common Vercel OAuth failure mode.
 function getAuthUrl(): string | undefined {
-  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+
+  if (process.env.NEXTAUTH_URL) {
+    // On Vercel production, ignore NEXTAUTH_URL=http://localhost:* — it's almost
+    // always a leaked local-dev value that breaks OAuth.
+    if (isProd && process.env.NEXTAUTH_URL.startsWith('http://localhost')) {
+      console.warn(
+        `[nextauth] NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL} on production — ignoring and falling back to VERCEL_URL. To use a custom domain, set NEXTAUTH_URL=https://yourdomain.com (NOT localhost).`
+      )
+    } else {
+      return process.env.NEXTAUTH_URL
+    }
+  }
+
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   if (process.env.NODE_ENV !== 'production') return 'http://localhost:3000'
   return undefined

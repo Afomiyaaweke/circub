@@ -15,11 +15,28 @@ export async function GET() {
     session = { error: e.message }
   }
 
-  // Detect the runtime URL (works on Vercel + local dev)
+  // Detect the runtime URL — same logic as NextAuth getAuthUrl()
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
   let runtimeUrl: string | null = null
-  if (process.env.VERCEL_URL) runtimeUrl = `https://${process.env.VERCEL_URL}`
-  else if (process.env.NEXTAUTH_URL) runtimeUrl = process.env.NEXTAUTH_URL
-  else if (process.env.NODE_ENV !== 'production') runtimeUrl = 'http://localhost:3000'
+  let urlSource: string | null = null
+
+  if (process.env.NEXTAUTH_URL) {
+    if (isProd && process.env.NEXTAUTH_URL.startsWith('http://localhost')) {
+      // Will be ignored by NextAuth in production
+      urlSource = 'NEXTAUTH_URL (ignored in production — falls through to VERCEL_URL)'
+    } else {
+      runtimeUrl = process.env.NEXTAUTH_URL
+      urlSource = 'NEXTAUTH_URL'
+    }
+  }
+  if (!runtimeUrl && process.env.VERCEL_URL) {
+    runtimeUrl = `https://${process.env.VERCEL_URL}`
+    urlSource = urlSource || 'VERCEL_URL'
+  }
+  if (!runtimeUrl && process.env.NODE_ENV !== 'production') {
+    runtimeUrl = 'http://localhost:3000'
+    urlSource = 'NODE_ENV=development fallback'
+  }
 
   // Compute what redirect_uri NextAuth will send to Google
   const redirectUri = runtimeUrl
@@ -34,6 +51,7 @@ export async function GET() {
       vercelUrl: process.env.VERCEL_URL || null,
       nextauthUrl: process.env.NEXTAUTH_URL || null,
       detectedRuntimeUrl: runtimeUrl,
+      urlSource,
     },
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID || '(using hardcoded fallback)',
