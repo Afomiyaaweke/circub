@@ -76,9 +76,24 @@ git push origin main
 ```
 
 Vercel will:
-1. Run `prisma generate && next build` (from `package.json`)
-2. Deploy to a production URL like `https://circub.vercel.app`
-3. Subsequent pushes auto-deploy
+1. Run `node scripts/prisma-build.mjs && next build` (from `package.json`)
+2. The prisma-build script auto-detects whether `DATABASE_URL` is SQLite or Postgres
+   and picks the right schema (`schema.prisma` for SQLite, `schema.postgres.prisma`
+   for Postgres). On Vercel with a Postgres `DATABASE_URL`, it uses the Postgres schema.
+3. If `VERCEL=1` and DATABASE_URL is Postgres, prisma-build also runs `prisma db push`
+   to make sure all tables exist (idempotent — does nothing if they already exist).
+4. Deploy to a production URL like `https://circub.vercel.app`
+5. Subsequent pushes auto-deploy
+
+### If you see "the URL must start with the protocol file:" errors on Vercel
+
+This means the Prisma client was built with the SQLite schema but the runtime
+DATABASE_URL is Postgres (or vice versa). To fix:
+
+1. Verify `DATABASE_URL` is set in Vercel env vars (Settings → Environment Variables)
+2. Verify the value starts with `postgres://` or `postgresql://`
+3. Trigger a redeploy (Deployments → click ⋯ → Redeploy)
+4. Check the build logs — you should see `[prisma-build] Using schema: schema.postgres.prisma`
 
 ## Step 6 — Verify
 
