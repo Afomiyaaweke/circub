@@ -60,14 +60,41 @@ In your Vercel project → Settings → Environment Variables, add these for **P
 
 If you want "Continue with Google" to work:
 
+### 4a. Add redirect URIs in Google Cloud Console
+
 1. Go to https://console.cloud.google.com → APIs & Services → Credentials
-2. Create or open the OAuth 2.0 Client ID
-3. Add these **Authorized redirect URIs**:
-   - `https://your-app.vercel.app/api/auth/callback/google`
-   - `https://your-preview-url.vercel.app/api/auth/callback/google`
-   - `http://localhost:3000/api/auth/callback/google`
-4. Copy the client secret (starts with `GOCSPX-`)
-5. Set `GOOGLE_CLIENT_SECRET` env var in Vercel
+2. Click the OAuth 2.0 Client ID (the one ending in `.apps.googleusercontent.com`)
+3. Under **Authorized redirect URIs**, add these one per line:
+   - `https://circub.vercel.app/api/auth/callback/google` ← your production URL
+   - `https://circub-b7jdcufxc-tenet1.vercel.app/api/auth/callback/google` ← your preview URL (from Vercel logs)
+   - `http://localhost:3000/api/auth/callback/google` ← for local dev
+4. Click **Save** at the bottom (this is easy to miss — the URIs don't save until you click)
+
+Google does NOT support wildcards, so each unique preview URL must be added manually. For most projects, you only need the production URL + localhost.
+
+### 4b. Set GOOGLE_CLIENT_SECRET on Vercel
+
+1. In Google Cloud Console → same OAuth 2.0 Client ID → **Client secret** section → copy the value starting with `GOCSPX-`
+2. Vercel dashboard → your project → Settings → Environment Variables
+3. Add `GOOGLE_CLIENT_SECRET` = `GOCSPX-...` for Production AND Preview environments
+
+### 4c. Do NOT set NEXTAUTH_URL on Vercel
+
+The code auto-detects the deployment URL via `VERCEL_URL`. Setting `NEXTAUTH_URL` to anything (especially `http://localhost:3000`) on Vercel will break Google sign-in because NextAuth will use that URL instead of the real one.
+
+If you have a custom domain (e.g. `circub.com`), then set:
+- `NEXTAUTH_URL=https://circub.com` (Production env only)
+- Also add `https://circub.com/api/auth/callback/google` to Google OAuth redirect URIs
+
+### 4d. Test
+
+After deploying, visit your Vercel URL → click "Continue with Google" → should redirect to accounts.google.com → after picking an account, redirect back to your app → land on the dashboard.
+
+If Google sign-in fails:
+- **`?error=google` in URL**: NextAuth couldn't start the OAuth flow → `GOOGLE_CLIENT_SECRET` not set on Vercel
+- **Google error page "redirect_uri_mismatch"**: the Vercel URL is not in Google's authorized redirect URIs
+- **`?error=OAuthCallback`**: Google returned an error during the callback → check Vercel function logs for the specific message
+- **`?error=Configuration`**: NextAuth config error → check `SESSION_SECRET` / `NEXTAUTH_SECRET` is set on Vercel
 
 ## Step 5 — Deploy
 
