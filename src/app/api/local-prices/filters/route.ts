@@ -7,6 +7,9 @@ export async function GET() {
     const countries = new Set<string>(), cities = new Set<string>(), categories = new Set<string>()
     for (const p of posts) { if (p.country) countries.add(p.country); if (p.city) cities.add(p.city || ''); if (p.category) categories.add(p.category) }
     cities.delete('')
-    return NextResponse.json({ countries: Array.from(countries).sort(), cities: Array.from(cities).sort(), categories: Array.from(categories).sort() })
+    return NextResponse.json(
+      { countries: Array.from(countries).sort(), cities: Array.from(cities).sort(), categories: Array.from(categories).sort() },
+      { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' } }
+    )
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

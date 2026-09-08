@@ -38,7 +38,10 @@ export async function GET() {
       createdAt: p.createdAt,
     }))
 
-    return NextResponse.json({ posts: result })
+    return NextResponse.json(
+      { posts: result },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
+    )
   } catch (error) {
     console.error('Failed to fetch recent local prices:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })

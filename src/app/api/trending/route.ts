@@ -41,7 +41,10 @@ export async function GET() {
     // Combine real categories + countries + cities
     const trends: { label: string; count: number }[] = [...categories, ...countries].slice(0, 8)
 
-    return NextResponse.json({ trends })
+    return NextResponse.json(
+      { trends },
+      { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' } }
+    )
   } catch (error) {
     console.error('Failed to fetch trending:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })

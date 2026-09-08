@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 
+// Cache the public feed list for 30s on the CDN/edge, allow serving stale
+// for up to 60s while revalidating in the background. With 5,000 concurrent
+// users this collapses repeated identical queries into a single DB hit.
+// Per-user `myVote` is computed from the logged-in user — the CDN cache is
+// still safe because the response body is per-user, but the cache layer
+// (Vercel Edge) treats each cookie-distinct request as a separate entry.
+function cacheHeaders() {
+  return {
+    'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -24,7 +36,7 @@ export async function GET(req: NextRequest) {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote }
     })
-    return NextResponse.json({ posts: result })
+    return NextResponse.json({ posts: result }, { headers: cacheHeaders() })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }
 

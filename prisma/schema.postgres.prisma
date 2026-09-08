@@ -1,23 +1,17 @@
-// circub — Prisma schema
-// PostgreSQL-compatible (works on Vercel Postgres, Neon, Supabase, Railway).
-// On local dev, falls back to SQLite via the DATABASE_URL env var so the
-// existing dev workflow keeps working without changes.
+// circub — Prisma schema for PostgreSQL (production target).
+// Used when DATABASE_URL starts with postgresql://
+// To use: DATABASE_URL=postgresql://... npx prisma db push --schema prisma/schema.postgres.prisma
 //
-// Scaling notes (5,000 concurrent users target):
-// - Composite indexes on every hot query path (feed list, votes, by author)
-// - @@unique constraints rely on DB-level uniqueness (works across serverless)
-// - No JSON columns (keeps queries fast and simple)
-// - No DB-side triggers — counters are updated in transaction by Prisma
+// Differences from schema.prisma (SQLite):
+// - provider = "postgresql" (enables native Postgres features + connection pooling)
+// - Same models + indexes — only the datasource changes.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // Local dev uses SQLite (file:./db/custom.db). Production uses Postgres
-  // (postgresql://...). Prisma picks the right provider based on the
-  // DATABASE_URL scheme — see prisma.config logic in lib/db.ts.
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -25,7 +19,7 @@ model User {
   id             String   @id @default(cuid())
   name           String
   email          String   @unique
-  password       String? // hashed with bcrypt; null for Google OAuth users
+  password       String?
   avatarColor    String   @default("teal")
   bio            String?
   headline       String?
@@ -37,25 +31,21 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Auth + account type
-  accountType    String   @default("PERSONAL") // PERSONAL | COMPANY
+  accountType    String   @default("PERSONAL")
   isLocal        Boolean  @default(false)
   verifiedLocal  Boolean  @default(false)
 
-  // Company-specific fields
   companyName    String?
   companyWebsite String?
   companyLogo    String?
   companySize    String?
   companyIndustry String?
 
-  // Local contributor profile
   rating         Float    @default(0)
   expertiseTags  String?
   helpfulVotes   Int      @default(0)
   localPostCount Int      @default(0)
 
-  // Tour guide (Live Zone)
   isGuide        Boolean  @default(false)
   guideLicense   String?
   guideLanguages String?
@@ -77,11 +67,9 @@ model User {
   guideRatingsReceived GuideRating[] @relation("GuideRatingReceiver")
   guideRatingsGiven GuideRating[] @relation("GuideRatingRater")
 
-  // Connections (LinkedIn mutual)
   connRequested  Connection[] @relation("ConnRequester")
   connReceived  Connection[] @relation("ConnReceiver")
 
-  // Direct messages
   msgsSent       Message[]    @relation("MsgSender")
   msgsReceived   Message[]    @relation("MsgReceiver")
 
@@ -125,12 +113,11 @@ model Like {
   @@index([productId])
 }
 
-// LinkedIn-style mutual connections
 model Connection {
   id           String   @id @default(cuid())
   requesterId  String
   receiverId   String
-  status       String   @default("PENDING") // PENDING | ACCEPTED | IGNORED
+  status       String   @default("PENDING")
   note         String?
   requester    User     @relation("ConnRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   receiver     User     @relation("ConnReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
@@ -138,11 +125,10 @@ model Connection {
   updatedAt    DateTime @updatedAt
 
   @@unique([requesterId, receiverId])
-  @@index([receiverId, status]) // incoming invitations lookup
+  @@index([receiverId, status])
   @@index([requesterId, status])
 }
 
-// LinkedIn-style social posts (text + image)
 model Post {
   id          String     @id @default(cuid())
   content     String
@@ -182,7 +168,6 @@ model Comment {
   @@index([postId, createdAt])
 }
 
-// Direct messages between two users
 model Message {
   id         String   @id @default(cuid())
   senderId   String
@@ -193,27 +178,21 @@ model Message {
   receiver   User     @relation("MsgReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 
-  @@index([receiverId, read]) // unread inbox lookup
-  @@index([senderId, receiverId, createdAt]) // conversation thread
+  @@index([receiverId, read])
+  @@index([senderId, receiverId, createdAt])
 }
-
-// =====================================================
-// LOCAL PRICE POSTS — community price intelligence
-// =====================================================
 
 model LocalPricePost {
   id                String   @id @default(cuid())
-  postType          String   @default("PRODUCT") // PRODUCT | SERVICE
+  postType          String   @default("PRODUCT")
   productName       String
   description       String?
 
-  // Location (multi-level)
   country           String
   city              String?
   neighborhood      String?
   market            String?
 
-  // Price information
   currency          String
   priceMin          Float
   priceMax          Float
@@ -221,23 +200,18 @@ model LocalPricePost {
   touristPrice      Float?
   personalPrice     Float?
 
-  // Local knowledge
   localTip          String?
 
-  // Contact info (for travelers to reach the local)
   contactPhone      String?
   contactEmail      String?
   contactWhatsApp   String?
 
-  // Categorization
   category          String   @default("Other")
   imageUrl          String?
 
-  // Author
   authorId         String
   author           User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  // Votes & reports
   votes            LocalPriceVote[]
   reports          LocalPriceReport[]
 
@@ -247,7 +221,6 @@ model LocalPricePost {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  // Hot query paths: feed list filtered by country/city/category, sorted by recent/popular
   @@index([country, city, createdAt])
   @@index([country, category, createdAt])
   @@index([category, helpfulCount])
@@ -259,7 +232,7 @@ model LocalPriceVote {
   id        String   @id @default(cuid())
   userId    String
   postId    String
-  voteType  String   // HELPFUL | NOT_ACCURATE
+  voteType  String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   post      LocalPricePost @relation(fields: [postId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -282,12 +255,11 @@ model LocalPriceReport {
   @@index([postId])
 }
 
-// Guide ratings: travelers rate tour guides (1-5 stars + optional comment)
 model GuideRating {
   id          String   @id @default(cuid())
   raterId     String
   guideId     String
-  rating      Int      // 1-5 stars
+  rating      Int
   comment     String?
   rater       User     @relation("GuideRatingRater", fields: [raterId], references: [id], onDelete: Cascade)
   guide       User     @relation("GuideRatingReceiver", fields: [guideId], references: [id], onDelete: Cascade)

@@ -16,7 +16,10 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json({ posters: users })
+    return NextResponse.json(
+      { posters: users },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
+    )
   } catch (error) {
     console.error('Failed to fetch top posters:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })

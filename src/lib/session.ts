@@ -1,5 +1,13 @@
-// Session helper with secure cookie settings
-// Supports both our custom cookie auth AND NextAuth (Google) sessions
+// Session helper with secure cookie settings.
+// Supports both our custom cookie auth AND NextAuth (Google) sessions.
+//
+// Vercel-ready:
+// - Cookie `secure` flag is set based on VERCEL_ENV / NODE_ENV (HTTPS in prod)
+// - sameSite=lax so Google OAuth callback + cross-navigation work
+// - Rate limiter is best-effort in-memory (per-instance on Vercel — see notes)
+// - Session secret defaults to a stable value if env var is missing, but
+//   you MUST set SESSION_SECRET on Vercel for cross-instance consistency.
+
 import { cookies } from 'next/headers'
 import { getServerSession } from 'next-auth'
 import { db } from '@/lib/db'
@@ -24,16 +32,23 @@ function decodeSession(token: string): string | null {
   }
 }
 
+// True when running on Vercel production / preview (HTTPS) or any HTTPS prod env
+function isSecureContext(): boolean {
+  if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview') return true
+  if (process.env.NODE_ENV === 'production') return true
+  // Local dev over http://localhost: cookies are not secure
+  return false
+}
+
 export async function setSessionCookie(email: string) {
   const token = encodeSession(email.toLowerCase().trim())
   const cookieStore = await cookies()
-  const isProduction = process.env.NODE_ENV === 'production'
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: 'strict',
+    secure: isSecureContext(),
+    sameSite: 'lax', // 'lax' so OAuth redirects + top-level navigation work
     path: '/',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60 * 24 * 7, // 7 days
   })
 }
 
@@ -90,12 +105,22 @@ export async function getCurrentUser() {
   }
 }
 
-// Rate limiting
+// Rate limiting — in-memory, per-instance.
+//
+// IMPORTANT for Vercel: serverless functions don't share memory, so on
+// Vercel each function instance has its own counter. With 5,000 concurrent
+// users this means a user might hit N instances each with a low count,
+// effectively bypassing the limit. For real protection on Vercel, use
+// Upstash Redis (@upstash/ratelimit) — this is a best-effort fallback.
+//
+// For now: keep the existing behavior so dev still works, but make the
+// limits a bit more generous so legitimate users don't get blocked on
+// Vercel's auto-scaling (which can spawn many instances at once).
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 export function checkRateLimit(
   identifier: string,
-  maxRequests: number = 10,
+  maxRequests: number = 30,
   windowMs: number = 60000
 ): { allowed: boolean; remaining: number } {
   const now = Date.now()
