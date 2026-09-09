@@ -12,6 +12,7 @@ import { CreatePricePostModal } from './create-price-post-modal'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
+import { CameraCaptureButton } from './camera-capture-button'
 import { useToast } from '@/hooks/use-toast'
 import type { LocalPricePost } from '@/lib/types'
 
@@ -151,6 +152,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card h-9 sm:h-10 text-sm" />
         </div>
         <PhotoSearchButton onImage={handleImageSearch} loading={searchingByImage} />
+        <CameraCaptureButton onCapture={handleImageSearch} loading={searchingByImage} />
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
             <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
