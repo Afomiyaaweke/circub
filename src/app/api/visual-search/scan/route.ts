@@ -27,6 +27,14 @@ interface DetectedItem {
   box: { x: number; y: number; w: number; h: number }
   parent?: string | null
   isWholeProduct?: boolean
+  // CCTV-style person segmentation: every detected item can be grouped
+  // under the person it belongs to. A "person" item has personId set + a
+  // "isPerson" flag; clothing/accessories the person is wearing get the
+  // same personId so the UI can visually group them (e.g. draw a single
+  // box around the person with their outfit's total price, plus boxes
+  // for each item).
+  personId?: number | null
+  isPerson?: boolean
 }
 
 interface UserLocation {
@@ -61,10 +69,12 @@ function safeParseItems(raw: string): DetectedItem[] {
           },
           parent: it.parent ? String(it.parent).trim().slice(0, 60) : null,
           isWholeProduct: it.isWholeProduct === true || it.whole === true,
+          personId: it.personId != null ? Number(it.personId) : null,
+          isPerson: it.isPerson === true,
         }
       })
       .filter((x: DetectedItem | null): x is DetectedItem => !!x)
-      .slice(0, 12)
+      .slice(0, 20)
   } catch {
     return []
   }
@@ -204,11 +214,19 @@ export async function POST(req: NextRequest) {
     let aiError: string | null = null
 
     try {
-      // Detection-only prompt. The VLM is asked to identify products and
-      // parts WITHOUT pricing them — pricing is a separate step that only
-      // fires when the DB has no match for that product.
+      // CCTV-style detection prompt:
+      //   - If people are visible, segment each person AND segment every
+      //     purchasable item they're wearing or carrying, all grouped by
+      //     a shared personId. The UI will draw one box per person + one
+      //     box per item they're wearing, so the user can see "Person 1
+      //     is wearing: shirt ($30), pants ($40), shoes ($50)" as a group.
+      //   - If only products are visible (no people), segment them as
+      //     standalone items with personId=null (e.g. a bottle on a shelf).
+      //
+      // We also still detect sub-parts of products (bottle + bottle cap).
       const visionPrompt =
-        'You are a real-time shopping camera. Look at this frame and detect every distinct purchasable product or item that someone could buy, including but not limited to:\n' +
+        'You are a CCTV-style shopping camera. Look at the frame and detect every person, plus every distinct purchasable product or item that someone could buy, including but not limited to:\n' +
+        '  - People (segment each person as a whole — isPerson=true, personId=N)\n' +
         '  - Clothing & wearables: shirt, pants, shoes, jacket, hat, sunglasses, watch, jewelry, bag, backpack\n' +
         '  - Food & drink: fruits, vegetables, bread, packaged snacks, bottles, cans, coffee, tea, prepared dishes\n' +
         '  - Household: cleaning supplies, kitchenware, furniture, decor, tools, appliances\n' +
@@ -217,7 +235,13 @@ export async function POST(req: NextRequest) {
         '  - Market/stall items: anything on a shelf, in a basket, or on display for sale\n' +
         '  - Services visible in frame: a sign advertising a haircut, taxi ride, etc.\n' +
         '\n' +
-        'For EVERY product, detect in separate entries:\n' +
+        'GROUPING RULES (CCTV-style):\n' +
+        '  - If a person is visible, give them a personId (1, 2, 3, ...) and isPerson=true.\n' +
+        '  - Every item the person is WEARING or CARRYING (shirt, pants, shoes, hat, glasses, watch, bag, etc.) must have the SAME personId and isPerson=false.\n' +
+        '  - Items on a shelf, table, or in the background (not worn/carried by a person) have personId=null.\n' +
+        '  - If no people are visible, all items have personId=null.\n' +
+        '\n' +
+        'For EVERY product (whether on a person or standalone), detect in separate entries:\n' +
         '  1. The WHOLE product (isWholeProduct=true, parent=null)\n' +
         '  2. Each major purchasable PART or component (isWholeProduct=false, parent=<the whole product label>)\n' +
         '\n' +
@@ -225,16 +249,19 @@ export async function POST(req: NextRequest) {
         '  - "red plastic water bottle" instead of just "bottle"\n' +
         '  - "yellow banana" instead of just "banana"\n' +
         '  - "leather brown belt" instead of just "belt"\n' +
+        '  - "person" (just the word "person" for the whole-person entry, since we add personId)\n' +
         '\n' +
         'For each detected item, output a tight bounding box around JUST that item, normalized 0-1 with (x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
         '\n' +
-        'DO NOT include any price information. Just identify what the products are.\n' +
+        'DO NOT include any price information. Just identify what products + people are in the frame.\n' +
         '\n' +
         'Respond with ONLY a JSON array, no prose, no markdown fences. Schema:\n' +
-        '[{"label":"red plastic water bottle","category":"Bottles","isWholeProduct":true,"parent":null,"box":{"x":0.22,"y":0.15,"w":0.18,"h":0.5}},\n' +
-        ' {"label":"bottle cap","category":"Bottle Caps","isWholeProduct":false,"parent":"red plastic water bottle","box":{"x":0.22,"y":0.10,"w":0.18,"h":0.08}}]\n' +
+        '[{"label":"person","category":"Person","isPerson":true,"personId":1,"isWholeProduct":false,"parent":null,"box":{"x":0.1,"y":0.05,"w":0.4,"h":0.9}},\n' +
+        ' {"label":"blue denim shirt","category":"Clothing","isPerson":false,"personId":1,"isWholeProduct":true,"parent":null,"box":{"x":0.15,"y":0.15,"w":0.3,"h":0.4}},\n' +
+        ' {"label":"black sneakers","category":"Shoes","isPerson":false,"personId":1,"isWholeProduct":true,"parent":null,"box":{"x":0.2,"y":0.75,"w":0.25,"h":0.15}},\n' +
+        ' {"label":"red plastic water bottle","category":"Bottles","isPerson":false,"personId":null,"isWholeProduct":true,"parent":null,"box":{"x":0.7,"y":0.5,"w":0.15,"h":0.3}}]\n' +
         '\n' +
-        'If nothing purchasable is visible, respond with []. Max 12 items.'
+        'If nothing purchasable AND no people are visible, respond with []. Max 20 items.'
 
       const raw = await visionChatComplete(
         [
@@ -314,8 +341,8 @@ export async function POST(req: NextRequest) {
     )
 
     const unmatchedLabels = items
-      .map((it, i) => ({ label: it.label, index: i }))
-      .filter(({ index }) => !matchedItemIndices.has(index))
+      .map((it, i) => ({ label: it.label, index: i, isPerson: it.isPerson }))
+      .filter(({ index, isPerson }) => !matchedItemIndices.has(index) && !isPerson)
       .map(({ label }) => label)
 
     let estimates: Record<string, { min: number; max: number }> = {}
@@ -355,6 +382,11 @@ export async function POST(req: NextRequest) {
     }
 
     const results = items.map((it) => {
+      // Person entries have no price — they're just visual grouping boxes.
+      // Their outfit total is computed client-side from the items they own.
+      if (it.isPerson) {
+        return { ...it, price: null }
+      }
       const matchingPosts = posts.filter((p) => matches(p.productName, it.label) || matches(p.category, it.label))
       if (matchingPosts.length > 0) {
         // Pick the highest-scoring posts (same city/country first).

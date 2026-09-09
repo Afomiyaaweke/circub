@@ -23,6 +23,9 @@ interface DetectedItem {
   price: PriceInfo | null
   parent?: string | null
   isWholeProduct?: boolean
+  // CCTV-style person segmentation
+  personId?: number | null
+  isPerson?: boolean
 }
 
 interface ScanLocation {
@@ -614,40 +617,119 @@ function BoundingBoxOverlay({
     return { px, py, pw, ph }
   }
 
+  // Group items by personId so we can show "Person 1 is wearing 4 items,
+  // total outfit value: ETB 1,200" in the person's box.
+  const persons = items.filter((it) => it.isPerson) as DetectedItem[]
+  const itemsByPerson = new Map<number, DetectedItem[]>()
+  for (const it of items) {
+    if (it.personId != null && !it.isPerson) {
+      const list = itemsByPerson.get(it.personId) || []
+      list.push(it)
+      itemsByPerson.set(it.personId, list)
+    }
+  }
+
   return (
     <div ref={containerRef} className="absolute inset-0 pointer-events-none">
+      {/* Render PERSON boxes first (background layer) — these are bigger
+          and a different color so they visually group the items the
+          person is wearing. Each person box shows their outfit total. */}
+      {persons.map((person, i) => {
+        const hasVideoDims = video && video.videoWidth > 0 && video.videoHeight > 0
+        const left = hasVideoDims ? `${transform(person.box).px * 100}%` : `${person.box.x * 100}%`
+        const top = hasVideoDims ? `${transform(person.box).py * 100}%` : `${person.box.y * 100}%`
+        const width = hasVideoDims ? `${transform(person.box).pw * 100}%` : `${person.box.w * 100}%`
+        const height = hasVideoDims ? `${transform(person.box).ph * 100}%` : `${person.box.h * 100}%`
+
+        // Sum the prices of all items this person is wearing (min of mins,
+        // max of maxes), so the person box shows their total outfit value.
+        const personItems = itemsByPerson.get(person.personId!) || []
+        const pricedItems = personItems.filter((it) => it.price)
+        let outfitTotal: string | null = null
+        if (pricedItems.length > 0) {
+          const currency = pricedItems[0].price!.currency
+          const totalMin = pricedItems.reduce((s, it) => s + (it.price?.min || 0), 0)
+          const totalMax = pricedItems.reduce((s, it) => s + (it.price?.max || 0), 0)
+          outfitTotal = `${currency} ${totalMin}${totalMin !== totalMax ? `–${totalMax}` : ''}`
+        }
+
+        return (
+          <div
+            key={`person-${i}`}
+            className="absolute rounded-lg border-2 border-purple-500 shadow-[0_0_0_1px_rgba(0,0,0,0.4)] bg-purple-500/5 transition-all duration-300"
+            style={{ left, top, width, height }}
+          >
+            {/* Person label + outfit total in the top-left of their box */}
+            <div className="absolute -top-7 left-0 flex items-center gap-1.5 max-w-[280px] pointer-events-none">
+              <Badge className="bg-purple-600 text-white shadow-sm whitespace-nowrap text-[11px] px-2 py-0.5 gap-1">
+                <span className="font-bold">👤 #{person.personId}</span>
+                <span className="opacity-80">·</span>
+                <span>{personItems.length} item{personItems.length !== 1 && 's'}</span>
+                {outfitTotal && (
+                  <>
+                    <span className="opacity-80">·</span>
+                    <span className="font-bold">{outfitTotal}</span>
+                  </>
+                )}
+              </Badge>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Render product/item boxes on top of person boxes.
+          Items belonging to a person get a small "👤N" tag so the user
+          can see which person is wearing which item. */}
       {items.map((it, i) => {
+        // Skip person entries — they're rendered above
+        if (it.isPerson) return null
+
         const isPart = it.isWholeProduct === false && it.parent
-        // If we don't have video dimensions yet, fall back to raw normalized
-        // coords (boxes will be slightly off but still visible).
+        const belongsToPerson = it.personId != null
         const hasVideoDims = video && video.videoWidth > 0 && video.videoHeight > 0
         const left = hasVideoDims ? `${transform(it.box).px * 100}%` : `${it.box.x * 100}%`
         const top = hasVideoDims ? `${transform(it.box).py * 100}%` : `${it.box.y * 100}%`
         const width = hasVideoDims ? `${transform(it.box).pw * 100}%` : `${it.box.w * 100}%`
         const height = hasVideoDims ? `${transform(it.box).ph * 100}%` : `${it.box.h * 100}%`
+
+        // Color code:
+        //   - Items on a person: emerald border (worn)
+        //   - Standalone whole products: primary border (default)
+        //   - Parts: dashed primary/70 border
+        const boxClass = isPart
+          ? 'border border-dashed border-primary/70 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+          : belongsToPerson
+            ? 'border-2 border-emerald-400 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+            : 'border-2 border-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+
         return (
           <div
-            key={i}
-            className={`absolute rounded-md transition-all duration-300 ${
-              isPart
-                ? 'border border-dashed border-primary/70 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
-                : 'border-2 border-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
-            }`}
+            key={`item-${i}`}
+            className={`absolute rounded-md transition-all duration-300 ${boxClass}`}
             style={{ left, top, width, height }}
           >
             <button
               type="button"
               onClick={() => onPickItem(it.label)}
-              title={isPart ? `Part of: ${it.parent}` : 'Whole product'}
-              className="pointer-events-auto absolute -top-7 left-0 flex items-center gap-1.5 max-w-[240px]"
+              title={
+                isPart
+                  ? `Part of: ${it.parent}${belongsToPerson ? ` (worn by Person #${it.personId})` : ''}`
+                  : belongsToPerson
+                    ? `Worn by Person #${it.personId}`
+                    : 'Standalone product'
+              }
+              className="pointer-events-auto absolute -top-7 left-0 flex items-center gap-1.5 max-w-[280px]"
             >
               <Badge
                 className={`shadow-sm whitespace-nowrap gap-1 ${
                   isPart
                     ? 'bg-primary/70 text-primary-foreground text-[10px] px-1.5 py-0.5'
-                    : 'bg-primary text-primary-foreground text-[11px] px-1.5 py-0.5'
+                    : belongsToPerson
+                      ? 'bg-emerald-600 text-white text-[11px] px-1.5 py-0.5'
+                      : 'bg-primary text-primary-foreground text-[11px] px-1.5 py-0.5'
                 }`}
               >
+                {belongsToPerson && <span className="opacity-80 text-[9px]">👤{it.personId}</span>}
                 {isPart && <span className="opacity-70 text-[9px]">part:</span>}
                 <span className="truncate max-w-[100px]">{it.label}</span>
                 {it.price ? (
