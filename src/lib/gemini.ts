@@ -18,10 +18,81 @@
 import { visionChatComplete as zaiVisionChat, chatComplete as zaiChat } from './zai'
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
-// gemini-2.0-flash-exp is currently the free-tier vision model.
-// Other options: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash
-const GEMINI_VISION_MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-2.0-flash-exp'
-const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash-exp'
+// Default to gemini-2.5-flash (free tier, vision support, stable + current).
+// Old default gemini-2.0-flash-exp was retired by Google and now returns
+// "models/gemini-2.0-flash-exp is not found for API version v1beta".
+//
+// We keep a fallback chain of known models — if the primary model returns
+// 404 (retired by Google), we automatically try the next one in the chain.
+// This makes the scan resilient to Google retiring models without breaking
+// existing deployments.
+//
+// If you want to pin a specific model, set the GEMINI_VISION_MODEL env var.
+// Otherwise we try in order: gemini-2.5-flash → gemini-2.0-flash →
+// gemini-2.0-flash-lite → gemini-1.5-flash.
+const DEFAULT_MODEL_CHAIN = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']
+const GEMINI_VISION_MODEL = process.env.GEMINI_VISION_MODEL || DEFAULT_MODEL_CHAIN[0]
+const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || DEFAULT_MODEL_CHAIN[0]
+
+// Cache the first model that worked so we don't waste time trying retired
+// ones on every request after the first successful one.
+let cachedWorkingModel: string | null = null
+
+// Helper: call Gemini's generateContent endpoint with automatic model
+// fallback. If the primary model returns 404 (retired by Google), try
+// the next model in the fallback chain. Cache the first model that
+// works so subsequent requests skip the failing ones.
+async function geminiGenerate(
+  endpoint: 'generateContent',
+  defaultModel: string,
+  body: Record<string, unknown>,
+  apiKey: string
+): Promise<{ ok: boolean; status: number; text: string; modelUsed: string | null }> {
+  // Build the list of models to try: pinned model first (if user set env
+  // var), then the fallback chain.
+  let modelsToTry: string[]
+  if (cachedWorkingModel) {
+    modelsToTry = [cachedWorkingModel]
+  } else if (process.env.GEMINI_VISION_MODEL) {
+    // User pinned a specific model — try only that one (no fallback).
+    // This is for advanced users who want to pin a model on purpose.
+    modelsToTry = [process.env.GEMINI_VISION_MODEL]
+  } else {
+    modelsToTry = DEFAULT_MODEL_CHAIN
+  }
+
+  let lastError = ''
+  for (const model of modelsToTry) {
+    const url = `${GEMINI_BASE_URL}/models/${model}:${endpoint}?key=${apiKey}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const text = await res.text().catch(() => '')
+    if (res.ok) {
+      cachedWorkingModel = model
+      return { ok: true, status: res.status, text, modelUsed: model }
+    }
+    // 404 = model retired/not available — try the next model in the chain.
+    // 400 = bad request (e.g. invalid API key, malformed body) — don't retry,
+    //   the user needs to fix their key.
+    if (res.status === 404 && !process.env.GEMINI_VISION_MODEL) {
+      console.warn(`[gemini] model ${model} returned 404, trying next in chain`)
+      lastError = text
+      continue
+    }
+    // For other errors (400, 401, 403, 429, 500, etc.), return immediately.
+    return { ok: false, status: res.status, text, modelUsed: model }
+  }
+  // All models failed with 404
+  return {
+    ok: false,
+    status: 404,
+    text: lastError || 'All Gemini models in the fallback chain returned 404 (retired by Google). Set GEMINI_VISION_MODEL env var to a current model from https://ai.google.dev/gemini-api/docs/models',
+    modelUsed: null,
+  }
+}
 
 interface GeminiTextPart {
   text: string
@@ -114,7 +185,6 @@ export async function visionChatComplete(
     if (parts.length > 0) userContents.push({ role, parts })
   }
 
-  const url = `${GEMINI_BASE_URL}/models/${GEMINI_VISION_MODEL}:generateContent?key=${apiKey}`
   const body = {
     contents: userContents,
     generationConfig: {
@@ -124,16 +194,16 @@ export async function visionChatComplete(
     },
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '')
-    throw new Error(`Gemini vision API ${res.status}: ${errText.slice(0, 300)}`)
+  const result = await geminiGenerate('generateContent', GEMINI_VISION_MODEL, body, apiKey)
+  if (!result.ok) {
+    throw new Error(`Gemini vision API ${result.status} (model: ${result.modelUsed || 'none'}): ${result.text.slice(0, 300)}`)
   }
-  const data = await res.json()
+  let data: any
+  try {
+    data = JSON.parse(result.text)
+  } catch {
+    return cleanJsonResponse(result.text)
+  }
   // Response shape: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
   const text: string =
     data?.candidates?.[0]?.content?.parts
@@ -169,7 +239,6 @@ export async function chatComplete(
     systemPrefix = ''
   }
 
-  const url = `${GEMINI_BASE_URL}/models/${GEMINI_TEXT_MODEL}:generateContent?key=${apiKey}`
   const body = {
     contents: userContents,
     generationConfig: {
@@ -179,16 +248,16 @@ export async function chatComplete(
     },
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '')
-    throw new Error(`Gemini text API ${res.status}: ${errText.slice(0, 300)}`)
+  const result = await geminiGenerate('generateContent', GEMINI_TEXT_MODEL, body, apiKey)
+  if (!result.ok) {
+    throw new Error(`Gemini text API ${result.status} (model: ${result.modelUsed || 'none'}): ${result.text.slice(0, 300)}`)
   }
-  const data = await res.json()
+  let data: any
+  try {
+    data = JSON.parse(result.text)
+  } catch {
+    return cleanJsonResponse(result.text)
+  }
   const text: string =
     data?.candidates?.[0]?.content?.parts
       ?.map((p: any) => p.text || '')
