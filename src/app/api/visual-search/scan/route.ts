@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { visionChatComplete, chatComplete } from '@/lib/zai'
 
 // Real-time camera scan: detect every purchasable product in frame, return
 // normalized bounding boxes, and price each item from two sources:
@@ -154,11 +155,9 @@ export async function POST(req: NextRequest) {
 
     let items: DetectedItem[] = []
     let aiUsed = false
+    let aiError: string | null = null
 
     try {
-      const ZAI = (await import('z-ai-web-dev-sdk')).default
-      const zai = await ZAI.create()
-
       // Pass 1: detect ANY purchasable product in frame.
       // We deliberately cast a wide net — clothing, food, household, electronics,
       // produce, packaged goods, electronics, anything you can buy. The user
@@ -168,57 +167,59 @@ export async function POST(req: NextRequest) {
       //
       // For each product we detect BOTH the whole product AND its major
       // purchasable parts/components (e.g. bottle + bottle cap).
-      const detectRes = await zai.chat.completions.createVision({
-        messages: [
+      const visionPrompt =
+        'You are a real-time shopping camera that identifies ANY purchasable product in the frame and prices each one. ' +
+        'Look at this frame and detect every distinct product or item that someone could buy, including but not limited to:\n' +
+        '  - Clothing & wearables: shirt, pants, shoes, jacket, hat, sunglasses, watch, jewelry, bag, backpack\n' +
+        '  - Food & drink: fruits, vegetables, bread, packaged snacks, bottles, cans, coffee, tea, prepared dishes\n' +
+        '  - Household: cleaning supplies, kitchenware, furniture, decor, tools, appliances\n' +
+        '  - Electronics: phones, laptops, headphones, chargers, accessories\n' +
+        '  - Personal care: shampoo, soap, cosmetics, toiletries\n' +
+        '  - Market/stall items: anything on a shelf, in a basket, or on display for sale\n' +
+        '  - Services visible in frame: a sign advertising a haircut, taxi ride, etc.\n' +
+        '\n' +
+        'For EVERY product, detect in separate entries:\n' +
+        '  1. The WHOLE product (isWholeProduct=true, parent=null)\n' +
+        '  2. Each major purchasable PART or component (isWholeProduct=false, parent=<the whole product label>)\n' +
+        '\n' +
+        'Use a SPECIFIC label for each item — include brand, color, material, type when visible. Examples:\n' +
+        '  - "red plastic water bottle" instead of just "bottle"\n' +
+        '  - "yellow banana" instead of just "banana"\n' +
+        '  - "leather brown belt" instead of just "belt"\n' +
+        '\n' +
+        'For each detected item, output a tight bounding box around JUST that item, normalized 0-1 with ' +
+        '(x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
+        '\n' +
+        'Respond with ONLY a JSON array, no prose, no markdown fences. Schema:\n' +
+        '[{"label":"red plastic water bottle","category":"Bottles","isWholeProduct":true,"parent":null,"box":{"x":0.22,"y":0.15,"w":0.18,"h":0.5}},\n' +
+        ' {"label":"bottle cap","category":"Bottle Caps","isWholeProduct":false,"parent":"red plastic water bottle","box":{"x":0.22,"y":0.10,"w":0.18,"h":0.08}}]\n' +
+        '\n' +
+        'If nothing purchasable is visible, respond with []. Max 12 items.'
+
+      const raw = await visionChatComplete(
+        [
           {
             role: 'user',
             content: [
-              {
-                type: 'text',
-                text:
-                  'You are a real-time shopping camera that identifies ANY purchasable product in the frame and prices each one. ' +
-                  'Look at this frame and detect every distinct product or item that someone could buy, including but not limited to:\n' +
-                  '  - Clothing & wearables: shirt, pants, shoes, jacket, hat, sunglasses, watch, jewelry, bag, backpack\n' +
-                  '  - Food & drink: fruits, vegetables, bread, packaged snacks, bottles, cans, coffee, tea, prepared dishes\n' +
-                  '  - Household: cleaning supplies, kitchenware, furniture, decor, tools, appliances\n' +
-                  '  - Electronics: phones, laptops, headphones, chargers, accessories\n' +
-                  '  - Personal care: shampoo, soap, cosmetics, toiletries\n' +
-                  '  - Market/stall items: anything on a shelf, in a basket, or on display for sale\n' +
-                  '  - Services visible in frame: a sign advertising a haircut, taxi ride, etc.\n' +
-                  '\n' +
-                  'For EVERY product, detect in separate entries:\n' +
-                  '  1. The WHOLE product (isWholeProduct=true, parent=null)\n' +
-                  '  2. Each major purchasable PART or component (isWholeProduct=false, parent=<the whole product label>)\n' +
-                  '\n' +
-                  'Use a SPECIFIC label for each item — include brand, color, material, type when visible. Examples:\n' +
-                  '  - "red plastic water bottle" instead of just "bottle"\n' +
-                  '  - "yellow banana" instead of just "banana"\n' +
-                  '  - "leather brown belt" instead of just "belt"\n' +
-                  '\n' +
-                  'For each detected item, output a tight bounding box around JUST that item, normalized 0-1 with ' +
-                  '(x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
-                  '\n' +
-                  'Respond with ONLY a JSON array, no prose, no markdown fences. Schema:\n' +
-                  '[{"label":"red plastic water bottle","category":"Bottles","isWholeProduct":true,"parent":null,"box":{"x":0.22,"y":0.15,"w":0.18,"h":0.5}},\n' +
-                  ' {"label":"bottle cap","category":"Bottle Caps","isWholeProduct":false,"parent":"red plastic water bottle","box":{"x":0.22,"y":0.10,"w":0.18,"h":0.08}}]\n' +
-                  '\n' +
-                  'If nothing purchasable is visible, respond with []. Max 12 items.',
-              },
+              { type: 'text', text: visionPrompt },
               { type: 'image_url', image_url: { url: dataUrl } },
             ],
           },
         ],
-        thinking: { type: 'disabled' },
-      })
-      const raw = detectRes.choices?.[0]?.message?.content || '[]'
+        { thinking: 'disabled' }
+      )
       items = safeParseItems(raw)
       aiUsed = true
-    } catch {
+    } catch (e: any) {
+      aiError = e?.message || String(e)
+      console.error('[scan] vision call failed:', aiError)
       items = []
     }
 
     if (items.length === 0) {
-      return NextResponse.json({ items: [], aiUsed, location })
+      // Include aiError so the client can see WHY no items were found
+      // (e.g. "ZAI config not found. Set ZAI_BASE_URL and ZAI_API_KEY env vars...")
+      return NextResponse.json({ items: [], aiUsed, aiError, location })
     }
 
     function lastWord(s: string) {
@@ -273,9 +274,6 @@ export async function POST(req: NextRequest) {
     let estimates: Record<string, { min: number; max: number }> = {}
     if (unmatchedLabels.length > 0 && aiUsed) {
       try {
-        const ZAI = (await import('z-ai-web-dev-sdk')).default
-        const zai = await ZAI.create()
-
         // Build a location-aware prompt. If we know the country/city, ask
         // the model for the actual market price in that specific place —
         // this is what makes the price "based on the place" as requested.
@@ -284,8 +282,8 @@ export async function POST(req: NextRequest) {
           : 'globally (use international average market price)'
         const currencyCode = location.currency || 'USD'
 
-        const estRes = await zai.chat.completions.create({
-          messages: [
+        const raw = await chatComplete(
+          [
             {
               role: 'user',
               content:
@@ -296,9 +294,8 @@ export async function POST(req: NextRequest) {
                 `Prices must reflect what a local would actually pay at a market or shop in ${location.country || 'a typical city'}.`,
             },
           ],
-          thinking: { type: 'disabled' },
-        })
-        const raw = estRes.choices?.[0]?.message?.content || '{}'
+          { thinking: 'disabled' }
+        )
         const cleaned = raw.replace(/```json|```/g, '').trim()
         const parsed = JSON.parse(cleaned)
         if (parsed && typeof parsed === 'object') {
@@ -308,7 +305,7 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-      } catch {
+      } catch (e) {
         // leave estimates empty — item will just show "no price found"
       }
     }
@@ -353,7 +350,7 @@ export async function POST(req: NextRequest) {
       return { ...it, price: null }
     })
 
-    return NextResponse.json({ items: results, aiUsed, location })
+    return NextResponse.json({ items: results, aiUsed, aiError, location })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Scan failed.' }, { status: 500 })
   }

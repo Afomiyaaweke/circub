@@ -151,10 +151,19 @@ function LiveCameraSearchModal({
       }
       const data = await res.json()
       const newItems = Array.isArray(data.items) ? data.items : []
-      console.log(`[scan] got ${newItems.length} items${newItems.length > 0 ? ': ' + newItems.map(i => i.label).join(', ') : ''}`)
+      console.log(`[scan] got ${newItems.length} items${newItems.length > 0 ? ': ' + newItems.map(i => i.label).join(', ') : ''}${data.aiError ? ' | error: ' + data.aiError : ''}`)
       setItems(newItems)
       if (data.location) setScanLocation(data.location)
-      setError(null)
+      // If the AI itself failed (e.g. ZAI credentials missing on Vercel),
+      // surface the error so the user knows the scanner is broken, not just
+      // "no products in frame".
+      if (data.aiError && newItems.length === 0) {
+        setError(`Scan failed: ${data.aiError}`)
+        setErrorName('AiError')
+      } else {
+        setError(null)
+        setErrorName(null)
+      }
     } catch (e) {
       console.warn('[scan] failed:', e)
       // Silently skip a failed frame — the next interval tick will retry.
