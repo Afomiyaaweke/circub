@@ -106,7 +106,17 @@ function LiveCameraSearchModal({
     if (inFlightRef.current) return
     const video = videoRef.current
     const canvas = captureCanvasRef.current
-    if (!video || !canvas || video.readyState < 2) return
+    // Strict checks: video must have data AND non-zero dimensions before we
+    // can capture a frame. Right after play() resolves, readyState can be 2
+    // but videoWidth is still 0 on some browsers — the canvas would be 0x0
+    // and toBlob would return null. Wait for a real frame.
+    if (!video || !canvas) return
+    if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      // Try again on the next animation frame instead of waiting for the
+      // 2.5s interval — this makes the first scan feel instant.
+      requestAnimationFrame(() => setTimeout(captureAndScan, 100))
+      return
+    }
     inFlightRef.current = true
     setScanning(true)
     try {
@@ -135,12 +145,18 @@ function LiveCameraSearchModal({
       }
 
       const res = await fetch('/api/visual-search/scan', { method: 'POST', body: formData })
-      if (!res.ok) return
+      if (!res.ok) {
+        console.warn('[scan] endpoint returned', res.status)
+        return
+      }
       const data = await res.json()
-      setItems(Array.isArray(data.items) ? data.items : [])
+      const newItems = Array.isArray(data.items) ? data.items : []
+      console.log(`[scan] got ${newItems.length} items${newItems.length > 0 ? ': ' + newItems.map(i => i.label).join(', ') : ''}`)
+      setItems(newItems)
       if (data.location) setScanLocation(data.location)
       setError(null)
-    } catch {
+    } catch (e) {
+      console.warn('[scan] failed:', e)
       // Silently skip a failed frame — the next interval tick will retry.
     } finally {
       inFlightRef.current = false
@@ -320,57 +336,24 @@ function LiveCameraSearchModal({
           <video ref={videoRef} muted playsInline className="absolute inset-0 w-full h-full object-cover" />
           <canvas ref={captureCanvasRef} className="hidden" />
 
-          {/* Bounding-box + price overlay */}
-          <div className="absolute inset-0 pointer-events-none">
-            {items.map((it, i) => {
-              const isPart = it.isWholeProduct === false && it.parent
-              return (
-                <div
-                  key={i}
-                  className={`absolute rounded-md transition-all duration-300 ${
-                    isPart
-                      ? 'border border-dashed border-primary/70 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
-                      : 'border-2 border-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
-                  }`}
-                  style={{
-                    left: `${it.box.x * 100}%`,
-                    top: `${it.box.y * 100}%`,
-                    width: `${it.box.w * 100}%`,
-                    height: `${it.box.h * 100}%`,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onPickItem(it.label)}
-                    title={isPart ? `Part of: ${it.parent}` : 'Whole product'}
-                    className="pointer-events-auto absolute -top-7 left-0 flex items-center gap-1.5 max-w-[240px]"
-                  >
-                    <Badge
-                      className={`shadow-sm whitespace-nowrap gap-1 ${
-                        isPart
-                          ? 'bg-primary/70 text-primary-foreground text-[10px] px-1.5 py-0.5'
-                          : 'bg-primary text-primary-foreground text-[11px] px-1.5 py-0.5'
-                      }`}
-                    >
-                      {isPart && <span className="opacity-70 text-[9px]">part:</span>}
-                      <span className="truncate max-w-[100px]">{it.label}</span>
-                      {it.price ? (
-                        <span className="font-bold">{formatPrice(it.price)}</span>
-                      ) : (
-                        <span className="opacity-70">no price</span>
-                      )}
-                    </Badge>
-                    {it.price?.source === 'internal' && (
-                      <span className="text-[9px] bg-emerald-500 text-white rounded px-1 py-0.5 shadow-sm">local</span>
-                    )}
-                    {it.price?.source === 'external' && (
-                      <span className="text-[9px] bg-amber-500 text-white rounded px-1 py-0.5 shadow-sm">est.</span>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+          {/* Bounding-box + price overlay.
+              The video uses object-cover, which crops the captured frame to
+              fill the container. So a normalized box at (x=0.2, y=0.3, w=0.4, h=0.5)
+              on the captured frame does NOT map to the same position on the
+              displayed video — there's an offset and scale difference.
+
+              We compute the cover transform: the captured frame is scaled
+              up until it fills the container, then centered. The overlay
+              lives in the SAME coordinate space as the displayed video, so
+              boxes need to be transformed by the inverse of the cover.
+
+              In practice: we measure the container size with a ResizeObserver
+              and compute the cover transform on every render. */}
+          <BoundingBoxOverlay
+            items={items}
+            videoRef={videoRef}
+            onPickItem={onPickItem}
+          />
 
           {/* Status bar */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
@@ -505,16 +488,175 @@ function LiveCameraSearchModal({
               ) : null}
             </div>
           )}
-          {ready && items.length === 0 && !scanning && (
+          {/* Always show a hint at the bottom when no items have been detected
+              yet, even while scanning. This is the user's clearest signal that
+              the scanner is actively looking — without it, the camera just
+              shows a black feed with no feedback. */}
+          {ready && items.length === 0 && (
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center pointer-events-none">
-              <div className="flex items-center gap-1.5 bg-black/60 text-white text-xs rounded-full px-3 py-1.5">
-                <Camera className="w-3.5 h-3.5" />
-                Point the camera at any product · bottle, shoes, outfit, accessory
+              <div className="flex items-center gap-2 bg-black/70 text-white text-xs rounded-full px-3 py-1.5">
+                {scanning ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Scanning for products…</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Point the camera at any product · bottle, shoes, outfit, fruit, electronics</span>
+                  </>
+                )}
               </div>
+            </div>
+          )}
+          {/* When items ARE detected, show a small "live count" badge in the
+              bottom-right so the user can see the scanner is still working
+              (every 2.5s a fresh scan runs). */}
+          {ready && items.length > 0 && (
+            <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/60 text-white text-xs rounded-full px-2.5 py-1 pointer-events-none">
+              {scanning ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              )}
+              <span>{items.length} item{items.length !== 1 && 's'} · {scanning ? 'scanning' : 'live'}</span>
             </div>
           )}
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// BoundingBoxOverlay — renders bounding boxes over the video, correctly
+// aligned even when the video uses `object-cover` (which crops the captured
+// frame to fill the container).
+//
+// How it works:
+//   1. We measure the displayed video element's size with a ResizeObserver
+//   2. We read the video's intrinsic frame size (videoWidth, videoHeight)
+//   3. We compute the cover scale: max(containerW/frameW, containerH/frameH)
+//   4. The cover offset centers the scaled-up frame in the container
+//   5. Each normalized box (0-1) is then transformed: multiply by frame size
+//      to get pixel coords in the frame, apply scale + offset to get
+//      pixel coords in the container, divide by container size to get
+//      normalized coords in the overlay.
+//
+// Without this transform, boxes drawn at normalized 0-1 positions on the
+// overlay would not line up with the actual items in the cropped video.
+function BoundingBoxOverlay({
+  items,
+  videoRef,
+  onPickItem,
+}: {
+  items: DetectedItem[]
+  videoRef: React.RefObject<HTMLVideoElement>
+  onPickItem: (label: string) => void
+}) {
+  // Force a re-render whenever the video element's display size changes
+  // (e.g. window resize, modal open/close, mobile orientation change).
+  const [, setRenderNonce] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    const container = containerRef.current
+    if (!video || !container) return
+
+    const update = () => setRenderNonce((n) => n + 1)
+    const ro = new ResizeObserver(update)
+    ro.observe(container)
+    // Also re-render when the video metadata loads (videoWidth becomes available)
+    video.addEventListener('loadedmetadata', update)
+    return () => {
+      ro.disconnect()
+      video.removeEventListener('loadedmetadata', update)
+    }
+  }, [videoRef])
+
+  // Compute the cover transform.
+  const video = videoRef.current
+  const container = containerRef.current
+  let scaleX = 1, scaleY = 1, offsetX = 0, offsetY = 0
+  if (video && container && video.videoWidth > 0 && video.videoHeight > 0) {
+    const cw = container.clientWidth
+    const ch = container.clientHeight
+    const vw = video.videoWidth
+    const vh = video.videoHeight
+    // object-cover: scale = max(cw/vw, ch/vh)
+    const scale = Math.max(cw / vw, ch / vh)
+    scaleX = scaleY = scale
+    offsetX = (cw - vw * scale) / 2
+    offsetY = (ch - vh * scale) / 2
+  }
+
+  // Transform a normalized box (0-1 in the captured frame) to its position
+  // in the displayed container (also normalized 0-1).
+  const transform = (box: { x: number; y: number; w: number; h: number }) => {
+    const containerW = container?.clientWidth || 1
+    const containerH = container?.clientHeight || 1
+    // Convert normalized coords to frame pixel coords, then to container
+    // pixel coords via the cover transform, then back to normalized 0-1
+    // in the container (which is what the CSS % values expect).
+    const px = (box.x * video!.videoWidth * scaleX + offsetX) / containerW
+    const py = (box.y * video!.videoHeight * scaleY + offsetY) / containerH
+    const pw = (box.w * video!.videoWidth * scaleX) / containerW
+    const ph = (box.h * video!.videoHeight * scaleY) / containerH
+    return { px, py, pw, ph }
+  }
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 pointer-events-none">
+      {items.map((it, i) => {
+        const isPart = it.isWholeProduct === false && it.parent
+        // If we don't have video dimensions yet, fall back to raw normalized
+        // coords (boxes will be slightly off but still visible).
+        const hasVideoDims = video && video.videoWidth > 0 && video.videoHeight > 0
+        const left = hasVideoDims ? `${transform(it.box).px * 100}%` : `${it.box.x * 100}%`
+        const top = hasVideoDims ? `${transform(it.box).py * 100}%` : `${it.box.y * 100}%`
+        const width = hasVideoDims ? `${transform(it.box).pw * 100}%` : `${it.box.w * 100}%`
+        const height = hasVideoDims ? `${transform(it.box).ph * 100}%` : `${it.box.h * 100}%`
+        return (
+          <div
+            key={i}
+            className={`absolute rounded-md transition-all duration-300 ${
+              isPart
+                ? 'border border-dashed border-primary/70 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+                : 'border-2 border-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+            }`}
+            style={{ left, top, width, height }}
+          >
+            <button
+              type="button"
+              onClick={() => onPickItem(it.label)}
+              title={isPart ? `Part of: ${it.parent}` : 'Whole product'}
+              className="pointer-events-auto absolute -top-7 left-0 flex items-center gap-1.5 max-w-[240px]"
+            >
+              <Badge
+                className={`shadow-sm whitespace-nowrap gap-1 ${
+                  isPart
+                    ? 'bg-primary/70 text-primary-foreground text-[10px] px-1.5 py-0.5'
+                    : 'bg-primary text-primary-foreground text-[11px] px-1.5 py-0.5'
+                }`}
+              >
+                {isPart && <span className="opacity-70 text-[9px]">part:</span>}
+                <span className="truncate max-w-[100px]">{it.label}</span>
+                {it.price ? (
+                  <span className="font-bold">{formatPrice(it.price)}</span>
+                ) : (
+                  <span className="opacity-70">no price</span>
+                )}
+              </Badge>
+              {it.price?.source === 'internal' && (
+                <span className="text-[9px] bg-emerald-500 text-white rounded px-1 py-0.5 shadow-sm">local</span>
+              )}
+              {it.price?.source === 'external' && (
+                <span className="text-[9px] bg-amber-500 text-white rounded px-1 py-0.5 shadow-sm">est.</span>
+              )}
+            </button>
+          </div>
+        )
+      })}
+    </div>
   )
 }
