@@ -299,30 +299,78 @@ function LiveCameraSearchModal({
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white px-6 text-center overflow-y-auto py-8">
+            <div className="absolute inset-0 flex flex-col items-center justify-start gap-3 text-white px-4 sm:px-6 text-center overflow-y-auto py-6 pt-12">
               <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0" />
               <p className="text-sm leading-relaxed max-w-md">{error}</p>
-              <Button
-                type="button"
-                variant="secondary"
-                className="bg-white text-black hover:bg-white/90 gap-1.5 h-9 px-4 shrink-0"
-                onClick={handleRetry}
-              >
-                <Camera className="w-4 h-4" /> Retry camera
-              </Button>
-              <details className="text-[11px] text-white/70 max-w-sm text-left w-full bg-black/30 rounded-lg p-3 mt-1">
-                <summary className="cursor-pointer text-white/90 font-medium flex items-center gap-1.5">
-                  <span>📱 How to enable the camera on mobile</span>
-                </summary>
-                <ul className="mt-2 space-y-1.5 text-white/70 list-disc pl-4">
-                  <li><strong>iPhone (Safari):</strong> Settings → Safari → Camera & Microphone Access → Allow</li>
-                  <li><strong>Android (Chrome):</strong> Long-press the URL bar → Site settings → Permissions → Camera → Allow</li>
-                  <li><strong>Desktop Chrome:</strong> Click the camera icon in the URL bar → Always allow → Done</li>
-                  <li><strong>Desktop Firefox:</strong> Padlock icon → Clear this permission → Reload</li>
-                  <li>Camera needs HTTPS — make sure the URL starts with https:// (not http://)</li>
-                  <li>Close other apps using the camera (Zoom, Meet, Teams, another browser tab)</li>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="bg-white text-black hover:bg-white/90 gap-1.5 h-9 px-4 shrink-0"
+                  onClick={handleRetry}
+                >
+                  <Camera className="w-4 h-4" /> Retry camera
+                </Button>
+                <a
+                  href="/test-camera"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-white/10 hover:bg-white/20 border border-white/30 text-white text-sm font-medium"
+                >
+                  <Camera className="w-4 h-4" /> Test camera (new tab)
+                </a>
+              </div>
+
+              <div className="text-[11px] text-white/70 max-w-md text-left w-full bg-black/30 rounded-lg p-3 mt-1 space-y-3">
+                <p className="text-white/90 font-medium">🔴 Why Retry isn't working:</p>
+                <p>
+                  Your browser <strong>remembered</strong> that you previously denied camera access for this site.
+                  Clicking Retry just calls the camera API again — the browser auto-denies without re-asking.
+                  You must <strong>manually clear the denial</strong> in browser settings first.
+                </p>
+                <p className="text-white/90 font-medium pt-2">📋 Step-by-step fix:</p>
+                <ol className="space-y-2 text-white/70 list-decimal pl-4">
+                  <li>
+                    <strong>Desktop Chrome / Edge:</strong>
+                    <br />1. Click the camera icon 📷 in the address bar (top-left of URL)
+                    <br />2. Or visit <code className="bg-black/40 px-1 rounded">chrome://settings/content/camera</code>
+                    <br />3. Find <em>{typeof window !== 'undefined' ? window.location.hostname : 'this site'}</em> → click → Remove
+                    <br />4. <strong>Reload this page</strong> (Ctrl/Cmd+R) — the camera prompt will reappear
+                  </li>
+                  <li>
+                    <strong>Desktop Firefox:</strong>
+                    <br />1. Click the padlock 🔒 in the address bar
+                    <br />2. Clear permissions for this site
+                    <br />3. <strong>Reload this page</strong> (Ctrl/Cmd+R)
+                  </li>
+                  <li>
+                    <strong>Desktop Safari:</strong>
+                    <br />1. Safari → Settings → Websites → Camera
+                    <br />2. Find this site → set to "Ask" or "Allow"
+                    <br />3. <strong>Reload this page</strong> (Cmd+R)
+                  </li>
+                  <li>
+                    <strong>iPhone (Safari):</strong>
+                    <br />1. iOS Settings → Safari → Camera & Microphone Access → Allow
+                    <br />2. Also check iOS Settings → Privacy & Security → Camera → Safari = ON
+                    <br />3. Reload the page
+                  </li>
+                  <li>
+                    <strong>Android (Chrome):</strong>
+                    <br />1. Tap the lock 🔒 icon next to the URL → Permissions → Camera → Allow
+                    <br />2. Or: Settings → Site settings → Camera → find this site → Allow
+                    <br />3. Reload the page
+                  </li>
+                </ol>
+                <p className="text-white/90 font-medium pt-2">⚠️ Other common causes:</p>
+                <ul className="space-y-1 text-white/70 list-disc pl-4">
+                  <li>Camera in use by another app (Zoom, Meet, Teams, another browser tab) → close it</li>
+                  <li>Camera needs HTTPS — URL must start with <code className="bg-black/40 px-1 rounded">https://</code> (not http://)</li>
+                  <li>No webcam connected → check Device Manager / System Settings</li>
+                  <li>Browser blocking camera via extension or policy → try incognito/private window</li>
                 </ul>
-              </details>
+              </div>
             </div>
           )}
           {ready && items.length === 0 && !scanning && (
