@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { visionChatComplete, chatComplete } from '@/lib/zai'
 
-// Real-time camera scan: detect every purchasable product in frame, return
-// normalized bounding boxes, and price each item from two sources:
-//   1. INTERNAL  — matching Local Price Posts from the database, filtered
-//      by the user's location when available (real prices from locals)
-//   2. EXTERNAL  — VLM-estimated typical market price for the user's
-//      country/city, clearly labeled as an estimate
+// Real-time camera scan — DB-first, AI-last pricing.
+//
+// FLOW (per the user's request):
+//   1. SCAN     — VLM looks at the frame and identifies every purchasable
+//                 product + bounding box. NO pricing from the VLM here.
+//   2. SEARCH   — For each detected product, search the local price posts
+//                 in the database, biased toward the user's location
+//                 (same city > same country > anywhere).
+//   3. AI PRICE — Only if no DB match exists, ask the VLM for a typical
+//                 market price estimate in the user's location + currency.
+//                 Clearly labeled as 'est.' vs 'local' in the UI.
 //
 // The endpoint accepts an optional location from the client:
 //   - country (string) — e.g. "Ethiopia"
@@ -90,7 +95,6 @@ function currencyForCountry(country: string | null): string {
 }
 
 // IP geolocation using a free public API (no auth, ~10k req/day per IP).
-// This is best-effort — if it fails, we fall back to USD.
 async function locateByIp(ip: string): Promise<UserLocation | null> {
   try {
     const res = await fetch(`https://ipapi.co/${ip}/json/`, {
@@ -102,12 +106,7 @@ async function locateByIp(ip: string): Promise<UserLocation | null> {
     const country = data.country_name || null
     const city = data.city || null
     if (!country) return null
-    return {
-      country,
-      city,
-      currency: currencyForCountry(country),
-      source: 'ip',
-    }
+    return { country, city, currency: currencyForCountry(country), source: 'ip' }
   } catch {
     return null
   }
@@ -130,7 +129,6 @@ async function resolveLocation(formData: FormData, req: NextRequest): Promise<Us
   // Priority 2: IP geolocation (auto-detected)
   const forwardedFor = req.headers.get('x-forwarded-for') || ''
   const ip = forwardedFor.split(',')[0].trim()
-  // Skip private/localhost IPs
   if (ip && !ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.') && ip !== '::1') {
     const loc = await locateByIp(ip)
     if (loc) return loc
@@ -138,6 +136,51 @@ async function resolveLocation(formData: FormData, req: NextRequest): Promise<Us
 
   // Fallback: no location
   return { country: null, city: null, currency: 'USD', source: 'none' }
+}
+
+// ---- Label matching helpers ----
+// We want a detection like "blue denim shirt" to match a LocalPricePost named
+// "denim shirt" or in the "Clothing" category. Strategy:
+//   - full label match (highest weight)
+//   - last word match ("shirt")
+//   - any word >3 chars match ("denim")
+// Plus a small synonyms map so "shades" matches "sunglasses", etc.
+const SYNONYMS: Record<string, string[]> = {
+  sunglasses: ['shades', 'sunglasses', 'eyewear', 'glasses'],
+  shirt: ['shirt', 'tshirt', 't-shirt', 'top', 'blouse'],
+  shoes: ['shoes', 'sneakers', 'boots', 'sandals', 'footwear'],
+  phone: ['phone', 'smartphone', 'iphone', 'android'],
+  bottle: ['bottle', 'flask', 'container'],
+  banana: ['banana', 'bananas'],
+  coffee: ['coffee', 'espresso', 'latte'],
+  water: ['water', 'h2o'],
+}
+
+function expandLabel(label: string): string[] {
+  const lower = label.toLowerCase()
+  const words = lower.split(/\s+/).filter(Boolean)
+  const expansions = new Set<string>([lower, ...words])
+  // Add synonyms for any word that has them
+  for (const word of words) {
+    for (const [canonical, syns] of Object.entries(SYNONYMS)) {
+      if (syns.includes(word) || word === canonical) {
+        for (const s of syns) expansions.add(s)
+      }
+    }
+  }
+  return Array.from(expansions)
+}
+
+function matches(a: string, b: string): boolean {
+  const na = a.toLowerCase()
+  const nb = b.toLowerCase()
+  if (na.includes(nb) || nb.includes(na)) return true
+  // Any word >3 chars from a that's in b
+  return na.split(' ').some((w) => w.length > 3 && nb.includes(w))
+}
+
+function lastWord(s: string): string {
+  return s.trim().split(/\s+/).slice(-1)[0] || s
 }
 
 export async function POST(req: NextRequest) {
@@ -153,23 +196,19 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buffer.toString('base64')}`
 
+    // ----------------------------------------------------------------
+    // STEP 1 — SCAN (VLM identifies products + bounding boxes only)
+    // ----------------------------------------------------------------
     let items: DetectedItem[] = []
     let aiUsed = false
     let aiError: string | null = null
 
     try {
-      // Pass 1: detect ANY purchasable product in frame.
-      // We deliberately cast a wide net — clothing, food, household, electronics,
-      // produce, packaged goods, electronics, anything you can buy. The user
-      // might be pointing the camera at a fruit stall, a bottle on a shelf,
-      // a phone in their hand, a basket of vegetables — we want prices for
-      // all of it.
-      //
-      // For each product we detect BOTH the whole product AND its major
-      // purchasable parts/components (e.g. bottle + bottle cap).
+      // Detection-only prompt. The VLM is asked to identify products and
+      // parts WITHOUT pricing them — pricing is a separate step that only
+      // fires when the DB has no match for that product.
       const visionPrompt =
-        'You are a real-time shopping camera that identifies ANY purchasable product in the frame and prices each one. ' +
-        'Look at this frame and detect every distinct product or item that someone could buy, including but not limited to:\n' +
+        'You are a real-time shopping camera. Look at this frame and detect every distinct purchasable product or item that someone could buy, including but not limited to:\n' +
         '  - Clothing & wearables: shirt, pants, shoes, jacket, hat, sunglasses, watch, jewelry, bag, backpack\n' +
         '  - Food & drink: fruits, vegetables, bread, packaged snacks, bottles, cans, coffee, tea, prepared dishes\n' +
         '  - Household: cleaning supplies, kitchenware, furniture, decor, tools, appliances\n' +
@@ -187,8 +226,9 @@ export async function POST(req: NextRequest) {
         '  - "yellow banana" instead of just "banana"\n' +
         '  - "leather brown belt" instead of just "belt"\n' +
         '\n' +
-        'For each detected item, output a tight bounding box around JUST that item, normalized 0-1 with ' +
-        '(x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
+        'For each detected item, output a tight bounding box around JUST that item, normalized 0-1 with (x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
+        '\n' +
+        'DO NOT include any price information. Just identify what the products are.\n' +
         '\n' +
         'Respond with ONLY a JSON array, no prose, no markdown fences. Schema:\n' +
         '[{"label":"red plastic water bottle","category":"Bottles","isWholeProduct":true,"parent":null,"box":{"x":0.22,"y":0.15,"w":0.18,"h":0.5}},\n' +
@@ -217,29 +257,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (items.length === 0) {
-      // Include aiError so the client can see WHY no items were found
-      // (e.g. "ZAI config not found. Set ZAI_BASE_URL and ZAI_API_KEY env vars...")
       return NextResponse.json({ items: [], aiUsed, aiError, location })
     }
 
-    function lastWord(s: string) {
-      return s.trim().split(/\s+/).slice(-1)[0] || s
-    }
-
-    function matches(a: string, b: string) {
-      const na = a.toLowerCase()
-      const nb = b.toLowerCase()
-      return na.includes(nb) || nb.includes(na) || na.split(' ').some((w) => w.length > 3 && nb.includes(w))
-    }
-
-    // INTERNAL SOURCE — pull matching local price posts from the database.
-    // When we have a user location, we bias the results toward posts from
-    // that country/city first (those are the real local prices for the user's
-    // area), and fall back to any-country matches as a secondary signal.
-    const labels = items.map((it) => it.label)
-    const orClauses = labels.flatMap((l) => [
+    // ----------------------------------------------------------------
+    // STEP 2 — SEARCH (DB-first, location-aware)
+    //
+    // Build a broad OR clause that matches every detected label against
+    // every relevant text field in LocalPricePost, then sort the results
+    // so same-city > same-country > any-country posts bubble to the top.
+    // ----------------------------------------------------------------
+    const labelExpansions = items.flatMap((it) => expandLabel(it.label))
+    const orClauses = labelExpansions.flatMap((l) => [
       { productName: { contains: l } },
       { productName: { contains: lastWord(l) } },
+      { category: { contains: l } },
       { category: { contains: lastWord(l) } },
     ])
 
@@ -264,19 +296,31 @@ export async function POST(req: NextRequest) {
     }
     const posts = [...allPosts].sort((a, b) => postScore(b) - postScore(a))
 
-    // EXTERNAL SOURCE fallback — ask the VLM for a typical market price
-    // estimate, factoring in the user's location. Prices vary wildly by
-    // country (e.g. a bottle of water is $0.20 in Ethiopia, $2 in NYC).
+    // ----------------------------------------------------------------
+    // STEP 3 — PRICE every detected item (DB first, AI last)
+    //
+    // For each detected item:
+    //   - If we found matching local posts → use those (source: 'internal')
+    //   - If no DB match → ask the VLM for an estimate in the user's
+    //     location (source: 'external')
+    //
+    // Batch the VLM call so we make at most ONE extra request per scan
+    // for all the unmatched items combined.
+    // ----------------------------------------------------------------
+    const matchedItemIndices = new Set(
+      items.map((it, i) =>
+        posts.some((p) => matches(p.productName, it.label) || matches(p.category, it.label)) ? i : -1
+      ).filter((i) => i >= 0)
+    )
+
     const unmatchedLabels = items
-      .filter((it) => !posts.some((p) => matches(p.productName, it.label) || matches(p.category, it.label)))
-      .map((it) => it.label)
+      .map((it, i) => ({ label: it.label, index: i }))
+      .filter(({ index }) => !matchedItemIndices.has(index))
+      .map(({ label }) => label)
 
     let estimates: Record<string, { min: number; max: number }> = {}
     if (unmatchedLabels.length > 0 && aiUsed) {
       try {
-        // Build a location-aware prompt. If we know the country/city, ask
-        // the model for the actual market price in that specific place —
-        // this is what makes the price "based on the place" as requested.
         const locationPhrase = location.country
           ? `in ${location.city ? location.city + ', ' : ''}${location.country}`
           : 'globally (use international average market price)'
