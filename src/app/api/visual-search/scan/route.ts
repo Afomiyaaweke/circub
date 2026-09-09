@@ -1,25 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// Real-time camera scan: given one video frame, detect every wearable/product
-// item in view (shirt, pants, shoes, bag, watch, etc), return a normalized
-// bounding box per item, then price each item from two sources:
-//   1. INTERNAL  — matching posts already in the Local Price Feed (real
-//      prices contributed by locals/travelers), aggregated into a range.
-//   2. EXTERNAL  — when there's no internal match, ask the vision model for
-//      a typical street/retail market price estimate, clearly labeled as an
-//      estimate rather than a verified local price.
+// Real-time camera scan: detect every purchasable product in frame, return
+// normalized bounding boxes, and price each item from two sources:
+//   1. INTERNAL  — matching Local Price Posts from the database, filtered
+//      by the user's location when available (real prices from locals)
+//   2. EXTERNAL  — VLM-estimated typical market price for the user's
+//      country/city, clearly labeled as an estimate
 //
-// This is polled every couple of seconds by the client while the camera is
-// open, so it needs to stay fast: one VLM call per frame, one DB query
-// (batched OR clause) covering every detected item.
+// The endpoint accepts an optional location from the client:
+//   - country (string) — e.g. "Ethiopia"
+//   - city (string) — e.g. "Addis Ababa"
+//   - currency (string) — e.g. "USD", "ETB", "KES"
+// If location is not provided, we fall back to IP geolocation via the
+// request's x-forwarded-for header (Vercel auto-provides this).
 
 interface DetectedItem {
   label: string
   category: string
-  box: { x: number; y: number; w: number; h: number } // normalized 0-1, top-left origin
-  parent?: string | null // when this item is a part/component of another (e.g. "bottle cap" is part of "bottle")
-  isWholeProduct?: boolean // true for the whole product, false for sub-parts
+  box: { x: number; y: number; w: number; h: number }
+  parent?: string | null
+  isWholeProduct?: boolean
+}
+
+interface UserLocation {
+  country?: string | null
+  city?: string | null
+  currency?: string | null
+  source: 'client' | 'ip' | 'none'
 }
 
 function clamp01(n: number) {
@@ -56,13 +64,90 @@ function safeParseItems(raw: string): DetectedItem[] {
   }
 }
 
+// Country → currency mapping (covers most countries; falls back to USD)
+const COUNTRY_CURRENCY: Record<string, string> = {
+  ethiopia: 'ETB', kenya: 'KES', uganda: 'UGX', tanzania: 'TZS', rwanda: 'RWF',
+  ghana: 'GHS', nigeria: 'NGN', egypt: 'EGP', morocco: 'MAD', 'south africa': 'ZAR',
+  malaysia: 'MYR', indonesia: 'IDR', thailand: 'THB', vietnam: 'VND',
+  philippines: 'PHP', india: 'INR', pakistan: 'PKR', bangladesh: 'BDT',
+  china: 'CNY', japan: 'JPY', 'south korea': 'KRW', taiwan: 'TWD',
+  'united states': 'USD', usa: 'USD', 'united kingdom': 'GBP', uk: 'GBP',
+  canada: 'CAD', australia: 'AUD', 'new zealand': 'NZD',
+  germany: 'EUR', france: 'EUR', italy: 'EUR', spain: 'EUR', netherlands: 'EUR',
+  belgium: 'EUR', austria: 'EUR', ireland: 'EUR', portugal: 'EUR', greece: 'EUR',
+  finland: 'EUR', sweden: 'SEK', norway: 'NOK', denmark: 'DKK', switzerland: 'CHF',
+  turkey: 'TRY', 'saudi arabia': 'SAR', uae: 'AED', 'united arab emirates': 'AED',
+  qatar: 'QAR', kuwait: 'KWD', israel: 'ILS', iran: 'IRR', iraq: 'IQD',
+  brazil: 'BRL', argentina: 'ARS', mexico: 'MXN', colombia: 'COP', chile: 'CLP',
+  peru: 'PEN', venezuela: 'VES',
+}
+
+function currencyForCountry(country: string | null): string {
+  if (!country) return 'USD'
+  const c = country.toLowerCase().trim()
+  return COUNTRY_CURRENCY[c] || 'USD'
+}
+
+// IP geolocation using a free public API (no auth, ~10k req/day per IP).
+// This is best-effort — if it fails, we fall back to USD.
+async function locateByIp(ip: string): Promise<UserLocation | null> {
+  try {
+    const res = await fetch(`https://ipapi.co/${ip}/json/`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data?.error) return null
+    const country = data.country_name || null
+    const city = data.city || null
+    if (!country) return null
+    return {
+      country,
+      city,
+      currency: currencyForCountry(country),
+      source: 'ip',
+    }
+  } catch {
+    return null
+  }
+}
+
+async function resolveLocation(formData: FormData, req: NextRequest): Promise<UserLocation> {
+  // Priority 1: client-provided location (most accurate — the user chose it)
+  const clientCountry = (formData.get('country') as string | null)?.trim()
+  const clientCity = (formData.get('city') as string | null)?.trim()
+  const clientCurrency = (formData.get('currency') as string | null)?.trim()
+  if (clientCountry) {
+    return {
+      country: clientCountry,
+      city: clientCity || null,
+      currency: clientCurrency || currencyForCountry(clientCountry),
+      source: 'client',
+    }
+  }
+
+  // Priority 2: IP geolocation (auto-detected)
+  const forwardedFor = req.headers.get('x-forwarded-for') || ''
+  const ip = forwardedFor.split(',')[0].trim()
+  // Skip private/localhost IPs
+  if (ip && !ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.') && ip !== '::1') {
+    const loc = await locateByIp(ip)
+    if (loc) return loc
+  }
+
+  // Fallback: no location
+  return { country: null, city: null, currency: 'USD', source: 'none' }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const currency = (formData.get('currency') as string) || 'USD'
     if (!file) return NextResponse.json({ error: 'No frame provided' }, { status: 400 })
     if (file.size > 6 * 1024 * 1024) return NextResponse.json({ error: 'Frame too large.' }, { status: 400 })
+
+    // Resolve the user's location for location-aware pricing.
+    const location = await resolveLocation(formData, req)
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buffer.toString('base64')}`
@@ -74,21 +159,15 @@ export async function POST(req: NextRequest) {
       const ZAI = (await import('z-ai-web-dev-sdk')).default
       const zai = await ZAI.create()
 
-      // Pass 1: granular object detection with bounding boxes.
-      // For each product in frame, we ask the model to detect BOTH the whole
-      // product AND its major purchasable parts/components separately, so the
-      // user sees the price of the whole item AND the price of each component.
+      // Pass 1: detect ANY purchasable product in frame.
+      // We deliberately cast a wide net — clothing, food, household, electronics,
+      // produce, packaged goods, electronics, anything you can buy. The user
+      // might be pointing the camera at a fruit stall, a bottle on a shelf,
+      // a phone in their hand, a basket of vegetables — we want prices for
+      // all of it.
       //
-      // Examples:
-      //   - A bottle → "plastic bottle" (whole) + "bottle cap/lid" (part)
-      //   - A pair of shoes → "leather sneaker" (whole) + "shoe laces" + "rubber sole"
-      //   - A backpack → "canvas backpack" (whole) + "zipper pull" + "shoulder strap"
-      //   - A watch → "wristwatch" (whole) + "leather watch strap" + "watch face"
-      //   - Sunglasses → "sunglasses" (whole) + "sunglasses frame" + "sunglasses lenses"
-      //
-      // Each item gets its own bounding box. The user can pick the whole product
-      // to see its full price, or pick a part to see just the part price (useful
-      // for replacements, repairs, or understanding what's included).
+      // For each product we detect BOTH the whole product AND its major
+      // purchasable parts/components (e.g. bottle + bottle cap).
       const detectRes = await zai.chat.completions.createVision({
         messages: [
           {
@@ -97,29 +176,31 @@ export async function POST(req: NextRequest) {
               {
                 type: 'text',
                 text:
-                  'You are a real-time shopping camera with granular part segmentation. ' +
-                  'Look at this frame and detect every distinct purchasable product you can see ' +
-                  '(clothing, accessories, shoes, bags, bottles, electronics, food packaging, household items, etc.). ' +
-                  '\n\n' +
-                  'For EVERY product, you MUST detect TWO things in separate entries:\n' +
+                  'You are a real-time shopping camera that identifies ANY purchasable product in the frame and prices each one. ' +
+                  'Look at this frame and detect every distinct product or item that someone could buy, including but not limited to:\n' +
+                  '  - Clothing & wearables: shirt, pants, shoes, jacket, hat, sunglasses, watch, jewelry, bag, backpack\n' +
+                  '  - Food & drink: fruits, vegetables, bread, packaged snacks, bottles, cans, coffee, tea, prepared dishes\n' +
+                  '  - Household: cleaning supplies, kitchenware, furniture, decor, tools, appliances\n' +
+                  '  - Electronics: phones, laptops, headphones, chargers, accessories\n' +
+                  '  - Personal care: shampoo, soap, cosmetics, toiletries\n' +
+                  '  - Market/stall items: anything on a shelf, in a basket, or on display for sale\n' +
+                  '  - Services visible in frame: a sign advertising a haircut, taxi ride, etc.\n' +
+                  '\n' +
+                  'For EVERY product, detect in separate entries:\n' +
                   '  1. The WHOLE product (isWholeProduct=true, parent=null)\n' +
-                  '  2. Each major purchasable PART or component of that product (isWholeProduct=false, parent=<the whole product label>)\n' +
+                  '  2. Each major purchasable PART or component (isWholeProduct=false, parent=<the whole product label>)\n' +
                   '\n' +
-                  'Examples of parts to detect:\n' +
-                  '  - Bottle → whole bottle + bottle cap/lid + bottle label (if separable)\n' +
-                  '  - Shoes → whole shoe + shoe laces + rubber sole + insole\n' +
-                  '  - Backpack → whole backpack + shoulder straps + zipper + front pocket\n' +
-                  '  - Watch → whole watch + watch strap/band + watch face/dial\n' +
-                  '  - Sunglasses → whole sunglasses + frame + lenses\n' +
-                  '  - Shirt → whole shirt + buttons + collar\n' +
-                  '  - Phone → whole phone + phone case + screen protector\n' +
+                  'Use a SPECIFIC label for each item — include brand, color, material, type when visible. Examples:\n' +
+                  '  - "red plastic water bottle" instead of just "bottle"\n' +
+                  '  - "yellow banana" instead of just "banana"\n' +
+                  '  - "leather brown belt" instead of just "belt"\n' +
                   '\n' +
-                  'For each detected item (whole OR part), output a tight bounding box around JUST that item, ' +
-                  'normalized 0-1 with (x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
+                  'For each detected item, output a tight bounding box around JUST that item, normalized 0-1 with ' +
+                  '(x,y) as the top-left corner, (w,h) as width/height fractions of the full frame.\n' +
                   '\n' +
                   'Respond with ONLY a JSON array, no prose, no markdown fences. Schema:\n' +
-                  '[{"label":"plastic water bottle","category":"Bottles","isWholeProduct":true,"parent":null,"box":{"x":0.22,"y":0.15,"w":0.18,"h":0.5}},\n' +
-                  ' {"label":"bottle cap","category":"Bottle Caps","isWholeProduct":false,"parent":"plastic water bottle","box":{"x":0.22,"y":0.10,"w":0.18,"h":0.08}}]\n' +
+                  '[{"label":"red plastic water bottle","category":"Bottles","isWholeProduct":true,"parent":null,"box":{"x":0.22,"y":0.15,"w":0.18,"h":0.5}},\n' +
+                  ' {"label":"bottle cap","category":"Bottle Caps","isWholeProduct":false,"parent":"red plastic water bottle","box":{"x":0.22,"y":0.10,"w":0.18,"h":0.08}}]\n' +
                   '\n' +
                   'If nothing purchasable is visible, respond with []. Max 12 items.',
               },
@@ -137,7 +218,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (items.length === 0) {
-      return NextResponse.json({ items: [], aiUsed })
+      return NextResponse.json({ items: [], aiUsed, location })
     }
 
     function lastWord(s: string) {
@@ -150,24 +231,41 @@ export async function POST(req: NextRequest) {
       return na.includes(nb) || nb.includes(na) || na.split(' ').some((w) => w.length > 3 && nb.includes(w))
     }
 
-    // INTERNAL SOURCE — pull matching local price posts for all detected labels in one query.
-    // We match on the full label ("blue denim shirt") AND its last word ("shirt") against
-    // both productName and category, so a specific detection still hits a broader post.
+    // INTERNAL SOURCE — pull matching local price posts from the database.
+    // When we have a user location, we bias the results toward posts from
+    // that country/city first (those are the real local prices for the user's
+    // area), and fall back to any-country matches as a secondary signal.
     const labels = items.map((it) => it.label)
     const orClauses = labels.flatMap((l) => [
       { productName: { contains: l } },
       { productName: { contains: lastWord(l) } },
       { category: { contains: lastWord(l) } },
     ])
-    const posts = await db.localPricePost.findMany({
+
+    const allPosts = await db.localPricePost.findMany({
       where: { OR: orClauses },
-      select: { productName: true, category: true, currency: true, priceMin: true, priceMax: true, recommendedPrice: true, city: true, country: true },
+      select: {
+        productName: true, category: true, currency: true,
+        priceMin: true, priceMax: true, recommendedPrice: true,
+        city: true, country: true,
+      },
       take: 200,
       orderBy: { createdAt: 'desc' },
     })
 
-    // EXTERNAL SOURCE fallback — ask the model for a typical market price estimate
-    // for items with no internal match yet, in a single batched call.
+    // Sort posts: same country + same city first, then same country, then any.
+    function postScore(p: { country: string; city: string | null }) {
+      if (location.country && p.country.toLowerCase() === location.country.toLowerCase()) {
+        if (location.city && p.city && p.city.toLowerCase() === location.city.toLowerCase()) return 3
+        return 2
+      }
+      return 1
+    }
+    const posts = [...allPosts].sort((a, b) => postScore(b) - postScore(a))
+
+    // EXTERNAL SOURCE fallback — ask the VLM for a typical market price
+    // estimate, factoring in the user's location. Prices vary wildly by
+    // country (e.g. a bottle of water is $0.20 in Ethiopia, $2 in NYC).
     const unmatchedLabels = items
       .filter((it) => !posts.some((p) => matches(p.productName, it.label) || matches(p.category, it.label)))
       .map((it) => it.label)
@@ -177,15 +275,25 @@ export async function POST(req: NextRequest) {
       try {
         const ZAI = (await import('z-ai-web-dev-sdk')).default
         const zai = await ZAI.create()
+
+        // Build a location-aware prompt. If we know the country/city, ask
+        // the model for the actual market price in that specific place —
+        // this is what makes the price "based on the place" as requested.
+        const locationPhrase = location.country
+          ? `in ${location.city ? location.city + ', ' : ''}${location.country}`
+          : 'globally (use international average market price)'
+        const currencyCode = location.currency || 'USD'
+
         const estRes = await zai.chat.completions.create({
           messages: [
             {
               role: 'user',
               content:
-                `Give a realistic typical retail market price range in ${currency} for each of these clothing/accessory items: ${unmatchedLabels
-                  .map((l) => `"${l}"`)
-                  .join(', ')}. ` +
-                'Respond with ONLY JSON, no prose: {"item label": {"min": number, "max": number}, ...}',
+                `Give a realistic typical retail market price range in ${currencyCode} for each of these items, ` +
+                `priced as they would sell ${locationPhrase} (use local market/street prices, not tourist prices). ` +
+                `Items: ${unmatchedLabels.map((l) => `"${l}"`).join(', ')}. ` +
+                `Respond with ONLY JSON, no prose: {"item label": {"min": number, "max": number}, ...}. ` +
+                `Prices must reflect what a local would actually pay at a market or shop in ${location.country || 'a typical city'}.`,
             },
           ],
           thinking: { type: 'disabled' },
@@ -195,7 +303,9 @@ export async function POST(req: NextRequest) {
         const parsed = JSON.parse(cleaned)
         if (parsed && typeof parsed === 'object') {
           for (const [k, v] of Object.entries<any>(parsed)) {
-            if (v && typeof v.min === 'number' && typeof v.max === 'number') estimates[k] = { min: v.min, max: v.max }
+            if (v && typeof v.min === 'number' && typeof v.max === 'number') {
+              estimates[k] = { min: v.min, max: v.max }
+            }
           }
         }
       } catch {
@@ -206,9 +316,12 @@ export async function POST(req: NextRequest) {
     const results = items.map((it) => {
       const matchingPosts = posts.filter((p) => matches(p.productName, it.label) || matches(p.category, it.label))
       if (matchingPosts.length > 0) {
-        const mins = matchingPosts.map((p) => p.priceMin)
-        const maxs = matchingPosts.map((p) => p.priceMax)
-        const currencyUsed = matchingPosts[0].currency
+        // Pick the highest-scoring posts (same city/country first).
+        const topScore = postScore(matchingPosts[0])
+        const localPosts = matchingPosts.filter((p) => postScore(p) === topScore)
+        const mins = localPosts.map((p) => p.priceMin)
+        const maxs = localPosts.map((p) => p.priceMax)
+        const currencyUsed = localPosts[0].currency
         return {
           ...it,
           price: {
@@ -216,9 +329,9 @@ export async function POST(req: NextRequest) {
             currency: currencyUsed,
             min: Math.min(...mins),
             max: Math.max(...maxs),
-            sampleCount: matchingPosts.length,
-            city: matchingPosts[0].city,
-            country: matchingPosts[0].country,
+            sampleCount: localPosts.length,
+            city: localPosts[0].city,
+            country: localPosts[0].country,
           },
         }
       }
@@ -226,13 +339,21 @@ export async function POST(req: NextRequest) {
       if (est) {
         return {
           ...it,
-          price: { source: 'external' as const, currency, min: est.min, max: est.max, sampleCount: 0 },
+          price: {
+            source: 'external' as const,
+            currency: location.currency || 'USD',
+            min: est.min,
+            max: est.max,
+            sampleCount: 0,
+            city: location.city,
+            country: location.country,
+          },
         }
       }
       return { ...it, price: null }
     })
 
-    return NextResponse.json({ items: results, aiUsed })
+    return NextResponse.json({ items: results, aiUsed, location })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Scan failed.' }, { status: 500 })
   }

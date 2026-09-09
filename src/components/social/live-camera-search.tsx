@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Camera, X, Loader2, ScanLine, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-react'
+import { Camera, X, Loader2, ScanLine, AlertTriangle, RefreshCw, ExternalLink, MapPin } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,13 @@ interface DetectedItem {
   price: PriceInfo | null
   parent?: string | null
   isWholeProduct?: boolean
+}
+
+interface ScanLocation {
+  country?: string | null
+  city?: string | null
+  currency?: string | null
+  source?: 'client' | 'ip' | 'none'
 }
 
 const SCAN_INTERVAL_MS = 2500
@@ -73,6 +80,15 @@ function LiveCameraSearchModal({
   const [error, setError] = useState<string | null>(null)
   const [errorName, setErrorName] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // Location returned by the scan endpoint — used to display "Pricing for:
+  // <city>, <country>" in the status bar so the user knows the prices are
+  // localized to their area.
+  const [scanLocation, setScanLocation] = useState<ScanLocation | null>(null)
+  // User-editable location override. When set, this is sent with each scan
+  // request so the prices reflect this specific place instead of the
+  // auto-detected IP location.
+  const [manualLocation, setManualLocation] = useState<string>('')
+  const [showLocationEditor, setShowLocationEditor] = useState(false)
   // Bump this to force the camera init effect to re-run (e.g. after the user
   // clicks Retry on a permission error).
   const [retryNonce, setRetryNonce] = useState(0)
@@ -103,11 +119,26 @@ function LiveCameraSearchModal({
       if (!blob) return
       const formData = new FormData()
       formData.append('file', blob, 'frame.jpg')
-      formData.append('currency', 'USD')
+
+      // Send the user's manual location override (if set) so the backend
+      // uses it for location-aware pricing. The user can type any city +
+      // country combo (e.g. "Addis Ababa, Ethiopia" or "Tokyo, Japan")
+      // and we parse it into country + city client-side.
+      if (manualLocation.trim()) {
+        const parts = manualLocation.split(',').map((s) => s.trim()).filter(Boolean)
+        if (parts.length >= 2) {
+          formData.append('city', parts[0])
+          formData.append('country', parts[1])
+        } else if (parts.length === 1) {
+          formData.append('country', parts[0])
+        }
+      }
+
       const res = await fetch('/api/visual-search/scan', { method: 'POST', body: formData })
       if (!res.ok) return
       const data = await res.json()
       setItems(Array.isArray(data.items) ? data.items : [])
+      if (data.location) setScanLocation(data.location)
       setError(null)
     } catch {
       // Silently skip a failed frame — the next interval tick will retry.
@@ -115,7 +146,7 @@ function LiveCameraSearchModal({
       inFlightRef.current = false
       setScanning(false)
     }
-  }, [])
+  }, [manualLocation])
 
   useEffect(() => {
     if (!open) return
@@ -343,9 +374,34 @@ function LiveCameraSearchModal({
 
           {/* Status bar */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
-            <div className="flex items-center gap-1.5 bg-black/60 text-white text-xs rounded-full px-2.5 py-1">
-              <span className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-emerald-400 animate-pulse' : 'bg-muted-foreground'}`} />
-              {ready ? (scanning ? 'Scanning…' : 'Live') : 'Starting camera…'}
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <div className="flex items-center gap-1.5 bg-black/60 text-white text-xs rounded-full px-2.5 py-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-emerald-400 animate-pulse' : 'bg-muted-foreground'}`} />
+                {ready ? (scanning ? 'Scanning…' : 'Live') : 'Starting camera…'}
+              </div>
+              {/* Location indicator — shows the user where the prices are localized to.
+                  Click to open the location editor and override. */}
+              {ready && (
+                <button
+                  type="button"
+                  onClick={() => setShowLocationEditor((v) => !v)}
+                  className="flex items-center gap-1 bg-black/60 text-white text-xs rounded-full px-2.5 py-1 hover:bg-black/80 transition-colors"
+                  title="Click to change the location used for pricing"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span className="truncate max-w-[140px] sm:max-w-[200px]">
+                    {manualLocation.trim()
+                      ? manualLocation
+                      : scanLocation?.city && scanLocation?.country
+                        ? `${scanLocation.city}, ${scanLocation.country}`
+                        : scanLocation?.country
+                          ? scanLocation.country
+                          : scanLocation?.source === 'ip'
+                            ? 'Auto-detected location'
+                            : 'Set location'}
+                  </span>
+                </button>
+              )}
             </div>
             <Button
               type="button"
@@ -357,6 +413,43 @@ function LiveCameraSearchModal({
               <X className="w-4 h-4" />
             </Button>
           </div>
+
+          {/* Location editor panel — opens when the user taps the location badge */}
+          {ready && showLocationEditor && (
+            <div className="absolute top-14 left-3 right-3 sm:right-auto sm:w-80 bg-black/85 backdrop-blur-md border border-white/20 rounded-lg p-3 z-10 pointer-events-auto">
+              <p className="text-xs text-white/80 mb-2 font-medium">Set pricing location</p>
+              <input
+                type="text"
+                value={manualLocation}
+                onChange={(e) => setManualLocation(e.target.value)}
+                placeholder="City, Country (e.g. Addis Ababa, Ethiopia)"
+                className="w-full bg-black/60 border border-white/30 rounded px-2 py-1.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-primary"
+              />
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualLocation('')
+                    setShowLocationEditor(false)
+                  }}
+                  className="text-xs text-white/70 hover:text-white px-2 py-1"
+                >
+                  Use auto-detected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationEditor(false)}
+                  className="ml-auto text-xs bg-white text-black px-3 py-1 rounded hover:bg-white/90 font-medium"
+                >
+                  Done
+                </button>
+              </div>
+              <p className="text-[10px] text-white/50 mt-2 leading-relaxed">
+                Prices will reflect local market rates in this location. Format: "City, Country" or just "Country".
+                Examples: "Tokyo, Japan" · "Nairobi, Kenya" · "United States"
+              </p>
+            </div>
+          )}
 
           {!ready && !error && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white">
