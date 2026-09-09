@@ -196,3 +196,45 @@ export interface LocalPriceHistory {
 }
 
 export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark'
+
+// =====================================================
+// PRICELENS SCAN — camera product identification + pricing
+// =====================================================
+
+export interface ScanLocation {
+  city?: string | null
+  country?: string | null
+  countryCode?: string | null
+  region?: string | null
+}
+
+export interface ScanResult {
+  item: {
+    name: string
+    brand?: string | null
+    category?: string | null
+    description: string
+  }
+  price: {
+    estimatedLow: number | null
+    estimatedHigh: number | null
+    currency: string | null
+    summary: string
+  } | null
+  sources: Array<{
+    title: string
+    url: string
+    snippet: string
+    host: string
+    date?: string | null
+  }>
+  location: ScanLocation | null
+  rawQuery: string
+}
+
+export interface ScanHistoryEntry {
+  id: string
+  timestamp: number
+  thumbnail?: string | null
+  result: ScanResult
+}
