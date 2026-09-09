@@ -201,20 +201,136 @@ export default function TestCameraPage() {
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 space-y-2 text-sm">
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 space-y-3 text-sm">
             <p className="font-semibold text-red-400">❌ {error}</p>
-            <details className="text-white/70">
-              <summary className="cursor-pointer">How to fix common camera errors</summary>
-              <ul className="mt-2 space-y-1.5 list-disc pl-4">
-                <li><strong>NotAllowedError / PermissionDeniedError</strong>: User denied camera permission. Tap the lock icon in the browser address bar → Site settings → Allow Camera → Reload.</li>
-                <li><strong>NotFoundError</strong>: No camera connected. Plug in a webcam or try a different device.</li>
-                <li><strong>NotReadableError / TrackStartError</strong>: Another app is using the camera. Close Zoom, Meet, Teams, other browser tabs, then retry.</li>
-                <li><strong>OverconstrainedError</strong>: The requested camera type isn't available. Try "Any camera".</li>
-                <li><strong>SecurityError</strong>: Camera blocked. Make sure URL is https:// (not http://).</li>
-                <li><strong>NotSupportedError</strong>: Browser doesn't support getUserMedia. Try the latest Chrome, Safari, or Firefox.</li>
-                <li><strong>iOS Safari</strong>: Settings → Safari → Camera & Microphone Access → Allow. Also make sure the URL is HTTPS.</li>
-              </ul>
-            </details>
+
+            {/* Browser detection so we show the right fix instructions */}
+            {(() => {
+              const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+              const isChrome = /Chrome\//.test(ua) && !/Edg\//.test(ua) && !/OPR\//.test(ua)
+              const isEdge = /Edg\//.test(ua)
+              const isFirefox = /Firefox\//.test(ua)
+              const isSafari = /Safari\//.test(ua) && !/Chrome\//.test(ua)
+              const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+              const isAndroid = /Android/.test(ua)
+              const isMobile = isIOS || isAndroid
+              const browserName = isIOS
+                ? 'iOS Safari'
+                : isAndroid
+                  ? isChrome
+                    ? 'Android Chrome'
+                    : 'Android browser'
+                  : isEdge
+                    ? 'Desktop Edge'
+                    : isChrome
+                      ? 'Desktop Chrome'
+                      : isFirefox
+                        ? 'Desktop Firefox'
+                        : isSafari
+                          ? 'Desktop Safari'
+                          : 'Unknown browser'
+
+              return (
+                <div className="space-y-2 text-white/80">
+                  <p className="text-white font-medium">
+                    🌐 Detected browser: <span className="text-amber-300">{browserName}</span>
+                  </p>
+                  <p>
+                    <strong>Why this happens:</strong> Your browser remembers that you previously denied
+                    camera access for this site, so it auto-rejects every <code className="bg-black/40 px-1 rounded">getUserMedia</code>{' '}
+                    call without re-prompting you. The fix is to <strong>manually clear that remembered denial</strong>{' '}
+                    in your browser's site-permissions settings, then reload this page.
+                  </p>
+
+                  {errorName === 'NotAllowedError' && (
+                    <ol className="space-y-3 list-decimal pl-5 mt-2">
+                      {isIOS && (
+                        <li>
+                          <strong>iPhone / iPad (Safari):</strong>
+                          <ol className="mt-1 space-y-1 list-disc pl-4 text-white/70">
+                            <li>iOS Settings → <strong>Safari</strong> → Camera & Microphone Access → <strong>Allow</strong></li>
+                            <li>iOS Settings → Privacy & Security → Camera → make sure <strong>Safari</strong> is ON</li>
+                            <li>Reload this page in Safari (pull-to-refresh or tap the URL → Go)</li>
+                            <li>Tap "Start camera" again — you should now see the iOS permission prompt</li>
+                          </ol>
+                        </li>
+                      )}
+                      {isAndroid && (
+                        <li>
+                          <strong>Android (Chrome):</strong>
+                          <ol className="mt-1 space-y-1 list-disc pl-4 text-white/70">
+                            <li>Tap the 🔒 lock icon in the URL bar → Permissions → Camera → <strong>Allow</strong></li>
+                            <li>Or: Chrome menu ⋮ → Settings → Site settings → Camera → find circub.vercel.app → <strong>Allow</strong></li>
+                            <li>Reload this page (⤴ or pull-to-refresh)</li>
+                            <li>Tap "Start camera" again — you should see the Android permission prompt</li>
+                          </ol>
+                        </li>
+                      )}
+                      {(isChrome || isEdge) && !isMobile && (
+                        <li>
+                          <strong>{browserName}:</strong>
+                          <ol className="mt-1 space-y-1 list-disc pl-4 text-white/70">
+                            <li>
+                              Copy & paste this into a new tab:{' '}
+                              <code className="bg-black/40 px-1.5 py-0.5 rounded break-all">
+                                {isEdge ? 'edge://settings/content/camera' : 'chrome://settings/content/camera'}
+                              </code>
+                            </li>
+                            <li>Scroll to "Not allowed to use your camera" (or "Block" list)</li>
+                            <li>Find <code className="bg-black/40 px-1 rounded">https://circub.vercel.app</code> → click ⋯ → <strong>Remove</strong></li>
+                            <li>Come back to this tab and reload (Ctrl+R / Cmd+R)</li>
+                            <li>Tap "Start camera" again — the permission prompt should reappear</li>
+                          </ol>
+                          <p className="mt-2 text-white/70 text-xs">
+                            ⚡ Quick test: open this page in an <strong>Incognito window</strong> (Ctrl+Shift+N)
+                            — incognito sessions don't remember denials, so you can confirm the camera works.
+                          </p>
+                        </li>
+                      )}
+                      {isFirefox && !isMobile && (
+                        <li>
+                          <strong>Desktop Firefox:</strong>
+                          <ol className="mt-1 space-y-1 list-disc pl-4 text-white/70">
+                            <li>Click the 🔒 padlock icon in the address bar</li>
+                            <li>Click "Clear permissions for this site"</li>
+                            <li>Reload this page (Ctrl+R)</li>
+                            <li>Tap "Start camera" — Firefox will re-prompt</li>
+                          </ol>
+                          <p className="mt-2 text-white/70 text-xs">
+                            ⚡ Quick test: open this page in a <strong>Private Window</strong> (Ctrl+Shift+P)
+                            — private windows don't remember denials.
+                          </p>
+                        </li>
+                      )}
+                      {isSafari && !isMobile && (
+                        <li>
+                          <strong>Desktop Safari:</strong>
+                          <ol className="mt-1 space-y-1 list-disc pl-4 text-white/70">
+                            <li>Safari menu → Settings → Websites → Camera</li>
+                            <li>Find <code className="bg-black/40 px-1 rounded">circub.vercel.app</code> in the list</li>
+                            <li>Change to <strong>Allow</strong> or <strong>Ask</strong></li>
+                            <li>Reload this page (Cmd+R)</li>
+                            <li>Tap "Start camera" — Safari will re-prompt</li>
+                          </ol>
+                        </li>
+                      )}
+                      {!isChrome && !isEdge && !isFirefox && !isSafari && !isMobile && (
+                        <li>
+                          <strong>Unknown browser:</strong> Look in your browser settings for "Site permissions"
+                          or "Camera permissions" and clear the denial for <code className="bg-black/40 px-1 rounded">circub.vercel.app</code>.
+                          Or try a different browser.
+                        </li>
+                      )}
+                    </ol>
+                  )}
+
+                  <p className="text-white/60 text-xs pt-2 border-t border-white/10 mt-2">
+                    💡 After clearing the denial, you MUST reload this page before clicking "Start camera" —
+                    browsers only re-evaluate permissions on page load.
+                  </p>
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -232,7 +348,7 @@ export default function TestCameraPage() {
           <p>
             <strong>HTTPS:</strong> {typeof window !== 'undefined' ? (window.isSecureContext ? 'Yes ✅' : 'No ❌') : ''}
           </p>
-          <p>
+          <p className="break-all">
             <strong>User agent:</strong> {typeof navigator !== 'undefined' ? navigator.userAgent : ''}
           </p>
           <p>
