@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, SlidersHorizontal, Sparkles, PackageOpen, Camera, X, Loader2 } from 'lucide-react'
+import { MapPin, Plus, Search, SlidersHorizontal, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +38,16 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [searchImage, setSearchImage] = useState<string | null>(null)
   const [searchingByImage, setSearchingByImage] = useState(false)
+  // AI search results — shown in a panel above the feed after a camera
+  // capture or image upload. Contains the AI identification + price
+  // estimate + matching local posts.
+  const [searchResults, setSearchResults] = useState<{
+    aiDescription: string
+    aiPriceEstimate: { min: number; max: number; currency: string } | null
+    localMatches: any[]
+    keywords: string
+    imageUrl: string
+  } | null>(null)
   const [filterValues, setFilterValues] = useState<{ countries: string[]; cities: string[]; categories: string[] }>({ countries: [], cities: [], categories: [] })
   const { toast } = useToast()
 
@@ -98,14 +108,36 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       if (!vlmRes.ok) { const e = await vlmRes.json(); throw new Error(e.error || 'Visual search failed') }
       const vlmData = await vlmRes.json()
       const keywords: string = (vlmData.keywords || '').trim()
+      const imageUrl = URL.createObjectURL(file)
       if (!keywords) { toast({ title: 'No keywords detected', description: 'Could not identify any search terms from the image.', variant: 'destructive' }); return }
       const firstKeyword = keywords.split(',')[0].trim()
       setSearch(firstKeyword)
-      setSearchImage(URL.createObjectURL(file))
-      toast({ title: 'AI recommends: ' + firstKeyword, description: vlmData.aiUsed ? 'AI identified: ' + keywords : 'Search keywords: ' + keywords + ' (AI analysis unavailable, using filename)' })
+      setSearchImage(imageUrl)
+      // Store the full results so we can show the AI description + price
+      // estimate + matching local posts in a panel above the feed.
+      setSearchResults({
+        aiDescription: vlmData.aiDescription || '',
+        aiPriceEstimate: vlmData.aiPriceEstimate || null,
+        localMatches: Array.isArray(vlmData.localMatches) ? vlmData.localMatches : [],
+        keywords,
+        imageUrl,
+      })
+      const localCount = Array.isArray(vlmData.localMatches) ? vlmData.localMatches.length : 0
+      toast({
+        title: 'AI identified: ' + firstKeyword,
+        description: vlmData.aiUsed
+          ? `${vlmData.aiDescription || ''}${localCount > 0 ? ` · ${localCount} local price${localCount !== 1 ? 's' : ''} found` : ' · no local prices yet'}`
+          : 'AI analysis unavailable, using filename',
+      })
     } catch (e) {
       toast({ title: 'Visual search failed', description: (e as Error).message, variant: 'destructive' })
     } finally { setSearchingByImage(false) }
+  }
+
+  const handleClearSearch = () => {
+    setSearch('')
+    setSearchImage(null)
+    setSearchResults(null)
   }
 
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
@@ -157,8 +189,70 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
             <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
             <span className="text-xs text-foreground truncate max-w-[120px]">{search}</span>
-            <button onClick={() => { setSearch(''); setSearchImage(null) }} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
+            <button onClick={handleClearSearch} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
           </div>
+        )}
+
+        {/* AI search results panel — shows after a camera capture or image
+            upload. Contains the AI identification + price estimate + matching
+            local posts, so the user can see both sources at a glance. */}
+        {searchResults && (
+          <Card className="p-4 shadow-sm border-primary/20 space-y-3">
+            <div className="flex items-start gap-3">
+              <img src={searchResults.imageUrl} alt="Captured" className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border" />
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">AI identified</span>
+                  <span className="text-xs text-muted-foreground truncate">{searchResults.keywords}</span>
+                </div>
+                {searchResults.aiDescription && (
+                  <p className="text-sm text-foreground leading-relaxed">{searchResults.aiDescription}</p>
+                )}
+                {searchResults.aiPriceEstimate && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                      ✨ AI est: {searchResults.aiPriceEstimate.currency} {searchResults.aiPriceEstimate.min}–{searchResults.aiPriceEstimate.max}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <button onClick={handleClearSearch} className="p-1 rounded hover:bg-accent text-muted-foreground shrink-0" aria-label="Close results">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Local price matches — real prices from locals in the DB */}
+            {searchResults.localMatches.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  {searchResults.localMatches.length} local price{searchResults.localMatches.length !== 1 && 's'} found
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {searchResults.localMatches.slice(0, 6).map((post: any) => (
+                    <button
+                      key={post.id}
+                      onClick={() => setDetailPostId(post.id)}
+                      className="text-left p-2.5 rounded-lg border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 transition-colors space-y-1"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-foreground truncate">{post.productName}</span>
+                        <span className="text-sm font-bold text-emerald-700 shrink-0">
+                          {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `–${post.priceMax}` : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{[post.city, post.country].filter(Boolean).join(', ')}</span>
+                        {post.author?.verifiedLocal && <BadgeCheck className="w-3 h-3 text-emerald-500 shrink-0" />}
+                        <span className="truncate">{post.author?.name}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
         )}
         <Select value={country} onValueChange={setCountry}>
           <SelectTrigger className="w-full sm:w-[160px] bg-card h-9 sm:h-10 text-sm"><MapPin className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" /><SelectValue placeholder="All countries" /></SelectTrigger>
