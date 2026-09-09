@@ -1,6 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { visionChatComplete, chatComplete, isGeminiConfigured } from '@/lib/gemini'
+// Prefer ZAI (chat.z.ai's underlying API) when configured. Fall back to
+// Gemini, then to nothing (no VLM).
+// Set ZAI_BASE_URL + ZAI_API_KEY on Vercel to use ZAI.
+// Set GEMINI_API_KEY on Vercel to use Gemini as a fallback.
+import { visionChatComplete as zaiVisionChat, chatComplete as zaiChat } from '@/lib/zai'
+import { visionChatComplete as geminiVisionChat, chatComplete as geminiChat, isGeminiConfigured } from '@/lib/gemini'
+
+// Wrap the providers so we can pick at runtime. ZAI is preferred (matches
+// chat.z.ai's underlying API). If ZAI isn't configured, fall back to Gemini.
+async function visionChatComplete(messages: any, options: any = {}): Promise<string> {
+  try {
+    return await zaiVisionChat(messages, options)
+  } catch (e: any) {
+    // If ZAI fails AND Gemini is configured, try Gemini.
+    if (isGeminiConfigured()) {
+      console.warn('[scan] ZAI vision failed, falling back to Gemini:', e?.message)
+      return await geminiVisionChat(messages, options)
+    }
+    throw e
+  }
+}
+
+async function chatComplete(messages: any, options: any = {}): Promise<string> {
+  try {
+    return await zaiChat(messages, options)
+  } catch (e: any) {
+    if (isGeminiConfigured()) {
+      console.warn('[scan] ZAI chat failed, falling back to Gemini:', e?.message)
+      return await geminiChat(messages, options)
+    }
+    throw e
+  }
+}
+
+function vlmProviderName(): string {
+  // For display in the scan response — shows which provider was actually used.
+  // ZAI is preferred when its env vars are set; otherwise Gemini if GEMINI_API_KEY
+  // is set; otherwise 'none'.
+  if (process.env.ZAI_BASE_URL && process.env.ZAI_API_KEY) return 'zai'
+  if (isGeminiConfigured()) return 'gemini'
+  // Local dev sandbox falls back to ZAI via /etc/.z-ai-config
+  return 'zai'
+}
 
 // Real-time camera scan — DB-first, AI-last pricing.
 //
@@ -284,7 +326,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (items.length === 0) {
-    return NextResponse.json({ items: [], aiUsed, aiError, location, vlmProvider: isGeminiConfigured() ? 'gemini' : 'zai' })
+    return NextResponse.json({ items: [], aiUsed, aiError, location, vlmProvider: vlmProviderName() })
     }
 
     // ----------------------------------------------------------------
@@ -426,7 +468,7 @@ export async function POST(req: NextRequest) {
       return { ...it, price: null }
     })
 
-    return NextResponse.json({ items: results, aiUsed, aiError, location, vlmProvider: isGeminiConfigured() ? 'gemini' : 'zai' })
+    return NextResponse.json({ items: results, aiUsed, aiError, location, vlmProvider: vlmProviderName() })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Scan failed.' }, { status: 500 })
   }
