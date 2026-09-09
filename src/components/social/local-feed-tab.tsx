@@ -131,25 +131,25 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-5 shadow-sm">
+      <Card className="p-4 sm:p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary shrink-0" />
-              <h2 className="text-lg font-bold text-foreground truncate">Local Price Feed</h2>
+              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">Local Price Feed</h2>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
+            <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
           </div>
-          <Button onClick={() => setModalOpen(true)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm">
-            <Plus className="w-4 h-4" /> Post a Local Price
+          <Button onClick={() => setModalOpen(true)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
+            <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
           </Button>
         </div>
       </Card>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
+        <div className="relative flex-1 min-w-[140px] sm:min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="Search products, services, places..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card" />
+          <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card h-9 sm:h-10 text-sm" />
         </div>
         <PhotoSearchButton onImage={handleImageSearch} loading={searchingByImage} />
         <LiveCameraSearchButton onPickItem={(label) => { setSearch(label); setSearchImage(null) }} />
@@ -161,19 +161,19 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           </div>
         )}
         <Select value={country} onValueChange={setCountry}>
-          <SelectTrigger className="w-[140px] sm:w-[160px] bg-card"><MapPin className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="All countries" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px] bg-card h-9 sm:h-10 text-sm"><MapPin className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" /><SelectValue placeholder="All countries" /></SelectTrigger>
           <SelectContent><SelectItem value="All countries">All countries</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={city} onValueChange={setCity}>
-          <SelectTrigger className="w-[130px] sm:w-[150px] bg-card"><SelectValue placeholder="All cities" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[150px] bg-card h-9 sm:h-10 text-sm"><SelectValue placeholder="All cities" /></SelectTrigger>
           <SelectContent><SelectItem value="All cities">All cities</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-[140px] sm:w-[160px] bg-card"><SelectValue placeholder="All categories" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px] bg-card h-9 sm:h-10 text-sm"><SelectValue placeholder="All categories" /></SelectTrigger>
           <SelectContent><SelectItem value="All categories">All categories</SelectItem>{filterValues.categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-          <SelectTrigger className="w-[120px] sm:w-[140px] bg-card"><SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Sort" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[140px] bg-card h-9 sm:h-10 text-sm"><SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" /><SelectValue placeholder="Sort" /></SelectTrigger>
           <SelectContent><SelectItem value="recent">Most recent</SelectItem><SelectItem value="popular">Most helpful</SelectItem></SelectContent>
         </Select>
       </div>
@@ -183,7 +183,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           {[1, 2, 3, 4].map((i) => <Card key={i} className="p-4 space-y-3"><Skeleton className="h-3 w-20" /><Skeleton className="h-5 w-3/4" /><Skeleton className="h-3 w-1/2" /><Skeleton className="h-16 w-full" /><Skeleton className="h-3 w-full" /></Card>)}
         </div>
       ) : posts.length === 0 ? (
-        <Card className="p-10 text-center shadow-sm">
+        <Card className="p-6 sm:p-10 text-center shadow-sm">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3"><PackageOpen className="w-6 h-6 text-primary" /></div>
           <h3 className="font-semibold text-foreground">No local price posts found</h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">No posts match your filters. Try adjusting search or filters · or be the first to post a local price!</p>

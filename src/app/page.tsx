@@ -199,7 +199,7 @@ export default function Home() {
         onEditProfile={() => setEditProfileOpen(true)}
       />
 
-      <div className="flex-1 mx-auto w-full max-w-[1400px] px-4 sm:px-6 py-4 sm:py-6">
+      <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           <LeftSidebar
             user={me}

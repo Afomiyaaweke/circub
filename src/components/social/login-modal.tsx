@@ -92,7 +92,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6 sm:p-8 gap-0">
+      <DialogContent className="max-w-md p-4 sm:p-6 md:p-8 gap-0">
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />

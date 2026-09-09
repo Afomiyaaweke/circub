@@ -96,7 +96,7 @@ export function RightSidebar({
   }
 
   return (
-    <aside className="w-full lg:w-72 shrink-0 space-y-4">
+    <aside className="hidden lg:block w-72 shrink-0 space-y-4">
       {/* Messages shortcut card */}
       <Card className="p-4 shadow-sm">
         <button

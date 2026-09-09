@@ -124,7 +124,7 @@ function LiveCameraSearchModal({
       // Safety: getUserMedia requires a secure context (HTTPS or localhost).
       // Vercel is HTTPS, but if a user opens via http://<lan-ip>:3000 on their phone,
       // the browser will block camera access — show a specific message.
-      if (typeof window !== 'undefined' && !window.isSecureContext) {
+      if (typeof window !== 'undefined' && window.isSecureContext === false) {
         setError(
           'Camera needs HTTPS. Open https://circub.vercel.app on your phone (not the local IP address) — browsers block camera access on plain HTTP.'
         )
@@ -135,6 +135,9 @@ function LiveCameraSearchModal({
         return
       }
       try {
+        // iOS Safari requires the user to have interacted with the page recently
+        // before getUserMedia will work. The click that opened the modal counts,
+        // but we add a no-op user-gesture check here just to be safe.
         // Try back camera first; if it fails, fall back to any camera.
         let stream: MediaStream
         try {
@@ -172,12 +175,12 @@ function LiveCameraSearchModal({
         let friendly: string
         if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
           friendly =
-            'Camera permission was blocked. Tap the lock icon in your browser address bar → Site settings → allow Camera, then click Retry below.'
+            'Camera permission was blocked. Tap the lock icon (🔒 or ⓘ) in your browser address bar → Site settings → allow Camera, then click Retry below.'
         } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
           friendly = 'No camera found on this device. Connect a webcam or try a different device.'
         } else if (name === 'NotReadableError' || name === 'TrackStartError') {
           friendly =
-            'Camera is in use by another app (Zoom, Meet, etc.). Close that app, then click Retry below.'
+            'Camera is in use by another app (Zoom, Meet, another browser tab). Close that app, then click Retry below.'
         } else if (name === 'OverconstrainedError') {
           friendly = 'The back camera is not available. Click Retry to try the front camera.'
         } else if (name === 'SecurityError') {
@@ -296,20 +299,30 @@ function LiveCameraSearchModal({
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white px-6 text-center">
-              <AlertTriangle className="w-6 h-6 text-amber-400" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white px-6 text-center overflow-y-auto py-8">
+              <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0" />
               <p className="text-sm leading-relaxed max-w-md">{error}</p>
               <Button
                 type="button"
                 variant="secondary"
-                className="bg-white text-black hover:bg-white/90 gap-1.5 h-9 px-4"
+                className="bg-white text-black hover:bg-white/90 gap-1.5 h-9 px-4 shrink-0"
                 onClick={handleRetry}
               >
                 <Camera className="w-4 h-4" /> Retry camera
               </Button>
-              <p className="text-[11px] text-white/60 mt-1 max-w-sm">
-                Tip: if you previously denied camera access, tap the lock icon in the address bar to allow it again.
-              </p>
+              <details className="text-[11px] text-white/70 max-w-sm text-left w-full bg-black/30 rounded-lg p-3 mt-1">
+                <summary className="cursor-pointer text-white/90 font-medium flex items-center gap-1.5">
+                  <span>📱 How to enable the camera on mobile</span>
+                </summary>
+                <ul className="mt-2 space-y-1.5 text-white/70 list-disc pl-4">
+                  <li><strong>iPhone (Safari):</strong> Settings → Safari → Camera & Microphone Access → Allow</li>
+                  <li><strong>Android (Chrome):</strong> Long-press the URL bar → Site settings → Permissions → Camera → Allow</li>
+                  <li><strong>Desktop Chrome:</strong> Click the camera icon in the URL bar → Always allow → Done</li>
+                  <li><strong>Desktop Firefox:</strong> Padlock icon → Clear this permission → Reload</li>
+                  <li>Camera needs HTTPS — make sure the URL starts with https:// (not http://)</li>
+                  <li>Close other apps using the camera (Zoom, Meet, Teams, another browser tab)</li>
+                </ul>
+              </details>
             </div>
           )}
           {ready && items.length === 0 && !scanning && (

@@ -55,15 +55,15 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-3 flex items-center justify-between gap-2 sm:gap-4">
         {/* Logo */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 min-w-0">
           <img
             src="/logo-mark.png"
             alt="circub"
             className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
           />
-          <div className="min-w-0 hidden sm:block">
+          <div className="min-w-0 hidden md:block">
             <p className="text-xs text-muted-foreground italic truncate">
               {isCompany ? `${user?.companyName || 'Company'} · Business account` : 'Local price intelligence for travelers'}
             </p>
@@ -72,7 +72,7 @@ export function Header({
 
         {/* Nav tabs · only show when logged in */}
         {user && (
-          <nav className="flex items-center gap-1 sm:gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-center sm:justify-start">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
@@ -81,15 +81,16 @@ export function Header({
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors',
+                    'flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors shrink-0',
                     isActive
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                   aria-current={isActive ? 'page' : undefined}
+                  aria-label={tab.label}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="hidden md:inline">{tab.label}</span>
                 </button>
               )
             })}
@@ -97,11 +98,11 @@ export function Header({
             {/* Messages button with badge */}
             <button
               onClick={onOpenMessages}
-              className="relative flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="relative flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors shrink-0"
               aria-label="Messages"
             >
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Messages</span>
+              <span className="hidden md:inline">Messages</span>
               {incomingInvitationsCount > 0 && (
                 <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
                   {incomingInvitationsCount}
