@@ -49,14 +49,18 @@ async function geminiGenerate(
   apiKey: string
 ): Promise<{ ok: boolean; status: number; text: string; modelUsed: string | null }> {
   // Build the list of models to try: pinned model first (if user set env
-  // var), then the fallback chain.
+  // var), then the fallback chain. If the pinned model fails with 404
+  // (retired by Google), we override the pin and try the fallback chain
+  // too — the user almost certainly set the env var to an outdated model
+  // name and forgot to update it.
   let modelsToTry: string[]
   if (cachedWorkingModel) {
     modelsToTry = [cachedWorkingModel]
   } else if (process.env.GEMINI_VISION_MODEL) {
-    // User pinned a specific model — try only that one (no fallback).
-    // This is for advanced users who want to pin a model on purpose.
-    modelsToTry = [process.env.GEMINI_VISION_MODEL]
+    // User pinned a specific model. Try it first, but ALSO add the fallback
+    // chain after it — so if their pinned model is retired (404), we still
+    // find a working model instead of failing.
+    modelsToTry = [process.env.GEMINI_VISION_MODEL, ...DEFAULT_MODEL_CHAIN.filter((m) => m !== process.env.GEMINI_VISION_MODEL)]
   } else {
     modelsToTry = DEFAULT_MODEL_CHAIN
   }
@@ -75,9 +79,11 @@ async function geminiGenerate(
       return { ok: true, status: res.status, text, modelUsed: model }
     }
     // 404 = model retired/not available — try the next model in the chain.
+    // This now ALSO applies when the user pinned a model via env var — we
+    // silently fall through to the fallback chain instead of failing.
     // 400 = bad request (e.g. invalid API key, malformed body) — don't retry,
     //   the user needs to fix their key.
-    if (res.status === 404 && !process.env.GEMINI_VISION_MODEL) {
+    if (res.status === 404) {
       console.warn(`[gemini] model ${model} returned 404, trying next in chain`)
       lastError = text
       continue
