@@ -122,8 +122,6 @@ function LiveCameraSearchModal({
 
     async function startCamera() {
       // Safety: getUserMedia requires a secure context (HTTPS or localhost).
-      // Vercel is HTTPS, but if a user opens via http://<lan-ip>:3000 on their phone,
-      // the browser will block camera access — show a specific message.
       if (typeof window !== 'undefined' && window.isSecureContext === false) {
         setError(
           'Camera needs HTTPS. Open https://circub.vercel.app on your phone (not the local IP address) — browsers block camera access on plain HTTP.'
@@ -134,27 +132,78 @@ function LiveCameraSearchModal({
         setError('Your browser does not support camera access. Try the latest Chrome, Safari, or Firefox.')
         return
       }
+
+      // Step 0 — query the current permission state (if supported) so we can
+      // distinguish between "user has actively denied" vs "user hasn't been
+      // asked yet". When state is 'denied', the browser auto-rejects every
+      // getUserMedia call without re-prompting — only the user can fix this
+      // by clearing the denial in browser settings.
+      let permissionState: PermissionState | null = null
       try {
-        // iOS Safari requires the user to have interacted with the page recently
-        // before getUserMedia will work. The click that opened the modal counts,
-        // but we add a no-op user-gesture check here just to be safe.
-        // Try back camera first; if it fails, fall back to any camera.
-        let stream: MediaStream
+        if (navigator.permissions?.query) {
+          const perm = await navigator.permissions.query({ name: 'camera' as PermissionName })
+          permissionState = perm.state
+          console.log('[camera] permission state:', perm.state)
+        }
+      } catch {
+        // permissions.query for 'camera' is not supported in all browsers
+        // (notably older Safari). Fall through to actually trying getUserMedia.
+      }
+
+      // If we know the permission is denied, fail fast with a clear message
+      // instead of calling getUserMedia and making the user wait for the same
+      // rejection.
+      if (permissionState === 'denied') {
+        setError(
+          'Your browser has camera permission blocked for this site. Use the "Open site settings" button below to re-allow it, then click Retry.'
+        )
+        return
+      }
+
+      // Try a sequence of camera constraint variations. Some browsers
+      // (especially mobile Chrome and Safari) will re-prompt the user when
+      // the constraint shape changes — so even after a previous denial, a
+      // fresh attempt with a different constraint can sometimes trigger a
+      // new permission prompt. We try in order from most specific to most
+      // general.
+      const constraintVariants: Array<{ label: string; constraints: MediaStreamConstraints }> = [
+        { label: 'back camera (exact)', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
+        { label: 'back camera (ideal)', constraints: { video: { facingMode: { ideal: 'environment' } }, audio: false } },
+        { label: 'back camera (string)', constraints: { video: { facingMode: 'environment' }, audio: false } },
+        { label: 'front camera (ideal)', constraints: { video: { facingMode: { ideal: 'user' } }, audio: false } },
+        { label: 'any camera (true)', constraints: { video: true, audio: false } },
+      ]
+
+      let stream: MediaStream | null = null
+      let lastError: any = null
+      let triedVariantLabel = ''
+      for (const variant of constraintVariants) {
+        if (cancelled) return
+        triedVariantLabel = variant.label
+        console.log(`[camera] trying variant: ${variant.label}`)
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { exact: 'environment' } },
-            audio: false,
-          })
-        } catch {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
-            audio: false,
-          })
+          stream = await navigator.mediaDevices.getUserMedia(variant.constraints)
+          // Success — stop trying more variants.
+          break
+        } catch (e: any) {
+          lastError = e
+          // If it's a hard denial (NotAllowedError), no point trying other
+          // constraints — the browser will reject them all. Break early.
+          if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
+            break
+          }
+          // For other errors (OverconstrainedError, NotFoundError), try the
+          // next variant — the next constraint shape might succeed.
         }
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
-          return
-        }
+      }
+
+      if (cancelled && stream) {
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
+      if (cancelled) return
+
+      if (stream) {
         streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -164,32 +213,29 @@ function LiveCameraSearchModal({
         }
         setReady(true)
         setError(null)
-        // First scan almost immediately, then on a steady interval — this is what
-        // makes the price tags feel "live" as the camera moves over new items.
         captureAndScan()
         intervalRef.current = setInterval(captureAndScan, SCAN_INTERVAL_MS)
-      } catch (e: any) {
-        // Diagnose the specific failure so the message is actionable.
-        const name = e?.name || ''
-        const msg = e?.message || ''
-        let friendly: string
-        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          friendly =
-            'Camera permission was blocked. Tap the lock icon (🔒 or ⓘ) in your browser address bar → Site settings → allow Camera, then click Retry below.'
-        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-          friendly = 'No camera found on this device. Connect a webcam or try a different device.'
-        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-          friendly =
-            'Camera is in use by another app (Zoom, Meet, another browser tab). Close that app, then click Retry below.'
-        } else if (name === 'OverconstrainedError') {
-          friendly = 'The back camera is not available. Click Retry to try the front camera.'
-        } else if (name === 'SecurityError') {
-          friendly = 'Camera blocked for security reasons. Make sure you are on HTTPS, not a raw IP address.'
-        } else {
-          friendly = `Camera failed to start: ${msg || name || 'unknown error'}. Click Retry below.`
-        }
-        setError(friendly)
+        return
       }
+
+      // All attempts failed — diagnose the specific failure so the message is actionable.
+      const name = lastError?.name || ''
+      const msg = lastError?.message || ''
+      let friendly: string
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        friendly = 'Camera permission was blocked. Click "Open site settings" below to re-allow it, then click Retry.'
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        friendly = 'No camera found on this device. Connect a webcam or try a different device.'
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        friendly = 'Camera is in use by another app (Zoom, Meet, another browser tab). Close that app, then click Retry.'
+      } else if (name === 'OverconstrainedError') {
+        friendly = 'No camera matched the requested constraints. Click Retry to try a different camera.'
+      } else if (name === 'SecurityError') {
+        friendly = 'Camera blocked for security reasons. Make sure you are on HTTPS, not a raw IP address.'
+      } else {
+        friendly = `Camera failed to start: ${msg || name || 'unknown error'}. Click Retry below.`
+      }
+      setError(friendly)
     }
     ;(async () => {
       await startCamera()
@@ -202,6 +248,10 @@ function LiveCameraSearchModal({
   }, [open, retryNonce, stopCamera, captureAndScan])
 
   // Retry button handler — bump retryNonce to force the camera init effect to re-run.
+  // The effect re-queries the permission state and tries all constraint variants,
+  // so Retry is meaningful: if the user has cleared the denial in browser settings
+  // between clicks, Retry will now succeed. If the user just clicks Retry without
+  // clearing the denial, the browser will reject again and we show the same fix UI.
   const handleRetry = useCallback(() => {
     stopCamera()
     setError(null)
@@ -209,6 +259,47 @@ function LiveCameraSearchModal({
     setItems([])
     setRetryNonce((n) => n + 1)
   }, [stopCamera])
+
+  // Open the browser's site-permissions UI for this origin. There's no
+  // cross-browser API for this, but we can navigate to the browser-specific
+  // settings URL in a new tab. Detect the browser from the user agent so
+  // we open the right settings page.
+  const handleOpenSiteSettings = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const ua = navigator.userAgent
+    const isEdge = /Edg\//.test(ua)
+    const isChrome = /Chrome\//.test(ua) && !isEdge && !/OPR\//.test(ua)
+    const isFirefox = /Firefox\//.test(ua)
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isAndroid = /Android/.test(ua)
+
+    if (isChrome) {
+      window.open('chrome://settings/content/camera', '_blank')
+    } else if (isEdge) {
+      window.open('edge://settings/content/camera', '_blank')
+    } else if (isFirefox) {
+      // Firefox doesn't have a deep link; show instructions inline.
+      toast({
+        title: 'Firefox',
+        description: 'Click the padlock 🔒 in the address bar → Clear permissions → Reload.',
+      })
+    } else if (isIOS) {
+      toast({
+        title: 'iPhone / iPad',
+        description: 'iOS Settings → Safari → Camera & Microphone Access → Allow. Then reload.',
+      })
+    } else if (isAndroid) {
+      toast({
+        title: 'Android',
+        description: 'Tap the 🔒 lock icon → Permissions → Camera → Allow. Then reload.',
+      })
+    } else {
+      toast({
+        title: 'Camera permission',
+        description: 'Open browser settings → Site permissions → Camera → Allow for this site.',
+      })
+    }
+  }, [toast])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -312,64 +403,73 @@ function LiveCameraSearchModal({
                 >
                   <Camera className="w-4 h-4" /> Retry camera
                 </Button>
-                <a
-                  href="/test-camera"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-white/10 hover:bg-white/20 border border-white/30 text-white text-sm font-medium"
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="bg-white/10 hover:bg-white/20 border border-white/30 text-white gap-1.5 h-9 px-4 shrink-0"
+                  onClick={handleOpenSiteSettings}
                 >
-                  <Camera className="w-4 h-4" /> Test camera (new tab)
-                </a>
+                  <span aria-hidden>🔒</span> Open site settings
+                </Button>
               </div>
 
-              <div className="text-[11px] text-white/70 max-w-md text-left w-full bg-black/30 rounded-lg p-3 mt-1 space-y-3">
-                <p className="text-white/90 font-medium">🔴 Why Retry isn't working:</p>
+              <div className="text-[11px] text-white/70 max-w-md text-left w-full bg-black/30 rounded-lg p-3 mt-1 space-y-2">
                 <p>
-                  Your browser <strong>remembered</strong> that you previously denied camera access for this site.
-                  Clicking Retry just calls the camera API again — the browser auto-denies without re-asking.
-                  You must <strong>manually clear the denial</strong> in browser settings first.
+                  <strong>Why Retry isn't working alone:</strong> Your browser remembers that you
+                  previously denied camera access for this site, so it auto-rejects every camera
+                  request without re-prompting. You must <strong>manually clear the denial</strong>{' '}
+                  in your browser's site-permissions settings first, then click Retry.
                 </p>
-                <p className="text-white/90 font-medium pt-2">📋 Step-by-step fix:</p>
+                <p>
+                  The "Open site settings" button takes you straight there in Chrome / Edge.
+                  For other browsers, see below.
+                </p>
+
+                <p className="text-white/90 font-medium pt-2">📋 Step-by-step fix by browser:</p>
                 <ol className="space-y-2 text-white/70 list-decimal pl-4">
                   <li>
                     <strong>Desktop Chrome / Edge:</strong>
-                    <br />1. Click the camera icon 📷 in the address bar (top-left of URL)
-                    <br />2. Or visit <code className="bg-black/40 px-1 rounded">chrome://settings/content/camera</code>
-                    <br />3. Find <em>{typeof window !== 'undefined' ? window.location.hostname : 'this site'}</em> → click → Remove
-                    <br />4. <strong>Reload this page</strong> (Ctrl/Cmd+R) — the camera prompt will reappear
+                    <br />1. Click "Open site settings" above (or visit <code className="bg-black/40 px-1 rounded">chrome://settings/content/camera</code>)
+                    <br />2. Find <em>{typeof window !== 'undefined' ? window.location.hostname : 'this site'}</em> under "Not allowed" → click ⋯ → <strong>Remove</strong>
+                    <br />3. <strong>Reload this page</strong> (Ctrl/Cmd+R) — Retry will now work
                   </li>
                   <li>
                     <strong>Desktop Firefox:</strong>
-                    <br />1. Click the padlock 🔒 in the address bar
-                    <br />2. Clear permissions for this site
-                    <br />3. <strong>Reload this page</strong> (Ctrl/Cmd+R)
+                    <br />1. Click the padlock 🔒 in the address bar → Clear permissions for this site
+                    <br />2. <strong>Reload this page</strong> (Ctrl/Cmd+R) → Retry
                   </li>
                   <li>
                     <strong>Desktop Safari:</strong>
-                    <br />1. Safari → Settings → Websites → Camera
-                    <br />2. Find this site → set to "Ask" or "Allow"
-                    <br />3. <strong>Reload this page</strong> (Cmd+R)
+                    <br />1. Safari → Settings → Websites → Camera → set this site to <strong>Allow</strong>
+                    <br />2. <strong>Reload this page</strong> (Cmd+R) → Retry
                   </li>
                   <li>
                     <strong>iPhone (Safari):</strong>
-                    <br />1. iOS Settings → Safari → Camera & Microphone Access → Allow
-                    <br />2. Also check iOS Settings → Privacy & Security → Camera → Safari = ON
-                    <br />3. Reload the page
+                    <br />1. iOS Settings → Safari → Camera & Microphone Access → <strong>Allow</strong>
+                    <br />2. iOS Settings → Privacy & Security → Camera → <strong>Safari = ON</strong>
+                    <br />3. Reload this page in Safari → Retry
                   </li>
                   <li>
                     <strong>Android (Chrome):</strong>
-                    <br />1. Tap the lock 🔒 icon next to the URL → Permissions → Camera → Allow
-                    <br />2. Or: Settings → Site settings → Camera → find this site → Allow
-                    <br />3. Reload the page
+                    <br />1. Tap the 🔒 lock icon → Permissions → Camera → <strong>Allow</strong>
+                    <br />2. Reload this page → Retry
                   </li>
                 </ol>
-                <p className="text-white/90 font-medium pt-2">⚠️ Other common causes:</p>
-                <ul className="space-y-1 text-white/70 list-disc pl-4">
-                  <li>Camera in use by another app (Zoom, Meet, Teams, another browser tab) → close it</li>
-                  <li>Camera needs HTTPS — URL must start with <code className="bg-black/40 px-1 rounded">https://</code> (not http://)</li>
-                  <li>No webcam connected → check Device Manager / System Settings</li>
-                  <li>Browser blocking camera via extension or policy → try incognito/private window</li>
-                </ul>
+
+                <p className="text-white/90 font-medium pt-2">⚡ Quick test:</p>
+                <p className="text-white/70">
+                  Open this page in an <strong>Incognito / Private window</strong> — those
+                  windows don't remember denials, so the camera prompt will show fresh.
+                  <br />
+                  Chrome/Edge: <code className="bg-black/40 px-1 rounded">Ctrl/Cmd+Shift+N</code> ·
+                  Firefox: <code className="bg-black/40 px-1 rounded">Ctrl/Cmd+Shift+P</code> ·
+                  Safari: <code className="bg-black/40 px-1 rounded">Cmd+Shift+N</code>
+                </p>
+
+                <p className="text-white/60 text-xs pt-2 border-t border-white/10 mt-2">
+                  💡 After clearing the denial, you MUST reload this page before clicking Retry —
+                  browsers only re-evaluate permissions on page load.
+                </p>
               </div>
             </div>
           )}
