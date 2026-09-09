@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { visionChatComplete, chatComplete } from '@/lib/zai'
+import { visionChatComplete, chatComplete, isGeminiConfigured } from '@/lib/gemini'
 
 // Real-time camera scan — DB-first, AI-last pricing.
 //
@@ -284,7 +284,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (items.length === 0) {
-      return NextResponse.json({ items: [], aiUsed, aiError, location })
+    return NextResponse.json({ items: [], aiUsed, aiError, location, vlmProvider: isGeminiConfigured() ? 'gemini' : 'zai' })
     }
 
     // ----------------------------------------------------------------
@@ -426,7 +426,7 @@ export async function POST(req: NextRequest) {
       return { ...it, price: null }
     })
 
-    return NextResponse.json({ items: results, aiUsed, aiError, location })
+    return NextResponse.json({ items: results, aiUsed, aiError, location, vlmProvider: isGeminiConfigured() ? 'gemini' : 'zai' })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Scan failed.' }, { status: 500 })
   }
