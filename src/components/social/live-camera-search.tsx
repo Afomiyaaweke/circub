@@ -21,6 +21,8 @@ interface DetectedItem {
   category: string
   box: { x: number; y: number; w: number; h: number }
   price: PriceInfo | null
+  parent?: string | null
+  isWholeProduct?: boolean
 }
 
 const SCAN_INTERVAL_MS = 2500
@@ -70,6 +72,9 @@ function LiveCameraSearchModal({
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // Bump this to force the camera init effect to re-run (e.g. after the user
+  // clicks Retry on a permission error).
+  const [retryNonce, setRetryNonce] = useState(0)
 
   const stopCamera = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -114,9 +119,35 @@ function LiveCameraSearchModal({
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    ;(async () => {
+
+    async function startCamera() {
+      // Safety: getUserMedia requires a secure context (HTTPS or localhost).
+      // Vercel is HTTPS, but if a user opens via http://<lan-ip>:3000 on their phone,
+      // the browser will block camera access — show a specific message.
+      if (typeof window !== 'undefined' && !window.isSecureContext) {
+        setError(
+          'Camera needs HTTPS. Open https://circub.vercel.app on your phone (not the local IP address) — browsers block camera access on plain HTTP.'
+        )
+        return
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Your browser does not support camera access. Try the latest Chrome, Safari, or Firefox.')
+        return
+      }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        // Try back camera first; if it fails, fall back to any camera.
+        let stream: MediaStream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { exact: 'environment' } },
+            audio: false,
+          })
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' },
+            audio: false,
+          })
+        }
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop())
           return
@@ -124,7 +155,9 @@ function LiveCameraSearchModal({
         streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          await videoRef.current.play()
+          await videoRef.current.play().catch(() => {
+            // play() can reject if the tab lost focus; the next interval will retry.
+          })
         }
         setReady(true)
         setError(null)
@@ -132,15 +165,47 @@ function LiveCameraSearchModal({
         // makes the price tags feel "live" as the camera moves over new items.
         captureAndScan()
         intervalRef.current = setInterval(captureAndScan, SCAN_INTERVAL_MS)
-      } catch (e) {
-        setError('Camera access denied or unavailable. Check your browser permissions.')
+      } catch (e: any) {
+        // Diagnose the specific failure so the message is actionable.
+        const name = e?.name || ''
+        const msg = e?.message || ''
+        let friendly: string
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          friendly =
+            'Camera permission was blocked. Tap the lock icon in your browser address bar → Site settings → allow Camera, then click Retry below.'
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+          friendly = 'No camera found on this device. Connect a webcam or try a different device.'
+        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+          friendly =
+            'Camera is in use by another app (Zoom, Meet, etc.). Close that app, then click Retry below.'
+        } else if (name === 'OverconstrainedError') {
+          friendly = 'The back camera is not available. Click Retry to try the front camera.'
+        } else if (name === 'SecurityError') {
+          friendly = 'Camera blocked for security reasons. Make sure you are on HTTPS, not a raw IP address.'
+        } else {
+          friendly = `Camera failed to start: ${msg || name || 'unknown error'}. Click Retry below.`
+        }
+        setError(friendly)
       }
+    }
+    ;(async () => {
+      await startCamera()
     })()
     return () => {
       cancelled = true
       stopCamera()
     }
-  }, [open, stopCamera, captureAndScan])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, retryNonce, stopCamera, captureAndScan])
+
+  // Retry button handler — bump retryNonce to force the camera init effect to re-run.
+  const handleRetry = useCallback(() => {
+    stopCamera()
+    setError(null)
+    setReady(false)
+    setItems([])
+    setRetryNonce((n) => n + 1)
+  }, [stopCamera])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,41 +216,60 @@ function LiveCameraSearchModal({
           <canvas ref={captureCanvasRef} className="hidden" />
 
           {/* Bounding-box + price overlay, positioned in the same normalized coordinate
-              space the video is rendered in, so boxes track detected items as they move. */}
+              space the video is rendered in, so boxes track detected items as they move.
+
+              Whole products get a solid primary border + large badge. Sub-parts get a
+              dashed border + smaller badge with a "part of <parent>" tooltip so users
+              can tell the difference between "the whole bottle" and "the bottle cap". */}
           <div className="absolute inset-0 pointer-events-none">
-            {items.map((it, i) => (
-              <div
-                key={i}
-                className="absolute border-2 border-primary rounded-md shadow-[0_0_0_1px_rgba(0,0,0,0.4)] transition-all duration-300"
-                style={{
-                  left: `${it.box.x * 100}%`,
-                  top: `${it.box.y * 100}%`,
-                  width: `${it.box.w * 100}%`,
-                  height: `${it.box.h * 100}%`,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => onPickItem(it.label)}
-                  className="pointer-events-auto absolute -top-7 left-0 flex items-center gap-1.5 max-w-[220px]"
+            {items.map((it, i) => {
+              const isPart = it.isWholeProduct === false && it.parent
+              return (
+                <div
+                  key={i}
+                  className={`absolute rounded-md transition-all duration-300 ${
+                    isPart
+                      ? 'border border-dashed border-primary/70 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+                      : 'border-2 border-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]'
+                  }`}
+                  style={{
+                    left: `${it.box.x * 100}%`,
+                    top: `${it.box.y * 100}%`,
+                    width: `${it.box.w * 100}%`,
+                    height: `${it.box.h * 100}%`,
+                  }}
                 >
-                  <Badge className="bg-primary text-primary-foreground shadow-sm whitespace-nowrap text-[11px] px-1.5 py-0.5 gap-1">
-                    <span className="truncate max-w-[100px]">{it.label}</span>
-                    {it.price ? (
-                      <span className="font-bold">{formatPrice(it.price)}</span>
-                    ) : (
-                      <span className="opacity-70">no price yet</span>
+                  <button
+                    type="button"
+                    onClick={() => onPickItem(it.label)}
+                    title={isPart ? `Part of: ${it.parent}` : 'Whole product'}
+                    className="pointer-events-auto absolute -top-7 left-0 flex items-center gap-1.5 max-w-[240px]"
+                  >
+                    <Badge
+                      className={`shadow-sm whitespace-nowrap gap-1 ${
+                        isPart
+                          ? 'bg-primary/70 text-primary-foreground text-[10px] px-1.5 py-0.5'
+                          : 'bg-primary text-primary-foreground text-[11px] px-1.5 py-0.5'
+                      }`}
+                    >
+                      {isPart && <span className="opacity-70 text-[9px]">part:</span>}
+                      <span className="truncate max-w-[100px]">{it.label}</span>
+                      {it.price ? (
+                        <span className="font-bold">{formatPrice(it.price)}</span>
+                      ) : (
+                        <span className="opacity-70">no price</span>
+                      )}
+                    </Badge>
+                    {it.price?.source === 'internal' && (
+                      <span className="text-[9px] bg-emerald-500 text-white rounded px-1 py-0.5 shadow-sm">local</span>
                     )}
-                  </Badge>
-                  {it.price?.source === 'internal' && (
-                    <span className="text-[9px] bg-emerald-500 text-white rounded px-1 py-0.5 shadow-sm">local</span>
-                  )}
-                  {it.price?.source === 'external' && (
-                    <span className="text-[9px] bg-amber-500 text-white rounded px-1 py-0.5 shadow-sm">est.</span>
-                  )}
-                </button>
-              </div>
-            ))}
+                    {it.price?.source === 'external' && (
+                      <span className="text-[9px] bg-amber-500 text-white rounded px-1 py-0.5 shadow-sm">est.</span>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
           </div>
 
           {/* Status bar */}
@@ -212,16 +296,27 @@ function LiveCameraSearchModal({
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white px-6 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white px-6 text-center">
               <AlertTriangle className="w-6 h-6 text-amber-400" />
-              <p className="text-sm">{error}</p>
+              <p className="text-sm leading-relaxed max-w-md">{error}</p>
+              <Button
+                type="button"
+                variant="secondary"
+                className="bg-white text-black hover:bg-white/90 gap-1.5 h-9 px-4"
+                onClick={handleRetry}
+              >
+                <Camera className="w-4 h-4" /> Retry camera
+              </Button>
+              <p className="text-[11px] text-white/60 mt-1 max-w-sm">
+                Tip: if you previously denied camera access, tap the lock icon in the address bar to allow it again.
+              </p>
             </div>
           )}
           {ready && items.length === 0 && !scanning && (
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center pointer-events-none">
               <div className="flex items-center gap-1.5 bg-black/60 text-white text-xs rounded-full px-3 py-1.5">
                 <Camera className="w-3.5 h-3.5" />
-                Point the camera at an outfit, shoes, or accessories
+                Point the camera at any product · bottle, shoes, outfit, accessory
               </div>
             </div>
           )}
