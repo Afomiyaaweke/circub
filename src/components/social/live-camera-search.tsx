@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Camera, X, Loader2, ScanLine, AlertTriangle } from 'lucide-react'
+import { Camera, X, Loader2, ScanLine, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -71,6 +71,7 @@ function LiveCameraSearchModal({
   const [items, setItems] = useState<DetectedItem[]>([])
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorName, setErrorName] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   // Bump this to force the camera init effect to re-run (e.g. after the user
   // clicks Retry on a permission error).
@@ -121,51 +122,26 @@ function LiveCameraSearchModal({
     let cancelled = false
 
     async function startCamera() {
+      setError(null)
+      setErrorName(null)
+
       // Safety: getUserMedia requires a secure context (HTTPS or localhost).
       if (typeof window !== 'undefined' && window.isSecureContext === false) {
-        setError(
-          'Camera needs HTTPS. Open https://circub.vercel.app on your phone (not the local IP address) — browsers block camera access on plain HTTP.'
-        )
+        setError('Camera needs HTTPS. Open https://circub.vercel.app on your phone (not the local IP) — browsers block camera access on plain HTTP.')
+        setErrorName('InsecureContext')
         return
       }
       if (!navigator.mediaDevices?.getUserMedia) {
         setError('Your browser does not support camera access. Try the latest Chrome, Safari, or Firefox.')
-        return
-      }
-
-      // Step 0 — query the current permission state (if supported) so we can
-      // distinguish between "user has actively denied" vs "user hasn't been
-      // asked yet". When state is 'denied', the browser auto-rejects every
-      // getUserMedia call without re-prompting — only the user can fix this
-      // by clearing the denial in browser settings.
-      let permissionState: PermissionState | null = null
-      try {
-        if (navigator.permissions?.query) {
-          const perm = await navigator.permissions.query({ name: 'camera' as PermissionName })
-          permissionState = perm.state
-          console.log('[camera] permission state:', perm.state)
-        }
-      } catch {
-        // permissions.query for 'camera' is not supported in all browsers
-        // (notably older Safari). Fall through to actually trying getUserMedia.
-      }
-
-      // If we know the permission is denied, fail fast with a clear message
-      // instead of calling getUserMedia and making the user wait for the same
-      // rejection.
-      if (permissionState === 'denied') {
-        setError(
-          'Your browser has camera permission blocked for this site. Use the "Open site settings" button below to re-allow it, then click Retry.'
-        )
+        setErrorName('NoGetUserMedia')
         return
       }
 
       // Try a sequence of camera constraint variations. Some browsers
-      // (especially mobile Chrome and Safari) will re-prompt the user when
-      // the constraint shape changes — so even after a previous denial, a
-      // fresh attempt with a different constraint can sometimes trigger a
-      // new permission prompt. We try in order from most specific to most
-      // general.
+      // (mobile Chrome, Safari) re-prompt the user when the constraint
+      // shape changes — so even after a previous denial, a fresh attempt
+      // with a different constraint can sometimes trigger a new permission
+      // prompt.
       const constraintVariants: Array<{ label: string; constraints: MediaStreamConstraints }> = [
         { label: 'back camera (exact)', constraints: { video: { facingMode: { exact: 'environment' } }, audio: false } },
         { label: 'back camera (ideal)', constraints: { video: { facingMode: { ideal: 'environment' } }, audio: false } },
@@ -176,24 +152,18 @@ function LiveCameraSearchModal({
 
       let stream: MediaStream | null = null
       let lastError: any = null
-      let triedVariantLabel = ''
       for (const variant of constraintVariants) {
         if (cancelled) return
-        triedVariantLabel = variant.label
-        console.log(`[camera] trying variant: ${variant.label}`)
         try {
           stream = await navigator.mediaDevices.getUserMedia(variant.constraints)
-          // Success — stop trying more variants.
           break
         } catch (e: any) {
           lastError = e
-          // If it's a hard denial (NotAllowedError), no point trying other
-          // constraints — the browser will reject them all. Break early.
           if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
+            // Hard denial — the browser will reject all other variants too.
             break
           }
-          // For other errors (OverconstrainedError, NotFoundError), try the
-          // next variant — the next constraint shape might succeed.
+          // For other errors (OverconstrainedError, NotFoundError), try the next variant.
         }
       }
 
@@ -207,35 +177,33 @@ function LiveCameraSearchModal({
         streamRef.current = stream
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          await videoRef.current.play().catch(() => {
-            // play() can reject if the tab lost focus; the next interval will retry.
-          })
+          await videoRef.current.play().catch(() => {})
         }
         setReady(true)
         setError(null)
+        setErrorName(null)
         captureAndScan()
         intervalRef.current = setInterval(captureAndScan, SCAN_INTERVAL_MS)
         return
       }
 
-      // All attempts failed — diagnose the specific failure so the message is actionable.
+      // All attempts failed — diagnose.
       const name = lastError?.name || ''
       const msg = lastError?.message || ''
-      let friendly: string
+      setErrorName(name)
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        friendly = 'Camera permission was blocked. Click "Open site settings" below to re-allow it, then click Retry.'
+        setError('Camera permission was blocked. Click "Retry" below — it will reload the page so your browser re-prompts for permission.')
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        friendly = 'No camera found on this device. Connect a webcam or try a different device.'
+        setError('No camera found on this device. Connect a webcam or try a different device.')
       } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        friendly = 'Camera is in use by another app (Zoom, Meet, another browser tab). Close that app, then click Retry.'
+        setError('Camera is in use by another app (Zoom, Meet, another browser tab). Close that app, then click Retry.')
       } else if (name === 'OverconstrainedError') {
-        friendly = 'No camera matched the requested constraints. Click Retry to try a different camera.'
+        setError('No camera matched the requested constraints. Click Retry to try a different camera.')
       } else if (name === 'SecurityError') {
-        friendly = 'Camera blocked for security reasons. Make sure you are on HTTPS, not a raw IP address.'
+        setError('Camera blocked for security reasons. Make sure you are on HTTPS, not a raw IP address.')
       } else {
-        friendly = `Camera failed to start: ${msg || name || 'unknown error'}. Click Retry below.`
+        setError(`Camera failed to start: ${msg || name || 'unknown error'}. Click Retry below.`)
       }
-      setError(friendly)
     }
     ;(async () => {
       await startCamera()
@@ -247,59 +215,71 @@ function LiveCameraSearchModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, retryNonce, stopCamera, captureAndScan])
 
-  // Retry button handler — bump retryNonce to force the camera init effect to re-run.
-  // The effect re-queries the permission state and tries all constraint variants,
-  // so Retry is meaningful: if the user has cleared the denial in browser settings
-  // between clicks, Retry will now succeed. If the user just clicks Retry without
-  // clearing the denial, the browser will reject again and we show the same fix UI.
-  const handleRetry = useCallback(() => {
+  // RETRY: when permission is denied, just calling getUserMedia again won't
+  // work — browsers remember the denial and auto-reject without re-prompting.
+  // The most reliable cross-browser way to make Retry actually work is to
+  // reload the page. After the user fixes permission in another tab (or clears
+  // the denial via the lock icon), a reload re-evaluates the permission state
+  // and the camera init effect re-runs fresh.
+  //
+  // When the user clicks Retry:
+  //   - If the permission is still 'denied', we reload the page so they see
+  //     the lock-icon instructions on the fresh page and can fix it.
+  //   - If the permission state has changed to 'granted' or 'prompt' (e.g.
+  //     they cleared the denial in another tab), we just retry the camera
+  //     init without a reload.
+  const handleRetry = useCallback(async () => {
     stopCamera()
     setError(null)
+    setErrorName(null)
     setReady(false)
     setItems([])
+
+    // Check the current permission state via the Permissions API.
+    // If it's 'denied', the only way to make retry work is to reload the
+    // page after the user clears the denial in browser settings.
+    try {
+      if (navigator.permissions?.query) {
+        const perm = await navigator.permissions.query({ name: 'camera' as PermissionName })
+        if (perm.state === 'denied') {
+          // Reload — after the user fixes permission in another tab/window,
+          // this fresh page will re-prompt properly when they click Live scan again.
+          window.location.reload()
+          return
+        }
+      }
+    } catch {
+      // permissions.query not supported — fall through to retry
+    }
+
+    // Permission is 'granted' or 'prompt' — retry the camera init.
     setRetryNonce((n) => n + 1)
   }, [stopCamera])
 
-  // Open the browser's site-permissions UI for this origin. There's no
-  // cross-browser API for this, but we can navigate to the browser-specific
-  // settings URL in a new tab. Detect the browser from the user agent so
-  // we open the right settings page.
-  const handleOpenSiteSettings = useCallback(() => {
-    if (typeof window === 'undefined') return
-    const ua = navigator.userAgent
-    const isEdge = /Edg\//.test(ua)
-    const isChrome = /Chrome\//.test(ua) && !isEdge && !/OPR\//.test(ua)
-    const isFirefox = /Firefox\//.test(ua)
-    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-    const isAndroid = /Android/.test(ua)
-
-    if (isChrome) {
-      window.open('chrome://settings/content/camera', '_blank')
-    } else if (isEdge) {
-      window.open('edge://settings/content/camera', '_blank')
-    } else if (isFirefox) {
-      // Firefox doesn't have a deep link; show instructions inline.
-      toast({
-        title: 'Firefox',
-        description: 'Click the padlock 🔒 in the address bar → Clear permissions → Reload.',
-      })
-    } else if (isIOS) {
-      toast({
-        title: 'iPhone / iPad',
-        description: 'iOS Settings → Safari → Camera & Microphone Access → Allow. Then reload.',
-      })
-    } else if (isAndroid) {
-      toast({
-        title: 'Android',
-        description: 'Tap the 🔒 lock icon → Permissions → Camera → Allow. Then reload.',
-      })
-    } else {
-      toast({
-        title: 'Camera permission',
-        description: 'Open browser settings → Site permissions → Camera → Allow for this site.',
-      })
+  // While the modal is open, listen for permission state changes. If the
+  // user fixes the permission in another tab (e.g. clears the denial via
+  // chrome://settings/content/camera), the change event fires and we can
+  // auto-retry without requiring the user to click Retry manually.
+  useEffect(() => {
+    if (!open) return
+    let perm: any = null
+    try {
+      if (navigator.permissions?.query) {
+        navigator.permissions.query({ name: 'camera' as PermissionName }).then((p) => {
+          perm = p
+          p.onchange = () => {
+            if (p.state === 'granted' && !ready && !streamRef.current) {
+              // User just granted permission — retry the camera init.
+              setRetryNonce((n) => n + 1)
+            }
+          }
+        })
+      }
+    } catch {}
+    return () => {
+      if (perm) perm.onchange = null
     }
-  }, [toast])
+  }, [open, ready])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -309,12 +289,7 @@ function LiveCameraSearchModal({
           <video ref={videoRef} muted playsInline className="absolute inset-0 w-full h-full object-cover" />
           <canvas ref={captureCanvasRef} className="hidden" />
 
-          {/* Bounding-box + price overlay, positioned in the same normalized coordinate
-              space the video is rendered in, so boxes track detected items as they move.
-
-              Whole products get a solid primary border + large badge. Sub-parts get a
-              dashed border + smaller badge with a "part of <parent>" tooltip so users
-              can tell the difference between "the whole bottle" and "the bottle cap". */}
+          {/* Bounding-box + price overlay */}
           <div className="absolute inset-0 pointer-events-none">
             {items.map((it, i) => {
               const isPart = it.isWholeProduct === false && it.parent
@@ -401,76 +376,40 @@ function LiveCameraSearchModal({
                   className="bg-white text-black hover:bg-white/90 gap-1.5 h-9 px-4 shrink-0"
                   onClick={handleRetry}
                 >
-                  <Camera className="w-4 h-4" /> Retry camera
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="bg-white/10 hover:bg-white/20 border border-white/30 text-white gap-1.5 h-9 px-4 shrink-0"
-                  onClick={handleOpenSiteSettings}
-                >
-                  <span aria-hidden>🔒</span> Open site settings
+                  <RefreshCw className="w-4 h-4" /> Retry
                 </Button>
               </div>
 
-              <div className="text-[11px] text-white/70 max-w-md text-left w-full bg-black/30 rounded-lg p-3 mt-1 space-y-2">
-                <p>
-                  <strong>Why Retry isn't working alone:</strong> Your browser remembers that you
-                  previously denied camera access for this site, so it auto-rejects every camera
-                  request without re-prompting. You must <strong>manually clear the denial</strong>{' '}
-                  in your browser's site-permissions settings first, then click Retry.
-                </p>
-                <p>
-                  The "Open site settings" button takes you straight there in Chrome / Edge.
-                  For other browsers, see below.
-                </p>
-
-                <p className="text-white/90 font-medium pt-2">📋 Step-by-step fix by browser:</p>
-                <ol className="space-y-2 text-white/70 list-decimal pl-4">
-                  <li>
-                    <strong>Desktop Chrome / Edge:</strong>
-                    <br />1. Click "Open site settings" above (or visit <code className="bg-black/40 px-1 rounded">chrome://settings/content/camera</code>)
-                    <br />2. Find <em>{typeof window !== 'undefined' ? window.location.hostname : 'this site'}</em> under "Not allowed" → click ⋯ → <strong>Remove</strong>
-                    <br />3. <strong>Reload this page</strong> (Ctrl/Cmd+R) — Retry will now work
-                  </li>
-                  <li>
-                    <strong>Desktop Firefox:</strong>
-                    <br />1. Click the padlock 🔒 in the address bar → Clear permissions for this site
-                    <br />2. <strong>Reload this page</strong> (Ctrl/Cmd+R) → Retry
-                  </li>
-                  <li>
-                    <strong>Desktop Safari:</strong>
-                    <br />1. Safari → Settings → Websites → Camera → set this site to <strong>Allow</strong>
-                    <br />2. <strong>Reload this page</strong> (Cmd+R) → Retry
-                  </li>
-                  <li>
-                    <strong>iPhone (Safari):</strong>
-                    <br />1. iOS Settings → Safari → Camera & Microphone Access → <strong>Allow</strong>
-                    <br />2. iOS Settings → Privacy & Security → Camera → <strong>Safari = ON</strong>
-                    <br />3. Reload this page in Safari → Retry
-                  </li>
-                  <li>
-                    <strong>Android (Chrome):</strong>
-                    <br />1. Tap the 🔒 lock icon → Permissions → Camera → <strong>Allow</strong>
-                    <br />2. Reload this page → Retry
-                  </li>
-                </ol>
-
-                <p className="text-white/90 font-medium pt-2">⚡ Quick test:</p>
-                <p className="text-white/70">
-                  Open this page in an <strong>Incognito / Private window</strong> — those
-                  windows don't remember denials, so the camera prompt will show fresh.
-                  <br />
-                  Chrome/Edge: <code className="bg-black/40 px-1 rounded">Ctrl/Cmd+Shift+N</code> ·
-                  Firefox: <code className="bg-black/40 px-1 rounded">Ctrl/Cmd+Shift+P</code> ·
-                  Safari: <code className="bg-black/40 px-1 rounded">Cmd+Shift+N</code>
-                </p>
-
-                <p className="text-white/60 text-xs pt-2 border-t border-white/10 mt-2">
-                  💡 After clearing the denial, you MUST reload this page before clicking Retry —
-                  browsers only re-evaluate permissions on page load.
-                </p>
-              </div>
+              {/* Inline quick-fix panel — only shown when permission is denied.
+                  This is intentionally compact because the Retry button now
+                  handles the reload-for-you case. */}
+              {errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' ? (
+                <div className="text-[11px] text-white/70 max-w-md text-left w-full bg-black/30 rounded-lg p-3 mt-1 space-y-2">
+                  <p className="text-white/90 font-medium">📋 If Retry still fails, fix it in your browser:</p>
+                  <ul className="space-y-1.5 text-white/70 list-disc pl-4">
+                    <li>
+                      <strong>Chrome / Edge:</strong> Open{' '}
+                      <code className="bg-black/40 px-1 rounded">chrome://settings/content/camera</code> in a new tab →
+                      remove <code className="bg-black/40 px-1 rounded">{typeof window !== 'undefined' ? window.location.hostname : 'this site'}</code> → come back and click Retry
+                    </li>
+                    <li>
+                      <strong>Firefox:</strong> Click the 🔒 padlock → Clear permissions for this site → click Retry
+                    </li>
+                    <li>
+                      <strong>Safari (Mac):</strong> Safari → Settings → Websites → Camera → set this site to Allow → click Retry
+                    </li>
+                    <li>
+                      <strong>iPhone (Safari):</strong> iOS Settings → Safari → Camera access → Allow → reload this page
+                    </li>
+                    <li>
+                      <strong>Android (Chrome):</strong> Tap the 🔒 lock → Permissions → Camera → Allow → reload this page
+                    </li>
+                  </ul>
+                  <p className="text-white/60 text-xs pt-2 border-t border-white/10 mt-2">
+                    💡 Tip: open this page in an <strong>Incognito / Private window</strong> to confirm the camera works — those windows don't remember denials.
+                  </p>
+                </div>
+              ) : null}
             </div>
           )}
           {ready && items.length === 0 && !scanning && (
