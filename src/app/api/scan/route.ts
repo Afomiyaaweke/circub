@@ -1,8 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+// The z-ai-web-dev-sdk only reads config from a .z-ai-config file at one of
+// three paths (cwd, ~/, /etc/). On Vercel's serverless functions, none of
+// those paths exist by default — the file is gitignored and not deployed.
+// So before calling ZAI.create(), we write a config file to process.cwd()
+// populated from env vars (set on Vercel: ZAI_BASE_URL, ZAI_API_KEY, etc.).
+// On the dev sandbox, /etc/.z-ai-config already exists so we skip this.
+let configInjected = false
+async function ensureZaiConfig(): Promise<void> {
+  if (configInjected) return
+  // If any of the three default paths already has a valid config, we're
+  // done (dev sandbox case — /etc/.z-ai-config exists).
+  const configPaths = [
+    path.join(process.cwd(), '.z-ai-config'),
+    path.join(os.homedir(), '.z-ai-config'),
+    '/etc/.z-ai-config',
+  ]
+  for (const p of configPaths) {
+    try {
+      const cfg = JSON.parse(await fs.promises.readFile(p, 'utf-8'))
+      if (cfg.baseUrl && cfg.apiKey) {
+        configInjected = true
+        return
+      }
+    } catch {
+      // try next
+    }
+  }
+  // No valid config found at the default paths — try env vars.
+  if (!process.env.ZAI_BASE_URL || !process.env.ZAI_API_KEY) {
+    throw new Error(
+      'ZAI config not found. Set ZAI_BASE_URL + ZAI_API_KEY env vars on Vercel ' +
+      '(get a free key at https://chat.z.ai → sign in → Settings → API). ' +
+      'For the public ZAI API use:\n' +
+      '  ZAI_BASE_URL = https://api.z.ai/api/paas/v4\n' +
+      '  ZAI_API_KEY  = (your key from https://open.bigmodel.cn/usercenter/apikeys)'
+    )
+  }
+  // Write a .z-ai-config at process.cwd() so ZAI.create() finds it.
+  // Vercel's serverless filesystem is read-only EXCEPT for /tmp, so write
+  // there and override the env var the SDK doesn't actually use. Since the
+  // SDK hardcodes the three paths, we monkey-patch process.cwd() to return
+  // /tmp for the duration of this request — that way ZAI's loadConfig finds
+  // the file we just wrote.
+  const cfg = {
+    baseUrl: process.env.ZAI_BASE_URL,
+    apiKey: process.env.ZAI_API_KEY,
+    chatId: process.env.ZAI_CHAT_ID || undefined,
+    userId: process.env.ZAI_USER_ID || undefined,
+    token: process.env.ZAI_TOKEN || undefined,
+  }
+  const tmpDir = '/tmp'
+  const tmpConfigPath = path.join(tmpDir, '.z-ai-config')
+  await fs.promises.writeFile(tmpConfigPath, JSON.stringify(cfg), 'utf-8')
+  // Monkey-patch process.cwd() for the ZAI SDK's loadConfig call only.
+  // ZAI reads from path.join(process.cwd(), '.z-ai-config') — we need it
+  // to find /tmp/.z-ai-config, so we temporarily make cwd return /tmp.
+  // (We restore the original cwd() right after ZAI.create() finishes.)
+  // Note: this is a known workaround for the SDK's lack of env var support.
+  configInjected = true
+}
+
+// Patch ZAI.create to use our config-injection logic.
+let ZAIModule: typeof import('z-ai-web-dev-sdk').default
+async function getZAI() {
+  await ensureZaiConfig()
+  ZAIModule = (await import('z-ai-web-dev-sdk')).default
+  // Override cwd to /tmp where we just wrote the config
+  const originalCwd = process.cwd
+  try {
+    ;(process as any).cwd = () => '/tmp'
+    return await ZAIModule.create()
+  } finally {
+    ;(process as any).cwd = originalCwd
+  }
+}
 
 export interface ScanLocation {
   city?: string | null
@@ -222,7 +300,7 @@ export async function POST(req: NextRequest) {
   const location = body.location ?? null
 
   try {
-    const zai = await ZAI.create()
+    const zai = await getZAI()
 
     // Step 1: identify the item with the vision model.
     const identified = await identifyItem(zai, image)

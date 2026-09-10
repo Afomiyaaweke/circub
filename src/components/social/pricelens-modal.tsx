@@ -2,14 +2,7 @@
 
 // PriceLensModal — wraps the PriceLens scanner (live camera + AI identification
 // + web-search pricing + history + location) into a modal that fits inside
-// circub's Local Price Feed tab.
-//
-// When the user taps "Scan with camera" on the Local Feed toolbar, this modal
-// opens, the camera starts, and they can scan products to see AI-identified
-// names + estimated local prices + matching local price posts in the DB.
-//
-// The PriceLens code is the user's source verbatim — we just wrapped it in a
-// Dialog so it appears as a modal instead of a full page.
+// circub's Local Price Feed tab. Light mode.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
@@ -66,11 +59,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const { toast } = useToast()
   const scanInFlight = useRef(false)
 
-  // When the modal opens, auto-start the camera + detect location. When it
-  // closes, the camera is stopped by the useCamera cleanup effect.
   useEffect(() => {
     if (open) {
-      // Give the Dialog a moment to mount the video element before starting.
       const t = setTimeout(() => void start('environment'), 50)
       return () => clearTimeout(t)
     }
@@ -85,9 +75,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       } else {
         toast({
           title: 'Location unavailable',
-          description:
-            'Could not detect your location. Prices will be shown worldwide.',
-          variant: 'default',
+          description: 'Could not detect your location. Prices will be shown worldwide.',
         })
       }
     } finally {
@@ -95,7 +83,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     }
   }, [toast])
 
-  // Try to detect location once on mount (best-effort).
   useEffect(() => {
     if (open) void detectLocation()
   }, [open, detectLocation])
@@ -118,12 +105,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         body: JSON.stringify({
           image: frame,
           location: location
-            ? {
-                city: location.city,
-                country: location.country,
-                countryCode: location.countryCode,
-                region: location.region,
-              }
+            ? { city: location.city, country: location.country, countryCode: location.countryCode, region: location.region }
             : null,
         }),
       })
@@ -134,62 +116,42 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       const data = (await res.json()) as ScanResult
       setResult(data)
       const entry: ScanHistoryEntry = {
-        id:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : String(Date.now() + Math.random()),
+        id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()),
         timestamp: Date.now(),
         thumbnail: frame,
         result: data,
       }
       setHistory((h) => [entry, ...h].slice(0, 20))
-
-      // Also search the local price posts DB for matching products and
-      // surface them as a toast + fill the search box on the parent. The
-      // parent (local-feed-tab) passes an onPickItem callback so we can
-      // hand off the search keyword + close this modal.
+      // Hand off the identified product to the parent so it can fill the
+      // search box and surface matching local price posts from the DB.
       const itemName = data.item.name || ''
       const searchQuery = data.rawQuery || itemName
-      if (searchQuery) {
+      if (searchQuery && onPickItem) {
         onPickItem(searchQuery.split(' ').slice(0, 3).join(' '))
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Scan failed.'
       setScanError(msg)
-      toast({
-        title: 'Scan failed',
-        description: msg,
-        variant: 'destructive',
-      })
+      toast({ title: 'Scan failed', description: msg, variant: 'destructive' })
     } finally {
       setLoading(false)
       scanInFlight.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast])
+  }, [captureFrame, location, toast, onPickItem])
 
-  // Auto-scan loop — runs every 8 seconds when enabled.
   useEffect(() => {
     if (!open) return
     if (!autoScan) return
     if (status !== 'live') return
-    const id = setInterval(() => {
-      void runScan()
-    }, AUTO_SCAN_INTERVAL)
-    // Also kick off an immediate scan when enabling.
+    const id = setInterval(() => void runScan(), AUTO_SCAN_INTERVAL)
     void runScan()
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoScan, status, open])
 
-  const handleStart = useCallback(() => {
-    void start('environment')
-  }, [start])
-
-  const handleSwitch = useCallback(() => {
-    void switchCamera()
-  }, [switchCamera])
-
+  const handleStart = useCallback(() => void start('environment'), [start])
+  const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
   const handleSelectHistory = useCallback((entry: ScanHistoryEntry) => {
     setResult(entry.result)
     setActiveHistoryId(entry.id)
@@ -199,33 +161,29 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 gap-0 bg-zinc-950 text-zinc-100 border-zinc-800">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 gap-0 bg-white text-zinc-900 border-zinc-200">
         <DialogTitle className="sr-only">PriceLens — scan a product with your camera</DialogTitle>
 
-        {/* Inline header (matches the original PriceLens UI but compact) */}
+        {/* Inline header */}
         <div className="flex items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-emerald-950 shadow-lg shadow-emerald-500/20">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
               <ScanLine className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold leading-none text-white">
-                PriceLens
-              </h2>
-              <p className="mt-0.5 text-[11px] text-zinc-500">
-                AI camera price scanner
-              </p>
+              <h2 className="text-base font-semibold leading-none text-zinc-900">PriceLens</h2>
+              <p className="mt-0.5 text-[11px] text-zinc-500">AI camera price scanner</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3 py-1 text-[11px] text-zinc-400 sm:flex">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <div className="hidden items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-500 sm:flex">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
               Frames analyzed once &amp; not stored
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              className="rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
               onClick={() => onOpenChange(false)}
             >
               <X className="h-4 w-4" />
@@ -233,9 +191,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
           </div>
         </div>
 
-        {/* Main grid: camera on left, results on right (desktop) / stacked (mobile) */}
+        {/* Main grid: camera on left, results on right */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_1fr]">
-          {/* Left: camera + controls */}
           <div className="space-y-4">
             <Viewfinder
               videoRef={videoRef}
@@ -246,7 +203,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
               onSwitch={handleSwitch}
             />
 
-            {/* Scan controls */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
                 size="lg"
@@ -255,75 +211,40 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 className={cn(
                   'flex-1 gap-2 rounded-xl text-base font-semibold transition',
                   canScan
-                    ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/25'
-                    : 'bg-zinc-800 text-zinc-500'
+                    ? 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/25'
+                    : 'bg-zinc-100 text-zinc-400'
                 )}
               >
                 <ScanLine className="h-5 w-5" />
                 {loading ? 'Scanning…' : 'Scan item'}
               </Button>
 
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 sm:px-4">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5">
                 <div className="flex items-center gap-2.5">
-                  {autoScan ? (
-                    <Zap className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <ZapOff className="h-4 w-4 text-zinc-500" />
-                  )}
+                  {autoScan ? <Zap className="h-4 w-4 text-emerald-500" /> : <ZapOff className="h-4 w-4 text-zinc-400" />}
                   <div className="leading-tight">
-                    <p className="text-sm font-medium text-zinc-200">Auto-scan</p>
-                    <p className="text-[10px] text-zinc-500">
-                      every {AUTO_SCAN_INTERVAL / 1000}s
-                    </p>
+                    <p className="text-sm font-medium text-zinc-800">Auto-scan</p>
+                    <p className="text-[10px] text-zinc-500">every {AUTO_SCAN_INTERVAL / 1000}s</p>
                   </div>
                 </div>
-                <Switch
-                  checked={autoScan}
-                  onCheckedChange={setAutoScan}
-                  disabled={status !== 'live'}
-                  aria-label="Toggle auto-scan"
-                />
+                <Switch checked={autoScan} onCheckedChange={setAutoScan} disabled={status !== 'live'} aria-label="Toggle auto-scan" />
               </div>
             </div>
 
-            <LocationBar
-              location={location}
-              detecting={detectingLocation}
-              onRefresh={() => void detectLocation()}
-            />
+            <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} />
 
-            {/* Mobile: show history under camera */}
             <div className="lg:hidden">
-              <HistoryList
-                history={history}
-                onSelect={handleSelectHistory}
-                onClear={() => setHistory([])}
-                activeId={activeHistoryId}
-              />
+              <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />
             </div>
           </div>
 
-          {/* Right: results + history (desktop) */}
           <div className="space-y-4">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ResultsPanel
-                result={result}
-                loading={loading}
-                error={scanError}
-              />
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <ResultsPanel result={result} loading={loading} error={scanError} />
             </motion.div>
 
             <div className="hidden lg:block">
-              <HistoryList
-                history={history}
-                onSelect={handleSelectHistory}
-                onClear={() => setHistory([])}
-                activeId={activeHistoryId}
-              />
+              <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />
             </div>
           </div>
         </div>
