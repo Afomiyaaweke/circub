@@ -1,18 +1,9 @@
 'use client'
 
-// PriceLensModal — wraps the PriceLens scanner (live camera + AI identification
-// + web-search pricing + history + location) into a modal that fits inside
-// circub's Local Price Feed tab. Light mode.
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ScanLine, Zap, ZapOff, ShieldCheck, X } from 'lucide-react'
+import { ScanLine, Zap, ZapOff, ShieldCheck } from 'lucide-react'
 import { useCamera } from '@/hooks/use-camera'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Viewfinder } from '@/components/scanner/viewfinder'
 import { ResultsPanel } from '@/components/scanner/results-panel'
 import { LocationBar } from '@/components/scanner/location-bar'
@@ -29,16 +20,7 @@ import {
 
 const AUTO_SCAN_INTERVAL = 8000
 
-interface PriceLensModalProps {
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  /** Optional callback fired when a scan identifies a product — passes the
-   *  product name so the parent (e.g. local-feed-tab) can fill its search box
-   *  and show matching local price posts from the DB. */
-  onPickItem?: (label: string) => void
-}
-
-export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
+export default function ScanPage() {
   const {
     videoRef,
     status,
@@ -59,13 +41,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const { toast } = useToast()
   const scanInFlight = useRef(false)
 
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => void start('environment'), 50)
-      return () => clearTimeout(t)
-    }
-  }, [open, start])
-
   const detectLocation = useCallback(async () => {
     setDetectingLocation(true)
     try {
@@ -84,8 +59,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   }, [toast])
 
   useEffect(() => {
-    if (open) void detectLocation()
-  }, [open, detectLocation])
+    void detectLocation()
+  }, [detectLocation])
 
   const runScan = useCallback(async () => {
     if (scanInFlight.current) return
@@ -122,13 +97,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         result: data,
       }
       setHistory((h) => [entry, ...h].slice(0, 20))
-      // Hand off the identified product to the parent so it can fill the
-      // search box and surface matching local price posts from the DB.
-      const itemName = data.item.name || ''
-      const searchQuery = data.rawQuery || itemName
-      if (searchQuery && onPickItem) {
-        onPickItem(searchQuery.split(' ').slice(0, 3).join(' '))
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Scan failed.'
       setScanError(msg)
@@ -137,18 +105,15 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       setLoading(false)
       scanInFlight.current = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast, onPickItem])
+  }, [captureFrame, location, toast])
 
   useEffect(() => {
-    if (!open) return
     if (!autoScan) return
     if (status !== 'live') return
     const id = setInterval(() => void runScan(), AUTO_SCAN_INTERVAL)
     void runScan()
     return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoScan, status, open])
+  }, [autoScan, status])
 
   const handleStart = useCallback(() => void start('environment'), [start])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
@@ -160,65 +125,36 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const canScan = status === 'live' && !loading
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 gap-0 bg-white text-zinc-900 border-zinc-200">
-        <DialogTitle className="sr-only">PriceLens — scan a product with your camera</DialogTitle>
+    <div className="min-h-screen bg-white text-zinc-900">
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 opacity-60" style={{ background: 'radial-gradient(60% 50% at 20% 0%, rgba(16,185,129,0.08), transparent 60%), radial-gradient(50% 40% at 90% 10%, rgba(16,185,129,0.05), transparent 60%)' }} />
 
-        {/* Inline header */}
-        <div className="flex items-center justify-between gap-4 mb-4">
+      <header className="border-b border-zinc-100 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
               <ScanLine className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold leading-none text-zinc-900">PriceLens</h2>
+              <h1 className="text-base font-semibold leading-none text-zinc-900">PriceLens</h1>
               <p className="mt-0.5 text-[11px] text-zinc-500">AI camera price scanner</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-500 sm:flex">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              Frames analyzed once &amp; not stored
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="hidden items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] text-zinc-500 sm:flex">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+            Frames are analyzed once &amp; not stored
           </div>
         </div>
+      </header>
 
-        {/* Main grid: camera on left, results on right */}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_1fr]">
           <div className="space-y-4">
-            <Viewfinder
-              videoRef={videoRef}
-              status={status}
-              error={cameraError}
-              scanning={loading}
-              onStart={handleStart}
-              onSwitch={handleSwitch}
-            />
-
+            <Viewfinder videoRef={videoRef} status={status} error={cameraError} scanning={loading} onStart={handleStart} onSwitch={handleSwitch} />
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button
-                size="lg"
-                onClick={() => void runScan()}
-                disabled={!canScan}
-                className={cn(
-                  'flex-1 gap-2 rounded-xl text-base font-semibold transition',
-                  canScan
-                    ? 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/25'
-                    : 'bg-zinc-100 text-zinc-400'
-                )}
-              >
+              <Button size="lg" onClick={() => void runScan()} disabled={!canScan} className={cn('flex-1 gap-2 rounded-xl text-base font-semibold transition', canScan ? 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/25' : 'bg-zinc-100 text-zinc-400')}>
                 <ScanLine className="h-5 w-5" />
                 {loading ? 'Scanning…' : 'Scan item'}
               </Button>
-
               <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5">
                 <div className="flex items-center gap-2.5">
                   {autoScan ? <Zap className="h-4 w-4 text-emerald-500" /> : <ZapOff className="h-4 w-4 text-zinc-400" />}
@@ -230,25 +166,46 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 <Switch checked={autoScan} onCheckedChange={setAutoScan} disabled={status !== 'live'} aria-label="Toggle auto-scan" />
               </div>
             </div>
-
             <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} />
-
             <div className="lg:hidden">
               <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />
             </div>
           </div>
-
           <div className="space-y-4">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
               <ResultsPanel result={result} loading={loading} error={scanError} />
             </motion.div>
-
             <div className="hidden lg:block">
               <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <section className="mt-10">
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">How it works</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <HowItWorksCard step="01" title="Point your camera" body="Allow camera access and aim at any product — a snack, a gadget, a bottle, anything." />
+            <HowItWorksCard step="02" title="AI identifies it" body="A vision model recognises the product, brand and variant from a single frame." />
+            <HowItWorksCard step="03" title="Live local pricing" body="We web-search for the item near your location and summarise a realistic price range." />
+          </div>
+        </section>
+      </main>
+
+      <footer className="mt-auto border-t border-zinc-100 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-4 text-center sm:flex-row sm:px-6 sm:text-left">
+          <p className="text-xs text-zinc-500">PriceLens — AI-powered live camera price scanner. Prices are estimates from public web sources. No images stored</p>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+function HowItWorksCard({ step, title, body }: { step: string; title: string; body: string }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+      <p className="mb-2 text-xs font-bold tracking-wider text-emerald-500">{step}</p>
+      <h3 className="mb-1 text-sm font-semibold text-zinc-900">{title}</h3>
+      <p className="text-xs leading-relaxed text-zinc-500">{body}</p>
+    </div>
   )
 }
