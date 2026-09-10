@@ -7,6 +7,35 @@ import { db } from '@/lib/db'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+// Currency mapping — maps country codes and names to their local currency.
+// Used so the price estimate uses the right currency symbol based on
+// the user's location (e.g. ETB in Ethiopia, USD in USA, KES in Kenya).
+const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
+  US: 'USD', GB: 'GBP', ET: 'ETB', KE: 'KES', IN: 'INR', CN: 'CNY',
+  JP: 'JPY', DE: 'EUR', FR: 'EUR', IT: 'EUR', NG: 'NGN', EG: 'EGP',
+  ZA: 'ZAR', BR: 'BRL', CA: 'CAD', AU: 'AUD', AE: 'AED', SA: 'SAR',
+  TH: 'THB', ID: 'IDR', MY: 'MYR', SG: 'SGD', PH: 'PHP', VN: 'VND',
+  UG: 'UGX', TZ: 'TZS', RW: 'RWF', GH: 'GHS', TR: 'TRY', MX: 'MXN',
+}
+const CURRENCY_BY_COUNTRY_NAME: Record<string, string> = {
+  'united states': 'USD', 'united kingdom': 'GBP', ethiopia: 'ETB',
+  kenya: 'KES', india: 'INR', china: 'CNY', japan: 'JPY',
+  germany: 'EUR', france: 'EUR', italy: 'EUR', nigeria: 'NGN',
+  egypt: 'EGP', 'south africa': 'ZAR', brazil: 'BRL', canada: 'CAD',
+  australia: 'AUD', 'saudi arabia': 'SAR', turkey: 'TRY',
+}
+function localCurrencyForLocation(location: { country?: string | null; countryCode?: string | null }): string {
+  if (location.countryCode) {
+    const c = CURRENCY_BY_COUNTRY_CODE[location.countryCode.toUpperCase()]
+    if (c) return c
+  }
+  if (location.country) {
+    const c = CURRENCY_BY_COUNTRY_NAME[location.country.toLowerCase()]
+    if (c) return c
+  }
+  return 'USD'
+}
+
 // The z-ai-web-dev-sdk only reads config from a .z-ai-config file at one of
 // three paths (cwd, ~/, /etc/). On Vercel's serverless functions, none of
 // those paths exist by default — the file is gitignored and not deployed.
@@ -227,6 +256,11 @@ async function estimatePrice(
     ? `${location.city}${location.country ? ', ' + location.country : ''}`
     : location?.country || 'worldwide'
 
+  // Determine the local currency from the user's location so the price
+  // estimate uses the right currency symbol (e.g. ETB for Ethiopia, USD
+  // for USA, KES for Kenya).
+  const localCurrency = localCurrencyForLocation(location || {})
+
   const sourcesBlock = sources
     .slice(0, 8)
     .map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`)
@@ -241,19 +275,21 @@ ${sourcesBlock}
 
 Task: estimate the current realistic retail price range for this product in that location.
 
+The local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}. If the sources give prices in a different currency, convert to ${localCurrency}.
+
 Respond ONLY with a JSON object (no markdown, no prose) with this exact shape:
 {
   "estimatedLow": <number or null>,
   "estimatedHigh": <number or null>,
-  "currency": "<ISO currency code e.g. USD, GBP, EUR, INR; null if unknown>",
-  "summary": "one or two sentences summarising the price range and what it depends on. Mention currency. Be honest about uncertainty."
+  "currency": "${localCurrency}",
+  "summary": "one or two sentences summarising the price range in ${localCurrency}. Mention currency. Be honest about uncertainty."
 }
 
 Rules:
 - Use the numbers that actually appear in the snippets. Do not invent prices.
 - If the snippets do not contain any usable price, set estimatedLow/estimatedHigh to null and explain in summary.
 - If only one price point is available, set both estimatedLow and estimatedHigh to it.
-- Always include a currency if any price is given.`
+- Always use ${localCurrency} as the currency.`
 
   const response = await zai.chat.completions.create({
     messages: [
@@ -356,7 +392,12 @@ export async function POST(req: NextRequest) {
       : []
 
     // Step 3: synthesise a price estimate from the snippets.
-    const price = await estimatePrice(zai, query, location, sources)
+    let price = await estimatePrice(zai, query, location, sources)
+    // Force the currency to match the user's location — the VLM might
+    // return USD even when the user is in Ethiopia. Override it.
+    if (price && price.estimatedLow !== null) {
+      price.currency = localCurrencyForLocation(location || {})
+    }
 
     // Step 4: search local price posts from the circub DB — real prices
     // posted by locals in the user's area. These take priority over the
