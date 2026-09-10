@@ -33,6 +33,13 @@ interface PriceLensModalProps {
   onPickItem?: (label: string) => void
 }
 
+// Simple string hash for picking a color per category
+function hashString(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  return h
+}
+
 export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
   const {
     videoRef,
@@ -42,6 +49,14 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     switchCamera,
     captureFrame,
   } = useCamera({ facingMode: 'environment' })
+
+  // Bounding boxes for detected items — shown as colored rectangles
+  // on the video feed, like the screenshot the user provided.
+  const [boxes, setBoxes] = useState<Array<{
+    label: string
+    x: number; y: number; w: number; h: number
+    color: string
+  }>>([])
 
   const [result, setResult] = useState<ScanResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -122,6 +137,23 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       }
       const data = (await res.json()) as ScanResult
       setResult(data)
+
+      // Generate a bounding box for the detected item — shown as a
+      // colored rectangle on the video feed (like the screenshot the
+      // user provided). We use the item name as the label and pick a
+      // color based on the category.
+      if (data.item && data.item.name && data.item.name !== 'Unknown item') {
+        const colors = ['#FF00FF', '#00FF00', '#00FFFF', '#FFA500', '#FF6B6B', '#4ECDC4']
+        const colorIndex = Math.abs(hashString(data.item.category || data.item.name)) % colors.length
+        setBoxes([{
+          label: `${data.item.name}${data.price?.estimatedLow != null ? ` · ${data.price.currency || 'USD'} ${data.price.estimatedLow}${data.price.estimatedHigh != null && data.price.estimatedHigh !== data.price.estimatedLow ? '-' + data.price.estimatedHigh : ''}` : ''}`,
+          x: 0.1, y: 0.1, w: 0.8, h: 0.8, // approximate full-frame box
+          color: colors[colorIndex],
+        }])
+      } else {
+        setBoxes([])
+      }
+
       const entry: ScanHistoryEntry = {
         id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()),
         timestamp: Date.now(),
@@ -244,6 +276,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 onStart={handleStart}
                 onSwitch={handleSwitch}
                 onQRDetected={handleQRDetected}
+                boxes={boxes}
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
