@@ -68,6 +68,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       const loc = await resolveCurrentLocation()
       if (loc) {
         setLocation(loc)
+        if (loc.source === 'ip') {
+          toast({
+            title: 'Using approximate location',
+            description: `Detected ${loc.city ? loc.city + ', ' : ''}${loc.country} via IP. Click the refresh button and allow location permission for precise results.`,
+          })
+        }
       } else {
         toast({
           title: 'Location unavailable',

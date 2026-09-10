@@ -1,5 +1,7 @@
 // Client-side location helpers: geolocation + reverse geocoding via
 // BigDataCloud's free, no-API-key endpoint.
+// Falls back to IP-based geolocation (ipapi.co) if browser geolocation
+// is denied or unavailable.
 
 export interface ResolvedLocation {
   city: string | null
@@ -16,17 +18,23 @@ export interface Coordinates {
   lng: number
 }
 
-/** Get lat/lng from the browser Geolocation API. Resolves null if denied. */
-export function getCoordinates(): Promise<Coordinates | null> {
+/** Get lat/lng from the browser Geolocation API. Resolves null if denied,
+ *  unavailable, or timed out. Also returns the error reason for debugging. */
+export function getCoordinates(): Promise<{ coords: Coordinates | null; error: string | null }> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      resolve(null)
+      resolve({ coords: null, error: 'Geolocation API not available' })
       return
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) =>
-        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
+      (pos) => resolve({ coords: { lat: pos.coords.latitude, lng: pos.coords.longitude }, error: null }),
+      (err) => {
+        let reason = 'Unknown error'
+        if (err.code === err.PERMISSION_DENIED) reason = 'Permission denied'
+        else if (err.code === err.POSITION_UNAVAILABLE) reason = 'Position unavailable'
+        else if (err.code === err.TIMEOUT) reason = 'Timeout'
+        resolve({ coords: null, error: reason })
+      },
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
     )
   })
@@ -63,24 +71,60 @@ export async function reverseGeocode(
   }
 }
 
-/** Resolve a full location object (geolocation + reverse geocode). */
+/** IP-based geolocation fallback using ipapi.co (free, no key, ~10k/day).
+ *  Works without any user permission — just uses the request IP. */
+async function locateByIp(): Promise<ResolvedLocation | null> {
+  try {
+    const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data?.error) return null
+    return {
+      city: data.city || null,
+      region: data.region || null,
+      country: data.country_name || null,
+      countryCode: data.country_code || null,
+      lat: data.latitude || 0,
+      lng: data.longitude || 0,
+      source: 'ip',
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Resolve a full location object.
+ *  1. Try browser geolocation (most accurate, requires permission)
+ *  2. If denied/unavailable, fall back to IP-based geolocation (no permission needed)
+ *  3. If both fail, return null
+ */
 export async function resolveCurrentLocation(): Promise<ResolvedLocation | null> {
-  const coords = await getCoordinates()
-  if (!coords) return null
-  const resolved = await reverseGeocode(coords)
-  return resolved
+  // Step 1: browser geolocation
+  const { coords, error } = await getCoordinates()
+  if (coords) {
+    const resolved = await reverseGeocode(coords)
+    if (resolved) return resolved
+  }
+
+  // Step 2: IP-based fallback — works without user permission
+  const ipLocation = await locateByIp()
+  if (ipLocation) return ipLocation
+
+  // Step 3: both failed
+  return null
 }
 
 const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
   US: 'USD', GB: 'GBP', IN: 'INR', CN: 'CNY', JP: 'JPY', KR: 'KRW',
   DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR', NL: 'EUR', IE: 'EUR',
   PT: 'EUR', GR: 'EUR', AT: 'EUR', BE: 'EUR', FI: 'EUR',
-  CA: 'CAD', AU: 'AUD', NZ: 'NZD', CH: 'CHF', SE: 'SEK', NO: 'NOK',
+  CA: 'CAD', AU: 'AUD', NZD: 'NZD', CH: 'CHF', SE: 'SEK', NO: 'NOK',
   DK: 'DKK', PL: 'PLN', CZ: 'CZK', HU: 'HUF', RO: 'RON', TR: 'TRY',
   RU: 'RUB', UA: 'UAH', BR: 'BRL', MX: 'MXN', AR: 'ARS', CL: 'CLP',
   CO: 'COP', ZA: 'ZAR', AE: 'AED', SA: 'SAR', EG: 'EGP', NG: 'NGN',
   TH: 'THB', ID: 'IDR', MY: 'MYR', SG: 'SGD', PH: 'PHP', VN: 'VND',
-  HK: 'HKD', TW: 'TWD',
+  HK: 'HKD', TW: 'TWD', ET: 'ETB', KE: 'KES', UG: 'UGX', TZ: 'TZS',
+  RW: 'RWF', GH: 'GHS',
 }
 
 /** Best-guess currency for a country code. */
@@ -99,7 +143,9 @@ const LOCALE_BY_CURRENCY: Record<string, string> = {
   CLP: 'es-CL', COP: 'es-CO', ZAR: 'en-ZA', AED: 'ar-AE',
   SAR: 'ar-SA', EGP: 'ar-EG', NGN: 'en-NG', THB: 'th-TH',
   IDR: 'id-ID', MYR: 'ms-MY', SGD: 'en-SG', PHP: 'en-PH',
-  VND: 'vi-VN', HKD: 'zh-HK', TWD: 'zh-TW',
+  VND: 'vi-VN', HKD: 'zh-HK', TWD: 'zh-TW', ETB: 'en-ET',
+  KES: 'en-KE', UGX: 'en-UG', TZS: 'en-TZ', RWF: 'en-RW',
+  GHS: 'en-GH',
 }
 
 /** Format a number as a price string in the given currency. */

@@ -1,6 +1,6 @@
 'use client'
 
-import { MapPin, Loader2, RefreshCw, Globe } from 'lucide-react'
+import { MapPin, Loader2, RefreshCw, Globe, Wifi } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import type { ResolvedLocation } from '@/lib/location'
@@ -18,6 +18,9 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
     : location?.country
     ? location.country
     : null
+
+  const isIp = location?.source === 'ip'
+  const isGeo = location?.source === 'geolocation'
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
@@ -37,9 +40,19 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
               Detecting your location…
             </motion.p>
           ) : label ? (
-            <motion.p key={label} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="truncate text-sm font-medium text-zinc-900">
-              {label}
-            </motion.p>
+            <motion.div key={label} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-zinc-900">{label}</span>
+              {isIp && (
+                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Location detected via IP address (approximate). Click refresh and allow location permission for precise results.">
+                  <Wifi className="h-2.5 w-2.5" /> IP
+                </span>
+              )}
+              {isGeo && (
+                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700" title="Location detected via GPS">
+                  <MapPin className="h-2.5 w-2.5" /> GPS
+                </span>
+              )}
+            </motion.div>
           ) : (
             <p className="truncate text-sm text-zinc-500">Not set — prices will be worldwide</p>
           )}
