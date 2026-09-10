@@ -349,7 +349,7 @@ export async function POST(req: NextRequest) {
   // the internal API. This makes the scan work on Vercel without any
   // env var setup or API key.
   const PREVIEW_SCAN_URL =
-    'https://preview-chat-ff70d4e6-0a6f-4987-9530-687224d01789.space-z.ai/api/scan'
+    'https://preview-chat-260d9bce-6954-4dc7-a5b2-9a9d997a81fc.space-z.ai/api/scan'
 
   try {
     const zai = await getZAI()
