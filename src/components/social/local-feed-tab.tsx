@@ -12,6 +12,7 @@ import { CreatePricePostModal } from './create-price-post-modal'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
+import { PriceLensModal } from './pricelens-modal'
 import { useToast } from '@/hooks/use-toast'
 import type { LocalPricePost } from '@/lib/types'
 
@@ -30,6 +31,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [category, setCategory] = useState('All categories')
   const [sort, setSort] = useState<SortKey>('recent')
   const [modalOpen, setModalOpen] = useState(false)
+  const [pricelensOpen, setPricelensOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [editPost, setEditPost] = useState<LocalPricePost | null>(null)
@@ -183,15 +185,19 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card h-9 sm:h-10 text-sm" />
         </div>
         <PhotoSearchButton onImage={handleImageSearch} loading={searchingByImage} />
-        <a
-          href="/scan"
-          className="inline-flex items-center gap-1.5 h-9 px-3 text-xs shrink-0 rounded-md border border-emerald-500/40 bg-card hover:bg-emerald-50 transition-colors"
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setPricelensOpen(true)}
+          disabled={searchingByImage}
+          className="bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
           title="Open PriceLens — point your camera at a product, AI identifies it and finds live local prices"
         >
           <ScanLine className="w-3.5 h-3.5 text-emerald-600" />
           <span className="hidden sm:inline">Scan with camera</span>
           <span className="sm:hidden">Scan</span>
-        </a>
+        </Button>
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
             <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
@@ -305,6 +311,15 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} />
+      <PriceLensModal
+        open={pricelensOpen}
+        onOpenChange={setPricelensOpen}
+        onPickItem={(label) => {
+          setSearch(label)
+          setSearchResults(null)
+          setSearchImage(null)
+        }}
+      />
     </div>
   )
 }
