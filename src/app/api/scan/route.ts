@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -102,6 +103,21 @@ export interface ScanResult {
   }>
   location: ScanLocation | null
   rawQuery: string
+  // Local price posts from the circub DB that match the identified product
+  // in the user's location — real prices from locals.
+  localPrices: Array<{
+    id: string
+    productName: string
+    category: string
+    currency: string
+    priceMin: number
+    priceMax: number
+    city: string | null
+    country: string
+    helpfulCount: number
+    authorName: string
+    authorVerifiedLocal: boolean
+  }>
 }
 
 // Robustly extract a JSON object from a model response that may contain
@@ -342,6 +358,89 @@ export async function POST(req: NextRequest) {
     // Step 3: synthesise a price estimate from the snippets.
     const price = await estimatePrice(zai, query, location, sources)
 
+    // Step 4: search local price posts from the circub DB — real prices
+    // posted by locals in the user's area. These take priority over the
+    // web-search estimate because they're verified by the community.
+    let localPrices: ScanResult['localPrices'] = []
+    try {
+      const searchTerms = [
+        identified.name,
+        identified.searchQuery,
+        identified.brand,
+      ].filter(Boolean).flatMap((s) => {
+        const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+        return [s, ...words]
+      })
+
+      const orClauses = searchTerms.flatMap((term) => [
+        { productName: { contains: term } },
+        { category: { contains: term } },
+      ])
+
+      const allPosts = await db.localPricePost.findMany({
+        where: { OR: orClauses },
+        select: {
+          id: true, productName: true, category: true, currency: true,
+          priceMin: true, priceMax: true, city: true, country: true,
+          helpfulCount: true,
+          author: { select: { name: true, verifiedLocal: true } },
+        },
+        take: 50,
+        orderBy: { helpfulCount: 'desc' },
+      })
+
+      // Filter to actual matches + bias toward user's location
+      const matches = allPosts.filter((p) =>
+        searchTerms.some((term) =>
+          p.productName.toLowerCase().includes(term.toLowerCase()) ||
+          p.category.toLowerCase().includes(term.toLowerCase())
+        )
+      )
+
+      // Sort: same city > same country > any
+      const locCountry = location?.country?.toLowerCase()
+      const locCity = location?.city?.toLowerCase()
+      const scored = matches.map((p) => {
+        let score = 1
+        if (locCountry && p.country.toLowerCase() === locCountry) score = 2
+        if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
+        return { p, score }
+      }).sort((a, b) => b.score - a.score)
+
+      localPrices = scored.slice(0, 8).map(({ p }) => ({
+        id: p.id,
+        productName: p.productName,
+        category: p.category,
+        currency: p.currency,
+        priceMin: p.priceMin,
+        priceMax: p.priceMax,
+        city: p.city,
+        country: p.country,
+        helpfulCount: p.helpfulCount,
+        authorName: p.author?.name || 'Unknown',
+        authorVerifiedLocal: p.author?.verifiedLocal || false,
+      }))
+    } catch (e) {
+      console.error('[/api/scan] local DB search failed:', e)
+    }
+
+    // If local prices were found, use them as the primary price (more
+    // trustworthy than web-search estimates) and merge into the price block.
+    let finalPrice = price
+    if (localPrices.length > 0) {
+      const mins = localPrices.map((p) => p.priceMin)
+      const maxs = localPrices.map((p) => p.priceMax)
+      const currency = localPrices[0].currency
+      finalPrice = {
+        estimatedLow: Math.min(...mins),
+        estimatedHigh: Math.max(...maxs),
+        currency,
+        summary: price?.summary
+          ? `${price.summary} (Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.)`
+          : `Based on ${localPrices.length} local price post${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
+      }
+    }
+
     const result: ScanResult = {
       item: {
         name: identified.name,
@@ -349,10 +448,11 @@ export async function POST(req: NextRequest) {
         category: identified.category ?? null,
         description: identified.description,
       },
-      price,
+      price: finalPrice,
       sources,
       location,
       rawQuery: query,
+      localPrices,
     }
 
     return NextResponse.json(result)

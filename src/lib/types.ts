@@ -230,6 +230,19 @@ export interface ScanResult {
   }>
   location: ScanLocation | null
   rawQuery: string
+  localPrices?: Array<{
+    id: string
+    productName: string
+    category: string
+    currency: string
+    priceMin: number
+    priceMax: number
+    city: string | null
+    country: string
+    helpfulCount: number
+    authorName: string
+    authorVerifiedLocal: boolean
+  }>
 }
 
 export interface ScanHistoryEntry {

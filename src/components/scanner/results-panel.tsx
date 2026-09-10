@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, Package, Sparkles, Tag, AlertCircle } from 'lucide-react'
+import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -112,6 +112,32 @@ function ResultBody({ result }: { result: ScanResult }) {
       </div>
 
       {sources.length > 0 && <SourcesList sources={sources} />}
+
+      {/* Local price posts from the circub DB — real prices from locals */}
+      {result.localPrices && result.localPrices.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-600">
+            Local prices ({result.localPrices.length})
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {result.localPrices.map((post, i) => (
+              <div key={i} className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-zinc-900 truncate">{post.productName}</span>
+                  <span className="text-sm font-bold text-emerald-700 shrink-0">
+                    {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `–${post.priceMax}` : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                  <span className="truncate">{post.city ? post.city + ', ' : ''}{post.country}</span>
+                  {post.authorVerifiedLocal && <BadgeCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
+                  <span className="truncate">· {post.authorName}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }
