@@ -71,7 +71,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         if (loc.source === 'ip') {
           toast({
             title: 'Using approximate location',
-            description: `Detected ${loc.city ? loc.city + ', ' : ''}${loc.country} via IP. Click the refresh button and allow location permission for precise results.`,
+            description: `Detected ${loc.city ? loc.city + ', ' : ''}${loc.country} via IP. Tap the refresh button (↻) and allow location permission for precise GPS results.`,
+          })
+        } else if (loc.source === 'geolocation') {
+          toast({
+            title: 'Location detected',
+            description: `${loc.city ? loc.city + ', ' : ''}${loc.country} via device GPS.`,
           })
         }
       } else {
@@ -151,7 +156,13 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoScan, status, open])
 
-  const handleStart = useCallback(() => void start('environment'), [start])
+  const handleStart = useCallback(() => {
+    void start('environment')
+    // Also trigger location detection on this user gesture — some
+    // browsers (iOS Safari) require a user gesture before geolocation
+    // will prompt for permission.
+    void detectLocation()
+  }, [start, detectLocation])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
   const handleSelectHistory = useCallback((entry: ScanHistoryEntry) => {
     setResult(entry.result)

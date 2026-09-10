@@ -1,6 +1,6 @@
 'use client'
 
-import { MapPin, Loader2, RefreshCw, Globe, Wifi } from 'lucide-react'
+import { MapPin, Loader2, RefreshCw, Globe, Wifi, Crosshair } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import type { ResolvedLocation } from '@/lib/location'
@@ -21,6 +21,7 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
 
   const isIp = location?.source === 'ip'
   const isGeo = location?.source === 'geolocation'
+  const hasCoords = location && location.lat !== 0 && location.lng !== 0
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
@@ -31,7 +32,15 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
             label ? 'border-emerald-500/30 bg-emerald-50 text-emerald-600' : 'border-zinc-200 bg-white text-zinc-400'
           )}
         >
-          {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : label ? <MapPin className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+          {detecting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isGeo ? (
+            <Crosshair className="h-4 w-4" />
+          ) : label ? (
+            <MapPin className="h-4 w-4" />
+          ) : (
+            <Globe className="h-4 w-4" />
+          )}
         </div>
         <div className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Pricing location</p>
@@ -42,14 +51,19 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
           ) : label ? (
             <motion.div key={label} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-1.5">
               <span className="truncate text-sm font-medium text-zinc-900">{label}</span>
+              {isGeo && (
+                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700" title="Location detected via device GPS">
+                  <Crosshair className="h-2.5 w-2.5" /> GPS
+                </span>
+              )}
               {isIp && (
-                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Location detected via IP address (approximate). Click refresh and allow location permission for precise results.">
+                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Location detected via IP address (approximate). Click refresh and allow location permission for precise GPS results.">
                   <Wifi className="h-2.5 w-2.5" /> IP
                 </span>
               )}
-              {isGeo && (
-                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700" title="Location detected via GPS">
-                  <MapPin className="h-2.5 w-2.5" /> GPS
+              {hasCoords && isGeo && (
+                <span className="hidden sm:inline text-[10px] text-zinc-400" title="GPS coordinates">
+                  {location!.lat.toFixed(3)}°, {location!.lng.toFixed(3)}°
                 </span>
               )}
             </motion.div>
