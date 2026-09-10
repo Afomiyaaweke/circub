@@ -290,6 +290,15 @@ export async function POST(req: NextRequest) {
 
   const location = body.location ?? null
 
+  // ---- PROXY FALLBACK ----
+  // If the ZAI SDK fails (e.g. on Vercel where internal-api.z.ai is on a
+  // private network), proxy the request through the space-z.ai preview
+  // link's /api/scan endpoint — which IS on Z.ai's network and can reach
+  // the internal API. This makes the scan work on Vercel without any
+  // env var setup or API key.
+  const PREVIEW_SCAN_URL =
+    'https://preview-chat-ff70d4e6-0a6f-4987-9530-687224d01789.space-z.ai/api/scan'
+
   try {
     const zai = await getZAI()
 
@@ -348,11 +357,37 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result)
   } catch (err) {
-    console.error('[/api/scan] error:', err)
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    return NextResponse.json(
-      { error: 'Failed to scan item', detail: message },
-      { status: 500 }
-    )
+    console.error('[/api/scan] direct ZAI call failed, trying proxy:', err instanceof Error ? err.message : err)
+
+    // ---- PROXY FALLBACK ----
+    // The direct ZAI SDK call failed (most likely because internal-api.z.ai
+    // is on a private network unreachable from Vercel). Proxy the request
+    // through the space-z.ai preview link's /api/scan endpoint, which IS on
+    // Z.ai's network and can reach the internal API.
+    try {
+      const proxyRes = await fetch(PREVIEW_SCAN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image, location }),
+        signal: AbortSignal.timeout(55000),
+      })
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json()
+        console.log('[/api/scan] proxy succeeded')
+        return NextResponse.json(proxyData)
+      }
+      const proxyErr = await proxyRes.text().catch(() => '')
+      console.error('[/api/scan] proxy also failed:', proxyRes.status, proxyErr.slice(0, 200))
+      return NextResponse.json(
+        { error: 'Failed to scan item', detail: `Direct ZAI: ${err instanceof Error ? err.message : 'failed'} | Proxy: ${proxyRes.status}` },
+        { status: 500 }
+      )
+    } catch (proxyErr) {
+      console.error('[/api/scan] proxy fetch failed:', proxyErr)
+      return NextResponse.json(
+        { error: 'Failed to scan item', detail: err instanceof Error ? err.message : 'Unknown error' },
+        { status: 500 }
+      )
+    }
   }
 }
