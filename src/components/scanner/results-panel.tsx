@@ -1,6 +1,9 @@
 'use client'
 
-import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck } from 'lucide-react'
+import {
+  ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck,
+  ShoppingCart, Users, Search, Handshake, Store,
+} from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +17,16 @@ interface ResultsPanelProps {
   loading: boolean
   error: string | null
 }
+
+// The 5-step travel-to-purchase flow, shown as a progress guide.
+// Each step is highlighted as the scan result fills in the data.
+const FLOW_STEPS = [
+  { key: 'scan',    icon: Search,      label: 'Scan',     desc: 'Traveler scans product',           color: 'emerald' },
+  { key: 'verify',  icon: Users,      label: 'Verify',   desc: 'Local verifies price',            color: 'blue' },
+  { key: 'compare', icon: Tag,        label: 'Compare', desc: 'Traveler compares options',       color: 'amber' },
+  { key: 'guide',   icon: Handshake,  label: 'Guide',    desc: 'Local guide helps purchase',       color: 'purple' },
+  { key: 'buy',     icon: ShoppingCart,label: 'Buy',      desc: 'Supplier makes sale',             color: 'rose' },
+]
 
 export function ResultsPanel({ result, loading, error }: ResultsPanelProps) {
   return (
@@ -71,7 +84,7 @@ function EmptyState() {
       </div>
       <p className="text-sm font-medium text-zinc-700">No item scanned yet</p>
       <p className="max-w-xs text-xs text-zinc-500">
-        Point your camera at any product and tap <span className="text-emerald-600">Scan</span> to identify it and see live local prices.
+        Point your camera at any product or QR code and tap <span className="text-emerald-600">Scan</span> to identify it and see live local prices.
       </p>
     </motion.div>
   )
@@ -81,9 +94,20 @@ function ResultBody({ result }: { result: ScanResult }) {
   const { item, price, sources, location } = result
   const priceRange = price ? formatPriceRange(price.estimatedLow, price.estimatedHigh, price.currency) : 'Price unavailable'
   const hasPrice = price && (price.estimatedLow !== null || price.estimatedHigh !== null)
+  const hasLocalPrices = result.localPrices && result.localPrices.length > 0
+
+  // Determine which flow steps are active based on what data we have
+  const activeSteps = {
+    scan: true, // we scanned → step 1 is always active
+    verify: hasLocalPrices || false, // locals posted prices → step 2 active
+    compare: hasPrice || false, // we have price data to compare → step 3
+    guide: hasLocalPrices || false, // a guide could help → step 4 (if locals exist)
+    buy: hasPrice || false, // there's a price → step 5
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }} className="space-y-4">
+      {/* Item identity */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {item.brand && (
@@ -102,6 +126,10 @@ function ResultBody({ result }: { result: ScanResult }) {
         {item.description && <p className="text-sm leading-relaxed text-zinc-600">{item.description}</p>}
       </div>
 
+      {/* Flow guide — the 5-step Traveler → Local → Compare → Guide → Buy flow */}
+      <FlowGuide activeSteps={activeSteps} />
+
+      {/* Price block */}
       <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-50 to-transparent p-4">
         <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-700/80">
           Estimated price
@@ -111,16 +139,14 @@ function ResultBody({ result }: { result: ScanResult }) {
         {price?.summary && <p className="mt-2 text-xs leading-relaxed text-zinc-500">{price.summary}</p>}
       </div>
 
-      {sources.length > 0 && <SourcesList sources={sources} />}
-
-      {/* Local price posts from the circub DB — real prices from locals */}
-      {result.localPrices && result.localPrices.length > 0 && (
+      {/* Local price posts */}
+      {hasLocalPrices && (
         <div className="space-y-2">
           <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-600">
-            Local prices ({result.localPrices.length})
+            Local prices ({result.localPrices!.length})
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {result.localPrices.map((post, i) => (
+            {result.localPrices!.map((post, i) => (
               <div key={i} className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium text-zinc-900 truncate">{post.productName}</span>
@@ -138,7 +164,57 @@ function ResultBody({ result }: { result: ScanResult }) {
           </div>
         </div>
       )}
+
+      {/* Sources */}
+      {sources.length > 0 && <SourcesList sources={sources} />}
     </motion.div>
+  )
+}
+
+function FlowGuide({ activeSteps }: { activeSteps: Record<string, boolean> }) {
+  const colorClasses: Record<string, string> = {
+    emerald: 'border-emerald-500 bg-emerald-50 text-emerald-600',
+    blue: 'border-blue-500 bg-blue-50 text-blue-600',
+    amber: 'border-amber-500 bg-amber-50 text-amber-600',
+    purple: 'border-purple-500 bg-purple-50 text-purple-600',
+    rose: 'border-rose-500 bg-rose-50 text-rose-600',
+  }
+  const inactiveClass = 'border-zinc-200 bg-zinc-50 text-zinc-300'
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Purchase flow</p>
+      <div className="flex items-center gap-1">
+        {FLOW_STEPS.map((step, i) => {
+          const isActive = activeSteps[step.key]
+          const Icon = step.icon
+          return (
+            <div key={step.key} className="flex items-center gap-1 flex-1">
+              <div className="flex flex-col items-center gap-1 flex-1">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${isActive ? colorClasses[step.color] : inactiveClass}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <span className={`text-[9px] font-medium ${isActive ? 'text-zinc-700' : 'text-zinc-300'}`}>{step.label}</span>
+              </div>
+              {i < FLOW_STEPS.length - 1 && (
+                <div className={`h-0.5 w-full min-w-[8px] rounded ${isActive ? 'bg-emerald-300' : 'bg-zinc-200'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {/* Active step description */}
+      <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+        {FLOW_STEPS.filter((s) => activeSteps[s.key]).map((s, i) => (
+          <span key={s.key} className="flex items-center gap-1">
+            {i > 0 && <span>→</span>}
+            <span className={i === FLOW_STEPS.filter((st) => activeSteps[st.key]).length - 1 ? 'font-medium text-zinc-700' : ''}>
+              {s.desc}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 
