@@ -158,9 +158,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const handleStart = useCallback(() => {
     void start('environment')
-    // Also trigger location detection on this user gesture — some
-    // browsers (iOS Safari) require a user gesture before geolocation
-    // will prompt for permission.
     void detectLocation()
   }, [start, detectLocation])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
@@ -168,6 +165,39 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     setResult(entry.result)
     setActiveHistoryId(entry.id)
   }, [])
+
+  // QR code detection — when a QR is scanned, show it as a toast + use
+  // the QR data as the search term (e.g. a product URL or name encoded
+  // in the QR).
+  const handleQRDetected = useCallback((data: string) => {
+    toast({
+      title: 'QR code detected',
+      description: data.length > 80 ? data.slice(0, 80) + '…' : data,
+    })
+    // If the QR contains a URL, we could open it or search with it.
+    // For now, use the QR data as a scan result.
+    if (onPickItem) {
+      onPickItem(data.slice(0, 60))
+    }
+  }, [toast, onPickItem])
+
+  // Manual location entry
+  const handleManualLocation = useCallback((city: string | null, country: string | null) => {
+    if (!city && !country) return
+    setLocation({
+      city,
+      country,
+      countryCode: null,
+      region: null,
+      lat: 0,
+      lng: 0,
+      source: 'manual',
+    })
+    toast({
+      title: 'Location set manually',
+      description: `${city ? city + ', ' : ''}${country || ''}`,
+    })
+  }, [toast])
 
   const canScan = status === 'live' && !loading
 
@@ -213,6 +243,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 scanning={loading}
                 onStart={handleStart}
                 onSwitch={handleSwitch}
+                onQRDetected={handleQRDetected}
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -243,7 +274,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 </div>
               </div>
 
-              <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} />
+              <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} onManualLocation={handleManualLocation} />
 
               <div className="lg:hidden">
                 <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />

@@ -1,10 +1,12 @@
 'use client'
 
-import { Camera, CameraOff, Loader2, RefreshCw, ScanLine } from 'lucide-react'
+import { Camera, CameraOff, Loader2, RefreshCw, ScanLine, QrCode } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import type { CameraStatus } from '@/hooks/use-camera'
 import { cn } from '@/lib/utils'
+import { useEffect, useRef, useCallback } from 'react'
+import jsQR from 'jsqr'
 
 interface ViewfinderProps {
   videoRef: React.RefObject<HTMLVideoElement | null>
@@ -13,13 +15,67 @@ interface ViewfinderProps {
   scanning: boolean
   onStart: () => void
   onSwitch: () => void
+  onQRDetected?: (data: string) => void
 }
 
-export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitch }: ViewfinderProps) {
+export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitch, onQRDetected }: ViewfinderProps) {
   const isLive = status === 'live'
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const qrIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastQRRef = useRef<string | null>(null)
+  const [qrFlash, setQrFlash] = useState(false)
+
+  // QR code scanning loop — checks every 500ms while the camera is live
+  const scanForQR = useCallback(() => {
+    const video = videoRef.current
+    if (!video || video.readyState < 2 || video.videoWidth === 0) return
+
+    const canvas = qrCanvasRef.current
+    if (!canvas) return
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert',
+    })
+
+    if (code && code.data && onQRDetected) {
+      // Avoid firing the same QR repeatedly
+      if (lastQRRef.current !== code.data) {
+        lastQRRef.current = code.data
+        setQrFlash(true)
+        setTimeout(() => setQrFlash(false), 600)
+        onQRDetected(code.data)
+      }
+    }
+  }, [videoRef, onQRDetected])
+
+  // Start/stop QR scanning when camera goes live
+  useEffect(() => {
+    if (isLive && onQRDetected) {
+      qrIntervalRef.current = setInterval(scanForQR, 500)
+      return () => {
+        if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
+        qrIntervalRef.current = null
+      }
+    }
+  }, [isLive, onQRDetected, scanForQR])
+
+  // Reset last QR when camera restarts
+  useEffect(() => {
+    if (!isLive) lastQRRef.current = null
+  }, [isLive])
 
   return (
-    <div className="relative w-full aspect-[4/3] sm:aspect-square overflow-hidden rounded-2xl border border-emerald-500/20 bg-black shadow-xl shadow-emerald-500/10">
+    <div className={cn(
+      'relative w-full aspect-[4/3] sm:aspect-square overflow-hidden rounded-2xl border bg-black shadow-xl transition-colors',
+      qrFlash ? 'border-emerald-400 ring-4 ring-emerald-400/30' : 'border-emerald-500/20',
+      'shadow-emerald-500/10'
+    )}>
       <video
         ref={videoRef}
         className={cn('h-full w-full object-cover transition-opacity duration-500', isLive ? 'opacity-100' : 'opacity-0')}
@@ -27,6 +83,13 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
         muted
         autoPlay
       />
+      {/* Hidden canvas for QR scanning */}
+      <canvas ref={qrCanvasRef} className="hidden" />
+
+      {/* QR flash overlay */}
+      {qrFlash && (
+        <div className="absolute inset-0 bg-emerald-400/20 animate-pulse pointer-events-none z-30" />
+      )}
 
       {isLive && (
         <>
@@ -64,6 +127,14 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
         </div>
       )}
 
+      {/* QR badge */}
+      {isLive && (
+        <div className="absolute right-12 top-3 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 text-[10px] font-medium text-white backdrop-blur">
+          <QrCode className="h-3 w-3 text-emerald-400" />
+          QR auto-scan
+        </div>
+      )}
+
       {scanning && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/45 backdrop-blur-[2px]">
           <div className="relative flex h-16 w-16 items-center justify-center">
@@ -94,26 +165,18 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
               {status === 'denied' ? 'Camera access blocked' : status === 'error' ? 'Camera unavailable' : status === 'unsupported' ? 'Camera not supported' : 'Point. Scan. Price it.'}
             </p>
             <p className="mx-auto max-w-xs text-sm text-zinc-500">
-              {status === 'denied'
-                ? 'Allow camera permission in your browser, then retry.'
-                : status === 'error' || status === 'unsupported'
-                  ? error || 'We could not access a camera on this device.'
-                  : 'Allow camera access to start scanning items for live local prices.'}
+              {status === 'denied' ? 'Allow camera permission in your browser, then retry.'
+                : status === 'error' || status === 'unsupported' ? error || 'We could not access a camera on this device.'
+                : 'Allow camera access to scan products or QR codes for live local prices.'}
             </p>
           </div>
           <Button onClick={onStart} className="bg-emerald-500 text-white hover:bg-emerald-400">
             {status === 'requesting' ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Requesting…
-              </>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Requesting…</>
             ) : status === 'denied' || status === 'error' ? (
-              <>
-                <RefreshCw className="h-4 w-4" /> Retry
-              </>
+              <><RefreshCw className="h-4 w-4" /> Retry</>
             ) : (
-              <>
-                <Camera className="h-4 w-4" /> Start camera
-              </>
+              <><Camera className="h-4 w-4" /> Start camera</>
             )}
           </Button>
         </div>
@@ -145,3 +208,6 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
 function Bracket({ className }: { className: string }) {
   return <div className={cn('pointer-events-none absolute h-7 w-7 border-emerald-400/80', className)} />
 }
+
+// Need useState import
+import { useState } from 'react'
