@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ScanLine, Zap, ZapOff, ShieldCheck } from 'lucide-react'
+import { ScanLine, Zap, ZapOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { useCamera } from '@/hooks/use-camera'
 import { Viewfinder } from '@/components/scanner/viewfinder'
 import { ResultsPanel } from '@/components/scanner/results-panel'
@@ -131,6 +131,9 @@ export default function ScanPage() {
       <header className="border-b border-zinc-100 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
+            <a href="/" className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900" title="Back to circub">
+              <ArrowLeft className="h-5 w-5" />
+            </a>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
               <ScanLine className="h-5 w-5" />
             </div>
