@@ -470,15 +470,24 @@ export async function POST(req: NextRequest) {
       }
       const proxyErr = await proxyRes.text().catch(() => '')
       console.error('[/api/scan] proxy also failed:', proxyRes.status, proxyErr.slice(0, 200))
+
+      // If the proxy returned 429 (rate limited) or 500, return a user-friendly
+      // error instead of the raw error detail.
+      if (proxyRes.status === 429) {
+        return NextResponse.json(
+          { error: 'Too many scans. Please wait a moment and try again.' },
+          { status: 429 }
+        )
+      }
       return NextResponse.json(
-        { error: 'Failed to scan item', detail: `Direct ZAI: ${err instanceof Error ? err.message : 'failed'} | Proxy: ${proxyRes.status}` },
-        { status: 500 }
+        { error: 'Scanner is busy right now. Please try again in a few seconds.' },
+        { status: 503 }
       )
     } catch (proxyErr) {
       console.error('[/api/scan] proxy fetch failed:', proxyErr)
       return NextResponse.json(
-        { error: 'Failed to scan item', detail: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: 'Scanner is temporarily unavailable. Please try again.' },
+        { status: 503 }
       )
     }
   }

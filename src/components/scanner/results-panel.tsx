@@ -2,7 +2,7 @@
 
 import {
   ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck,
-  Search, Handshake,
+  Search, Handshake, RefreshCw,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
@@ -16,15 +16,11 @@ interface ResultsPanelProps {
   result: ScanResult | null
   loading: boolean
   error: string | null
-  /** Called when the user clicks "Ask a Guide" — opens the guides tab
-   *  or messages a guide about the scanned item. */
   onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void
+  onRetry?: () => void
 }
 
-// The 5-step flow has been removed per the user's request.
-// The results panel now shows: item identity, price, local prices, Ask a Guide, sources.
-
-export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPanelProps) {
+export function ResultsPanel({ result, loading, error, onAskGuide, onRetry }: ResultsPanelProps) {
   return (
     <Card className="border-emerald-500/20 bg-white shadow-sm">
       <CardHeader className="pb-3">
@@ -38,7 +34,7 @@ export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPane
           {loading ? (
             <LoadingState key="loading" />
           ) : error ? (
-            <ErrorState key="error" message={error} />
+            <ErrorState key="error" message={error} onRetry={onRetry} />
           ) : result ? (
             <ResultBody key="result" result={result} onAskGuide={onAskGuide} />
           ) : (
@@ -83,12 +79,18 @@ function LoadingState() {
   )
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-2 py-6 text-center">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3 py-6 text-center">
       <AlertCircle className="h-8 w-8 text-rose-500" />
       <p className="text-sm font-medium text-zinc-900">Scan failed</p>
       <p className="max-w-xs text-xs text-zinc-500">{message}</p>
+      {onRetry && (
+        <Button onClick={onRetry} size="sm" className="mt-1 gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white">
+          <RefreshCw className="h-3.5 w-3.5" />
+          Try again
+        </Button>
+      )}
     </motion.div>
   )
 }

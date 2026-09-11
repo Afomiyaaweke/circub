@@ -193,7 +193,15 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error || `Request failed (${res.status})`)
+        const errorMsg = err?.error || `Request failed (${res.status})`
+        // Don't throw for 429/503 — show as a retryable error
+        if (res.status === 429 || res.status === 503) {
+          setScanError(errorMsg)
+          setHistory((h) => h.filter((e) => e.result.item.name !== 'Searching…'))
+          toast({ title: 'Scanner busy', description: errorMsg, variant: 'destructive' })
+          return
+        }
+        throw new Error(errorMsg)
       }
       const data = (await res.json()) as ScanResult
       setResult(data)
@@ -384,6 +392,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                   result={result}
                   loading={loading}
                   error={scanError}
+                  onRetry={() => void runScan()}
                   onAskGuide={(itemName, loc) => {
                     // Close the PriceLens modal and navigate to the Guides tab
                     // with the scanned item info so the user can find a guide.
