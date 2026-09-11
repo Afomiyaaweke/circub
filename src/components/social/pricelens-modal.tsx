@@ -13,6 +13,7 @@ import { Viewfinder } from '@/components/scanner/viewfinder'
 import { ResultsPanel } from '@/components/scanner/results-panel'
 import { LocationBar } from '@/components/scanner/location-bar'
 import { HistoryList } from '@/components/scanner/history-list'
+import { ScannerGuide } from '@/components/scanner/scanner-guide'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
@@ -23,7 +24,13 @@ import {
   type ResolvedLocation,
 } from '@/lib/location'
 
-const AUTO_SCAN_INTERVAL = 8000
+// Auto-scan cadence (ms). Lower = faster scanning.
+// Kept at 4s so the AI has time to finish each scan without overlapping.
+const AUTO_SCAN_INTERVAL = 4000
+// Lower max dimension = smaller payload = faster upload + faster AI response.
+// 384px is enough for product/label identification while keeping payload <100KB.
+const CAPTURE_MAX_DIM = 384
+const CAPTURE_QUALITY = 0.45
 
 interface PriceLensModalProps {
   open: boolean
@@ -63,6 +70,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     status,
     error: cameraError,
     start,
+    stop,
     switchCamera,
     captureFrame,
   } = useCamera({ facingMode: 'environment' })
@@ -79,9 +87,26 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const scanInFlight = useRef(false)
 
   // Camera is NOT auto-started when modal opens — it starts only when
-  // the user taps "Scan item" or "Start camera". After a scan completes,
-  // the camera is turned OFF to save battery + protect privacy.
-  // The user sees the viewfinder's "Start camera" prompt until they tap.
+  // the user taps "Scan item" or "Start camera". After each scan
+  // completes the camera is turned OFF to save battery + protect privacy.
+  // When auto-scan is toggled off, or the modal closes, we also stop the
+  // camera so no stream is left running in the background.
+
+  // Stop the camera whenever the modal closes (privacy + battery).
+  useEffect(() => {
+    if (!open) {
+      stop()
+      setAutoScan(false)
+    }
+  }, [open, stop])
+
+  // When the user toggles auto-scan OFF, turn the camera off immediately.
+  // (When toggled ON, the auto-scan effect below will start the camera.)
+  useEffect(() => {
+    if (!autoScan && status === 'live' && !loading) {
+      stop()
+    }
+  }, [autoScan, status, loading, stop])
 
   const detectLocation = useCallback(async () => {
     setDetectingLocation(true)
@@ -120,16 +145,19 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     // Start camera if not already live
     if (status !== 'live') {
       await start('environment')
-      await new Promise((r) => setTimeout(r, 500))
+      // Brief wait for the video element to have a non-zero frame.
+      // 150ms is enough on most devices; the captureFrame() guard
+      // below will bail out if the frame still isn't ready.
+      await new Promise((r) => setTimeout(r, 150))
     }
     // Lower quality + downscale for faster upload (critical for Vercel proxy)
-    const rawFrame = captureFrame(0.5)
+    const rawFrame = captureFrame(CAPTURE_QUALITY)
     if (!rawFrame) {
       setScanError('Camera is not ready. Try again.')
       return
     }
-    // Downscale to 480px max — smaller payload = faster proxy response
-    const frame = await downscaleImage(rawFrame, 480)
+    // Downscale to CAPTURE_MAX_DIM px max — smaller payload = faster proxy response
+    const frame = await downscaleImage(rawFrame, CAPTURE_MAX_DIM)
     if (!frame) {
       setScanError('Camera is not ready. Try again.')
       return
@@ -174,11 +202,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     } finally {
       setLoading(false)
       scanInFlight.current = false
-      // Turn OFF the camera after scanning is done — saves battery + privacy
-      stop()
+      // Turn OFF the camera after scanning is done — saves battery + privacy.
+      // Auto-scan mode will restart the camera on its next tick.
+      if (!autoScan) stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast, onPickItem, status, start, stop])
+  }, [captureFrame, location, toast, onPickItem, status, start, stop, autoScan])
 
   useEffect(() => {
     if (!open) return
@@ -198,6 +227,10 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     void detectLocation()
   }, [start, detectLocation])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
+  const handleStopCamera = useCallback(() => {
+    setAutoScan(false)
+    stop()
+  }, [stop])
   const handleSelectHistory = useCallback((entry: ScanHistoryEntry) => {
     setResult(entry.result)
     setActiveHistoryId(entry.id)
@@ -247,6 +280,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 scanning={loading}
                 onStart={handleStart}
                 onSwitch={handleSwitch}
+                onStop={handleStopCamera}
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -264,6 +298,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                   <ScanLine className="h-4 w-4" />
                   {loading ? 'Scanning…' : 'Scan item'}
                 </Button>
+
+                <ScannerGuide className="h-10 px-3 border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50" />
 
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
                   <div className="flex items-center gap-2">

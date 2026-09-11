@@ -1,6 +1,6 @@
 'use client'
 
-import { Camera, CameraOff, Loader2, RefreshCw, ScanLine } from 'lucide-react'
+import { Camera, CameraOff, Loader2, RefreshCw, ScanLine, Power } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import type { CameraStatus } from '@/hooks/use-camera'
@@ -13,9 +13,11 @@ interface ViewfinderProps {
   scanning: boolean
   onStart: () => void
   onSwitch: () => void
+  /** Called when the user asks to turn the camera off (privacy / battery). */
+  onStop?: () => void
 }
 
-export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitch }: ViewfinderProps) {
+export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitch, onStop }: ViewfinderProps) {
   const isLive = status === 'live'
 
   return (
@@ -120,13 +122,25 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
       )}
 
       {isLive && !scanning && (
-        <button
-          onClick={onSwitch}
-          aria-label="Switch camera"
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <div className="absolute right-3 top-3 flex items-center gap-1.5">
+          <button
+            onClick={onSwitch}
+            aria-label="Switch camera"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          {onStop && (
+            <button
+              onClick={onStop}
+              aria-label="Turn off camera"
+              title="Turn off camera"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-300/30 bg-black/50 text-rose-200 backdrop-blur transition hover:bg-rose-500/40 hover:text-white"
+            >
+              <Power className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       )}
 
       {isLive && (
