@@ -111,7 +111,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const runScan = useCallback(async () => {
     if (scanInFlight.current) return
-    const frame = captureFrame(0.82)
+    const frame = captureFrame(0.6) // lower quality = smaller image = faster VLM
     if (!frame) {
       setScanError('Camera is not ready. Start the camera first.')
       return

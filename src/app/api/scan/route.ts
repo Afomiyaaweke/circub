@@ -180,20 +180,8 @@ async function identifyItem(
   zai: Awaited<ReturnType<typeof ZAI.create>>,
   imageDataUrl: string
 ): Promise<IdentifiedItem> {
-  const prompt = `You are a retail product recognition assistant. Look at this image captured by a user's phone camera.
-
-Identify the single most prominent physical product / item in frame (ignore people and background). 
-Respond ONLY with a JSON object (no markdown, no prose) with this exact shape:
-
-{
-  "name": "short product name (2-6 words), generic enough to be searchable but specific enough to be useful, e.g. 'Coca-Cola 500ml bottle' or 'Sony WH-1000XM4 headphones'",
-  "brand": "brand name if clearly identifiable, else null",
-  "category": "category e.g. 'Beverages', 'Electronics', 'Grocery', 'Snacks', 'Cosmetics', 'Household'",
-  "description": "one short sentence describing the item and any visible distinguishing features (packaging, size, color)",
-  "searchQuery": "a concise english search query a person would type to find this product's current price online, including brand + model/variant + size if known. No location, no price. e.g. 'Coca-Cola 500ml bottle price' or 'Sony WH-1000XM4 headphones buy'"
-}
-
-If the image does not contain a clearly identifiable product (e.g. it's a landscape, a person, or too blurry), set "name" to "Unknown item" and still provide a best-effort "searchQuery".`
+  // Shorter prompt for faster VLM response
+  const prompt = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
 
   const response = await zai.chat.completions.createVision({
     messages: [
@@ -370,94 +358,94 @@ export async function POST(req: NextRequest) {
       ? `${identified.searchQuery} ${locationQualifier} price`
       : `${identified.searchQuery} price`
 
-    const searchResults = await zai.functions.invoke('web_search', {
+    // Step 2+3: Run web search + DB search IN PARALLEL (instead of
+    // sequentially) to cut total scan time by ~1-2 seconds.
+    const webSearchPromise = zai.functions.invoke('web_search', {
       query,
-      num: 5, // reduced from 10 to 5 for faster scanning
-    })
+      num: 5,
+    }).then((searchResults: unknown) => {
+      return Array.isArray(searchResults)
+        ? searchResults
+            .filter((r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null)
+            .slice(0, 5)
+            .map((r) => ({
+              title: String(r.name ?? r.title ?? 'Untitled'),
+              url: String(r.url ?? ''),
+              snippet: String(r.snippet ?? ''),
+              host: String(r.host_name ?? r.host ?? ''),
+              date: r.date ? String(r.date) : null,
+            }))
+        : []
+    }).catch(() => [] as ScanResult['sources'])
 
-    const sources: ScanResult['sources'] = Array.isArray(searchResults)
-      ? searchResults
-          .filter(
-            (r: unknown): r is Record<string, unknown> =>
-              typeof r === 'object' && r !== null
+    const dbSearchPromise = (async () => {
+      let localPrices: ScanResult['localPrices'] = []
+      try {
+        const searchTerms = [
+          identified.name,
+          identified.searchQuery,
+          identified.brand,
+        ].filter(Boolean).flatMap((s) => {
+          const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+          return [s, ...words]
+        })
+
+        const orClauses = searchTerms.flatMap((term) => [
+          { productName: { contains: term } },
+          { category: { contains: term } },
+        ])
+
+        const allPosts = await db.localPricePost.findMany({
+          where: { OR: orClauses },
+          select: {
+            id: true, productName: true, category: true, currency: true,
+            priceMin: true, priceMax: true, city: true, country: true,
+            helpfulCount: true,
+            author: { select: { name: true, verifiedLocal: true } },
+          },
+          take: 30,
+          orderBy: { helpfulCount: 'desc' },
+        })
+
+        const matches = allPosts.filter((p) =>
+          searchTerms.some((term) =>
+            p.productName.toLowerCase().includes(term.toLowerCase()) ||
+            p.category.toLowerCase().includes(term.toLowerCase())
           )
-          .slice(0, 10)
-          .map((r) => ({
-            title: String(r.name ?? r.title ?? 'Untitled'),
-            url: String(r.url ?? ''),
-            snippet: String(r.snippet ?? ''),
-            host: String(r.host_name ?? r.host ?? ''),
-            date: r.date ? String(r.date) : null,
-          }))
-      : []
-
-    // Step 3: search local price posts FIRST (fast DB query — no VLM call).
-    // If we find local prices, we can SKIP the slow AI price estimation
-    // since local prices are more trustworthy anyway.
-    let localPrices: ScanResult['localPrices'] = []
-    try {
-      const searchTerms = [
-        identified.name,
-        identified.searchQuery,
-        identified.brand,
-      ].filter(Boolean).flatMap((s) => {
-        const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
-        return [s, ...words]
-      })
-
-      const orClauses = searchTerms.flatMap((term) => [
-        { productName: { contains: term } },
-        { category: { contains: term } },
-      ])
-
-      const allPosts = await db.localPricePost.findMany({
-        where: { OR: orClauses },
-        select: {
-          id: true, productName: true, category: true, currency: true,
-          priceMin: true, priceMax: true, city: true, country: true,
-          helpfulCount: true,
-          author: { select: { name: true, verifiedLocal: true } },
-        },
-        take: 50,
-        orderBy: { helpfulCount: 'desc' },
-      })
-
-      // Filter to actual matches + bias toward user's location
-      const matches = allPosts.filter((p) =>
-        searchTerms.some((term) =>
-          p.productName.toLowerCase().includes(term.toLowerCase()) ||
-          p.category.toLowerCase().includes(term.toLowerCase())
         )
-      )
 
-      // Sort: same city > same country > any
-      const locCountry = location?.country?.toLowerCase()
-      const locCity = location?.city?.toLowerCase()
-      const scored = matches.map((p) => {
-        let score = 1
-        if (locCountry && p.country.toLowerCase() === locCountry) score = 2
-        if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
-        return { p, score }
-      }).sort((a, b) => b.score - a.score)
+        const locCountry = location?.country?.toLowerCase()
+        const locCity = location?.city?.toLowerCase()
+        const scored = matches.map((p) => {
+          let score = 1
+          if (locCountry && p.country.toLowerCase() === locCountry) score = 2
+          if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
+          return { p, score }
+        }).sort((a, b) => b.score - a.score)
 
-      localPrices = scored.slice(0, 8).map(({ p }) => ({
-        id: p.id,
-        productName: p.productName,
-        category: p.category,
-        currency: p.currency,
-        priceMin: p.priceMin,
-        priceMax: p.priceMax,
-        city: p.city,
-        country: p.country,
-        helpfulCount: p.helpfulCount,
-        authorName: p.author?.name || 'Unknown',
-        authorVerifiedLocal: p.author?.verifiedLocal || false,
-      }))
-    } catch (e) {
-      console.error('[/api/scan] local DB search failed:', e)
-    }
+        localPrices = scored.slice(0, 6).map(({ p }) => ({
+          id: p.id,
+          productName: p.productName,
+          category: p.category,
+          currency: p.currency,
+          priceMin: p.priceMin,
+          priceMax: p.priceMax,
+          city: p.city,
+          country: p.country,
+          helpfulCount: p.helpfulCount,
+          authorName: p.author?.name || 'Unknown',
+          authorVerifiedLocal: p.author?.verifiedLocal || false,
+        }))
+      } catch (e) {
+        console.error('[/api/scan] local DB search failed:', e)
+      }
+      return localPrices
+    })()
 
-    // Step 4: ONLY run the AI price estimation if no local prices were
+    // Wait for both to complete
+    const [sources, localPrices] = await Promise.all([webSearchPromise, dbSearchPromise])
+
+    // Step 4: ONLY run AI price estimation if no local prices found
     // found. This skips a slow VLM call (~3-5 seconds) when the DB already
     // has verified local prices, making the scan significantly faster.
     let price: PriceEstimate | null = null
