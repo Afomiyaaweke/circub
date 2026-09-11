@@ -178,10 +178,23 @@ interface IdentifiedItem {
 
 async function identifyItem(
   zai: Awaited<ReturnType<typeof ZAI.create>>,
-  imageDataUrl: string
+  imageDataUrl: string,
+  location: ScanLocation | null
 ): Promise<IdentifiedItem> {
-  // Shorter prompt for faster VLM response
-  const prompt = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
+  const locationName = location?.city
+    ? `${location.city}${location.country ? ', ' + location.country : ''}`
+    : location?.country || 'worldwide'
+  const localCurrency = localCurrencyForLocation(location || {})
+
+  // Ask VLM to identify the product AND estimate a price in one call —
+  // this replaces the old 3-call flow (identify → web_search → estimate)
+  // with a single VLM call, making it 3x faster.
+  const prompt = `Identify the main product in this image. If found, also estimate a realistic retail price range in ${localCurrency} for ${locationName}.
+
+Respond ONLY with JSON:
+{"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query","estimatedLow":number,"estimatedHigh":number,"currency":"${localCurrency}"}
+
+If no product visible, use name "Unknown item" and set estimatedLow/estimatedHigh to null.`
 
   const response = await zai.chat.completions.createVision({
     messages: [
@@ -197,31 +210,33 @@ async function identifyItem(
   })
 
   const content = response.choices?.[0]?.message?.content ?? ''
-  const parsed = extractJson(content) as IdentifiedItem | null
+  const parsed = extractJson(content) as (IdentifiedItem & { estimatedLow?: number | null; estimatedHigh?: number | null; currency?: string | null }) | null
 
   if (parsed && parsed.name) {
-    return {
+    const result: IdentifiedItem & { estimatedLow?: number | null; estimatedHigh?: number | null; currency?: string | null } = {
       name: String(parsed.name).slice(0, 120),
       brand: parsed.brand ? String(parsed.brand).slice(0, 80) : null,
       category: parsed.category ? String(parsed.category).slice(0, 60) : null,
-      description: parsed.description
-        ? String(parsed.description).slice(0, 400)
-        : '',
-      searchQuery: parsed.searchQuery
-        ? String(parsed.searchQuery).slice(0, 200)
-        : String(parsed.name),
+      description: parsed.description ? String(parsed.description).slice(0, 400) : '',
+      searchQuery: parsed.searchQuery ? String(parsed.searchQuery).slice(0, 200) : String(parsed.name),
+      estimatedLow: typeof parsed.estimatedLow === 'number' ? parsed.estimatedLow : null,
+      estimatedHigh: typeof parsed.estimatedHigh === 'number' ? parsed.estimatedHigh : null,
+      currency: parsed.currency ? String(parsed.currency).slice(0, 8) : null,
     }
+    return result
   }
 
   // Fallback: use raw content as the name
-  const fallbackName =
-    content.trim().split('\n')[0].slice(0, 120) || 'Unknown item'
+  const fallbackName = content.trim().split('\n')[0].slice(0, 120) || 'Unknown item'
   return {
     name: fallbackName,
     brand: null,
     category: null,
     description: content.slice(0, 400),
     searchQuery: fallbackName,
+    estimatedLow: null,
+    estimatedHigh: null,
+    currency: null,
   }
 }
 
@@ -337,19 +352,16 @@ export async function POST(req: NextRequest) {
   // the internal API. This makes the scan work on Vercel without any
   // env var setup or API key.
   const PREVIEW_SCAN_URL =
+    process.env.ZAI_PROXY_URL ||
     'https://preview-chat-260d9bce-6954-4dc7-a5b2-9a9d997a81fc.space-z.ai/api/scan'
 
   try {
     const zai = await getZAI()
 
-    // Step 1: identify the item + estimate price in ONE VLM call (fastest).
-    // The vision model identifies the product AND gives a price estimate
-    // in the same response — no separate web_search + estimatePrice calls.
-    const identified = await identifyItem(zai, image)
+    // Step 1: identify the item + get price estimate in ONE VLM call.
+    const identified = await identifyItem(zai, image, location) as IdentifiedItem & { estimatedLow?: number | null; estimatedHigh?: number | null; currency?: string | null }
 
-    // Step 2: Search the local DB only (fast — ~50ms, no VLM call).
-    // Skip web_search entirely — it was the slowest part (~2-3s).
-    // Instead, use the VLM's price estimate from step 1 + local DB prices.
+    // Step 2: Search the local DB for matching price posts (fast).
     const localCurrency = localCurrencyForLocation(location || {})
     const locationName = location?.city
       ? `${location.city}${location.country ? ', ' + location.country : ''}`
@@ -407,7 +419,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 3: Build the price — use local prices if found, otherwise
-    // use the VLM's estimate from step 1. No separate estimatePrice call.
+    // use the VLM's estimate from step 1.
     let finalPrice: PriceEstimate | null = null
     const sources: ScanResult['sources'] = []
 
@@ -420,14 +432,20 @@ export async function POST(req: NextRequest) {
         currency: localPrices[0].currency,
         summary: `Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
       }
+    } else if (identified.estimatedLow != null || identified.estimatedHigh != null) {
+      // Use the VLM's price estimate from the identification call
+      finalPrice = {
+        estimatedLow: identified.estimatedLow ?? null,
+        estimatedHigh: identified.estimatedHigh ?? null,
+        currency: identified.currency || localCurrency,
+        summary: `AI-estimated price near ${locationName}.`,
+      }
     } else {
-      // No local prices — use the VLM's built-in price estimate from
-      // the identification call. The prompt already asked for a price.
       finalPrice = {
         estimatedLow: null,
         estimatedHigh: null,
         currency: localCurrency,
-        summary: `Estimated price near ${locationName}. No verified local prices yet — be the first to post!`,
+        summary: `No price data available near ${locationName}. Be the first to post a price!`,
       }
     }
 
