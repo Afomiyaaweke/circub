@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 interface LandingPageProps {
   onSignUp: () => void
   onLogin: () => void
+  onContinueAsGuest?: () => void
 }
 
 interface RecentPrice {
@@ -109,7 +110,7 @@ const STEPS = [
   },
 ]
 
-export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
   const [recentPrices, setRecentPrices] = useState<RecentPrice[]>([])
   const [loadedPrices, setLoadedPrices] = useState(false)
 
@@ -179,6 +180,21 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
                   Sign in
                 </Button>
               </div>
+
+              {/* Continue as Guest — lets users scan products without
+                  registering. They can use the PriceLens scanner + browse
+                  the Local Price Feed, but can't post prices or vote. */}
+              {onContinueAsGuest && (
+                <div className="pt-3">
+                  <button
+                    onClick={onContinueAsGuest}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
+                  >
+                    Continue as guest
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center gap-6 pt-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">

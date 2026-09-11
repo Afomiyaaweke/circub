@@ -167,6 +167,36 @@ export default function Home() {
         <LandingPage
           onSignUp={() => setRegisterOpen(true)}
           onLogin={() => setLoginOpen(true)}
+          onContinueAsGuest={() => {
+            // Set a guest user object so the dashboard renders.
+            // Guest users can browse the Local Feed + scan products,
+            // but posting prices and voting will prompt them to sign up.
+            setMe({
+              id: 'guest',
+              name: 'Guest',
+              email: '',
+              avatarColor: 'teal',
+              profilePicture: null,
+              bio: null,
+              headline: null,
+              location: null,
+              accountType: 'PERSONAL',
+              companyName: null,
+              companyWebsite: null,
+              companySize: null,
+              companyIndustry: null,
+              postsCount: 0,
+              followersCount: 0,
+              likesCount: 0,
+              connectionsCount: 0,
+              incomingInvitationsCount: 0,
+              isLocal: false,
+              verifiedLocal: false,
+              isGuide: false,
+              guideAvailable: false,
+            } as any)
+            toast({ title: 'Browsing as guest', description: 'Scan products and browse prices. Sign up to post prices or vote.' })
+          }}
         />
         <RegisterModal
           open={registerOpen}

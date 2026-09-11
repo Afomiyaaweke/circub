@@ -372,7 +372,7 @@ export async function POST(req: NextRequest) {
 
     const searchResults = await zai.functions.invoke('web_search', {
       query,
-      num: 10,
+      num: 5, // reduced from 10 to 5 for faster scanning
     })
 
     const sources: ScanResult['sources'] = Array.isArray(searchResults)
@@ -391,17 +391,9 @@ export async function POST(req: NextRequest) {
           }))
       : []
 
-    // Step 3: synthesise a price estimate from the snippets.
-    let price = await estimatePrice(zai, query, location, sources)
-    // Force the currency to match the user's location — the VLM might
-    // return USD even when the user is in Ethiopia. Override it.
-    if (price && price.estimatedLow !== null) {
-      price.currency = localCurrencyForLocation(location || {})
-    }
-
-    // Step 4: search local price posts from the circub DB — real prices
-    // posted by locals in the user's area. These take priority over the
-    // web-search estimate because they're verified by the community.
+    // Step 3: search local price posts FIRST (fast DB query — no VLM call).
+    // If we find local prices, we can SKIP the slow AI price estimation
+    // since local prices are more trustworthy anyway.
     let localPrices: ScanResult['localPrices'] = []
     try {
       const searchTerms = [
@@ -465,10 +457,14 @@ export async function POST(req: NextRequest) {
       console.error('[/api/scan] local DB search failed:', e)
     }
 
-    // If local prices were found, use them as the primary price (more
-    // trustworthy than web-search estimates) and merge into the price block.
-    let finalPrice = price
+    // Step 4: ONLY run the AI price estimation if no local prices were
+    // found. This skips a slow VLM call (~3-5 seconds) when the DB already
+    // has verified local prices, making the scan significantly faster.
+    let price: PriceEstimate | null = null
+    let finalPrice: PriceEstimate | null = null
+
     if (localPrices.length > 0) {
+      // Use local prices directly — skip AI estimate entirely
       const mins = localPrices.map((p) => p.priceMin)
       const maxs = localPrices.map((p) => p.priceMax)
       const currency = localPrices[0].currency
@@ -476,10 +472,15 @@ export async function POST(req: NextRequest) {
         estimatedLow: Math.min(...mins),
         estimatedHigh: Math.max(...maxs),
         currency,
-        summary: price?.summary
-          ? `${price.summary} (Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.)`
-          : `Based on ${localPrices.length} local price post${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
+        summary: `Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
       }
+    } else {
+      // No local prices — fall back to AI price estimation from web search
+      price = await estimatePrice(zai, query, location, sources)
+      if (price && price.estimatedLow !== null) {
+        price.currency = localCurrencyForLocation(location || {})
+      }
+      finalPrice = price
     }
 
     const result: ScanResult = {
