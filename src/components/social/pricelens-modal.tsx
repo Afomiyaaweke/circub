@@ -40,6 +40,38 @@ function hashString(s: string): number {
   return h
 }
 
+// Downscale a data:image URL to maxDimension pixels (max width OR height).
+// This reduces the payload size by 5-10x for slow internet connections.
+// e.g. a 1280x720 frame at quality 0.4 (~300KB) → 640x360 at 0.4 (~60KB)
+async function downscaleImage(dataUrl: string, maxDimension: number): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        if (width <= maxDimension && height <= maxDimension) {
+          resolve(dataUrl) // already small enough
+          return
+        }
+        const scale = Math.min(maxDimension / width, maxDimension / height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(dataUrl); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.4))
+      }
+      img.onerror = () => resolve(dataUrl) // fallback to original on error
+      img.src = dataUrl
+    } catch {
+      resolve(dataUrl) // fallback to original
+    }
+  })
+}
+
 export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
   const {
     videoRef,
@@ -111,42 +143,54 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const runScan = useCallback(async () => {
     if (scanInFlight.current) return
-    const frame = captureFrame(0.5) // even lower quality for speed
-    if (!frame) {
+    // Even lower quality + resize for slow connections — downscale
+    // the frame to 640px max dimension before sending.
+    const rawFrame = captureFrame(0.4)
+    if (!rawFrame) {
       setScanError('Camera is not ready. Start the camera first.')
       return
     }
-    scanInFlight.current = true
 
-    // INSTANT FEEDBACK: show the captured frame as a thumbnail + "Searching…"
-    // state immediately — don't wait for the server. This makes the scan
-    // feel instant (like a camera shutter) while the actual search runs
-    // in the background.
+    // Downscale the image to reduce payload size (critical for slow
+    // internet). The full-res frame can be 500KB-1MB; downscaled to
+    // 640px it's ~50-100KB — 5-10x smaller upload.
+    const downscaledFrame = await downscaleImage(rawFrame, 640)
+
+    scanInFlight.current = true
     setLoading(true)
     setScanError(null)
     setActiveHistoryId(null)
-    setResult(null) // clear previous result so "Searching…" shows
-    setBoxes([])    // clear previous boxes
+    setResult(null)
+    setBoxes([])
 
-    // Show the captured photo immediately as a "flash" effect
+    // INSTANT FEEDBACK: show the captured frame immediately
     setHistory((h) => [{
       id: 'pending-' + Date.now(),
       timestamp: Date.now(),
-      thumbnail: frame,
+      thumbnail: downscaledFrame,
       result: { item: { name: 'Searching…', brand: null, category: null, description: '' }, price: null, sources: [], location: null, rawQuery: '', localPrices: [] },
     }, ...h].slice(0, 20))
 
     try {
+      const controller = new AbortController()
+      // 30s timeout — if the server takes too long (slow internet or
+      // VLM is slow), abort and show a friendly error instead of
+      // making the user wait forever.
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: frame,
+          image: downscaledFrame,
           location: location
             ? { city: location.city, country: location.country, countryCode: location.countryCode, region: location.region }
             : null,
         }),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err?.error || `Request failed (${res.status})`)
@@ -157,36 +201,26 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       // Replace the "Searching…" placeholder in history with the real result
       setHistory((h) => {
         const updated = h.map((entry) =>
-          entry.id === 'pending-' + Date.now() || entry.result.item.name === 'Searching…'
+          entry.result.item.name === 'Searching…'
             ? { ...entry, result: data }
             : entry
         )
         return updated
       })
 
-      // Generate a bounding box for the detected item — shown as a
-      // colored rectangle on the video feed (like the screenshot the
-      // user provided). We use the item name as the label and pick a
-      // color based on the category.
+      // Bounding box for detected item
       if (data.item && data.item.name && data.item.name !== 'Unknown item') {
         const colors = ['#FF00FF', '#00FF00', '#00FFFF', '#FFA500', '#FF6B6B', '#4ECDC4']
         const colorIndex = Math.abs(hashString(data.item.category || data.item.name)) % colors.length
         setBoxes([{
           label: `${data.item.name}${data.price?.estimatedLow != null ? ` · ${data.price.currency || 'USD'} ${data.price.estimatedLow}${data.price.estimatedHigh != null && data.price.estimatedHigh !== data.price.estimatedLow ? '-' + data.price.estimatedHigh : ''}` : ''}`,
-          x: 0.1, y: 0.1, w: 0.8, h: 0.8, // approximate full-frame box
+          x: 0.1, y: 0.1, w: 0.8, h: 0.8,
           color: colors[colorIndex],
         }])
       } else {
         setBoxes([])
       }
 
-      const entry: ScanHistoryEntry = {
-        id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()),
-        timestamp: Date.now(),
-        thumbnail: frame,
-        result: data,
-      }
-      setHistory((h) => [entry, ...h].slice(0, 20))
       // Hand off the identified product to the parent
       if (onPickItem) {
         const itemName = data.item.name || ''
@@ -194,8 +228,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         if (searchQuery) onPickItem(searchQuery.split(' ').slice(0, 3).join(' '))
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Scan failed.'
+      const msg = err instanceof Error
+        ? (err.name === 'AbortError' ? 'Scan timed out — check your internet connection and try again.' : err.message)
+        : 'Scan failed.'
       setScanError(msg)
+      // Remove the "Searching…" placeholder from history on failure
+      setHistory((h) => h.filter((e) => e.result.item.name !== 'Searching…'))
       toast({ title: 'Scan failed', description: msg, variant: 'destructive' })
     } finally {
       setLoading(false)
