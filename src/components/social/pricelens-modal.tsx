@@ -261,11 +261,11 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0 bg-white text-zinc-900 border-zinc-200">
+      <DialogContent className="max-w-5xl max-h-[95vh] w-[95vw] sm:w-auto overflow-y-auto scrollbar-thin p-0 gap-0 bg-white text-zinc-900 border-zinc-200">
         <DialogTitle className="sr-only">PriceLens — scan a product with your camera</DialogTitle>
 
         {/* Header with Go Back button */}
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-100 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-zinc-100 bg-white/95 px-3 py-2.5 backdrop-blur sm:px-5 sm:py-3 sm:gap-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => onOpenChange(false)}
@@ -290,8 +290,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         </div>
 
         {/* Body */}
-        <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="p-3 sm:p-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Left: camera + controls */}
             <div className="space-y-3">
               <Viewfinder
@@ -307,18 +307,17 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Button
-                  size="lg"
                   onClick={() => void runScan()}
                   disabled={!canScan}
                   className={cn(
-                    'flex-1 gap-2 rounded-xl text-sm font-semibold transition',
+                    'flex-1 gap-2 rounded-xl text-sm font-semibold transition h-11',
                     canScan
                       ? 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/25'
                       : 'bg-zinc-100 text-zinc-400'
                   )}
                 >
                   <ScanLine className="h-4 w-4" />
-                  {loading ? 'Scanning…' : 'Scan item'}
+                  {loading ? 'Searching…' : 'Scan'}
                 </Button>
 
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">

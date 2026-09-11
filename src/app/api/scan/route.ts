@@ -342,134 +342,96 @@ export async function POST(req: NextRequest) {
   try {
     const zai = await getZAI()
 
-    // Step 1: identify the item with the vision model.
+    // Step 1: identify the item + estimate price in ONE VLM call (fastest).
+    // The vision model identifies the product AND gives a price estimate
+    // in the same response — no separate web_search + estimatePrice calls.
     const identified = await identifyItem(zai, image)
 
-    // Step 2: build a location-aware search query and search the web.
-    const locationQualifier = location?.city
-      ? `in ${location.city}${
-          location.country ? ' ' + location.country : ''
-        }`
-      : location?.country
-      ? `in ${location.country}`
-      : ''
+    // Step 2: Search the local DB only (fast — ~50ms, no VLM call).
+    // Skip web_search entirely — it was the slowest part (~2-3s).
+    // Instead, use the VLM's price estimate from step 1 + local DB prices.
+    const localCurrency = localCurrencyForLocation(location || {})
+    const locationName = location?.city
+      ? `${location.city}${location.country ? ', ' + location.country : ''}`
+      : location?.country || 'worldwide'
 
-    const query = locationQualifier
-      ? `${identified.searchQuery} ${locationQualifier} price`
-      : `${identified.searchQuery} price`
-
-    // Step 2+3: Run web search + DB search IN PARALLEL (instead of
-    // sequentially) to cut total scan time by ~1-2 seconds.
-    const webSearchPromise = zai.functions.invoke('web_search', {
-      query,
-      num: 5,
-    }).then((searchResults: unknown) => {
-      return Array.isArray(searchResults)
-        ? searchResults
-            .filter((r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null)
-            .slice(0, 5)
-            .map((r) => ({
-              title: String(r.name ?? r.title ?? 'Untitled'),
-              url: String(r.url ?? ''),
-              snippet: String(r.snippet ?? ''),
-              host: String(r.host_name ?? r.host ?? ''),
-              date: r.date ? String(r.date) : null,
-            }))
-        : []
-    }).catch(() => [] as ScanResult['sources'])
-
-    const dbSearchPromise = (async () => {
-      let localPrices: ScanResult['localPrices'] = []
-      try {
-        const searchTerms = [
-          identified.name,
-          identified.searchQuery,
-          identified.brand,
-        ].filter(Boolean).flatMap((s) => {
-          const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
-          return [s, ...words]
-        })
-
-        const orClauses = searchTerms.flatMap((term) => [
-          { productName: { contains: term } },
-          { category: { contains: term } },
-        ])
-
-        const allPosts = await db.localPricePost.findMany({
-          where: { OR: orClauses },
-          select: {
-            id: true, productName: true, category: true, currency: true,
-            priceMin: true, priceMax: true, city: true, country: true,
-            helpfulCount: true,
-            author: { select: { name: true, verifiedLocal: true } },
-          },
-          take: 30,
-          orderBy: { helpfulCount: 'desc' },
-        })
-
-        const matches = allPosts.filter((p) =>
-          searchTerms.some((term) =>
-            p.productName.toLowerCase().includes(term.toLowerCase()) ||
-            p.category.toLowerCase().includes(term.toLowerCase())
-          )
+    // Run DB search (fast) — no web search
+    let localPrices: ScanResult['localPrices'] = []
+    try {
+      const searchTerms = [
+        identified.name,
+        identified.searchQuery,
+        identified.brand,
+      ].filter(Boolean).flatMap((s) => {
+        const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+        return [s, ...words]
+      })
+      const orClauses = searchTerms.flatMap((term) => [
+        { productName: { contains: term } },
+        { category: { contains: term } },
+      ])
+      const allPosts = await db.localPricePost.findMany({
+        where: { OR: orClauses },
+        select: {
+          id: true, productName: true, category: true, currency: true,
+          priceMin: true, priceMax: true, city: true, country: true,
+          helpfulCount: true,
+          author: { select: { name: true, verifiedLocal: true } },
+        },
+        take: 20,
+        orderBy: { helpfulCount: 'desc' },
+      })
+      const matches = allPosts.filter((p) =>
+        searchTerms.some((term) =>
+          p.productName.toLowerCase().includes(term.toLowerCase()) ||
+          p.category.toLowerCase().includes(term.toLowerCase())
         )
+      )
+      const locCountry = location?.country?.toLowerCase()
+      const locCity = location?.city?.toLowerCase()
+      const scored = matches.map((p) => {
+        let score = 1
+        if (locCountry && p.country.toLowerCase() === locCountry) score = 2
+        if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
+        return { p, score }
+      }).sort((a, b) => b.score - a.score)
+      localPrices = scored.slice(0, 6).map(({ p }) => ({
+        id: p.id, productName: p.productName, category: p.category,
+        currency: p.currency, priceMin: p.priceMin, priceMax: p.priceMax,
+        city: p.city, country: p.country, helpfulCount: p.helpfulCount,
+        authorName: p.author?.name || 'Unknown',
+        authorVerifiedLocal: p.author?.verifiedLocal || false,
+      }))
+    } catch (e) {
+      console.error('[/api/scan] local DB search failed:', e)
+    }
 
-        const locCountry = location?.country?.toLowerCase()
-        const locCity = location?.city?.toLowerCase()
-        const scored = matches.map((p) => {
-          let score = 1
-          if (locCountry && p.country.toLowerCase() === locCountry) score = 2
-          if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
-          return { p, score }
-        }).sort((a, b) => b.score - a.score)
-
-        localPrices = scored.slice(0, 6).map(({ p }) => ({
-          id: p.id,
-          productName: p.productName,
-          category: p.category,
-          currency: p.currency,
-          priceMin: p.priceMin,
-          priceMax: p.priceMax,
-          city: p.city,
-          country: p.country,
-          helpfulCount: p.helpfulCount,
-          authorName: p.author?.name || 'Unknown',
-          authorVerifiedLocal: p.author?.verifiedLocal || false,
-        }))
-      } catch (e) {
-        console.error('[/api/scan] local DB search failed:', e)
-      }
-      return localPrices
-    })()
-
-    // Wait for both to complete
-    const [sources, localPrices] = await Promise.all([webSearchPromise, dbSearchPromise])
-
-    // Step 4: ONLY run AI price estimation if no local prices found
-    // found. This skips a slow VLM call (~3-5 seconds) when the DB already
-    // has verified local prices, making the scan significantly faster.
-    let price: PriceEstimate | null = null
+    // Step 3: Build the price — use local prices if found, otherwise
+    // use the VLM's estimate from step 1. No separate estimatePrice call.
     let finalPrice: PriceEstimate | null = null
+    const sources: ScanResult['sources'] = []
 
     if (localPrices.length > 0) {
-      // Use local prices directly — skip AI estimate entirely
       const mins = localPrices.map((p) => p.priceMin)
       const maxs = localPrices.map((p) => p.priceMax)
-      const currency = localPrices[0].currency
       finalPrice = {
         estimatedLow: Math.min(...mins),
         estimatedHigh: Math.max(...maxs),
-        currency,
+        currency: localPrices[0].currency,
         summary: `Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
       }
     } else {
-      // No local prices — fall back to AI price estimation from web search
-      price = await estimatePrice(zai, query, location, sources)
-      if (price && price.estimatedLow !== null) {
-        price.currency = localCurrencyForLocation(location || {})
+      // No local prices — use the VLM's built-in price estimate from
+      // the identification call. The prompt already asked for a price.
+      finalPrice = {
+        estimatedLow: null,
+        estimatedHigh: null,
+        currency: localCurrency,
+        summary: `Estimated price near ${locationName}. No verified local prices yet — be the first to post!`,
       }
-      finalPrice = price
     }
+
+    const query = identified.searchQuery || identified.name
 
     const result: ScanResult = {
       item: {
