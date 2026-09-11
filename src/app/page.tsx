@@ -80,22 +80,35 @@ export default function Home() {
   }, [toast])
 
   // Listen for auth-expired events from authFetch (401 on publish/edit/etc.)
-  // Bounce user back to landing + open login modal with a clear toast.
+  // If the user is a guest (id === 'guest'), show the register modal instead
+  // of the login modal — guests don't have credentials to log in with.
   useEffect(() => {
     const handler = () => {
-      setMe(null)
-      setMessagesOpen(false)
-      setRegisterOpen(false)
-      setLoginOpen(true)
-      toast({
-        title: 'Session expired',
-        description: 'Your login has expired. Please sign in again to continue.',
-        variant: 'destructive',
-      })
+      const isGuest = me?.id === 'guest'
+      if (isGuest) {
+        // Guest tried to do something that requires auth (post, vote, etc.)
+        // Don't kick them out — just show the register modal.
+        setRegisterOpen(true)
+        toast({
+          title: 'Sign up to continue',
+          description: 'Create a free account to post prices, vote, and message locals.',
+        })
+      } else {
+        // Logged-in user's session expired — bounce to login
+        setMe(null)
+        setMessagesOpen(false)
+        setRegisterOpen(false)
+        setLoginOpen(true)
+        toast({
+          title: 'Session expired',
+          description: 'Your login has expired. Please sign in again to continue.',
+          variant: 'destructive',
+        })
+      }
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
-  }, [toast])
+  }, [toast, me])
 
   const handleRefreshAll = useCallback(() => {
     setRefreshSignal((s) => s + 1)
@@ -168,9 +181,10 @@ export default function Home() {
           onSignUp={() => setRegisterOpen(true)}
           onLogin={() => setLoginOpen(true)}
           onContinueAsGuest={() => {
-            // Set a guest user object so the dashboard renders.
-            // Guest users can browse the Local Feed + scan products,
-            // but posting prices and voting will prompt them to sign up.
+            // Set a guest user object so the full dashboard renders.
+            // Guest users can see ALL tabs and browse everything, but
+            // posting prices, voting, messaging, and editing profile
+            // will prompt them to register.
             setMe({
               id: 'guest',
               name: 'Guest',
@@ -178,7 +192,7 @@ export default function Home() {
               avatarColor: 'teal',
               profilePicture: null,
               bio: null,
-              headline: null,
+              headline: 'Guest user — sign up to post',
               location: null,
               accountType: 'PERSONAL',
               companyName: null,
@@ -195,7 +209,10 @@ export default function Home() {
               isGuide: false,
               guideAvailable: false,
             } as any)
-            toast({ title: 'Browsing as guest', description: 'Scan products and browse prices. Sign up to post prices or vote.' })
+            toast({
+              title: 'Browsing as guest',
+              description: 'Explore prices, scan products, and browse the feed. Sign up free to post prices or vote.',
+            })
           }}
         />
         <RegisterModal

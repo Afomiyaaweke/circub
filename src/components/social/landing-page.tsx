@@ -182,17 +182,22 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               </div>
 
               {/* Continue as Guest — lets users scan products without
-                  registering. They can use the PriceLens scanner + browse
-                  the Local Price Feed, but can't post prices or vote. */}
+                  registering. They can browse everything but posting
+                  requires sign-up. */}
               {onContinueAsGuest && (
                 <div className="pt-3">
-                  <button
+                  <Button
                     onClick={onContinueAsGuest}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
+                    variant="ghost"
+                    size="sm"
+                    className="text-sm text-muted-foreground hover:text-primary hover:bg-primary/5 gap-1.5"
                   >
                     Continue as guest
                     <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    Browse prices · scan products · no sign-up needed
+                  </p>
                 </div>
               )}
 

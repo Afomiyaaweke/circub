@@ -14,6 +14,7 @@ import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
 import { PriceLensModal } from './pricelens-modal'
 import { useToast } from '@/hooks/use-toast'
+import { authFetch } from '@/lib/auth-fetch'
 import type { LocalPricePost } from '@/lib/types'
 
 interface LocalFeedTabProps {
@@ -143,7 +144,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
 
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
     try {
-      const res = await fetch(`/api/local-prices/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voteType }) })
+      const res = await authFetch(`/api/local-prices/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voteType }) })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
       const data = await res.json()
       setPosts((prev) => prev.map((p) => {

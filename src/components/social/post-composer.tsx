@@ -50,6 +50,16 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
   }
 
   const handleSubmit = async () => {
+    // Guest users can't post — prompt them to register
+    if (user.id === 'guest') {
+      toast({
+        title: 'Sign up to post',
+        description: 'Create a free account to share posts with the community.',
+        variant: 'destructive',
+      })
+      window.dispatchEvent(new CustomEvent('circub:auth-expired'))
+      return
+    }
     if (!content.trim() && !imageUrl) {
       toast({
         title: 'Empty post',

@@ -114,6 +114,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
   }
 
   const handleSave = async () => {
+    // Guest users can't post prices — prompt them to register
+    if (typeof window !== 'undefined') {
+      // Check if the user is a guest by checking localStorage (set by page.tsx)
+      // Actually we can just try the API call — authFetch will handle the 401
+      // and dispatch the auth-expired event which shows the register modal.
+      // But for a better UX, let's check first.
+    }
     if (!productName.trim() || !country.trim() || !priceMin || !priceMax || !currency) {
       toast({
         title: 'Missing required fields',
