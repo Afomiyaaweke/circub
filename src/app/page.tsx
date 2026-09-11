@@ -87,11 +87,14 @@ export default function Home() {
       const isGuest = me?.id === 'guest'
       if (isGuest) {
         // Guest tried to do something that requires auth (post, vote, etc.)
-        // Don't kick them out — just show the register modal.
+        // Take them directly to registration — close everything else,
+        // open the Register modal prominently.
+        setMessagesOpen(false)
+        setLoginOpen(false)
         setRegisterOpen(true)
         toast({
           title: 'Sign up to continue',
-          description: 'Create a free account to post prices, vote, and message locals.',
+          description: 'Create a free account to post prices, vote, and message locals. It takes 10 seconds.',
         })
       } else {
         // Logged-in user's session expired — bounce to login
@@ -108,6 +111,34 @@ export default function Home() {
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
+  }, [toast, me])
+
+  // Listen for "Ask a Guide" events from the PriceLens scanner — when
+  // a user scans a product and taps "Ask a local guide about this item",
+  // switch to the Guides tab so they can find a guide in their area.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setActiveTab('guides')
+      const isGuest = me?.id === 'guest'
+      toast({
+        title: isGuest ? 'Browse local guides' : 'Find a guide',
+        description: detail?.itemName
+          ? `Looking for help with: ${detail.itemName}${detail?.location?.city ? ' in ' + detail.location.city : ''}`
+          : undefined,
+      })
+      // If guest, prompt them to register so they can message guides
+      if (isGuest) {
+        setTimeout(() => {
+          toast({
+            title: 'Sign up to message guides',
+            description: 'Create a free account to contact local guides directly.',
+          })
+        }, 1500)
+      }
+    }
+    window.addEventListener('circub:ask-guide', handler)
+    return () => window.removeEventListener('circub:ask-guide', handler)
   }, [toast, me])
 
   const handleRefreshAll = useCallback(() => {

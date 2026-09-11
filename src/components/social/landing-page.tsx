@@ -181,16 +181,14 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
                 </Button>
               </div>
 
-              {/* Continue as Guest — lets users scan products without
-                  registering. They can browse everything but posting
-                  requires sign-up. */}
+              {/* Continue as Guest — orange button, prominent */}
               {onContinueAsGuest && (
                 <div className="pt-3">
                   <Button
                     onClick={onContinueAsGuest}
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-sm text-muted-foreground hover:text-primary hover:bg-primary/5 gap-1.5"
+                    className="text-sm gap-1.5 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white bg-orange-50"
                   >
                     Continue as guest
                     <ArrowRight className="w-3.5 h-3.5" />

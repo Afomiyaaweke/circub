@@ -317,7 +317,21 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
             {/* Right: results + history */}
             <div className="space-y-3">
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-                <ResultsPanel result={result} loading={loading} error={scanError} />
+                <ResultsPanel
+                  result={result}
+                  loading={loading}
+                  error={scanError}
+                  onAskGuide={(itemName, loc) => {
+                    // Close the PriceLens modal and navigate to the Guides tab
+                    // with the scanned item info so the user can find a guide.
+                    onOpenChange(false)
+                    // Dispatch a custom event that page.tsx can listen for
+                    // to switch to the Guides tab + pre-fill a message
+                    window.dispatchEvent(new CustomEvent('circub:ask-guide', {
+                      detail: { itemName, location: loc }
+                    }))
+                  }}
+                />
               </motion.div>
 
               <div className="hidden lg:block">

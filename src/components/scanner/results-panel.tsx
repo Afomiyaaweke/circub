@@ -16,6 +16,9 @@ interface ResultsPanelProps {
   result: ScanResult | null
   loading: boolean
   error: string | null
+  /** Called when the user clicks "Ask a Guide" — opens the guides tab
+   *  or messages a guide about the scanned item. */
+  onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void
 }
 
 // The 5-step travel-to-purchase flow, shown as a progress guide.
@@ -28,7 +31,7 @@ const FLOW_STEPS = [
   { key: 'buy',     icon: ShoppingCart,label: 'Buy',      desc: 'Supplier makes sale',             color: 'rose' },
 ]
 
-export function ResultsPanel({ result, loading, error }: ResultsPanelProps) {
+export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPanelProps) {
   return (
     <Card className="border-emerald-500/20 bg-white shadow-sm">
       <CardHeader className="pb-3">
@@ -44,7 +47,7 @@ export function ResultsPanel({ result, loading, error }: ResultsPanelProps) {
           ) : error ? (
             <ErrorState key="error" message={error} />
           ) : result ? (
-            <ResultBody key="result" result={result} />
+            <ResultBody key="result" result={result} onAskGuide={onAskGuide} />
           ) : (
             <EmptyState key="empty" />
           )}
@@ -90,7 +93,7 @@ function EmptyState() {
   )
 }
 
-function ResultBody({ result }: { result: ScanResult }) {
+function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void }) {
   const { item, price, sources, location } = result
   const priceRange = price ? formatPriceRange(price.estimatedLow, price.estimatedHigh, price.currency) : 'Price unavailable'
   const hasPrice = price && (price.estimatedLow !== null || price.estimatedHigh !== null)
@@ -162,6 +165,22 @@ function ResultBody({ result }: { result: ScanResult }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Ask a Guide button — available for both guest and registered users */}
+      {onAskGuide && item.name && item.name !== 'Unknown item' && (
+        <div className="pt-2">
+          <Button
+            onClick={() => onAskGuide(item.name, { city: location?.city, country: location?.country })}
+            className="w-full gap-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl h-11"
+          >
+            <Handshake className="h-4 w-4" />
+            Ask a local guide about this item
+          </Button>
+          <p className="text-[10px] text-center text-zinc-400 mt-1.5">
+            Get help finding or purchasing this product from a verified local guide
+          </p>
         </div>
       )}
 
