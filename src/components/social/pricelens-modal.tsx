@@ -33,45 +33,6 @@ interface PriceLensModalProps {
   onPickItem?: (label: string) => void
 }
 
-// Simple string hash for picking a color per category
-function hashString(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
-  return h
-}
-
-// Downscale a data:image URL to maxDimension pixels (max width OR height).
-// This reduces the payload size by 5-10x for slow internet connections.
-// e.g. a 1280x720 frame at quality 0.4 (~300KB) → 640x360 at 0.4 (~60KB)
-async function downscaleImage(dataUrl: string, maxDimension: number): Promise<string> {
-  return new Promise((resolve) => {
-    try {
-      const img = new Image()
-      img.onload = () => {
-        let { width, height } = img
-        if (width <= maxDimension && height <= maxDimension) {
-          resolve(dataUrl) // already small enough
-          return
-        }
-        const scale = Math.min(maxDimension / width, maxDimension / height)
-        width = Math.round(width * scale)
-        height = Math.round(height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) { resolve(dataUrl); return }
-        ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', 0.4))
-      }
-      img.onerror = () => resolve(dataUrl) // fallback to original on error
-      img.src = dataUrl
-    } catch {
-      resolve(dataUrl) // fallback to original
-    }
-  })
-}
-
 export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
   const {
     videoRef,
@@ -81,14 +42,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     switchCamera,
     captureFrame,
   } = useCamera({ facingMode: 'environment' })
-
-  // Bounding boxes for detected items — shown as colored rectangles
-  // on the video feed, like the screenshot the user provided.
-  const [boxes, setBoxes] = useState<Array<{
-    label: string
-    x: number; y: number; w: number; h: number
-    color: string
-  }>>([])
 
   const [result, setResult] = useState<ScanResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -101,13 +54,10 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const { toast } = useToast()
   const scanInFlight = useRef(false)
 
-  // Auto-start camera when modal opens
-  useEffect(() => {
-    if (open) {
-      const t = setTimeout(() => void start('environment'), 50)
-      return () => clearTimeout(t)
-    }
-  }, [open, start])
+  // Camera is NOT auto-started when modal opens — it starts only when
+  // the user taps "Scan item" or "Start camera". After a scan completes,
+  // the camera is turned OFF to save battery + protect privacy.
+  // The user sees the viewfinder's "Start camera" prompt until they tap.
 
   const detectLocation = useCallback(async () => {
     setDetectingLocation(true)
@@ -143,112 +93,62 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const runScan = useCallback(async () => {
     if (scanInFlight.current) return
-    // Even lower quality + resize for slow connections — downscale
-    // the frame to 640px max dimension before sending.
-    const rawFrame = captureFrame(0.4)
-    if (!rawFrame) {
-      setScanError('Camera is not ready. Start the camera first.')
+    // Start camera if not already live
+    if (status !== 'live') {
+      await start('environment')
+      // Wait a moment for the camera to be ready
+      await new Promise((r) => setTimeout(r, 500))
+    }
+    const frame = captureFrame(0.82)
+    if (!frame) {
+      setScanError('Camera is not ready. Try again.')
       return
     }
-
-    // Downscale the image to reduce payload size (critical for slow
-    // internet). The full-res frame can be 500KB-1MB; downscaled to
-    // 640px it's ~50-100KB — 5-10x smaller upload.
-    const downscaledFrame = await downscaleImage(rawFrame, 640)
-
     scanInFlight.current = true
     setLoading(true)
     setScanError(null)
     setActiveHistoryId(null)
-    setResult(null)
-    setBoxes([])
-
-    // INSTANT FEEDBACK: show the captured frame immediately
-    setHistory((h) => [{
-      id: 'pending-' + Date.now(),
-      timestamp: Date.now(),
-      thumbnail: downscaledFrame,
-      result: { item: { name: 'Searching…', brand: null, category: null, description: '' }, price: null, sources: [], location: null, rawQuery: '', localPrices: [] },
-    }, ...h].slice(0, 20))
-
     try {
-      const controller = new AbortController()
-      // 30s timeout — if the server takes too long (slow internet or
-      // VLM is slow), abort and show a friendly error instead of
-      // making the user wait forever.
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: downscaledFrame,
+          image: frame,
           location: location
             ? { city: location.city, country: location.country, countryCode: location.countryCode, region: location.region }
             : null,
         }),
-        signal: controller.signal,
       })
-      clearTimeout(timeoutId)
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        const errorMsg = err?.error || `Request failed (${res.status})`
-        // Don't throw for 429/503 — show as a retryable error
-        if (res.status === 429 || res.status === 503) {
-          setScanError(errorMsg)
-          setHistory((h) => h.filter((e) => e.result.item.name !== 'Searching…'))
-          toast({ title: 'Scanner busy', description: errorMsg, variant: 'destructive' })
-          return
-        }
-        throw new Error(errorMsg)
+        throw new Error(err?.error || `Request failed (${res.status})`)
       }
       const data = (await res.json()) as ScanResult
       setResult(data)
-
-      // Replace the "Searching…" placeholder in history with the real result
-      setHistory((h) => {
-        const updated = h.map((entry) =>
-          entry.result.item.name === 'Searching…'
-            ? { ...entry, result: data }
-            : entry
-        )
-        return updated
-      })
-
-      // Bounding box for detected item
-      if (data.item && data.item.name && data.item.name !== 'Unknown item') {
-        const colors = ['#FF00FF', '#00FF00', '#00FFFF', '#FFA500', '#FF6B6B', '#4ECDC4']
-        const colorIndex = Math.abs(hashString(data.item.category || data.item.name)) % colors.length
-        setBoxes([{
-          label: `${data.item.name}${data.price?.estimatedLow != null ? ` · ${data.price.currency || 'USD'} ${data.price.estimatedLow}${data.price.estimatedHigh != null && data.price.estimatedHigh !== data.price.estimatedLow ? '-' + data.price.estimatedHigh : ''}` : ''}`,
-          x: 0.1, y: 0.1, w: 0.8, h: 0.8,
-          color: colors[colorIndex],
-        }])
-      } else {
-        setBoxes([])
+      const entry: ScanHistoryEntry = {
+        id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        timestamp: Date.now(),
+        thumbnail: frame,
+        result: data,
       }
-
-      // Hand off the identified product to the parent
+      setHistory((h) => [entry, ...h].slice(0, 20))
       if (onPickItem) {
         const itemName = data.item.name || ''
         const searchQuery = data.rawQuery || itemName
         if (searchQuery) onPickItem(searchQuery.split(' ').slice(0, 3).join(' '))
       }
     } catch (err) {
-      const msg = err instanceof Error
-        ? (err.name === 'AbortError' ? 'Scan timed out — check your internet connection and try again.' : err.message)
-        : 'Scan failed.'
+      const msg = err instanceof Error ? err.message : 'Scan failed.'
       setScanError(msg)
-      // Remove the "Searching…" placeholder from history on failure
-      setHistory((h) => h.filter((e) => e.result.item.name !== 'Searching…'))
       toast({ title: 'Scan failed', description: msg, variant: 'destructive' })
     } finally {
       setLoading(false)
       scanInFlight.current = false
+      // Turn OFF the camera after scanning is done — saves battery + privacy
+      stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast, onPickItem])
+  }, [captureFrame, location, toast, onPickItem, status, start, stop])
 
   useEffect(() => {
     if (!open) return
@@ -262,6 +162,9 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const handleStart = useCallback(() => {
     void start('environment')
+    // Also trigger location detection on this user gesture — some
+    // browsers (iOS Safari) require a user gesture before geolocation
+    // will prompt for permission.
     void detectLocation()
   }, [start, detectLocation])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
@@ -270,48 +173,15 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     setActiveHistoryId(entry.id)
   }, [])
 
-  // QR code detection — when a QR is scanned, show it as a toast + use
-  // the QR data as the search term (e.g. a product URL or name encoded
-  // in the QR).
-  const handleQRDetected = useCallback((data: string) => {
-    toast({
-      title: 'QR code detected',
-      description: data.length > 80 ? data.slice(0, 80) + '…' : data,
-    })
-    // If the QR contains a URL, we could open it or search with it.
-    // For now, use the QR data as a scan result.
-    if (onPickItem) {
-      onPickItem(data.slice(0, 60))
-    }
-  }, [toast, onPickItem])
-
-  // Manual location entry
-  const handleManualLocation = useCallback((city: string | null, country: string | null) => {
-    if (!city && !country) return
-    setLocation({
-      city,
-      country,
-      countryCode: null,
-      region: null,
-      lat: 0,
-      lng: 0,
-      source: 'manual',
-    })
-    toast({
-      title: 'Location set manually',
-      description: `${city ? city + ', ' : ''}${country || ''}`,
-    })
-  }, [toast])
-
   const canScan = status === 'live' && !loading
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[95vh] w-[95vw] sm:w-auto overflow-y-auto scrollbar-thin p-0 gap-0 bg-white text-zinc-900 border-zinc-200">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0 bg-white text-zinc-900 border-zinc-200">
         <DialogTitle className="sr-only">PriceLens — scan a product with your camera</DialogTitle>
 
         {/* Header with Go Back button */}
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-zinc-100 bg-white/95 px-3 py-2.5 backdrop-blur sm:px-5 sm:py-3 sm:gap-3">
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-100 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => onOpenChange(false)}
@@ -336,8 +206,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         </div>
 
         {/* Body */}
-        <div className="p-3 sm:p-5">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             {/* Left: camera + controls */}
             <div className="space-y-3">
               <Viewfinder
@@ -347,23 +217,22 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 scanning={loading}
                 onStart={handleStart}
                 onSwitch={handleSwitch}
-                onQRDetected={handleQRDetected}
-                boxes={boxes}
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Button
+                  size="lg"
                   onClick={() => void runScan()}
                   disabled={!canScan}
                   className={cn(
-                    'flex-1 gap-2 rounded-xl text-sm font-semibold transition h-11',
+                    'flex-1 gap-2 rounded-xl text-sm font-semibold transition',
                     canScan
                       ? 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/25'
                       : 'bg-zinc-100 text-zinc-400'
                   )}
                 >
                   <ScanLine className="h-4 w-4" />
-                  {loading ? 'Searching…' : 'Scan'}
+                  {loading ? 'Scanning…' : 'Scan item'}
                 </Button>
 
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
@@ -378,7 +247,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 </div>
               </div>
 
-              <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} onManualLocation={handleManualLocation} />
+              <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} />
 
               <div className="lg:hidden">
                 <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />
@@ -388,22 +257,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
             {/* Right: results + history */}
             <div className="space-y-3">
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-                <ResultsPanel
-                  result={result}
-                  loading={loading}
-                  error={scanError}
-                  onRetry={() => void runScan()}
-                  onAskGuide={(itemName, loc) => {
-                    // Close the PriceLens modal and navigate to the Guides tab
-                    // with the scanned item info so the user can find a guide.
-                    onOpenChange(false)
-                    // Dispatch a custom event that page.tsx can listen for
-                    // to switch to the Guides tab + pre-fill a message
-                    window.dispatchEvent(new CustomEvent('circub:ask-guide', {
-                      detail: { itemName, location: loc }
-                    }))
-                  }}
-                />
+                <ResultsPanel result={result} loading={loading} error={scanError} />
               </motion.div>
 
               <div className="hidden lg:block">

@@ -1,5 +1,7 @@
 // Client-side location helpers: device GPS + reverse geocoding.
-// Falls back to IP-based geolocation if browser geolocation is denied.
+// Uses the browser Geolocation API (navigator.geolocation) which taps
+// into the device's GPS chip on mobile + WiFi/IP triangulation on desktop.
+// Falls back to IP-based geolocation if GPS is denied or unavailable.
 
 export interface ResolvedLocation {
   city: string | null
@@ -16,7 +18,11 @@ export interface Coordinates {
   lng: number
 }
 
-/** Get lat/lng from the device's GPS / Geolocation API. */
+/** Get lat/lng from the device's GPS / Geolocation API.
+ *  Uses enableHighAccuracy: true to request GPS-level precision on mobile.
+ *  Tries getCurrentPosition first, then falls back to watchPosition if
+ *  the first call times out (some devices need a moment to warm up the GPS).
+ */
 export function getCoordinates(): Promise<{ coords: Coordinates | null; error: string | null }> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -31,6 +37,7 @@ export function getCoordinates(): Promise<{ coords: Coordinates | null; error: s
       maximumAge: 0,
     }
 
+    // First attempt: getCurrentPosition (one-shot GPS reading)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (settled) return
@@ -41,55 +48,46 @@ export function getCoordinates(): Promise<{ coords: Coordinates | null; error: s
         if (settled) return
         settled = true
         let reason = 'Unknown error'
-        if (err.code === err.PERMISSION_DENIED) reason = 'Permission denied'
-        else if (err.code === err.POSITION_UNAVAILABLE) reason = 'Position unavailable'
-        else if (err.code === err.TIMEOUT) reason = 'Timeout'
+        if (err.code === err.PERMISSION_DENIED) reason = 'Permission denied — allow location access in your browser settings'
+        else if (err.code === err.POSITION_UNAVAILABLE) reason = 'Position unavailable — GPS may be disabled on this device'
+        else if (err.code === err.TIMEOUT) reason = 'GPS timeout — try moving to an open area'
         resolve({ coords: null, error: reason })
       },
       options
     )
 
+    // Safety net: if getCurrentPosition hasn't resolved in 16s, resolve null
     setTimeout(() => {
       if (!settled) {
         settled = true
-        resolve({ coords: null, error: 'Timed out' })
+        resolve({ coords: null, error: 'Timed out after 16 seconds' })
       }
     }, 16000)
   })
 }
 
-interface NominatimResponse {
-  address?: {
-    city?: string
-    town?: string
-    village?: string
-    hamlet?: string
-    state?: string
-    region?: string
-    country?: string
-    country_code?: string
-  }
+interface BdcResponse {
+  city?: string | null
+  locality?: string | null
+  principalSubdivision?: string | null
+  countryName?: string | null
+  countryCode?: string | null
 }
 
-/** Reverse-geocode using OpenStreetMap Nominatim (free, no key, no ban). */
+/** Reverse-geocode lat/lng to a city/country using BigDataCloud (free, no key). */
 export async function reverseGeocode(
   coords: Coordinates
 ): Promise<ResolvedLocation | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${coords.lat}&lon=${coords.lng}&format=json&addressdetails=1&zoom=10`
-    const res = await fetch(url, {
-      headers: { 'Accept-Language': 'en' },
-      signal: AbortSignal.timeout(5000),
-    })
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lng}&localityLanguage=en`
+    const res = await fetch(url)
     if (!res.ok) return null
-    const data = (await res.json()) as NominatimResponse
-    const addr = data.address
-    if (!addr) return null
+    const data = (await res.json()) as BdcResponse
     return {
-      city: addr.city || addr.town || addr.village || addr.hamlet || null,
-      region: addr.state || addr.region || null,
-      country: addr.country || null,
-      countryCode: addr.country_code ? addr.country_code.toUpperCase() : null,
+      city: data.city || data.locality || null,
+      region: data.principalSubdivision || null,
+      country: data.countryName || null,
+      countryCode: data.countryCode || null,
       lat: coords.lat,
       lng: coords.lng,
       source: 'geolocation',
@@ -99,7 +97,7 @@ export async function reverseGeocode(
   }
 }
 
-/** IP-based geolocation using ipinfo.io (free, 50k/month, no key). */
+/** IP-based geolocation using ipinfo.io (free, 50k/month, no key needed). */
 async function locateByIpInfo(): Promise<ResolvedLocation | null> {
   try {
     const res = await fetch('https://ipinfo.io/json', { signal: AbortSignal.timeout(5000) })
@@ -122,24 +120,25 @@ async function locateByIpInfo(): Promise<ResolvedLocation | null> {
 }
 
 /** Resolve a full location object.
- *  1. Device GPS (enableHighAccuracy: true)
- *  2. IP-based fallback (ipinfo.io)
+ *  1. Try device GPS (enableHighAccuracy: true, 15s timeout)
+ *  2. If denied/unavailable, fall back to IP-based geolocation (ipinfo.io)
  *  3. If both fail, return null
  */
 export async function resolveCurrentLocation(): Promise<ResolvedLocation | null> {
-  const { coords } = await getCoordinates()
+  // Step 1: device GPS
+  const { coords, error } = await getCoordinates()
   if (coords) {
     const resolved = await reverseGeocode(coords)
     if (resolved) return resolved
   }
 
+  // Step 2: IP-based fallback (no permission needed)
   const ipLocation = await locateByIpInfo()
   if (ipLocation) return ipLocation
 
+  // Step 3: all failed
   return null
 }
-
-// ---- Currency helpers ----
 
 const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
   US: 'USD', GB: 'GBP', IN: 'INR', CN: 'CNY', JP: 'JPY', KR: 'KRW',
@@ -152,51 +151,12 @@ const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
   TH: 'THB', ID: 'IDR', MY: 'MYR', SG: 'SGD', PH: 'PHP', VN: 'VND',
   HK: 'HKD', TW: 'TWD', ET: 'ETB', KE: 'KES', UG: 'UGX', TZ: 'TZS',
   RW: 'RWF', GH: 'GHS', PK: 'PKR', BD: 'BDT', LK: 'LKR', NP: 'NPR',
-  MM: 'MMK', KH: 'KHR', LA: 'LAK', NG: 'NGN', MA: 'MAD', DZ: 'DZD',
-  TN: 'TND', SN: 'XOF', CI: 'XOF', CM: 'XAF', AO: 'AOA', MZ: 'MZN',
-  SD: 'SDG', LY: 'LYD', JO: 'JOD', LB: 'LBP', IQ: 'IQD', IR: 'IRR',
-  AF: 'AFN', PK: 'PKR',
+  MM: 'MMK', KH: 'KHR', LA: 'LAK',
 }
 
-/** Best-guess currency symbol for a country code.
- *  Returns the ISO currency code (e.g. 'ETB' for Ethiopia, 'USD' for USA). */
 export function currencyForCountry(countryCode?: string | null): string {
   if (!countryCode) return 'USD'
   return CURRENCY_BY_COUNTRY_CODE[countryCode.toUpperCase()] || 'USD'
-}
-
-/** Map a country name to its currency code (handles full country names). */
-const CURRENCY_BY_COUNTRY_NAME: Record<string, string> = {
-  'united states': 'USD', 'united states of america': 'USD', america: 'USD',
-  'united kingdom': 'GBP', 'england': 'GBP',
-  ethiopia: 'ETB', kenya: 'KES', uganda: 'UGX', tanzania: 'TZS',
-  rwanda: 'RWF', ghana: 'GHS', nigeria: 'NGN', egypt: 'EGP',
-  'south africa': 'ZAR', morocco: 'MAD', algeria: 'DZD', tunisia: 'TND',
-  india: 'INR', pakistan: 'PKR', bangladesh: 'BDT', 'sri lanka': 'LKR',
-  china: 'CNY', japan: 'JPY', 'south korea': 'KRW', thailand: 'THB',
-  indonesia: 'IDR', malaysia: 'MYR', singapore: 'SGD', philippines: 'PHP',
-  vietnam: 'VND', 'saudi arabia': 'SAR', 'united arab emirates': 'AED',
-  qatar: 'QAR', kuwait: 'KWD', israel: 'ILS', turkey: 'TRY',
-  germany: 'EUR', france: 'EUR', italy: 'EUR', spain: 'EUR',
-  netherlands: 'EUR', belgium: 'EUR', austria: 'EUR', ireland: 'EUR',
-  portugal: 'EUR', greece: 'EUR', finland: 'EUR',
-  canada: 'CAD', australia: 'AUD', 'new zealand': 'NZD',
-  switzerland: 'CHF', sweden: 'SEK', norway: 'NOK', denmark: 'DKK',
-  brazil: 'BRL', argentina: 'ARS', mexico: 'MXN', colombia: 'COP',
-  chile: 'CLP', peru: 'PEN',
-}
-
-/** Get currency code from either a country code (ISO 2) or country name. */
-export function currencyForLocation(country?: string | null, countryCode?: string | null): string {
-  if (countryCode) {
-    const c = CURRENCY_BY_COUNTRY_CODE[countryCode.toUpperCase()]
-    if (c) return c
-  }
-  if (country) {
-    const c = CURRENCY_BY_COUNTRY_NAME[country.toLowerCase()]
-    if (c) return c
-  }
-  return 'USD'
 }
 
 const LOCALE_BY_CURRENCY: Record<string, string> = {
@@ -213,17 +173,8 @@ const LOCALE_BY_CURRENCY: Record<string, string> = {
   KES: 'en-KE', UGX: 'en-UG', TZS: 'en-TZ', RWF: 'en-RW',
   GHS: 'en-GH', PKR: 'en-PK', BDT: 'en-BD', LKR: 'en-LK',
   NPR: 'en-NP', MMK: 'en-MM', KHR: 'en-KH', LAK: 'en-LA',
-  MAD: 'ar-MA', DZD: 'ar-DZ', TND: 'ar-TN',
-  PEN: 'es-PE', QAR: 'ar-QA', KWD: 'ar-KW', ILS: 'he-IL',
-  JOD: 'ar-JO', LBP: 'ar-LB', IQD: 'ar-IQ', IRR: 'fa-IR',
-  AFN: 'fa-AF', SDG: 'ar-SD', LYD: 'ar-LY',
-  XOF: 'fr-SN', XAF: 'fr-CM', AOA: 'pt-AO', MZN: 'pt-MZ',
 }
 
-/** Format a number as a localized price string with the right currency symbol.
- *  e.g. formatPrice(1500, 'ETB') → "ETB 1,500.00"
- *       formatPrice(15.99, 'USD') → "$15.99"
- */
 export function formatPrice(
   value: number | null,
   currency: string | null
@@ -236,10 +187,10 @@ export function formatPrice(
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: cur,
-      maximumFractionDigits: cur === 'VND' || cur === 'IDR' || cur === 'UGX' || cur === 'TZS' ? 0 : 2,
+      maximumFractionDigits: cur === 'VND' || cur === 'IDR' ? 0 : 2,
     }).format(value)
   } catch {
-    return `${cur} ${value.toFixed(2)}`
+    return `${value.toFixed(2)} ${cur}`
   }
 }
 
