@@ -111,15 +111,31 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const runScan = useCallback(async () => {
     if (scanInFlight.current) return
-    const frame = captureFrame(0.6) // lower quality = smaller image = faster VLM
+    const frame = captureFrame(0.5) // even lower quality for speed
     if (!frame) {
       setScanError('Camera is not ready. Start the camera first.')
       return
     }
     scanInFlight.current = true
+
+    // INSTANT FEEDBACK: show the captured frame as a thumbnail + "Searching…"
+    // state immediately — don't wait for the server. This makes the scan
+    // feel instant (like a camera shutter) while the actual search runs
+    // in the background.
     setLoading(true)
     setScanError(null)
     setActiveHistoryId(null)
+    setResult(null) // clear previous result so "Searching…" shows
+    setBoxes([])    // clear previous boxes
+
+    // Show the captured photo immediately as a "flash" effect
+    setHistory((h) => [{
+      id: 'pending-' + Date.now(),
+      timestamp: Date.now(),
+      thumbnail: frame,
+      result: { item: { name: 'Searching…', brand: null, category: null, description: '' }, price: null, sources: [], location: null, rawQuery: '', localPrices: [] },
+    }, ...h].slice(0, 20))
+
     try {
       const res = await fetch('/api/scan', {
         method: 'POST',
@@ -137,6 +153,16 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       }
       const data = (await res.json()) as ScanResult
       setResult(data)
+
+      // Replace the "Searching…" placeholder in history with the real result
+      setHistory((h) => {
+        const updated = h.map((entry) =>
+          entry.id === 'pending-' + Date.now() || entry.result.item.name === 'Searching…'
+            ? { ...entry, result: data }
+            : entry
+        )
+        return updated
+      })
 
       // Generate a bounding box for the detected item — shown as a
       // colored rectangle on the video feed (like the screenshot the

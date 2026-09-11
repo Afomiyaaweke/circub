@@ -180,18 +180,24 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
 
       {/* Scanning overlay */}
       {scanning && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/45 backdrop-blur-[2px] z-30">
-          <div className="relative flex h-16 w-16 items-center justify-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30 backdrop-blur-[1px] z-30">
+          {/* White camera flash effect — instant feedback */}
+          <motion.div
+            className="absolute inset-0 bg-white"
+            initial={{ opacity: 0.8 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          />
+          {/* Compact spinner */}
+          <div className="relative flex h-12 w-12 items-center justify-center">
             <motion.div
-              className="absolute inset-0 rounded-full border-2 border-emerald-400/30"
-              animate={{ scale: [1, 1.35, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+              className="absolute inset-0 rounded-full border-2 border-emerald-400/40"
+              animate={{ scale: [1, 1.3, 1], opacity: [0.7, 0, 0.7] }}
+              transition={{ duration: 0.8, repeat: Infinity, ease: 'easeOut' }}
             />
-            <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/10">
-              <Loader2 className="h-6 w-6 animate-spin text-emerald-300" />
-            </div>
+            <Loader2 className="h-5 w-5 animate-spin text-emerald-300" />
           </div>
-          <p className="text-sm font-medium text-emerald-50">Analyzing item…</p>
+          <p className="text-xs font-medium text-white">Searching…</p>
         </div>
       )}
 

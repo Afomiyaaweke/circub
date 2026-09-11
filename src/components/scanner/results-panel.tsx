@@ -59,12 +59,33 @@ export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPane
 
 function LoadingState() {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
-      <div className="h-5 w-2/3 animate-pulse rounded bg-zinc-200" />
-      <div className="h-4 w-1/3 animate-pulse rounded bg-zinc-200" />
-      <div className="h-20 w-full animate-pulse rounded-lg bg-zinc-200" />
-      <div className="h-3 w-full animate-pulse rounded bg-zinc-100" />
-      <div className="h-3 w-5/6 animate-pulse rounded bg-zinc-100" />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3 py-8">
+      {/* Animated search icon */}
+      <div className="relative flex h-14 w-14 items-center justify-center">
+        <motion.div
+          className="absolute inset-0 rounded-full border-2 border-emerald-400/30"
+          animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
+          transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
+        />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-50">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          >
+            <Search className="h-6 w-6 text-emerald-500" />
+          </motion.div>
+        </div>
+      </div>
+      <div className="text-center space-y-1">
+        <p className="text-sm font-medium text-zinc-900">Searching for prices…</p>
+        <p className="text-xs text-zinc-400">Identifying product · checking local prices · scanning web</p>
+      </div>
+      {/* Shimmer skeleton lines */}
+      <div className="w-full space-y-2 mt-2">
+        <div className="h-3 w-2/3 animate-pulse rounded bg-emerald-100" />
+        <div className="h-6 w-full animate-pulse rounded-lg bg-zinc-100" />
+        <div className="h-3 w-1/2 animate-pulse rounded bg-zinc-100" />
+      </div>
     </motion.div>
   )
 }
