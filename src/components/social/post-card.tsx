@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2, Bookmark } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import type { Post, Comment } from '@/lib/types'
 
 interface PostCardProps {
@@ -51,6 +52,25 @@ export function PostCard({
   const [savingEdit, setSavingEdit] = useState(false)
   const editFileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [postSaved, setPostSaved] = useState(false)
+
+  // Load saved state on mount
+  useEffect(() => {
+    setPostSaved(checkSaved(post.id))
+  }, [post.id])
+
+  const handleToggleSave = () => {
+    const isNowSaved = toggleSaved({
+      id: post.id,
+      type: 'post',
+      title: post.content.slice(0, 80),
+      subtitle: post.author.name,
+      imageUrl: post.imageUrl,
+      href: null,
+    })
+    setPostSaved(isNowSaved)
+    toast({ title: isNowSaved ? 'Saved to bookmarks' : 'Removed from bookmarks' })
+  }
 
   const isLiked = post.likes.some((l) => l.userId === currentUserId)
   const isOwn = post.authorId === currentUserId
@@ -357,6 +377,17 @@ export function PostCard({
         >
           <Send className="w-4 h-4" />
           <span className="hidden sm:inline">Send</span>
+        </button>
+
+        <button
+          onClick={handleToggleSave}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-md text-sm font-medium transition-colors',
+            postSaved ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-accent hover:text-primary'
+          )}
+        >
+          <Bookmark className={cn('w-4 h-4', postSaved && 'fill-current')} />
+          <span className="hidden sm:inline">{postSaved ? 'Saved' : 'Save'}</span>
         </button>
       </div>
 

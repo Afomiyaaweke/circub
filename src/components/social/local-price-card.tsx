@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import type { LocalPricePost } from '@/lib/types'
 
 interface LocalPriceCardProps {
@@ -29,7 +30,26 @@ function formatPrice(value: number, currency: string) {
 
 export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
+  const [saved, setSaved] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    setSaved(checkSaved(post.id))
+  }, [post.id])
+
+  const handleToggleSave = () => {
+    const isNowSaved = toggleSaved({
+      id: post.id,
+      type: 'localPrice',
+      title: post.productName,
+      subtitle: `${post.city ? post.city + ', ' : ''}${post.country}`,
+      priceLabel: `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? '-' + post.priceMax : ''}`,
+      imageUrl: post.imageUrl,
+      href: null,
+    })
+    setSaved(isNowSaved)
+    toast({ title: isNowSaved ? 'Saved to bookmarks' : 'Removed from bookmarks' })
+  }
   const detailedLocation = [post.market, post.neighborhood, post.city, post.country].filter(Boolean).join(' · ')
 
   return (
@@ -201,10 +221,15 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
           </div>
         </button>
         {!compact && (
-          <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5 shrink-0">
-            <Eye className="w-3.5 h-3.5" />
-            Details
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5 shrink-0">
+              <Eye className="w-3.5 h-3.5" />
+              Details
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleToggleSave} className={cn('text-xs gap-1.5 shrink-0 h-7 px-2.5', saved ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')} title={saved ? 'Remove from bookmarks' : 'Save to bookmarks'}>
+              <Bookmark className={cn('w-3.5 h-3.5', saved && 'fill-current')} />
+            </Button>
+          </div>
         )}
       </div>
 
