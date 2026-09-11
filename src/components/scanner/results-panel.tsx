@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck } from 'lucide-react'
+import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck, Handshake } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,9 +13,10 @@ interface ResultsPanelProps {
   result: ScanResult | null
   loading: boolean
   error: string | null
+  onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void
 }
 
-export function ResultsPanel({ result, loading, error }: ResultsPanelProps) {
+export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPanelProps) {
   return (
     <Card className="border-emerald-500/20 bg-white shadow-sm">
       <CardHeader className="pb-3">
@@ -31,7 +32,7 @@ export function ResultsPanel({ result, loading, error }: ResultsPanelProps) {
           ) : error ? (
             <ErrorState key="error" message={error} />
           ) : result ? (
-            <ResultBody key="result" result={result} />
+            <ResultBody key="result" result={result} onAskGuide={onAskGuide} />
           ) : (
             <EmptyState key="empty" />
           )}
@@ -77,7 +78,7 @@ function EmptyState() {
   )
 }
 
-function ResultBody({ result }: { result: ScanResult }) {
+function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void }) {
   const { item, price, sources, location } = result
   const priceRange = price ? formatPriceRange(price.estimatedLow, price.estimatedHigh, price.currency) : 'Price unavailable'
   const hasPrice = price && (price.estimatedLow !== null || price.estimatedHigh !== null)
@@ -110,6 +111,17 @@ function ResultBody({ result }: { result: ScanResult }) {
         <p className={`mt-1 text-2xl font-bold tracking-tight ${hasPrice ? 'text-zinc-900' : 'text-zinc-400'}`}>{priceRange}</p>
         {price?.summary && <p className="mt-2 text-xs leading-relaxed text-zinc-500">{price.summary}</p>}
       </div>
+
+      {/* Ask a Guide button — for both guest and registered users */}
+      {onAskGuide && item.name && item.name !== 'Unknown item' && (
+        <Button
+          onClick={() => onAskGuide(item.name, { city: location?.city, country: location?.country })}
+          className="w-full gap-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl h-10"
+        >
+          <Handshake className="h-4 w-4" />
+          Ask a local guide
+        </Button>
+      )}
 
       {sources.length > 0 && <SourcesList sources={sources} />}
 

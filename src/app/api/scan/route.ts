@@ -184,54 +184,55 @@ export async function POST(req: NextRequest) {
     // Step 1: identify the item
     const identified = await identifyItem(zai, image)
 
-    // Step 2: web search
+    // Step 2: Run web search + DB search IN PARALLEL (saves ~2-3s)
     const locationQualifier = location?.city ? `in ${location.city}${location.country ? ' ' + location.country : ''}` : location?.country ? `in ${location.country}` : ''
     const query = locationQualifier ? `${identified.searchQuery} ${locationQualifier} price` : `${identified.searchQuery} price`
-    const searchResults = await zai.functions.invoke('web_search', { query, num: 5 })
-    const sources: ScanResult['sources'] = Array.isArray(searchResults)
-      ? searchResults.filter((r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null).slice(0, 5).map((r) => ({
-          title: String(r.name ?? r.title ?? 'Untitled'), url: String(r.url ?? ''),
-          snippet: String(r.snippet ?? ''), host: String(r.host_name ?? r.host ?? ''),
-          date: r.date ? String(r.date) : null,
+
+    const webSearchPromise = zai.functions.invoke('web_search', { query, num: 3 }).then((searchResults: unknown) => {
+      return Array.isArray(searchResults)
+        ? searchResults.filter((r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null).slice(0, 3).map((r) => ({
+            title: String(r.name ?? r.title ?? 'Untitled'), url: String(r.url ?? ''),
+            snippet: String(r.snippet ?? ''), host: String(r.host_name ?? r.host ?? ''),
+            date: r.date ? String(r.date) : null,
+          }))
+        : []
+    }).catch(() => [] as ScanResult['sources'])
+
+    const dbSearchPromise = (async (): Promise<ScanResult['localPrices']> => {
+      try {
+        const searchTerms = [identified.name, identified.searchQuery, identified.brand].filter(Boolean).flatMap((s) => {
+          const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+          return [s, ...words]
+        })
+        const orClauses = searchTerms.flatMap((term) => [{ productName: { contains: term } }, { category: { contains: term } }])
+        const allPosts = await db.localPricePost.findMany({
+          where: { OR: orClauses },
+          select: { id: true, productName: true, category: true, currency: true, priceMin: true, priceMax: true, city: true, country: true, helpfulCount: true, author: { select: { name: true, verifiedLocal: true } } },
+          take: 15, orderBy: { helpfulCount: 'desc' },
+        })
+        const matches = allPosts.filter((p) => searchTerms.some((term) => p.productName.toLowerCase().includes(term.toLowerCase()) || p.category.toLowerCase().includes(term.toLowerCase())))
+        const locCountry = location?.country?.toLowerCase()
+        const locCity = location?.city?.toLowerCase()
+        const scored = matches.map((p) => {
+          let score = 1
+          if (locCountry && p.country.toLowerCase() === locCountry) score = 2
+          if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
+          return { p, score }
+        }).sort((a, b) => b.score - a.score)
+        return scored.slice(0, 6).map(({ p }) => ({
+          id: p.id, productName: p.productName, category: p.category, currency: p.currency,
+          priceMin: p.priceMin, priceMax: p.priceMax, city: p.city, country: p.country,
+          helpfulCount: p.helpfulCount, authorName: p.author?.name || 'Unknown',
+          authorVerifiedLocal: p.author?.verifiedLocal || false,
         }))
-      : []
+      } catch (e) { console.error('[/api/scan] DB search failed:', e); return [] }
+    })()
 
-    // Step 3: estimate price
-    let price = await estimatePrice(zai, query, location, sources)
-    if (price && price.estimatedLow !== null) { price.currency = localCurrencyForLocation(location || {}) }
+    // Wait for both — parallel execution saves ~2-3s
+    const [sources, localPrices] = await Promise.all([webSearchPromise, dbSearchPromise])
 
-    // Step 4: search local DB
-    let localPrices: ScanResult['localPrices'] = []
-    try {
-      const searchTerms = [identified.name, identified.searchQuery, identified.brand].filter(Boolean).flatMap((s) => {
-        const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
-        return [s, ...words]
-      })
-      const orClauses = searchTerms.flatMap((term) => [{ productName: { contains: term } }, { category: { contains: term } }])
-      const allPosts = await db.localPricePost.findMany({
-        where: { OR: orClauses },
-        select: { id: true, productName: true, category: true, currency: true, priceMin: true, priceMax: true, city: true, country: true, helpfulCount: true, author: { select: { name: true, verifiedLocal: true } } },
-        take: 20, orderBy: { helpfulCount: 'desc' },
-      })
-      const matches = allPosts.filter((p) => searchTerms.some((term) => p.productName.toLowerCase().includes(term.toLowerCase()) || p.category.toLowerCase().includes(term.toLowerCase())))
-      const locCountry = location?.country?.toLowerCase()
-      const locCity = location?.city?.toLowerCase()
-      const scored = matches.map((p) => {
-        let score = 1
-        if (locCountry && p.country.toLowerCase() === locCountry) score = 2
-        if (locCity && p.city && p.city.toLowerCase() === locCity) score = 3
-        return { p, score }
-      }).sort((a, b) => b.score - a.score)
-      localPrices = scored.slice(0, 6).map(({ p }) => ({
-        id: p.id, productName: p.productName, category: p.category, currency: p.currency,
-        priceMin: p.priceMin, priceMax: p.priceMax, city: p.city, country: p.country,
-        helpfulCount: p.helpfulCount, authorName: p.author?.name || 'Unknown',
-        authorVerifiedLocal: p.author?.verifiedLocal || false,
-      }))
-    } catch (e) { console.error('[/api/scan] local DB search failed:', e) }
-
-    // Step 5: build final price
-    let finalPrice = price
+    // Step 3: ONLY estimate price if no local prices (saves 3-5s when locals exist)
+    let finalPrice: PriceEstimate | null = null
     if (localPrices.length > 0) {
       const mins = localPrices.map((p) => p.priceMin)
       const maxs = localPrices.map((p) => p.priceMax)
@@ -240,6 +241,10 @@ export async function POST(req: NextRequest) {
         currency: localPrices[0].currency,
         summary: `Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
       }
+    } else {
+      // No local prices — estimate from web search
+      finalPrice = await estimatePrice(zai, query, location, sources)
+      if (finalPrice && finalPrice.estimatedLow !== null) { finalPrice.currency = localCurrencyForLocation(location || {}) }
     }
 
     const result: ScanResult = {
