@@ -33,6 +33,30 @@ interface PriceLensModalProps {
   onPickItem?: (label: string) => void
 }
 
+// Downscale image to reduce payload for slow connections + Vercel proxy
+async function downscaleImage(dataUrl: string, maxDim: number): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        if (width <= maxDim && height <= maxDim) { resolve(dataUrl); return }
+        const scale = Math.min(maxDim / width, maxDim / height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width = width; canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { resolve(dataUrl); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.4))
+      }
+      img.onerror = () => resolve(dataUrl)
+      img.src = dataUrl
+    } catch { resolve(dataUrl) }
+  })
+}
+
 export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
   const {
     videoRef,
@@ -96,10 +120,16 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     // Start camera if not already live
     if (status !== 'live') {
       await start('environment')
-      // Wait a moment for the camera to be ready
       await new Promise((r) => setTimeout(r, 500))
     }
-    const frame = captureFrame(0.82)
+    // Lower quality + downscale for faster upload (critical for Vercel proxy)
+    const rawFrame = captureFrame(0.5)
+    if (!rawFrame) {
+      setScanError('Camera is not ready. Try again.')
+      return
+    }
+    // Downscale to 480px max — smaller payload = faster proxy response
+    const frame = await downscaleImage(rawFrame, 480)
     if (!frame) {
       setScanError('Camera is not ready. Try again.')
       return
