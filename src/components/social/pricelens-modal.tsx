@@ -313,7 +313,18 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 </div>
               </div>
 
-              <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} />
+              <LocationBar
+                location={location}
+                detecting={detectingLocation}
+                onRefresh={() => void detectLocation()}
+                onManualSet={(loc) => {
+                  setLocation(loc)
+                  toast({
+                    title: 'Location updated',
+                    description: `Pricing scoped to ${loc.city ? loc.city + ', ' : ''}${loc.country || 'your selected place'}.`,
+                  })
+                }}
+              />
 
               <div className="lg:hidden">
                 <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />
