@@ -5,6 +5,8 @@ import {
   zaiCooldownRemainingMs,
   pollinationsVisionCooldownRemainingMs,
   ocrCooldownRemainingMs,
+  visionApiConfig,
+  openaiChat,
 } from '@/lib/ai-backends'
 
 export const runtime = 'nodejs'
@@ -55,14 +57,17 @@ export async function GET(req: NextRequest) {
   report.envVars = Object.fromEntries(envKeys.map((k) => [k, process.env[k] ? 'set' : 'unset']))
 
   // 2b) Which provider backends will /api/scan actually use?
-  const geminiConfigured = !!process.env.GEMINI_API_KEY
+  const geminiSource = process.env.GEMINI_API_KEY ? 'env' : 'baked'
   report.backends = {
     visionApi: process.env.VISION_API_URL && (process.env.VISION_API_KEY || process.env.OPENAI_API_KEY)
       ? { configured: true, url: process.env.VISION_API_URL, model: process.env.VISION_MODEL || 'gpt-4o-mini' }
       : { configured: false },
-    geminiAuto: geminiConfigured
-      ? { configured: true, model: process.env.VISION_MODEL || 'gemini-2.0-flash', note: 'free-tier vision via GEMINI_API_KEY' }
-      : { configured: false, note: 'paste GEMINI_API_KEY on Vercel for reliable scans (free at aistudio.google.com)' },
+    geminiAuto: {
+      configured: true,
+      source: geminiSource,
+      model: process.env.VISION_MODEL || 'gemini-flash-latest',
+      note: 'free-tier vision via Gemini (env GEMINI_API_KEY wins over baked key)',
+    },
     tavilySearch: (process.env.TAVILY_API_KEY || process.env.SEARCH_API_KEY) ? { configured: true } : { configured: false },
     zaiDirect: { cooldownRemainingMs: zaiCooldownRemainingMs() },
     pollinationsVision: {
@@ -76,6 +81,11 @@ export async function GET(req: NextRequest) {
       note: 'keyless label-text fallback (OCR)',
     },
   }
+
+  // 2c) Gemini env var wins over baked config? Report exact wiring state.
+  report.gemini = visionApiConfig()
+    ? { wired: true, source: process.env.GEMINI_API_KEY ? 'env' : 'vision-api-env' }
+    : { wired: false, note: 'set GEMINI_API_KEY in Vercel Settings -> Environment Variables, then Redeploy' }
 
   // 3) Resolved config (same priority as /api/scan) — metadata only
   const { config, source } = await loadZaiConfig()
@@ -111,6 +121,23 @@ export async function GET(req: NextRequest) {
       }
     } else {
       report.probe = 'add ?probe=1 to also test one live AI call'
+    }
+    // Optional live Gemini/OpenAI-compat probe — proves the pasted key works
+    // FROM THIS DEPLOYMENT REGION (Gemini is geo-restricted; Vercel default
+    // region iad1/US is supported, some sandbox egress IPs are NOT).
+    if (probe) {
+      const oa = visionApiConfig()
+      if (oa) {
+        const g0 = Date.now()
+        try {
+          await openaiChat(oa, { messages: [{ role: 'user', content: 'Reply with exactly: ok' }], max_tokens: 5 }, 15_000)
+          report.geminiProbe = { ok: true, ms: Date.now() - g0, model: oa.model }
+        } catch (e) {
+          report.geminiProbe = { ok: false, ms: Date.now() - g0, error: String((e as Error)?.message || e).slice(0, 240) }
+        }
+      } else {
+        report.geminiProbe = 'not configured'
+      }
     }
   } catch (e) {
     report.sdkImport = `failed: ${String((e as Error)?.message || e).slice(0, 200)}`

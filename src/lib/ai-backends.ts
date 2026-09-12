@@ -59,17 +59,26 @@ export interface SearchHit {
 const IDENTIFY_PROMPT = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
 
 // --- OpenAI-compatible vision/chat API (user-configured) -------------------
-interface OpenAICfg { url: string; key: string; model: string }
+interface OpenAICfg { url: string; key: string; model: string; fallbackModel?: string }
 
-function visionApiConfig(): OpenAICfg | null {
+// Set GEMINI_API_KEY on Vercel (aistudio.google.com -> "Create API key", free
+// tier) and the scanner automatically uses Google's free vision tier.
+// NOTE: gemini-2.0/2.5-* numbered models were retired; the -latest aliases
+// track the current generation (validated live: gemini-flash-latest,
+// gemini-3.6-flash).
+const GEMINI_DEFAULT_MODEL = 'gemini-flash-latest'
+const GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest'
+
+export function visionApiConfig(): OpenAICfg | null {
   // GEMINI_API_KEY alone is enough: Google's OpenAI-compatible endpoint has a
-  // generous FREE vision tier (gemini-2.0-flash) — the one-paste fix for prod.
+  // generous FREE vision tier — the one-paste fix for prod.
   const gemini = process.env.GEMINI_API_KEY
   if (gemini) {
     return {
       url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
       key: gemini,
-      model: process.env.VISION_MODEL || 'gemini-2.0-flash',
+      model: process.env.VISION_MODEL || GEMINI_DEFAULT_MODEL,
+      fallbackModel: GEMINI_FALLBACK_MODEL,
     }
   }
   const base = process.env.VISION_API_URL
@@ -78,13 +87,23 @@ function visionApiConfig(): OpenAICfg | null {
   return { url: base.replace(/\/+$/, '') + '/chat/completions', key, model: process.env.VISION_MODEL || 'gpt-4o-mini' }
 }
 
-async function openaiChat(cfg: OpenAICfg, body: Record<string, unknown>, timeoutMs: number): Promise<unknown> {
-  const res = await fetch(cfg.url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.key}` },
-    body: JSON.stringify({ ...body, model: cfg.model }),
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+export async function openaiChat(cfg: OpenAICfg, body: Record<string, unknown>, timeoutMs: number): Promise<unknown> {
+  const send = (model: string) =>
+    fetch(cfg.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.key}` },
+      body: JSON.stringify({ ...body, model }),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+  let res = await send(cfg.model)
+  // Retired/unavailable model -> one retry on the fallback model (e.g. Gemini
+  // retiring numbered models returns 404 with a hint).
+  if (!res.ok && cfg.fallbackModel && (res.status === 404 || res.status === 400)) {
+    const text = await res.text().catch(() => '')
+    if (/no longer available|not found|does not exist|is not supported/i.test(text)) {
+      res = await send(cfg.fallbackModel)
+    }
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`vision-api ${res.status}: ${text.slice(0, 140)}`)
