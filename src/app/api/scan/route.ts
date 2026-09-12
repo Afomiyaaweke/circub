@@ -143,7 +143,7 @@ const SCAN_PROXY_URLS: string[] = Array.from(
     (
       process.env.ZAI_PROXY_URLS ||
       process.env.ZAI_PROXY_URL ||
-      'https://preview-chat-260d9bce-6954-4dc7-a5b2-9a9d997a81fc.space-z.ai/api/scan'
+      'https://preview-chat-4d8415c1-2b4e-4a0c-985e-795e389c285c.space-z.ai/api/scan'
     )
       .split(',')
       .map((s) => s.trim())
@@ -202,9 +202,9 @@ async function ensureZaiConfig(): Promise<void> {
   const FALLBACK = {
     baseUrl: 'https://internal-api.z.ai/v1',
     apiKey: 'Z.ai',
-    chatId: 'chat-260d9bce-6954-4dc7-a5b2-9a9d997a81fc',
+    chatId: 'chat-4d8415c1-2b4e-4a0c-985e-795e389c285c',
     userId: '94e3865c-bde8-4d7f-a630-7d22dac251f0',
-    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTRlMzg2NWMtYmRlOC00ZDdmLWE2MzAtN2QyMmRhYzI1MWYwIiwiY2hhdF9pZCI6ImNoYXQtMjYwZDliY2UtNjk1NC00ZGM3LWE1YjItOWE5ZDk5N2E4MWZjIiwicGxhdGZvcm0iOiJ6YWkifQ.3P56qThiKqUG3UP-UFtYuA6UXkDxc7Y3DgqYYsd271w',
+    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTRlMzg2NWMtYmRlOC00ZDdmLWE2MzAtN2QyMmRhYzI1MWYwIiwiY2hhdF9pZCI6ImNoYXQtNGQ4NDE1YzEtMmI0ZS00YTBjLTk4NWUtNzk1ZTM4OWMyODVjIiwicGxhdGZvcm0iOiJ6YWkifQ.CINbKi15TI8pRtO6NkDKCXUzBLqgwkffONOxMTZbyrg',
   }
   const cfg = {
     baseUrl: process.env.ZAI_BASE_URL || FALLBACK.baseUrl,
@@ -260,6 +260,34 @@ function extractJson(text: string): unknown | null {
   try { return JSON.parse(candidate.slice(start, end + 1)) } catch { return null }
 }
 
+// ---------------------------------------------------------------------------
+// Rate-limit resilience: the upstream AI platform throttles with 429s.
+// Burst throttles clear within seconds, so retry with backoff before giving
+// up — this converts most transient 429s into successful scans.
+// ---------------------------------------------------------------------------
+const ZAI_RETRY_DELAYS_MS = [2000, 5000]
+
+function isRateLimitError(e: unknown): boolean {
+  return String((e as Error)?.message || e).includes('429')
+}
+
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= ZAI_RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      console.warn(`[/api/scan] ${label} rate-limited, retry ${attempt}/${ZAI_RETRY_DELAYS_MS.length} in ${ZAI_RETRY_DELAYS_MS[attempt - 1]}ms`)
+      await new Promise((r) => setTimeout(r, ZAI_RETRY_DELAYS_MS[attempt - 1]))
+    }
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      if (!isRateLimitError(e)) throw e
+    }
+  }
+  throw lastErr
+}
+
 interface IdentifiedItem {
   name: string; brand?: string | null; category?: string | null
   description: string; searchQuery: string
@@ -267,13 +295,13 @@ interface IdentifiedItem {
 
 async function identifyItem(zai: any, imageDataUrl: string): Promise<IdentifiedItem> {
   const prompt = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
-  const response = await zai.chat.completions.createVision({
+  const response = await withRetry<any>(() => zai.chat.completions.createVision({
     messages: [{ role: 'user', content: [
       { type: 'text', text: prompt },
       { type: 'image_url', image_url: { url: imageDataUrl } },
     ]}],
     thinking: { type: 'disabled' },
-  })
+  }), 'identify(vision)')
   const content = response.choices?.[0]?.message?.content ?? ''
   const parsed = extractJson(content) as IdentifiedItem | null
   if (parsed && parsed.name) {
@@ -299,10 +327,10 @@ async function estimatePrice(zai: any, searchQuery: string, location: ScanLocati
   const localCurrency = localCurrencyForLocation(location || {})
   const sourcesBlock = sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
   const prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
-  const response = await zai.chat.completions.create({
+  const response = await withRetry<any>(() => zai.chat.completions.create({
     messages: [{ role: 'user', content: prompt }],
     thinking: { type: 'disabled' },
-  })
+  }), 'estimate-price')
   const content = response.choices?.[0]?.message?.content ?? ''
   const parsed = extractJson(content) as PriceEstimate | null
   if (parsed) {
@@ -358,6 +386,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  let directWasRateLimited = false
   try {
     const zai = await getZAI()
 
@@ -368,7 +397,7 @@ export async function POST(req: NextRequest) {
     const locationQualifier = location?.city ? `in ${location.city}${location.country ? ' ' + location.country : ''}` : location?.country ? `in ${location.country}` : ''
     const query = locationQualifier ? `${identified.searchQuery} ${locationQualifier} price` : `${identified.searchQuery} price`
 
-    const webSearchPromise = zai.functions.invoke('web_search', { query, num: 3 }).then((searchResults: unknown) => {
+    const webSearchPromise = withRetry(() => zai.functions.invoke('web_search', { query, num: 3 }), 'web-search').then((searchResults: unknown) => {
       return Array.isArray(searchResults)
         ? searchResults.filter((r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null).slice(0, 3).map((r) => ({
             title: String(r.name ?? r.title ?? 'Untitled'), url: String(r.url ?? ''),
@@ -434,6 +463,7 @@ export async function POST(req: NextRequest) {
     storeCachedResult(cacheKey, result)
     return NextResponse.json(result)
   } catch (err) {
+    directWasRateLimited = isRateLimitError(err)
     console.error('[/api/scan] direct ZAI call failed, trying proxy backends:', err instanceof Error ? err.message : err)
 
     // ---- ROUND-ROBIN PROXY FAILOVER (load balancing across backends) ----
@@ -452,7 +482,7 @@ export async function POST(req: NextRequest) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ image, location }),
-            signal: AbortSignal.timeout(55000),
+            signal: AbortSignal.timeout(20000),
           })
           if (proxyRes.ok) {
             const proxyData = await proxyRes.json()
@@ -465,6 +495,14 @@ export async function POST(req: NextRequest) {
           console.error(`[/api/scan] backend ${backendUrl} fetch failed:`, proxyErr)
         }
       }
+    }
+    // All backends failed — report honestly: if the upstream was 429-ing the
+    // whole time, tell the user it's a temporary quota throttle, not a bug.
+    if (directWasRateLimited) {
+      return NextResponse.json(
+        { error: 'The AI service is rate-limited right now (quota). Scanning should work again in a few minutes — please try again.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
     }
     return NextResponse.json(
       { error: 'Scanner is temporarily unavailable. Please try again.' },
