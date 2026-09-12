@@ -33,9 +33,13 @@ const AUTO_SCAN_INTERVAL = 2500
 // item, while still scanning within ~2.5s of any real change.
 const SCENE_CHANGE_THRESHOLD = 6
 // Lower max dimension = smaller payload = faster upload + faster AI response.
-// 384px is enough for product/label identification while keeping payload <100KB.
+// Manual scans get a little more detail (better recognition); the automatic
+// ticks use an even smaller JPEG so background scanning stays cheap and fast
+// on slow mobile data (a 320px q45 frame is a few KB to ~20KB).
 const CAPTURE_MAX_DIM = 384
-const CAPTURE_QUALITY = 0.5
+const CAPTURE_QUALITY = 0.55
+const AUTO_CAPTURE_MAX_DIM = 320
+const AUTO_CAPTURE_QUALITY = 0.45
 // When the AI service is busy or quota-blocked (429/503), a manual scan holds
 // its captured photo and re-posts it automatically on this schedule (seconds)
 // before giving up. The camera stays live the whole time — the user just
@@ -269,8 +273,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         setScanError('Camera is not ready. Try again.')
         return
       }
-      // FAST capture: single draw into a 384px canvas + single JPEG encode.
-      frame = captureFrameMax(CAPTURE_MAX_DIM, CAPTURE_QUALITY)
+      // FAST capture: single draw into a small canvas + single JPEG encode.
+      // Auto-scan ticks use an even smaller frame than manual taps.
+      frame = captureFrameMax(
+        autoScan ? AUTO_CAPTURE_MAX_DIM : CAPTURE_MAX_DIM,
+        autoScan ? AUTO_CAPTURE_QUALITY : CAPTURE_QUALITY
+      )
       if (!frame) {
         setScanError('Camera is not ready. Try again.')
         return
@@ -289,6 +297,8 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     setScanError(null)
     setActiveHistoryId(null)
     try {
+      // Client-side timeout: never let a hung backend stall the UI — a timeout
+      // is treated like any transient busy error (photo held + auto-retry).
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -298,6 +308,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
             ? { city: location.city, country: location.country, countryCode: location.countryCode, region: location.region }
             : null,
         }),
+        signal: AbortSignal.timeout(50_000),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -336,7 +347,15 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         if (searchQuery) onPickItem(searchQuery.split(' ').slice(0, 3).join(' '))
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Scan failed.'
+      // Fetch timeout/abort — same recovery path as a 503: hold the photo and
+      // auto-retry (manual scans only; auto-scan just continues its loop).
+      const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+      if (timedOut && !autoScan && frame) {
+        scheduleRetry(frame) // sets retryHandledRef — the branch below keeps the card
+      }
+      const msg = timedOut
+        ? 'Scan timed out — the AI is slow right now. Retrying automatically…'
+        : err instanceof Error ? err.message : 'Scan failed.'
       if (retryHandledRef.current) {
         // scheduleRetry() just took over the UX (retry card) — keep it.
         retryHandledRef.current = false

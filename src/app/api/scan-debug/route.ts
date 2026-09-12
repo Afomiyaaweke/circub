@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'node:fs'
 import { loadZaiConfig, getZaiClient, zaiConfigFilePaths } from '@/lib/zai-config'
-import { zaiCooldownRemainingMs } from '@/lib/ai-backends'
+import {
+  zaiCooldownRemainingMs,
+  pollinationsVisionCooldownRemainingMs,
+  ocrCooldownRemainingMs,
+} from '@/lib/ai-backends'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,7 +36,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 export async function GET(req: NextRequest) {
   const probe = req.nextUrl.searchParams.get('probe') === '1'
   const report: Record<string, unknown> = {
-    marker: 'scan-debug-v1',
+    marker: 'scan-debug-v2',
     time: new Date().toISOString(),
     node: process.version,
   }
@@ -45,18 +49,32 @@ export async function GET(req: NextRequest) {
     'ZAI_BASE_URL', 'ZAI_API_KEY', 'ZAI_CHAT_ID', 'ZAI_USER_ID',
     'ZAI_TOKEN', 'ZAI_PROXY_URL', 'ZAI_PROXY_URLS',
     'VISION_API_URL', 'VISION_API_KEY', 'VISION_MODEL',
-    'OPENAI_API_KEY', 'TAVILY_API_KEY', 'SEARCH_API_KEY',
+    'OPENAI_API_KEY', 'GEMINI_API_KEY', 'TAVILY_API_KEY', 'SEARCH_API_KEY',
+    'OCR_API_KEY',
   ]
   report.envVars = Object.fromEntries(envKeys.map((k) => [k, process.env[k] ? 'set' : 'unset']))
 
   // 2b) Which provider backends will /api/scan actually use?
+  const geminiConfigured = !!process.env.GEMINI_API_KEY
   report.backends = {
     visionApi: process.env.VISION_API_URL && (process.env.VISION_API_KEY || process.env.OPENAI_API_KEY)
       ? { configured: true, url: process.env.VISION_API_URL, model: process.env.VISION_MODEL || 'gpt-4o-mini' }
       : { configured: false },
+    geminiAuto: geminiConfigured
+      ? { configured: true, model: process.env.VISION_MODEL || 'gemini-2.0-flash', note: 'free-tier vision via GEMINI_API_KEY' }
+      : { configured: false, note: 'paste GEMINI_API_KEY on Vercel for reliable scans (free at aistudio.google.com)' },
     tavilySearch: (process.env.TAVILY_API_KEY || process.env.SEARCH_API_KEY) ? { configured: true } : { configured: false },
     zaiDirect: { cooldownRemainingMs: zaiCooldownRemainingMs() },
-    pollinations: { configured: true, note: 'keyless best-effort fallback' },
+    pollinationsVision: {
+      configured: true,
+      cooldownRemainingMs: pollinationsVisionCooldownRemainingMs(),
+      note: 'keyless best-effort; budget blocks auto-back off 2min',
+    },
+    ocrSpace: {
+      configured: true,
+      cooldownRemainingMs: ocrCooldownRemainingMs(),
+      note: 'keyless label-text fallback (OCR)',
+    },
   }
 
   // 3) Resolved config (same priority as /api/scan) — metadata only
