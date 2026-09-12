@@ -154,8 +154,8 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
       {isLive && (
         <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            {!paused && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />}
+            <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', paused ? 'bg-amber-400' : 'bg-emerald-400')} />
           </span>
           {paused ? 'PAUSED — TAP ▶ TO RESUME' : 'LIVE'}
         </div>

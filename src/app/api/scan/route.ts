@@ -2,10 +2,160 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import crypto from 'node:crypto'
 import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+// ============================================================================
+// LOAD BALANCER / SURGE PROTECTION (per serverless instance)
+// Vercel scales instances horizontally; these guards protect each instance
+// and the upstream AI backends from being overwhelmed by many users:
+//   1. Per-IP sliding-window rate limit (blocks abusive / runaway clients)
+//   2. Concurrency limiter + small waiting queue (smooths bursts)
+//   3. Exact-duplicate response cache (double-taps / identical retries)
+//   4. Round-robin load balancing across upstream scan backends (direct ZAI
+//      first, then proxies) with failover — spreads load for many users.
+// ============================================================================
+
+// --- 1) Per-IP rate limiting: max 15 scans per rolling 60s per IP ---
+const RATE_LIMIT = { windowMs: 60_000, max: 15 }
+const rateBuckets = new Map<string, number[]>()
+let lastRateSweep = 0
+
+function clientIpFrom(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  )
+}
+
+function checkRateLimit(ip: string): { ok: boolean; retryAfterSec: number } {
+  const now = Date.now()
+  // Periodic sweep so the map cannot grow unbounded
+  if (now - lastRateSweep > 300_000) {
+    lastRateSweep = now
+    for (const [k, ts] of rateBuckets) {
+      const kept = ts.filter((t) => now - t < RATE_LIMIT.windowMs)
+      if (kept.length === 0) rateBuckets.delete(k)
+      else rateBuckets.set(k, kept)
+    }
+  }
+  const ts = (rateBuckets.get(ip) || []).filter((t) => now - t < RATE_LIMIT.windowMs)
+  if (ts.length >= RATE_LIMIT.max) {
+    const retryAfterSec = Math.max(1, Math.ceil((RATE_LIMIT.windowMs - (now - ts[0])) / 1000))
+    rateBuckets.set(ip, ts)
+    return { ok: false, retryAfterSec }
+  }
+  ts.push(now)
+  rateBuckets.set(ip, ts)
+  return { ok: true, retryAfterSec: 0 }
+}
+
+// --- 2) Concurrency limiter with a bounded waiting queue ---
+const MAX_CONCURRENT_SCANS = 4
+const MAX_QUEUE_WAITERS = 12
+const QUEUE_TIMEOUT_MS = 10_000
+let activeScans = 0
+const slotWaiters: Array<{
+  resolve: () => void
+  reject: (e: Error) => void
+  timer: NodeJS.Timeout
+}> = []
+
+async function acquireScanSlot(): Promise<void> {
+  if (activeScans < MAX_CONCURRENT_SCANS) {
+    activeScans++
+    return
+  }
+  if (slotWaiters.length >= MAX_QUEUE_WAITERS) {
+    throw new Error('QUEUE_FULL')
+  }
+  await new Promise<void>((resolve, reject) => {
+    const entry = {
+      resolve,
+      reject,
+      timer: null as unknown as NodeJS.Timeout,
+    }
+    entry.timer = setTimeout(() => {
+      const i = slotWaiters.indexOf(entry)
+      if (i !== -1) slotWaiters.splice(i, 1)
+      reject(new Error('QUEUE_TIMEOUT'))
+    }, QUEUE_TIMEOUT_MS)
+    slotWaiters.push(entry)
+  })
+  // Resolved by releaseScanSlot — the slot was transferred to us, so the
+  // active count is unchanged.
+}
+
+function releaseScanSlot(): void {
+  const next = slotWaiters.shift()
+  if (next) {
+    clearTimeout(next.timer)
+    next.resolve()
+  } else {
+    activeScans = Math.max(0, activeScans - 1)
+  }
+}
+
+// --- 3) Exact-duplicate response cache (30s TTL, guards double-taps) ---
+const RESULT_CACHE_TTL_MS = 30_000
+const RESULT_CACHE_MAX = 200
+const resultCache = new Map<string, { result: ScanResult; expires: number }>()
+
+function resultCacheKey(image: string, location: ScanLocation | null): string {
+  return crypto
+    .createHash('sha256')
+    .update(image)
+    .update(JSON.stringify(location ?? {}))
+    .digest('hex')
+}
+
+function getCachedResult(key: string): ScanResult | null {
+  const hit = resultCache.get(key)
+  if (!hit) return null
+  if (Date.now() > hit.expires) {
+    resultCache.delete(key)
+    return null
+  }
+  return hit.result
+}
+
+function storeCachedResult(key: string, result: ScanResult): void {
+  if (resultCache.size >= RESULT_CACHE_MAX) {
+    // Drop the oldest entries (Map preserves insertion order)
+    const drop = resultCache.size - RESULT_CACHE_MAX + 1
+    let i = 0
+    for (const k of resultCache.keys()) {
+      resultCache.delete(k)
+      if (++i >= drop) break
+    }
+  }
+  resultCache.set(key, { result, expires: Date.now() + RESULT_CACHE_TTL_MS })
+}
+
+// --- 4) Round-robin load balancer across upstream scan backends ---
+// Configure extra backends with ZAI_PROXY_URL / ZAI_PROXY_URLS (comma-separated).
+const SCAN_PROXY_URLS: string[] = Array.from(
+  new Set(
+    (
+      process.env.ZAI_PROXY_URLS ||
+      process.env.ZAI_PROXY_URL ||
+      'https://preview-chat-260d9bce-6954-4dc7-a5b2-9a9d997a81fc.space-z.ai/api/scan'
+    )
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  )
+)
+let scanBackendIndex = 0
+function nextScanBackend(): string {
+  const url = SCAN_PROXY_URLS[scanBackendIndex % SCAN_PROXY_URLS.length]
+  scanBackendIndex++
+  return url
+}
 
 // Currency mapping
 const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
@@ -176,7 +326,37 @@ export async function POST(req: NextRequest) {
   }
   const location = body.location ?? null
 
-  const PREVIEW_SCAN_URL = process.env.ZAI_PROXY_URL || 'https://preview-chat-260d9bce-6954-4dc7-a5b2-9a9d997a81fc.space-z.ai/api/scan'
+  // --- Guard 1: per-IP rate limit (protects against runaway clients) ---
+  const ip = clientIpFrom(req)
+  const rl = checkRateLimit(ip)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `You're scanning very fast — please wait ${rl.retryAfterSec}s and try again.` },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
+    )
+  }
+
+  // --- Guard 2: exact-duplicate response cache (double-taps / retries) ---
+  const cacheKey = resultCacheKey(image, location)
+  const cached = getCachedResult(cacheKey)
+  if (cached) {
+    return NextResponse.json(cached, { headers: { 'X-Cache': 'hit' } })
+  }
+
+  // --- Guard 3: concurrency limiter + bounded queue (smooths bursts) ---
+  try {
+    await acquireScanSlot()
+  } catch (e) {
+    const queueFull = e instanceof Error && e.message === 'QUEUE_FULL'
+    return NextResponse.json(
+      {
+        error: queueFull
+          ? 'Scanner is very busy right now. Please try again in a few seconds.'
+          : 'Scanner is busy — your scan timed out waiting in the queue. Please try again.',
+      },
+      { status: queueFull ? 429 : 503, headers: queueFull ? { 'Retry-After': '5' } : undefined }
+    )
+  }
 
   try {
     const zai = await getZAI()
@@ -251,49 +431,46 @@ export async function POST(req: NextRequest) {
       item: { name: identified.name, brand: identified.brand ?? null, category: identified.category ?? null, description: identified.description },
       price: finalPrice, sources, location, rawQuery: query, localPrices,
     }
+    storeCachedResult(cacheKey, result)
     return NextResponse.json(result)
   } catch (err) {
-    console.error('[/api/scan] direct ZAI call failed, trying proxy:', err instanceof Error ? err.message : err)
+    console.error('[/api/scan] direct ZAI call failed, trying proxy backends:', err instanceof Error ? err.message : err)
 
-    // ---- PROXY FALLBACK ----
-    // Try the proxy up to 2 times — it can be flaky on Vercel.
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const proxyRes = await fetch(PREVIEW_SCAN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image, location }),
-          signal: AbortSignal.timeout(55000),
-        })
-        if (proxyRes.ok) {
-          const proxyData = await proxyRes.json()
-          return NextResponse.json(proxyData)
+    // ---- ROUND-ROBIN PROXY FAILOVER (load balancing across backends) ----
+    // Each configured backend is tried once per pass, in round-robin order,
+    // so retries spread across backends instead of hammering one. A second
+    // pass (after a short cooldown) catches transient failures.
+    for (let round = 0; round < 2; round++) {
+      if (round > 0) await new Promise((r) => setTimeout(r, 1500))
+      const tried = new Set<string>()
+      for (let i = 0; i < SCAN_PROXY_URLS.length; i++) {
+        const backendUrl = nextScanBackend()
+        if (tried.has(backendUrl)) continue
+        tried.add(backendUrl)
+        try {
+          const proxyRes = await fetch(backendUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image, location }),
+            signal: AbortSignal.timeout(55000),
+          })
+          if (proxyRes.ok) {
+            const proxyData = await proxyRes.json()
+            storeCachedResult(cacheKey, proxyData as ScanResult)
+            return NextResponse.json(proxyData)
+          }
+          const proxyErrText = await proxyRes.text().catch(() => '')
+          console.error(`[/api/scan] backend ${backendUrl} failed:`, proxyRes.status, proxyErrText.slice(0, 200))
+        } catch (proxyErr) {
+          console.error(`[/api/scan] backend ${backendUrl} fetch failed:`, proxyErr)
         }
-        const proxyErrText = await proxyRes.text().catch(() => '')
-        console.error(`[/api/scan] proxy attempt ${attempt} failed:`, proxyRes.status, proxyErrText.slice(0, 200))
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 2000))
-          continue
-        }
-        return NextResponse.json(
-          { error: 'Scanner is busy. Please try again in a moment.' },
-          { status: 503 }
-        )
-      } catch (proxyErr) {
-        console.error(`[/api/scan] proxy attempt ${attempt} fetch failed:`, proxyErr)
-        if (attempt < 2) {
-          await new Promise((r) => setTimeout(r, 2000))
-          continue
-        }
-        return NextResponse.json(
-          { error: 'Scanner is temporarily unavailable. Please try again.' },
-          { status: 503 }
-        )
       }
     }
     return NextResponse.json(
       { error: 'Scanner is temporarily unavailable. Please try again.' },
       { status: 503 }
     )
+  } finally {
+    releaseScanSlot()
   }
 }

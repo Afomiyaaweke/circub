@@ -27,6 +27,11 @@ import {
 // scanInFlight prevents overlapping scans — if the AI is still busy the
 // tick is skipped and the next scan fires as soon as the server responds.
 const AUTO_SCAN_INTERVAL = 2500
+// Mean-brightness delta (0-255 scale) below which the scene counts as
+// "unchanged" and auto-scan sends NOTHING to the server. Keeps the scanner
+// quiet (and the backend unloaded) when the camera is pointed at the same
+// item, while still scanning within ~2.5s of any real change.
+const SCENE_CHANGE_THRESHOLD = 6
 // Lower max dimension = smaller payload = faster upload + faster AI response.
 // 384px is enough for product/label identification while keeping payload <100KB.
 const CAPTURE_MAX_DIM = 384
@@ -77,6 +82,37 @@ async function waitForVideoFrame(video: HTMLVideoElement | null, timeoutMs = 800
   return true
 }
 
+// Cheap 8x8 brightness signature of the current camera frame. Used to detect
+// whether the scene changed since the last scan so auto-scan doesn't spam
+// the backend with near-identical requests ("less busy" for many users).
+function quickSignature(video: HTMLVideoElement | null): number[] | null {
+  if (!video || !video.videoWidth || !video.videoHeight) return null
+  try {
+    const c = document.createElement('canvas')
+    c.width = 8
+    c.height = 8
+    const ctx = c.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(video, 0, 0, 8, 8)
+    const { data } = ctx.getImageData(0, 0, 8, 8)
+    const sig: number[] = []
+    for (let i = 0; i < data.length; i += 4) {
+      sig.push((data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000)
+    }
+    return sig
+  } catch {
+    return null
+  }
+}
+
+function signatureDistance(a: number[], b: number[]): number {
+  const n = Math.min(a.length, b.length)
+  if (n === 0) return 255
+  let d = 0
+  for (let i = 0; i < n; i++) d += Math.abs(a[i] - b[i])
+  return d / n
+}
+
 export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
   const {
     videoRef,
@@ -99,6 +135,9 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const [paused, setPaused] = useState(false)
   const { toast } = useToast()
   const scanInFlight = useRef(false)
+  // Brightness signature of the last SUCCESSFULLY scanned scene (auto-scan
+  // skips when the new frame is near-identical to this).
+  const lastSigRef = useRef<number[] | null>(null)
 
   // Camera lifecycle: the camera starts on the first user tap ("Scan item"
   // or "Start camera") and then STAYS LIVE between scans so repeated scans
@@ -165,6 +204,14 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       setScanError('Camera is not ready. Try again.')
       return
     }
+    // --- "Less busy" scene-change guard (auto-scan only) ---
+    // If the scene is essentially the same as the last successful scan,
+    // skip this tick silently: zero requests, zero overlay flashing.
+    const sceneSig = quickSignature(videoRef.current)
+    if (autoScan && sceneSig && lastSigRef.current &&
+        signatureDistance(sceneSig, lastSigRef.current) < SCENE_CHANGE_THRESHOLD) {
+      return
+    }
     // Downscale to CAPTURE_MAX_DIM px max — smaller payload = faster proxy response
     const frame = await downscaleImage(rawFrame, CAPTURE_MAX_DIM)
     if (!frame) {
@@ -188,10 +235,19 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
+        if (res.status === 429) {
+          // Server is protecting itself (rate limit / queue full) — back off
+          // politely: stop auto-scanning and show the paused state instead
+          // of hammering a busy backend.
+          setAutoScan(false)
+          setPaused(true)
+          throw new Error(err?.error || 'Scanner is busy. Auto-scan paused — try again in a few seconds.')
+        }
         throw new Error(err?.error || `Request failed (${res.status})`)
       }
       const data = (await res.json()) as ScanResult
       setResult(data)
+      lastSigRef.current = sceneSig
       const entry: ScanHistoryEntry = {
         id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()),
         timestamp: Date.now(),
@@ -216,7 +272,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       // fully release the camera (privacy + battery).
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast, onPickItem, status, start, videoRef])
+  }, [captureFrame, location, toast, onPickItem, status, start, videoRef, autoScan])
 
   useEffect(() => {
     if (!open) return
