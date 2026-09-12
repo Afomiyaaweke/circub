@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'node:fs'
-import path from 'node:path'
-import os from 'node:os'
-import { loadZaiConfig, getZaiClient } from '@/lib/zai-config'
+import { loadZaiConfig, getZaiClient, zaiConfigFilePaths } from '@/lib/zai-config'
+import { zaiCooldownRemainingMs } from '@/lib/ai-backends'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -39,19 +38,26 @@ export async function GET(req: NextRequest) {
   }
 
   // 1) Which config files exist?
-  report.configFiles = [
-    path.join(process.cwd(), '.z-ai-config'),
-    path.join(os.homedir(), '.z-ai-config'),
-    '/etc/.z-ai-config',
-    '/tmp/.z-ai-config',
-  ].map((p) => ({ path: p, exists: fs.existsSync(p) }))
+  report.configFiles = zaiConfigFilePaths().map((p) => ({ path: p, exists: fs.existsSync(p) }))
 
-  // 2) Which ZAI_* env vars are set? (values never returned)
+  // 2) Which AI-related env vars are set? (values never returned)
   const envKeys = [
     'ZAI_BASE_URL', 'ZAI_API_KEY', 'ZAI_CHAT_ID', 'ZAI_USER_ID',
     'ZAI_TOKEN', 'ZAI_PROXY_URL', 'ZAI_PROXY_URLS',
+    'VISION_API_URL', 'VISION_API_KEY', 'VISION_MODEL',
+    'OPENAI_API_KEY', 'TAVILY_API_KEY', 'SEARCH_API_KEY',
   ]
   report.envVars = Object.fromEntries(envKeys.map((k) => [k, process.env[k] ? 'set' : 'unset']))
+
+  // 2b) Which provider backends will /api/scan actually use?
+  report.backends = {
+    visionApi: process.env.VISION_API_URL && (process.env.VISION_API_KEY || process.env.OPENAI_API_KEY)
+      ? { configured: true, url: process.env.VISION_API_URL, model: process.env.VISION_MODEL || 'gpt-4o-mini' }
+      : { configured: false },
+    tavilySearch: (process.env.TAVILY_API_KEY || process.env.SEARCH_API_KEY) ? { configured: true } : { configured: false },
+    zaiDirect: { cooldownRemainingMs: zaiCooldownRemainingMs() },
+    pollinations: { configured: true, note: 'keyless best-effort fallback' },
+  }
 
   // 3) Resolved config (same priority as /api/scan) — metadata only
   const { config, source } = await loadZaiConfig()

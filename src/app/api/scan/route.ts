@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { db } from '@/lib/db'
-import { getZaiClient } from '@/lib/zai-config'
+import {
+  identifyItem as aiIdentifyItem,
+  webSearch as aiWebSearch,
+  llmText,
+} from '@/lib/ai-backends'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -134,15 +138,14 @@ function storeCachedResult(key: string, result: ScanResult): void {
   resultCache.set(key, { result, expires: Date.now() + RESULT_CACHE_TTL_MS })
 }
 
-// --- 4) Round-robin load balancer across upstream scan backends ---
-// Configure extra backends with ZAI_PROXY_URL / ZAI_PROXY_URLS (comma-separated).
+// --- 4) Round-robin load balancer across optional upstream scan backends ---
+// Set ZAI_PROXY_URL / ZAI_PROXY_URLS (comma-separated) to add backends.
+// The default is EMPTY on purpose: the previously baked-in preview URL was an
+// ephemeral sandbox dev-server that is dead in production and only wasted
+// seconds of every failed scan.
 const SCAN_PROXY_URLS: string[] = Array.from(
   new Set(
-    (
-      process.env.ZAI_PROXY_URLS ||
-      process.env.ZAI_PROXY_URL ||
-      'https://preview-chat-4d8415c1-2b4e-4a0c-985e-795e389c285c.space-z.ai/api/scan'
-    )
+    (process.env.ZAI_PROXY_URLS || process.env.ZAI_PROXY_URL || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
@@ -182,10 +185,10 @@ function localCurrencyForLocation(location: { country?: string | null; countryCo
   return 'USD'
 }
 
-// ZAI client construction moved to @/lib/zai-config — it resolves config
-// (env vars -> config files -> baked fallback) and builds the SDK client
-// directly via its exported class. This avoids fragile /tmp config-file
-// writes and process.cwd() monkey-patching on serverless (Vercel).
+// ZAI client construction moved to @/lib/zai-config and the provider chains
+// (vision / search / text) to @/lib/ai-backends — multi-provider failover that
+// works from BOTH inside the z.ai platform AND from Vercel (whose network
+// cannot reach the platform's private internal API).
 
 export interface ScanLocation {
   city?: string | null
@@ -218,84 +221,32 @@ function extractJson(text: string): unknown | null {
 }
 
 // ---------------------------------------------------------------------------
-// Rate-limit resilience: the upstream AI platform throttles with 429s.
-// Burst throttles clear within seconds, so retry with backoff before giving
-// up — this converts most transient 429s into successful scans.
+// Failure classification for the honest error mapping below. The provider
+// chains in ai-backends already do retries/failover internally; here we only
+// decide WHICH honest message the client deserves.
 // ---------------------------------------------------------------------------
-const ZAI_RETRY_DELAYS_MS = [2000, 5000]
-
 function isRateLimitError(e: unknown): boolean {
   return String((e as Error)?.message || e).includes('429')
-}
-
-async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  let lastErr: unknown
-  for (let attempt = 0; attempt <= ZAI_RETRY_DELAYS_MS.length; attempt++) {
-    if (attempt > 0) {
-      console.warn(`[/api/scan] ${label} rate-limited, retry ${attempt}/${ZAI_RETRY_DELAYS_MS.length} in ${ZAI_RETRY_DELAYS_MS[attempt - 1]}ms`)
-      await new Promise((r) => setTimeout(r, ZAI_RETRY_DELAYS_MS[attempt - 1]))
-    }
-    const attemptStart = Date.now()
-    try {
-      return await fn()
-    } catch (e) {
-      lastErr = e
-      if (!isRateLimitError(e)) throw e
-      // Instant hard block (<1.5s): an upstream quota gate rejects immediately.
-      // Backing off inside THIS request cannot help — fail fast so the client
-      // can retry on its own (longer) schedule instead of holding a scan slot.
-      if (Date.now() - attemptStart < 1500) throw e
-      // Slow 429 (real processing then throttle) — transient burst limit,
-      // backoff retries are worth it, continue the loop.
-    }
-  }
-  throw lastErr
-}
-
-interface IdentifiedItem {
-  name: string; brand?: string | null; category?: string | null
-  description: string; searchQuery: string
-}
-
-async function identifyItem(zai: any, imageDataUrl: string): Promise<IdentifiedItem> {
-  const prompt = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
-  const response = await withRetry<any>(() => zai.chat.completions.createVision({
-    messages: [{ role: 'user', content: [
-      { type: 'text', text: prompt },
-      { type: 'image_url', image_url: { url: imageDataUrl } },
-    ]}],
-    thinking: { type: 'disabled' },
-  }), 'identify(vision)')
-  const content = response.choices?.[0]?.message?.content ?? ''
-  const parsed = extractJson(content) as IdentifiedItem | null
-  if (parsed && parsed.name) {
-    return {
-      name: String(parsed.name).slice(0, 120),
-      brand: parsed.brand ? String(parsed.brand).slice(0, 80) : null,
-      category: parsed.category ? String(parsed.category).slice(0, 60) : null,
-      description: parsed.description ? String(parsed.description).slice(0, 400) : '',
-      searchQuery: parsed.searchQuery ? String(parsed.searchQuery).slice(0, 200) : String(parsed.name),
-    }
-  }
-  const fallbackName = content.trim().split('\n')[0].slice(0, 120) || 'Unknown item'
-  return { name: fallbackName, brand: null, category: null, description: content.slice(0, 400), searchQuery: fallbackName }
 }
 
 interface PriceEstimate {
   estimatedLow: number | null; estimatedHigh: number | null; currency: string | null; summary: string
 }
 
-async function estimatePrice(zai: any, searchQuery: string, location: ScanLocation | null, sources: ScanResult['sources']): Promise<PriceEstimate | null> {
-  if (sources.length === 0) return null
+async function estimatePrice(searchQuery: string, location: ScanLocation | null, sources: ScanResult['sources']): Promise<PriceEstimate | null> {
   const locationName = location?.city ? `${location.city}${location.country ? ', ' + location.country : ''}` : location?.country || 'worldwide'
   const localCurrency = localCurrencyForLocation(location || {})
-  const sourcesBlock = sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
-  const prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
-  const response = await withRetry<any>(() => zai.chat.completions.create({
-    messages: [{ role: 'user', content: prompt }],
-    thinking: { type: 'disabled' },
-  }), 'estimate-price')
-  const content = response.choices?.[0]?.message?.content ?? ''
+
+  let prompt: string
+  if (sources.length > 0) {
+    const sourcesBlock = sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
+    prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
+  } else {
+    prompt = `You are a price-analysis assistant. No live web results are available right now.\nEstimate from general knowledge a realistic retail price range for "${searchQuery}" purchased in/near ${locationName}.\nThe local currency is ${localCurrency}. Be conservative and clearly approximate.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}, starting with 'Approximate (from AI knowledge):'."}`
+  }
+
+  const content = await llmText(prompt)
+  if (!content) return null
   const parsed = extractJson(content) as PriceEstimate | null
   if (parsed) {
     return {
@@ -352,24 +303,14 @@ export async function POST(req: NextRequest) {
 
   let directWasRateLimited = false
   try {
-    const { client: zai } = await getZaiClient()
+    // Step 1: identify the item (multi-provider vision chain)
+    const identified = await aiIdentifyItem(image)
 
-    // Step 1: identify the item
-    const identified = await identifyItem(zai, image)
-
-    // Step 2: Run web search + DB search IN PARALLEL (saves ~2-3s)
+    // Step 2: Run web search (multi-provider chain) + DB search IN PARALLEL
     const locationQualifier = location?.city ? `in ${location.city}${location.country ? ' ' + location.country : ''}` : location?.country ? `in ${location.country}` : ''
     const query = locationQualifier ? `${identified.searchQuery} ${locationQualifier} price` : `${identified.searchQuery} price`
 
-    const webSearchPromise = withRetry(() => zai.functions.invoke('web_search', { query, num: 3 }), 'web-search').then((searchResults: unknown) => {
-      return Array.isArray(searchResults)
-        ? searchResults.filter((r: unknown): r is Record<string, unknown> => typeof r === 'object' && r !== null).slice(0, 3).map((r) => ({
-            title: String(r.name ?? r.title ?? 'Untitled'), url: String(r.url ?? ''),
-            snippet: String(r.snippet ?? ''), host: String(r.host_name ?? r.host ?? ''),
-            date: r.date ? String(r.date) : null,
-          }))
-        : []
-    }).catch(() => [] as ScanResult['sources'])
+    const webSearchPromise = aiWebSearch(query, 3).catch(() => [] as ScanResult['sources'])
 
     const dbSearchPromise = (async (): Promise<ScanResult['localPrices']> => {
       try {
@@ -416,7 +357,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // No local prices — estimate from web search
-      finalPrice = await estimatePrice(zai, query, location, sources)
+      finalPrice = await estimatePrice(query, location, sources)
       if (finalPrice && finalPrice.estimatedLow !== null) { finalPrice.currency = localCurrencyForLocation(location || {}) }
     }
 
@@ -427,44 +368,45 @@ export async function POST(req: NextRequest) {
     storeCachedResult(cacheKey, result)
     return NextResponse.json(result)
   } catch (err) {
-    directWasRateLimited = isRateLimitError(err)
-    console.error('[/api/scan] direct ZAI call failed, trying proxy backends:', err instanceof Error ? err.message : err)
+    const aggMessage = err instanceof Error ? err.message : String(err)
+    directWasRateLimited = isRateLimitError(aggMessage) || /quota/i.test(aggMessage)
+    console.error('[/api/scan] all AI providers failed:', aggMessage)
 
-    // ---- ROUND-ROBIN PROXY FAILOVER (load balancing across backends) ----
-    // Each configured backend is tried once per pass, in round-robin order,
-    // so retries spread across backends instead of hammering one. A second
-    // pass (after a short cooldown) catches transient failures — but when the
-    // upstream hard-blocked us with an instant quota 429, every backend shares
-    // the same account, so a single pass is enough (saves ~4s of dead time).
-    const failoverRounds = directWasRateLimited ? 1 : 2
-    for (let round = 0; round < failoverRounds; round++) {
-      if (round > 0) await new Promise((r) => setTimeout(r, 1500))
-      const tried = new Set<string>()
-      for (let i = 0; i < SCAN_PROXY_URLS.length; i++) {
-        const backendUrl = nextScanBackend()
-        if (tried.has(backendUrl)) continue
-        tried.add(backendUrl)
-        try {
-          const proxyRes = await fetch(backendUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image, location }),
-            signal: AbortSignal.timeout(20000),
-          })
-          if (proxyRes.ok) {
-            const proxyData = await proxyRes.json()
-            storeCachedResult(cacheKey, proxyData as ScanResult)
-            return NextResponse.json(proxyData)
+    // ---- ROUND-ROBIN PROXY FAILOVER (optional upstream scan backends) ----
+    // Only runs when ZAI_PROXY_URLS is configured. Each backend is tried once
+    // per pass in round-robin order; a second pass catches transient failures.
+    if (SCAN_PROXY_URLS.length > 0) {
+      const failoverRounds = directWasRateLimited ? 1 : 2
+      for (let round = 0; round < failoverRounds; round++) {
+        if (round > 0) await new Promise((r) => setTimeout(r, 1500))
+        const tried = new Set<string>()
+        for (let i = 0; i < SCAN_PROXY_URLS.length; i++) {
+          const backendUrl = nextScanBackend()
+          if (tried.has(backendUrl)) continue
+          tried.add(backendUrl)
+          try {
+            const proxyRes = await fetch(backendUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image, location }),
+              signal: AbortSignal.timeout(20000),
+            })
+            if (proxyRes.ok) {
+              const proxyData = await proxyRes.json()
+              storeCachedResult(cacheKey, proxyData as ScanResult)
+              return NextResponse.json(proxyData)
+            }
+            const proxyErrText = await proxyRes.text().catch(() => '')
+            console.error(`[/api/scan] backend ${backendUrl} failed:`, proxyRes.status, proxyErrText.slice(0, 200))
+          } catch (proxyErr) {
+            console.error(`[/api/scan] backend ${backendUrl} fetch failed:`, proxyErr)
           }
-          const proxyErrText = await proxyRes.text().catch(() => '')
-          console.error(`[/api/scan] backend ${backendUrl} failed:`, proxyRes.status, proxyErrText.slice(0, 200))
-        } catch (proxyErr) {
-          console.error(`[/api/scan] backend ${backendUrl} fetch failed:`, proxyErr)
         }
       }
     }
-    // All backends failed — report honestly: if the upstream was 429-ing the
-    // whole time, tell the user it's a temporary quota throttle, not a bug.
+    // All providers failed — report honestly. The client holds the captured
+    // photo and auto-retries (8s/12s/18s), so a transient outage recovers by
+    // itself without the user re-tapping.
     if (directWasRateLimited) {
       return NextResponse.json(
         { error: 'The AI service is rate-limited right now (quota). Scanning should work again in a few minutes — please try again.' },
@@ -472,7 +414,7 @@ export async function POST(req: NextRequest) {
       )
     }
     return NextResponse.json(
-      { error: 'Scanner is temporarily unavailable. Please try again.' },
+      { error: 'The AI service is unreachable right now. Your photo is kept — the scan retries automatically in a few seconds.' },
       { status: 503 }
     )
   } finally {
