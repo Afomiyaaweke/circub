@@ -184,14 +184,48 @@ async function withZai<T>(fn: (z: ZaiClient) => Promise<T>, timeoutMs: number): 
 }
 
 // --- helpers -----------------------------------------------------------------
-function extractJson(text: string): Record<string, unknown> | null {
+// Hardened JSON extractor: handles ```json fences (open or closed), leading
+// prose, and TRUNCATED JSON (reasoning models sometimes burn the token budget
+// mid-object — we close dangling brackets and parse what we have).
+export function parseLooseJson(text: string): Record<string, unknown> | null {
   if (!text) return null
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  const candidate = fence ? fence[1] : text
+  let candidate = text
+  const fence = candidate.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i)
+  if (fence && candidate.includes('```')) candidate = fence[1]
   const start = candidate.indexOf('{')
-  const end = candidate.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) return null
-  try { return JSON.parse(candidate.slice(start, end + 1)) } catch { return null }
+  if (start === -1) return null
+  let body = candidate.slice(start)
+  const end = body.lastIndexOf('}')
+  if (end !== -1) body = body.slice(0, end + 1)
+  try { return JSON.parse(body) } catch { /* fall through to repair */ }
+  // Repair truncated JSON: close open strings/brackets in order.
+  const stack: string[] = []
+  let inStr = false
+  let esc = false
+  for (const ch of body) {
+    if (esc) { esc = false; continue }
+    if (inStr) {
+      if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') inStr = true
+    else if (ch === '{' || ch === '[') stack.push(ch)
+    else if (ch === '}') stack.pop()
+    else if (ch === ']') stack.pop()
+  }
+  let repaired = body
+  if (inStr) repaired += '"'
+  // Drop a trailing incomplete fragment like "," or '"key":' before closing
+  repaired = repaired.replace(/[,\s]*$/, '')
+  repaired = repaired.replace(/"[^"\[]*":\s*$/, '')
+  repaired = repaired.replace(/,\s*$/, '')
+  while (stack.length) repaired += stack.pop() === '{' ? '}' : ']'
+  try { return JSON.parse(repaired) } catch { return null }
+}
+
+function extractJson(text: string): Record<string, unknown> | null {
+  return parseLooseJson(text)
 }
 
 function contentOf(res: unknown): string {
@@ -205,7 +239,9 @@ function contentOf(res: unknown): string {
 
 // 1) User-configured OpenAI-compatible API (Vercel-reachable, reliable)
 async function identifyViaOpenAi(oa: OpenAICfg, messages: unknown): Promise<VisionIdentify> {
-  const res = await openaiChat(oa, { messages, max_tokens: 400 }, 25_000)
+  // reasoning_effort none: Gemini 2.5+ burns tokens on thinking by default,
+  // which truncated the JSON answer mid-object.
+  const res = await openaiChat(oa, { messages, max_tokens: 700, reasoning_effort: 'none' }, 25_000)
   const parsed = extractJson(contentOf(res))
   const out = normalizeIdentify(parsed, contentOf(res))
   if (!out) throw new Error('vision-api: unparseable response')
@@ -403,7 +439,7 @@ function normalizeIdentify(parsed: Record<string, unknown> | null, rawContent: s
     }
   }
   // Some models answer with plain text — use the first line as a weak guess.
-  const line = rawContent.trim().split('\n')[0].slice(0, 120)
+  const line = rawContent.trim().split('\n').find((l) => l.trim() && !/^```|^\s*\{|\"name\"/.test(l))?.slice(0, 120) ?? ''
   if (line && !/budget|API key|error/i.test(line)) {
     return { name: line, brand: null, category: null, description: rawContent.slice(0, 400), searchQuery: line }
   }
@@ -557,7 +593,7 @@ export async function llmText(prompt: string, timeoutMs = 20_000): Promise<strin
   const oa = visionApiConfig()
   if (oa) {
     try {
-      const res = await openaiChat(oa, { messages: [{ role: 'user', content: prompt }], max_tokens: 400 }, timeoutMs)
+      const res = await openaiChat(oa, { messages: [{ role: 'user', content: prompt }], max_tokens: 700, reasoning_effort: 'none' }, timeoutMs)
       const content = contentOf(res)
       if (content) return content
       failures.push('vision-api: empty')
