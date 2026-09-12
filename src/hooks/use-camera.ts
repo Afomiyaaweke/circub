@@ -121,6 +121,39 @@ export function useCamera({ facingMode = 'environment' }: UseCameraOptions = {})
     [status]
   )
 
+  /**
+   * FAST capture: draws the video frame DIRECTLY into a canvas capped at
+   * maxDim and encodes once. One draw + one JPEG encode (the old path did a
+   * full-resolution encode, then an Image decode + second encode to
+   * downscale — 2-3x the work). Reads readiness from the video element
+   * itself instead of the status state, so a capture right after the camera
+   * starts never fails on a stale state value.
+   */
+  const captureFrameMax = useCallback(
+    (maxDim: number, quality = 0.7): string | null => {
+      const video = videoRef.current
+      if (!video || video.readyState < 2) return null
+      const w = video.videoWidth
+      const h = video.videoHeight
+      if (!w || !h) return null
+      const scale = Math.min(1, maxDim / Math.max(w, h))
+      const cw = Math.max(1, Math.round(w * scale))
+      const ch = Math.max(1, Math.round(h * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = cw
+      canvas.height = ch
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      ctx.drawImage(video, 0, 0, cw, ch)
+      try {
+        return canvas.toDataURL('image/jpeg', quality)
+      } catch {
+        return null
+      }
+    },
+    []
+  )
+
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -139,5 +172,6 @@ export function useCamera({ facingMode = 'environment' }: UseCameraOptions = {})
     stop,
     switchCamera,
     captureFrame,
+    captureFrameMax,
   }
 }

@@ -35,7 +35,12 @@ const SCENE_CHANGE_THRESHOLD = 6
 // Lower max dimension = smaller payload = faster upload + faster AI response.
 // 384px is enough for product/label identification while keeping payload <100KB.
 const CAPTURE_MAX_DIM = 384
-const CAPTURE_QUALITY = 0.45
+const CAPTURE_QUALITY = 0.5
+// When the AI service is busy or quota-blocked (429/503), a manual scan holds
+// its captured photo and re-posts it automatically on this schedule (seconds)
+// before giving up. The camera stays live the whole time — the user just
+// watches the countdown and keeps pointing at the item.
+const RETRY_DELAYS_S = [8, 12, 18]
 
 interface PriceLensModalProps {
   open: boolean
@@ -43,30 +48,6 @@ interface PriceLensModalProps {
   /** Fired when a scan identifies a product — passes the product name so
    *  the parent can fill the search box and show matching local posts. */
   onPickItem?: (label: string) => void
-}
-
-// Downscale image to reduce payload for slow connections + Vercel proxy
-async function downscaleImage(dataUrl: string, maxDim: number): Promise<string> {
-  return new Promise((resolve) => {
-    try {
-      const img = new Image()
-      img.onload = () => {
-        let { width, height } = img
-        if (width <= maxDim && height <= maxDim) { resolve(dataUrl); return }
-        const scale = Math.min(maxDim / width, maxDim / height)
-        width = Math.round(width * scale)
-        height = Math.round(height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width = width; canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) { resolve(dataUrl); return }
-        ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', 0.4))
-      }
-      img.onerror = () => resolve(dataUrl)
-      img.src = dataUrl
-    } catch { resolve(dataUrl) }
-  })
 }
 
 // Wait until the video element is actually delivering frames (readyState >= 2
@@ -121,7 +102,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     start,
     stop,
     switchCamera,
-    captureFrame,
+    captureFrameMax,
   } = useCamera({ facingMode: 'environment' })
 
   const [result, setResult] = useState<ScanResult | null>(null)
@@ -139,6 +120,67 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   // skips when the new frame is near-identical to this).
   const lastSigRef = useRef<number[] | null>(null)
 
+  // --- Auto-retry (AI busy / quota block) ----------------------------------
+  // A failed manual scan (429/503) holds its captured photo and re-posts it
+  // automatically on the RETRY_DELAYS_S schedule. retryInfo drives the amber
+  // "holding your scan" card in the results panel.
+  const [retryInfo, setRetryInfo] = useState<{
+    attempt: number
+    max: number
+    secondsLeft: number
+    photo: string
+  } | null>(null)
+  const runScanRef = useRef<((frame?: string) => Promise<void>) | null>(null)
+  const retryAttemptRef = useRef(0)
+  const retryFrameRef = useRef<string | null>(null)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryTickerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // True while scheduleRetry() owns the UX (retry card or final message) —
+  // runScan's catch uses this to avoid overwriting the retry card.
+  const retryHandledRef = useRef(false)
+
+  const stopRetryTimers = useCallback(() => {
+    if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null }
+    if (retryTickerRef.current) { clearInterval(retryTickerRef.current); retryTickerRef.current = null }
+  }, [])
+
+  const cancelRetry = useCallback(() => {
+    stopRetryTimers()
+    retryAttemptRef.current = 0
+    retryFrameRef.current = null
+    retryHandledRef.current = false
+    setRetryInfo(null)
+  }, [stopRetryTimers])
+
+  const scheduleRetry = useCallback((frame: string) => {
+    stopRetryTimers()
+    const attempt = retryAttemptRef.current + 1
+    retryAttemptRef.current = attempt
+    if (attempt > RETRY_DELAYS_S.length) {
+      // All retries exhausted — hand back to the user with a clear message.
+      retryFrameRef.current = null
+      retryHandledRef.current = false
+      setRetryInfo(null)
+      setScanError(
+        `The AI service is busy right now (auto-retried ${RETRY_DELAYS_S.length} times). Your camera is still live — tap Scan to try again in a minute.`
+      )
+      return
+    }
+    retryFrameRef.current = frame
+    retryHandledRef.current = true
+    const delayS = RETRY_DELAYS_S[attempt - 1]
+    let secondsLeft = delayS
+    setRetryInfo({ attempt, max: RETRY_DELAYS_S.length, secondsLeft, photo: frame })
+    retryTickerRef.current = setInterval(() => {
+      secondsLeft -= 1
+      setRetryInfo((s) => (s ? { ...s, secondsLeft: Math.max(0, secondsLeft) } : s))
+    }, 1000)
+    retryTimerRef.current = setTimeout(() => {
+      stopRetryTimers()
+      void runScanRef.current?.(frame)
+    }, delayS * 1000)
+  }, [stopRetryTimers])
+
   // Camera lifecycle: the camera starts on the first user tap ("Scan item"
   // or "Start camera") and then STAYS LIVE between scans so repeated scans
   // are instant (no restart + permission renegotiation per scan). The
@@ -151,8 +193,17 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       stop()
       setAutoScan(false)
       setPaused(false)
+      cancelRetry()
     }
-  }, [open, stop])
+  }, [open, stop, cancelRetry])
+
+  // Clear retry timers if the component unmounts mid-retry.
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+      if (retryTickerRef.current) clearInterval(retryTickerRef.current)
+    }
+  }, [])
 
   const detectLocation = useCallback(async () => {
     setDetectingLocation(true)
@@ -186,37 +237,52 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     if (open) void detectLocation()
   }, [open, detectLocation])
 
-  const runScan = useCallback(async () => {
-    if (scanInFlight.current) return
-    // Start camera if not already live — when it is already live (the normal
-    // case now) this is skipped entirely and capture is instant.
-    if (status !== 'live') {
+  // True when the camera element is already delivering frames — capture is
+  // then instant (no start, no wait).
+  const ensureCameraReady = useCallback(async (): Promise<boolean> => {
+    const video = videoRef.current
+    if (video && video.readyState >= 2 && video.videoWidth > 0) return true
+    if (status !== 'live' && status !== 'requesting') {
       await start('environment')
-      const ready = await waitForVideoFrame(videoRef.current)
+    }
+    return waitForVideoFrame(videoRef.current, 1500)
+  }, [start, status, videoRef])
+
+  const runScan = useCallback(async (heldFrame?: string) => {
+    if (scanInFlight.current) return
+    if (heldFrame) {
+      // Retrying a held photo — stop the countdown; retry bookkeeping stays.
+      // The previous scheduleRetry() handling is now consumed.
+      stopRetryTimers()
+      retryHandledRef.current = false
+    } else {
+      // A fresh scan supersedes any pending auto-retry.
+      cancelRetry()
+    }
+    let frame = heldFrame ?? null
+    let sceneSig: number[] | null = null
+    if (!frame) {
+      // Start camera if not already delivering frames — when it is (the normal
+      // case) this returns immediately and capture is instant.
+      const ready = await ensureCameraReady()
       if (!ready) {
         setScanError('Camera is not ready. Try again.')
         return
       }
-    }
-    // Lower quality + downscale for faster upload (critical for Vercel proxy)
-    const rawFrame = captureFrame(CAPTURE_QUALITY)
-    if (!rawFrame) {
-      setScanError('Camera is not ready. Try again.')
-      return
-    }
-    // --- "Less busy" scene-change guard (auto-scan only) ---
-    // If the scene is essentially the same as the last successful scan,
-    // skip this tick silently: zero requests, zero overlay flashing.
-    const sceneSig = quickSignature(videoRef.current)
-    if (autoScan && sceneSig && lastSigRef.current &&
-        signatureDistance(sceneSig, lastSigRef.current) < SCENE_CHANGE_THRESHOLD) {
-      return
-    }
-    // Downscale to CAPTURE_MAX_DIM px max — smaller payload = faster proxy response
-    const frame = await downscaleImage(rawFrame, CAPTURE_MAX_DIM)
-    if (!frame) {
-      setScanError('Camera is not ready. Try again.')
-      return
+      // FAST capture: single draw into a 384px canvas + single JPEG encode.
+      frame = captureFrameMax(CAPTURE_MAX_DIM, CAPTURE_QUALITY)
+      if (!frame) {
+        setScanError('Camera is not ready. Try again.')
+        return
+      }
+      // --- "Less busy" scene-change guard (fresh auto-scan captures only) ---
+      // If the scene is essentially the same as the last successful scan,
+      // skip this tick silently: zero requests, zero overlay flashing.
+      sceneSig = quickSignature(videoRef.current)
+      if (autoScan && sceneSig && lastSigRef.current &&
+          signatureDistance(sceneSig, lastSigRef.current) < SCENE_CHANGE_THRESHOLD) {
+        return
+      }
     }
     scanInFlight.current = true
     setLoading(true)
@@ -235,17 +301,26 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
+        const message = err?.error || `Request failed (${res.status})`
+        const transient = res.status === 429 || res.status === 503
+        if (transient && !autoScan) {
+          // AI busy / quota block — hold THIS photo and retry automatically
+          // with a visible countdown (manual scans only; auto-scan pauses
+          // instead, see below — keeps the scanner "less busy").
+          scheduleRetry(frame)
+          return
+        }
         if (res.status === 429) {
           // Server is protecting itself (rate limit / queue full) — back off
           // politely: stop auto-scanning and show the paused state instead
           // of hammering a busy backend.
           setAutoScan(false)
           setPaused(true)
-          throw new Error(err?.error || 'Scanner is busy. Auto-scan paused — try again in a few seconds.')
         }
-        throw new Error(err?.error || `Request failed (${res.status})`)
+        throw new Error(message)
       }
       const data = (await res.json()) as ScanResult
+      cancelRetry()
       setResult(data)
       lastSigRef.current = sceneSig
       const entry: ScanHistoryEntry = {
@@ -262,8 +337,14 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Scan failed.'
-      setScanError(msg)
-      toast({ title: 'Scan failed', description: msg, variant: 'destructive' })
+      if (retryHandledRef.current) {
+        // scheduleRetry() just took over the UX (retry card) — keep it.
+        retryHandledRef.current = false
+      } else {
+        cancelRetry()
+        setScanError(msg)
+        toast({ title: 'Scan failed', description: msg, variant: 'destructive' })
+      }
     } finally {
       setLoading(false)
       scanInFlight.current = false
@@ -272,7 +353,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       // fully release the camera (privacy + battery).
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast, onPickItem, status, start, videoRef, autoScan])
+  }, [captureFrameMax, ensureCameraReady, location, toast, onPickItem, autoScan, cancelRetry, scheduleRetry, stopRetryTimers])
+
+  // Keep a stable ref so retry timers / handlers always call the latest runScan.
+  useEffect(() => {
+    runScanRef.current = runScan
+  })
 
   useEffect(() => {
     if (!open) return
@@ -286,20 +372,32 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   }, [autoScan, paused, status, open])
 
   const handleStart = useCallback(() => {
-    void start('environment')
     // Also trigger location detection on this user gesture — some
     // browsers (iOS Safari) require a user gesture before geolocation
     // will prompt for permission.
     void detectLocation()
+    // ONE TAP: start the camera, capture the first frame the instant it is
+    // ready, and send it to the AI — no second tap needed.
+    void (async () => {
+      await start('environment')
+      const ready = await waitForVideoFrame(videoRef.current, 2000)
+      if (ready) void runScanRef.current?.()
+    })()
   }, [start, detectLocation])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
   // Pause keeps the camera + preview alive and only halts the scan loop,
-  // so resuming (or the next manual "Scan item") is instant.
-  const handleTogglePause = useCallback(() => setPaused((p) => !p), [])
+  // so resuming (or the next manual "Scan item") is instant. Pausing also
+  // cancels any pending auto-retry countdown.
+  const handleTogglePause = useCallback(() => {
+    setPaused((prev) => {
+      if (!prev) cancelRetry()
+      return !prev
+    })
+  }, [cancelRetry])
   const handleScanNow = useCallback(() => {
     if (paused) setPaused(false)
-    void runScan()
-  }, [paused, runScan])
+    void runScanRef.current?.()
+  }, [paused])
   const handleSelectHistory = useCallback((entry: ScanHistoryEntry) => {
     setResult(entry.result)
     setActiveHistoryId(entry.id)
@@ -397,6 +495,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                   result={result}
                   loading={loading}
                   error={scanError}
+                  retrying={retryInfo}
                   onAskGuide={(itemName, loc) => {
                     onOpenChange(false)
                     window.dispatchEvent(new CustomEvent('circub:ask-guide', {

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'node:fs'
-import path from 'node:path'
-import os from 'node:os'
 import crypto from 'node:crypto'
 import { db } from '@/lib/db'
+import { getZaiClient } from '@/lib/zai-config'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -184,51 +182,10 @@ function localCurrencyForLocation(location: { country?: string | null; countryCo
   return 'USD'
 }
 
-// ZAI config injection
-let configInjected = false
-async function ensureZaiConfig(): Promise<void> {
-  if (configInjected) return
-  const configPaths = [
-    path.join(process.cwd(), '.z-ai-config'),
-    path.join(os.homedir(), '.z-ai-config'),
-    '/etc/.z-ai-config',
-  ]
-  for (const p of configPaths) {
-    try {
-      const cfg = JSON.parse(await fs.promises.readFile(p, 'utf-8'))
-      if (cfg.baseUrl && cfg.apiKey) { configInjected = true; return }
-    } catch {}
-  }
-  const FALLBACK = {
-    baseUrl: 'https://internal-api.z.ai/v1',
-    apiKey: 'Z.ai',
-    chatId: 'chat-4d8415c1-2b4e-4a0c-985e-795e389c285c',
-    userId: '94e3865c-bde8-4d7f-a630-7d22dac251f0',
-    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOTRlMzg2NWMtYmRlOC00ZDdmLWE2MzAtN2QyMmRhYzI1MWYwIiwiY2hhdF9pZCI6ImNoYXQtNGQ4NDE1YzEtMmI0ZS00YTBjLTk4NWUtNzk1ZTM4OWMyODVjIiwicGxhdGZvcm0iOiJ6YWkifQ.CINbKi15TI8pRtO6NkDKCXUzBLqgwkffONOxMTZbyrg',
-  }
-  const cfg = {
-    baseUrl: process.env.ZAI_BASE_URL || FALLBACK.baseUrl,
-    apiKey: process.env.ZAI_API_KEY || FALLBACK.apiKey,
-    chatId: process.env.ZAI_CHAT_ID || FALLBACK.chatId,
-    userId: process.env.ZAI_USER_ID || FALLBACK.userId,
-    token: process.env.ZAI_TOKEN || FALLBACK.token,
-  }
-  await fs.promises.writeFile('/tmp/.z-ai-config', JSON.stringify(cfg), 'utf-8')
-  configInjected = true
-}
-
-let ZAIModule: typeof import('z-ai-web-dev-sdk').default
-async function getZAI() {
-  await ensureZaiConfig()
-  ZAIModule = (await import('z-ai-web-dev-sdk')).default
-  const originalCwd = process.cwd
-  try {
-    ;(process as any).cwd = () => '/tmp'
-    return await ZAIModule.create()
-  } finally {
-    ;(process as any).cwd = originalCwd
-  }
-}
+// ZAI client construction moved to @/lib/zai-config — it resolves config
+// (env vars -> config files -> baked fallback) and builds the SDK client
+// directly via its exported class. This avoids fragile /tmp config-file
+// writes and process.cwd() monkey-patching on serverless (Vercel).
 
 export interface ScanLocation {
   city?: string | null
@@ -278,11 +235,18 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
       console.warn(`[/api/scan] ${label} rate-limited, retry ${attempt}/${ZAI_RETRY_DELAYS_MS.length} in ${ZAI_RETRY_DELAYS_MS[attempt - 1]}ms`)
       await new Promise((r) => setTimeout(r, ZAI_RETRY_DELAYS_MS[attempt - 1]))
     }
+    const attemptStart = Date.now()
     try {
       return await fn()
     } catch (e) {
       lastErr = e
       if (!isRateLimitError(e)) throw e
+      // Instant hard block (<1.5s): an upstream quota gate rejects immediately.
+      // Backing off inside THIS request cannot help — fail fast so the client
+      // can retry on its own (longer) schedule instead of holding a scan slot.
+      if (Date.now() - attemptStart < 1500) throw e
+      // Slow 429 (real processing then throttle) — transient burst limit,
+      // backoff retries are worth it, continue the loop.
     }
   }
   throw lastErr
@@ -388,7 +352,7 @@ export async function POST(req: NextRequest) {
 
   let directWasRateLimited = false
   try {
-    const zai = await getZAI()
+    const { client: zai } = await getZaiClient()
 
     // Step 1: identify the item
     const identified = await identifyItem(zai, image)
@@ -469,8 +433,11 @@ export async function POST(req: NextRequest) {
     // ---- ROUND-ROBIN PROXY FAILOVER (load balancing across backends) ----
     // Each configured backend is tried once per pass, in round-robin order,
     // so retries spread across backends instead of hammering one. A second
-    // pass (after a short cooldown) catches transient failures.
-    for (let round = 0; round < 2; round++) {
+    // pass (after a short cooldown) catches transient failures — but when the
+    // upstream hard-blocked us with an instant quota 429, every backend shares
+    // the same account, so a single pass is enough (saves ~4s of dead time).
+    const failoverRounds = directWasRateLimited ? 1 : 2
+    for (let round = 0; round < failoverRounds; round++) {
       if (round > 0) await new Promise((r) => setTimeout(r, 1500))
       const tried = new Set<string>()
       for (let i = 0; i < SCAN_PROXY_URLS.length; i++) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck, Handshake } from 'lucide-react'
+import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck, Handshake, Hourglass, Camera } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,14 +9,24 @@ import type { ScanResult } from '@/lib/types'
 import { formatPriceRange } from '@/lib/location'
 import { useState } from 'react'
 
+export interface ScanRetryInfo {
+  attempt: number
+  max: number
+  secondsLeft: number
+  photo: string
+}
+
 interface ResultsPanelProps {
   result: ScanResult | null
   loading: boolean
   error: string | null
+  /** While set, the AI was too busy to scan — the captured photo is held and
+   *  re-posted automatically. Shown as an amber "on hold, retrying" card. */
+  retrying?: ScanRetryInfo | null
   onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void
 }
 
-export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPanelProps) {
+export function ResultsPanel({ result, loading, error, retrying, onAskGuide }: ResultsPanelProps) {
   return (
     <Card className="border-emerald-500/20 bg-white shadow-sm">
       <CardHeader className="pb-3">
@@ -29,6 +39,8 @@ export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPane
         <AnimatePresence mode="wait">
           {loading ? (
             <LoadingState key="loading" />
+          ) : retrying ? (
+            <RetryState key="retrying" info={retrying} />
           ) : error ? (
             <ErrorState key="error" message={error} />
           ) : result ? (
@@ -60,6 +72,36 @@ function ErrorState({ message }: { message: string }) {
       <AlertCircle className="h-8 w-8 text-rose-500" />
       <p className="text-sm font-medium text-zinc-900">Scan failed</p>
       <p className="max-w-xs text-xs text-zinc-500">{message}</p>
+    </motion.div>
+  )
+}
+
+function RetryState({ info }: { info: ScanRetryInfo }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className="flex flex-col items-center gap-3 py-4 text-center"
+    >
+      {info.photo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={info.photo}
+          alt="Captured item waiting to be scanned"
+          className="h-24 w-24 rounded-xl border-2 border-amber-300/60 object-cover shadow-sm"
+        />
+      )}
+      <div className="flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1">
+        <Hourglass className="h-3.5 w-3.5 animate-pulse text-amber-500" />
+        <p className="text-xs font-semibold text-amber-700">
+          AI is busy — retrying in {info.secondsLeft}s ({info.attempt} of {info.max})
+        </p>
+      </div>
+      <p className="flex max-w-xs items-start gap-1.5 text-xs leading-relaxed text-zinc-500">
+        <Camera className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+        Your photo is captured and safe. The scan will send itself automatically — keep the camera pointed at the item.
+      </p>
     </motion.div>
   )
 }
