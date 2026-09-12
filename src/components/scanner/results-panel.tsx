@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SpeakButton } from '@/components/ui/speak-button'
 import type { ScanResult } from '@/lib/types'
 import { formatPriceRange } from '@/lib/location'
 import { useState } from 'react'
@@ -21,23 +20,9 @@ export function ResultsPanel({ result, loading, error, onAskGuide }: ResultsPane
   return (
     <Card className="border-emerald-500/20 bg-white shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-2 text-base text-zinc-900">
-          <span className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-emerald-500" />
-            Scan result
-          </span>
-          {result && (
-            <SpeakButton
-              text={
-                result.item.name && result.item.name !== 'Unknown item'
-                  ? `${result.item.name}${result.item.brand ? ', brand: ' + result.item.brand : ''}.${result.price && (result.price.estimatedLow !== null || result.price.estimatedHigh !== null) ? ` Estimated price: ${formatPriceRange(result.price.estimatedLow, result.price.estimatedHigh, result.price.currency)}.` : ''} ${result.price?.summary || ''}`
-                  : 'No item was identified in the scan. Try again with better lighting.'
-              }
-              lang="en-US"
-              variant="ghost"
-              className="h-7"
-            />
-          )}
+        <CardTitle className="flex items-center gap-2 text-base text-zinc-900">
+          <Sparkles className="h-4 w-4 text-emerald-500" />
+          Scan result
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Sparkles, MapPin, Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, HelpCircle } from 'lucide-react'
+import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { TagInput } from '@/components/ui/tag-input'
-import { SpeakButton } from '@/components/ui/speak-button'
-import { FormTour, type TourStep } from '@/components/ui/form-tour'
 import { useToast } from '@/hooks/use-toast'
 import type { User } from '@/lib/types'
 
@@ -27,49 +25,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
   const [currency, setCurrency] = useState('USD')
   const [bio, setBio] = useState('')
   const [saving, setSaving] = useState(false)
-  const [tourOpen, setTourOpen] = useState(false)
   const { toast } = useToast()
-
-  // Guided tour steps — each one corresponds to a `data-tour` attribute on
-  // a form field below. The tour speaks the user through what to type.
-  const tourSteps: TourStep[] = [
-    {
-      selector: '[data-tour="license"]',
-      title: 'Guide license (optional)',
-      body: 'If you have an official tour-guide license, type its number here. Leave blank if your country does not require one.',
-      speakLang: 'en-US',
-    },
-    {
-      selector: '[data-tour="languages"]',
-      title: 'Languages you speak',
-      body: 'Type each language you can guide in and press Enter. Add as many as you want — travelers filter guides by language. You can also paste a comma-separated list.',
-      speakLang: 'en-US',
-    },
-    {
-      selector: '[data-tour="specialties"]',
-      title: 'Tour specialties',
-      body: 'Type the kinds of tours you offer — Historical, Food, Adventure, Safari, or your own. Press Enter after each one. Add at least one so travelers can find you in the Live Zone.',
-      speakLang: 'en-US',
-    },
-    {
-      selector: '[data-tour="rate"]',
-      title: 'Hourly rate + currency',
-      body: 'Set a typical hourly rate and type your currency code (USD, ETB, EUR, etc). Travelers see this as a starting point — you can negotiate in chat.',
-      speakLang: 'en-US',
-    },
-    {
-      selector: '[data-tour="bio"]',
-      title: 'Guide bio',
-      body: 'Write 2–3 sentences about your experience, what makes your tours special, and what travelers can expect. A friendly, specific bio gets more messages.',
-      speakLang: 'en-US',
-    },
-    {
-      selector: '[data-tour="submit"]',
-      title: 'Register as a guide',
-      body: 'When you are happy with everything, tap Register as guide to publish your profile. You can edit any of this later from your profile.',
-      speakLang: 'en-US',
-    },
-  ]
 
   useEffect(() => {
     if (open && user) {
@@ -124,32 +80,9 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-2">
-          <Sparkles className="h-4 w-4 shrink-0 text-emerald-500" />
-          <p className="flex-1 text-xs text-emerald-800">
-            First time? Take the guided tour — it walks you through every field.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setTourOpen(true)}
-            className="h-7 gap-1.5 border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-100"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            Start tour
-          </Button>
-          <SpeakButton
-            text="Welcome to the tour guide registration. Take the guided tour to fill this form with help. You can also tap any Listen button to hear instructions aloud in your language."
-            lang="en-US"
-            variant="ghost"
-            className="h-7"
-          />
-        </div>
-
         <div className="space-y-5">
           {/* License (optional) */}
-          <div className="space-y-1.5" data-tour="license">
+          <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5" />Guide license number (optional)
             </label>
@@ -157,14 +90,9 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </div>
 
           {/* Languages */}
-          <div className="space-y-1.5" data-tour="languages">
+          <div className="space-y-1.5">
             <label htmlFor="guide-languages-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
               <Languages className="w-3.5 h-3.5" />Languages you speak *
-              <SpeakButton
-                text="Type each language you can guide in and press Enter. Add as many as you want. You can also paste a comma-separated list."
-                lang="en-US"
-                variant="compact"
-              />
             </label>
             <TagInput
               inputId="guide-languages-input"
@@ -176,14 +104,9 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </div>
 
           {/* Specialties */}
-          <div className="space-y-1.5" data-tour="specialties">
+          <div className="space-y-1.5">
             <label htmlFor="guide-specialties-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
               <Briefcase className="w-3.5 h-3.5" />Tour specialties *
-              <SpeakButton
-                text="Type the kinds of tours you offer and press Enter after each one. Add at least one."
-                lang="en-US"
-                variant="compact"
-              />
             </label>
             <TagInput
               inputId="guide-specialties-input"
@@ -195,7 +118,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </div>
 
           {/* Hourly rate + currency */}
-          <div className="grid grid-cols-2 gap-3" data-tour="rate">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5" />Hourly rate
@@ -218,15 +141,8 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </div>
 
           {/* Bio */}
-          <div className="space-y-1.5" data-tour="bio">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              Guide bio
-              <SpeakButton
-                text="Write two or three sentences about your experience, what makes your tours special, and what travelers can expect."
-                lang="en-US"
-                variant="compact"
-              />
-            </label>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground font-medium">Guide bio</label>
             <Textarea
               placeholder="Tell travelers about your experience, what makes your tours special, and what they can expect..."
               value={bio}
@@ -236,19 +152,12 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-border" data-tour="submit">
+        <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 gap-1.5">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Registering...</> : <><Save className="w-4 h-4" />Register as guide</>}
           </Button>
         </div>
-
-        <FormTour
-          open={tourOpen}
-          steps={tourSteps}
-          onClose={() => setTourOpen(false)}
-          onComplete={() => toast({ title: 'Tour complete', description: 'You are ready to fill in the form.' })}
-        />
       </DialogContent>
     </Dialog>
   )
