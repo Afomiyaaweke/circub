@@ -1,6 +1,6 @@
 'use client'
 
-import { Camera, CameraOff, Loader2, RefreshCw, ScanLine, Power } from 'lucide-react'
+import { Camera, CameraOff, Loader2, RefreshCw, ScanLine, Pause, Play } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import type { CameraStatus } from '@/hooks/use-camera'
@@ -13,11 +13,14 @@ interface ViewfinderProps {
   scanning: boolean
   onStart: () => void
   onSwitch: () => void
-  /** Called when the user asks to turn the camera off (privacy / battery). */
-  onStop?: () => void
+  /** True while scanning is paused — preview stays live but the scan loop is halted. */
+  paused?: boolean
+  /** Called when the user toggles pause — pauses/resumes scanning WITHOUT
+   *  killing the camera, so the next scan starts instantly. */
+  onTogglePause?: () => void
 }
 
-export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitch, onStop }: ViewfinderProps) {
+export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitch, paused, onTogglePause }: ViewfinderProps) {
   const isLive = status === 'live'
 
   return (
@@ -130,14 +133,19 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
           >
             <RefreshCw className="h-4 w-4" />
           </button>
-          {onStop && (
+          {onTogglePause && (
             <button
-              onClick={onStop}
-              aria-label="Turn off camera"
-              title="Turn off camera"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-300/30 bg-black/50 text-rose-200 backdrop-blur transition hover:bg-rose-500/40 hover:text-white"
+              onClick={onTogglePause}
+              aria-label={paused ? 'Resume scanning' : 'Pause scanning'}
+              title={paused ? 'Resume scanning' : 'Pause scanning'}
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur transition',
+                paused
+                  ? 'border-emerald-300/30 bg-black/50 text-emerald-200 hover:bg-emerald-500/40 hover:text-white'
+                  : 'border-amber-300/30 bg-black/50 text-amber-200 hover:bg-amber-500/40 hover:text-white'
+              )}
             >
-              <Power className="h-4 w-4" />
+              {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </button>
           )}
         </div>
@@ -149,7 +157,7 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
           </span>
-          LIVE
+          {paused ? 'PAUSED — TAP ▶ TO RESUME' : 'LIVE'}
         </div>
       )}
     </div>

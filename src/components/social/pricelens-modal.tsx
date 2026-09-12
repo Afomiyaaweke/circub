@@ -23,9 +23,10 @@ import {
   type ResolvedLocation,
 } from '@/lib/location'
 
-// Auto-scan cadence (ms). Lower = faster scanning.
-// Kept at 4s so the AI has time to finish each scan without overlapping.
-const AUTO_SCAN_INTERVAL = 4000
+// Auto-scan cadence (ms). Lower = faster scanning. 2.5s is safe because
+// scanInFlight prevents overlapping scans — if the AI is still busy the
+// tick is skipped and the next scan fires as soon as the server responds.
+const AUTO_SCAN_INTERVAL = 2500
 // Lower max dimension = smaller payload = faster upload + faster AI response.
 // 384px is enough for product/label identification while keeping payload <100KB.
 const CAPTURE_MAX_DIM = 384
@@ -63,6 +64,19 @@ async function downscaleImage(dataUrl: string, maxDim: number): Promise<string> 
   })
 }
 
+// Wait until the video element is actually delivering frames (readyState >= 2
+// and non-zero dimensions). Polls every 25ms instead of a blind fixed delay,
+// so scanning starts the instant the camera is ready.
+async function waitForVideoFrame(video: HTMLVideoElement | null, timeoutMs = 800): Promise<boolean> {
+  if (!video) return false
+  const t0 = Date.now()
+  while (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+    if (Date.now() - t0 > timeoutMs) return video.videoWidth > 0
+    await new Promise((r) => setTimeout(r, 25))
+  }
+  return true
+}
+
 export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModalProps) {
   const {
     videoRef,
@@ -82,20 +96,22 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const [location, setLocation] = useState<ResolvedLocation | null>(null)
   const [detectingLocation, setDetectingLocation] = useState(false)
   const [autoScan, setAutoScan] = useState(false)
+  const [paused, setPaused] = useState(false)
   const { toast } = useToast()
   const scanInFlight = useRef(false)
 
-  // Camera is NOT auto-started when modal opens — it starts only when
-  // the user taps "Scan item" or "Start camera". After each manual scan
-  // completes the camera is turned OFF to save battery + protect privacy.
-  // The camera is also stopped when the modal closes so no stream is
-  // left running in the background.
+  // Camera lifecycle: the camera starts on the first user tap ("Scan item"
+  // or "Start camera") and then STAYS LIVE between scans so repeated scans
+  // are instant (no restart + permission renegotiation per scan). The
+  // Pause button halts the auto-scan loop but keeps the preview warm.
+  // Closing the modal fully releases the camera (privacy + battery).
 
   // Stop the camera whenever the modal closes (privacy + battery).
   useEffect(() => {
     if (!open) {
       stop()
       setAutoScan(false)
+      setPaused(false)
     }
   }, [open, stop])
 
@@ -133,13 +149,15 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   const runScan = useCallback(async () => {
     if (scanInFlight.current) return
-    // Start camera if not already live
+    // Start camera if not already live — when it is already live (the normal
+    // case now) this is skipped entirely and capture is instant.
     if (status !== 'live') {
       await start('environment')
-      // Brief wait for the video element to have a non-zero frame.
-      // 150ms is enough on most devices; the captureFrame() guard
-      // below will bail out if the frame still isn't ready.
-      await new Promise((r) => setTimeout(r, 150))
+      const ready = await waitForVideoFrame(videoRef.current)
+      if (!ready) {
+        setScanError('Camera is not ready. Try again.')
+        return
+      }
     }
     // Lower quality + downscale for faster upload (critical for Vercel proxy)
     const rawFrame = captureFrame(CAPTURE_QUALITY)
@@ -193,22 +211,23 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     } finally {
       setLoading(false)
       scanInFlight.current = false
-      // Turn OFF the camera after scanning is done — saves battery + privacy.
-      // Auto-scan mode will restart the camera on its next tick.
-      if (!autoScan) stop()
+      // Camera stays LIVE after the scan so the next scan is instant.
+      // Use Pause to halt the auto-scan loop, or close the modal to
+      // fully release the camera (privacy + battery).
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captureFrame, location, toast, onPickItem, status, start, stop, autoScan])
+  }, [captureFrame, location, toast, onPickItem, status, start, videoRef])
 
   useEffect(() => {
     if (!open) return
     if (!autoScan) return
+    if (paused) return
     if (status !== 'live') return
     const id = setInterval(() => void runScan(), AUTO_SCAN_INTERVAL)
     void runScan()
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoScan, status, open])
+  }, [autoScan, paused, status, open])
 
   const handleStart = useCallback(() => {
     void start('environment')
@@ -218,10 +237,13 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     void detectLocation()
   }, [start, detectLocation])
   const handleSwitch = useCallback(() => void switchCamera(), [switchCamera])
-  const handleStopCamera = useCallback(() => {
-    setAutoScan(false)
-    stop()
-  }, [stop])
+  // Pause keeps the camera + preview alive and only halts the scan loop,
+  // so resuming (or the next manual "Scan item") is instant.
+  const handleTogglePause = useCallback(() => setPaused((p) => !p), [])
+  const handleScanNow = useCallback(() => {
+    if (paused) setPaused(false)
+    void runScan()
+  }, [paused, runScan])
   const handleSelectHistory = useCallback((entry: ScanHistoryEntry) => {
     setResult(entry.result)
     setActiveHistoryId(entry.id)
@@ -269,15 +291,16 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 status={status}
                 error={cameraError}
                 scanning={loading}
+                paused={paused}
                 onStart={handleStart}
                 onSwitch={handleSwitch}
-                onStop={handleStopCamera}
+                onTogglePause={handleTogglePause}
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Button
                   size="lg"
-                  onClick={() => void runScan()}
+                  onClick={handleScanNow}
                   disabled={!canScan}
                   className={cn(
                     'flex-1 gap-2 rounded-xl text-sm font-semibold transition',
@@ -295,7 +318,9 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                     {autoScan ? <Zap className="h-3.5 w-3.5 text-emerald-500" /> : <ZapOff className="h-3.5 w-3.5 text-zinc-400" />}
                     <div className="leading-tight">
                       <p className="text-xs font-medium text-zinc-800">Auto-scan</p>
-                      <p className="text-[9px] text-zinc-500">every {AUTO_SCAN_INTERVAL / 1000}s</p>
+                      <p className="text-[9px] text-zinc-500">
+                        {paused ? 'paused — tap ▶ to resume' : `every ${AUTO_SCAN_INTERVAL / 1000}s`}
+                      </p>
                     </div>
                   </div>
                   <Switch checked={autoScan} onCheckedChange={setAutoScan} disabled={status !== 'live'} aria-label="Toggle auto-scan" />
