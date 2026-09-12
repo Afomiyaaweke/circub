@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TagInput } from '@/components/ui/tag-input'
 import { SpeakButton } from '@/components/ui/speak-button'
 import { FormTour, type TourStep } from '@/components/ui/form-tour'
 import { useToast } from '@/hooks/use-toast'
@@ -18,29 +18,6 @@ interface GuideRegisterModalProps {
   user: User | null
   onSaved: () => void
 }
-
-const LANGUAGES = [
-  // Africa
-  'Amharic', 'Swahili', 'Arabic', 'Oromo', 'Tigrinya', 'Wolaytta', 'Yoruba', 'Igbo', 'Hausa', 'Zulu', 'Xhosa', 'Afrikaans', 'Somali', 'Shona', 'Kinyarwanda', 'Lingala', 'Bambara', 'Wolof', 'Malagasy', 'Twi',
-  // Europe
-  'English', 'French', 'Spanish', 'Portuguese', 'German', 'Italian', 'Dutch', 'Russian', 'Polish', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Greek', 'Turkish', 'Czech', 'Romanian', 'Hungarian', 'Ukrainian', 'Catalan',
-  // Asia
-  'Mandarin', 'Cantonese', 'Japanese', 'Korean', 'Hindi', 'Bengali', 'Tamil', 'Telugu', 'Urdu', 'Persian', 'Thai', 'Vietnamese', 'Indonesian', 'Malay', 'Tagalog', 'Khmer', 'Burmese', 'Nepali', 'Sinhala', 'Kazakh',
-  // Americas
-  'Quechua', 'Guarani', 'Haitian Creole', 'Maya',
-  // Middle East
-  'Hebrew', 'Kurdish', 'Pashto', 'Dari',
-  // Sign
-  'Sign Language (ASL)', 'Sign Language (BSL)',
-]
-const SPECIALTIES = [
-  'Historical', 'Food & Culinary', 'Adventure', 'Cultural', 'Nature & Wildlife',
-  'Photography', 'Shopping', 'Nightlife', 'Religious', 'Architecture',
-  'Beach & Islands', 'Hiking & Trekking', 'Safari', 'Diving & Snorkeling',
-  'Wine & Spirits', 'Art & Museums', 'Local Markets', 'Festivals',
-  'Wellness & Spa', 'Family Friendly',
-]
-const CURRENCIES = ['USD', 'ETB', 'EUR', 'KES', 'UGX', 'NGN', 'INR', 'CNY', 'JPY', 'MYR', 'GBP', 'AUD', 'CAD', 'ZAR', 'BRL', 'MAD', 'EGP', 'GHS', 'TZS', 'RWF']
 
 export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideRegisterModalProps) {
   const [license, setLicense] = useState('')
@@ -59,25 +36,25 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     {
       selector: '[data-tour="license"]',
       title: 'Guide license (optional)',
-      body: 'If you have an official tour-guide license, enter its number here. Leave blank if your country does not require one.',
+      body: 'If you have an official tour-guide license, type its number here. Leave blank if your country does not require one.',
       speakLang: 'en-US',
     },
     {
       selector: '[data-tour="languages"]',
       title: 'Languages you speak',
-      body: 'Tap every language you can guide in. Pick at least one — travelers filter guides by language. Add specialty languages like Sign Language if relevant.',
+      body: 'Type each language you can guide in and press Enter. Add as many as you want — travelers filter guides by language. You can also paste a comma-separated list.',
       speakLang: 'en-US',
     },
     {
       selector: '[data-tour="specialties"]',
       title: 'Tour specialties',
-      body: 'Choose the kinds of tours you offer — Historical, Food, Adventure, Safari, etc. Pick at least one so travelers can find you in the Live Zone.',
+      body: 'Type the kinds of tours you offer — Historical, Food, Adventure, Safari, or your own. Press Enter after each one. Add at least one so travelers can find you in the Live Zone.',
       speakLang: 'en-US',
     },
     {
       selector: '[data-tour="rate"]',
-      title: 'Hourly rate',
-      body: 'Set a typical hourly rate in your local currency. Travelers will see this as a starting point — you can negotiate in chat.',
+      title: 'Hourly rate + currency',
+      body: 'Set a typical hourly rate and type your currency code (USD, ETB, EUR, etc). Travelers see this as a starting point — you can negotiate in chat.',
       speakLang: 'en-US',
     },
     {
@@ -104,14 +81,11 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     }
   }, [open, user])
 
-  const toggleArray = (arr: string[], item: string) => {
-    if (arr.includes(item)) return arr.filter((x) => x !== item)
-    return [...arr, item]
-  }
-
   const handleSave = async () => {
-    if (languages.length === 0) { toast({ title: 'Select at least one language', variant: 'destructive' }); return }
-    if (specialties.length === 0) { toast({ title: 'Select at least one specialty', variant: 'destructive' }); return }
+    if (languages.length === 0) { toast({ title: 'Add at least one language', variant: 'destructive' }); return }
+    if (specialties.length === 0) { toast({ title: 'Add at least one specialty', variant: 'destructive' }); return }
+    const currencyClean = currency.trim().toUpperCase()
+    if (!currencyClean) { toast({ title: 'Type your currency code (e.g. USD, ETB)', variant: 'destructive' }); return }
     setSaving(true)
     try {
       const res = await fetch('/api/guides', {
@@ -122,7 +96,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           guideLanguages: languages.join(','),
           guideSpecialties: specialties.join(','),
           guideHourlyRate: hourlyRate || null,
-          guideCurrency: currency,
+          guideCurrency: currencyClean,
           guideBio: bio,
           guideAvailable: true,
         }),
@@ -184,74 +158,62 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
 
           {/* Languages */}
           <div className="space-y-1.5" data-tour="languages">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+            <label htmlFor="guide-languages-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
               <Languages className="w-3.5 h-3.5" />Languages you speak *
               <SpeakButton
-                text="Tap every language you can guide in. Travelers filter guides by language, so add all the languages you are comfortable speaking."
+                text="Type each language you can guide in and press Enter. Add as many as you want. You can also paste a comma-separated list."
                 lang="en-US"
                 variant="compact"
               />
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => setLanguages((prev) => toggleArray(prev, lang))}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    languages.includes(lang)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-                  }`}
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
+            <TagInput
+              inputId="guide-languages-input"
+              value={languages}
+              onChange={setLanguages}
+              placeholder="e.g. Amharic, English, French…"
+              hint="Type a language and press Enter. Backspace removes the last one."
+            />
           </div>
 
           {/* Specialties */}
           <div className="space-y-1.5" data-tour="specialties">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+            <label htmlFor="guide-specialties-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
               <Briefcase className="w-3.5 h-3.5" />Tour specialties *
               <SpeakButton
-                text="Choose the kinds of tours you offer. Pick at least one so travelers can find you in the Live Zone."
+                text="Type the kinds of tours you offer and press Enter after each one. Add at least one."
                 lang="en-US"
                 variant="compact"
               />
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {SPECIALTIES.map((spec) => (
-                <button
-                  key={spec}
-                  type="button"
-                  onClick={() => setSpecialties((prev) => toggleArray(prev, spec))}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    specialties.includes(spec)
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-                  }`}
-                >
-                  {spec}
-                </button>
-              ))}
-            </div>
+            <TagInput
+              inputId="guide-specialties-input"
+              value={specialties}
+              onChange={setSpecialties}
+              placeholder="e.g. Historical, Food, Safari…"
+              hint="Type a specialty and press Enter. Use your own words — no preset list."
+            />
           </div>
 
           {/* Hourly rate + currency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5" data-tour="rate">
+          <div className="grid grid-cols-2 gap-3" data-tour="rate">
+            <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5" />Hourly rate
               </label>
               <Input type="number" placeholder="e.g. 25" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} min="0" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground font-medium">Currency</label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>{CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
+              <label htmlFor="guide-currency-input" className="text-xs text-muted-foreground font-medium">Currency</label>
+              <Input
+                id="guide-currency-input"
+                type="text"
+                placeholder="e.g. USD"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                maxLength={5}
+                autoCapitalize="characters"
+                className="uppercase"
+              />
             </div>
           </div>
 
