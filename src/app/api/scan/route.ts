@@ -116,7 +116,23 @@ interface IdentifiedItem {
 }
 
 async function identifyItem(zai: any, imageDataUrl: string): Promise<IdentifiedItem> {
-  const prompt = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
+  const prompt = `You are a precise product identification assistant for a price-comparison app.
+
+Look carefully at the image and identify the SINGLE main product the user is pointing at (ignore background, hands, shelves, other items).
+
+Instructions:
+1. Read any visible text on the label, packaging, or barcode — brand, product name, model, size, variant.
+2. If multiple text fragments are visible, prefer the largest/most prominent one.
+3. If the image is blurry, dark, or shows no recognizable product, set name to "Unknown item".
+4. The "searchQuery" field must be a concise Google-style query that a shopper would type to find this exact product, including brand + model/variant + size if visible.
+
+Respond ONLY with a JSON object on a single line — no markdown, no explanation:
+{"name":"product name","brand":"brand or null","category":"category","description":"one short sentence","searchQuery":"brand model size"}
+
+Examples of good responses:
+- {"name":"Coca-Cola 500ml bottle","brand":"Coca-Cola","category":"Soft drink","description":"500ml plastic bottle of Coca-Cola.","searchQuery":"Coca-Cola 500ml bottle price"}
+- {"name":"Nescafé Classic 100g jar","brand":"Nescafé","category":"Instant coffee","description":"100g jar of Nescafé Classic instant coffee.","searchQuery":"Nescafé Classic 100g instant coffee price"}
+- {"name":"Unknown item","brand":null,"category":null,"description":"","searchQuery":""}`
   const response = await zai.chat.completions.createVision({
     messages: [{ role: 'user', content: [
       { type: 'text', text: prompt },
@@ -148,7 +164,7 @@ async function estimatePrice(zai: any, searchQuery: string, location: ScanLocati
   const locationName = location?.city ? `${location.city}${location.country ? ', ' + location.country : ''}` : location?.country || 'worldwide'
   const localCurrency = localCurrencyForLocation(location || {})
   const sourcesBlock = sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
-  const prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
+  const prompt = `You are a price-analysis assistant for shoppers. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic RETAIL price range for this exact product in this location, based ONLY on the search results above.\n\nRules:\n- The local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n- "estimatedLow" = the cheapest realistic retail price (on sale or budget retailer).\n- "estimatedHigh" = the typical full-price retail price (not luxury/resale).\n- If the search results are clearly about a DIFFERENT product (wrong brand, wrong size, wrong category), set both estimatedLow and estimatedHigh to null.\n- If no price information is in the sources, set both to null.\n- Do NOT include the currency symbol in the numbers — only the numeric amount.\n- "summary" must be one or two sentences citing the typical price range you found, in ${localCurrency}.\n\nRespond ONLY with a JSON object on a single line — no markdown:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
   const response = await zai.chat.completions.create({
     messages: [{ role: 'user', content: prompt }],
     thinking: { type: 'disabled' },
