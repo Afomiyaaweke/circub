@@ -13,7 +13,6 @@ import { Viewfinder } from '@/components/scanner/viewfinder'
 import { ResultsPanel } from '@/components/scanner/results-panel'
 import { LocationBar } from '@/components/scanner/location-bar'
 import { HistoryList } from '@/components/scanner/history-list'
-import { ScannerGuide } from '@/components/scanner/scanner-guide'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
@@ -87,10 +86,10 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const scanInFlight = useRef(false)
 
   // Camera is NOT auto-started when modal opens — it starts only when
-  // the user taps "Scan item" or "Start camera". After each scan
+  // the user taps "Scan item" or "Start camera". After each manual scan
   // completes the camera is turned OFF to save battery + protect privacy.
-  // When auto-scan is toggled off, or the modal closes, we also stop the
-  // camera so no stream is left running in the background.
+  // The camera is also stopped when the modal closes so no stream is
+  // left running in the background.
 
   // Stop the camera whenever the modal closes (privacy + battery).
   useEffect(() => {
@@ -99,14 +98,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
       setAutoScan(false)
     }
   }, [open, stop])
-
-  // When the user toggles auto-scan OFF, turn the camera off immediately.
-  // (When toggled ON, the auto-scan effect below will start the camera.)
-  useEffect(() => {
-    if (!autoScan && status === 'live' && !loading) {
-      stop()
-    }
-  }, [autoScan, status, loading, stop])
 
   const detectLocation = useCallback(async () => {
     setDetectingLocation(true)
@@ -299,8 +290,6 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                   {loading ? 'Scanning…' : 'Scan item'}
                 </Button>
 
-                <ScannerGuide className="h-10 px-3 border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50" />
-
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
                   <div className="flex items-center gap-2">
                     {autoScan ? <Zap className="h-3.5 w-3.5 text-emerald-500" /> : <ZapOff className="h-3.5 w-3.5 text-zinc-400" />}
@@ -313,18 +302,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                 </div>
               </div>
 
-              <LocationBar
-                location={location}
-                detecting={detectingLocation}
-                onRefresh={() => void detectLocation()}
-                onManualSet={(loc) => {
-                  setLocation(loc)
-                  toast({
-                    title: 'Location updated',
-                    description: `Pricing scoped to ${loc.city ? loc.city + ', ' : ''}${loc.country || 'your selected place'}.`,
-                  })
-                }}
-              />
+              <LocationBar location={location} detecting={detectingLocation} onRefresh={() => void detectLocation()} />
 
               <div className="lg:hidden">
                 <HistoryList history={history} onSelect={handleSelectHistory} onClear={() => setHistory([])} activeId={activeHistoryId} />

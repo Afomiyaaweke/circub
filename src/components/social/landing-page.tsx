@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import {
   MapPin, Users, Building2, Sparkles, Lightbulb, ShieldCheck, Globe,
   TrendingUp, BadgeCheck, ArrowRight, MessageSquare, Eye, ThumbsUp,
-  UserPlus, Search, Heart, Star, ChevronRight, Plane, Compass, PackageOpen
+  UserPlus, Search, Heart, Star, ChevronRight, Plane, Compass, PackageOpen,
+  Mail, Phone, Twitter, Instagram
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -597,6 +598,52 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               <a href="#" className="hover:text-primary">Terms</a>
               <a href="#" className="hover:text-primary">Help</a>
               <a href="#" className="hover:text-primary">About</a>
+            </div>
+          </div>
+          {/* ===== Contact info ===== */}
+          <div className="mt-8 pt-6 border-t border-background/10">
+            <p className="text-xs font-semibold uppercase tracking-wider text-background/60">Contact us</p>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+              <a
+                href="mailto:hello@circub.app"
+                className="flex items-center gap-2.5 text-background/80 hover:text-primary transition-colors"
+              >
+                <Mail className="h-4 w-4 shrink-0 text-primary" />
+                hello@circub.app
+              </a>
+              <a
+                href="tel:+251911234567"
+                className="flex items-center gap-2.5 text-background/80 hover:text-primary transition-colors"
+              >
+                <Phone className="h-4 w-4 shrink-0 text-primary" />
+                +251 911 234 567
+              </a>
+              <div className="flex items-center gap-2.5 text-background/80">
+                <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                Addis Ababa, Ethiopia
+              </div>
+              <div className="flex items-center gap-4 text-background/80">
+                <a
+                  href="https://x.com/circubapp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-primary transition-colors"
+                  aria-label="circub on X (Twitter)"
+                >
+                  <Twitter className="h-4 w-4 shrink-0 text-primary" />
+                  @circubapp
+                </a>
+                <a
+                  href="https://instagram.com/circub.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-primary transition-colors"
+                  aria-label="circub on Instagram"
+                >
+                  <Instagram className="h-4 w-4 shrink-0 text-primary" />
+                  @circub.app
+                </a>
+              </div>
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-background/10 text-xs text-background/60 text-center">

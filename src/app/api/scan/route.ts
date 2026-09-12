@@ -7,15 +7,6 @@ import { db } from '@/lib/db'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// How long to wait for the direct ZAI SDK call before falling back to the proxy.
-// 25s gives the SDK plenty of time on a warm call but doesn't make the user
-// stare at a spinner for a full minute when ZAI is overloaded.
-const DIRECT_ZAI_TIMEOUT_MS = 25000
-// How long to wait on each proxy attempt.
-const PROXY_TIMEOUT_MS = 45000
-// Number of proxy retry attempts with exponential backoff.
-const PROXY_MAX_ATTEMPTS = 3
-
 // Currency mapping
 const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
   US: 'USD', GB: 'GBP', ET: 'ETB', KE: 'KES', IN: 'INR', CN: 'CNY',
@@ -125,23 +116,7 @@ interface IdentifiedItem {
 }
 
 async function identifyItem(zai: any, imageDataUrl: string): Promise<IdentifiedItem> {
-  const prompt = `You are a precise product identification assistant for a price-comparison app.
-
-Look carefully at the image and identify the SINGLE main product the user is pointing at (ignore background, hands, shelves, other items).
-
-Instructions:
-1. Read any visible text on the label, packaging, or barcode — brand, product name, model, size, variant.
-2. If multiple text fragments are visible, prefer the largest/most prominent one.
-3. If the image is blurry, dark, or shows no recognizable product, set name to "Unknown item".
-4. The "searchQuery" field must be a concise Google-style query that a shopper would type to find this exact product, including brand + model/variant + size if visible.
-
-Respond ONLY with a JSON object on a single line — no markdown, no explanation:
-{"name":"product name","brand":"brand or null","category":"category","description":"one short sentence","searchQuery":"brand model size"}
-
-Examples of good responses:
-- {"name":"Coca-Cola 500ml bottle","brand":"Coca-Cola","category":"Soft drink","description":"500ml plastic bottle of Coca-Cola.","searchQuery":"Coca-Cola 500ml bottle price"}
-- {"name":"Nescafé Classic 100g jar","brand":"Nescafé","category":"Instant coffee","description":"100g jar of Nescafé Classic instant coffee.","searchQuery":"Nescafé Classic 100g instant coffee price"}
-- {"name":"Unknown item","brand":null,"category":null,"description":"","searchQuery":""}`
+  const prompt = `Identify the main product in this image. Respond ONLY with JSON: {"name":"product name","brand":null,"category":"category","description":"one sentence","searchQuery":"search query for price lookup"}. If no product, use name "Unknown item".`
   const response = await zai.chat.completions.createVision({
     messages: [{ role: 'user', content: [
       { type: 'text', text: prompt },
@@ -168,13 +143,12 @@ interface PriceEstimate {
   estimatedLow: number | null; estimatedHigh: number | null; currency: string | null; summary: string
 }
 
-async function estimatePrice(zai: any, searchQuery: string, location: ScanLocation | null, sources: ScanResult['sources'], itemName: string): Promise<PriceEstimate | null> {
+async function estimatePrice(zai: any, searchQuery: string, location: ScanLocation | null, sources: ScanResult['sources']): Promise<PriceEstimate | null> {
+  if (sources.length === 0) return null
   const locationName = location?.city ? `${location.city}${location.country ? ', ' + location.country : ''}` : location?.country || 'worldwide'
   const localCurrency = localCurrencyForLocation(location || {})
-  const sourcesBlock = sources.length > 0
-    ? sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
-    : '(no web search results were returned)'
-  const prompt = `You are a price-analysis assistant for shoppers. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic RETAIL price range for this product: "${itemName}".\n\nStrategy (in order of preference):\n1. If the search results contain explicit prices for THIS product, use those as the basis.\n2. If the search results are weak or about other products, use your own knowledge of typical retail prices for this product category and brand in this location.\n3. ONLY if you genuinely cannot estimate (e.g. the product name is "Unknown item", or it is a one-of-a-kind item with no market), set both estimatedLow and estimatedHigh to null.\n\nRules:\n- The local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n- "estimatedLow" = the cheapest realistic retail price (on sale or budget retailer).\n- "estimatedHigh" = the typical full-price retail price (not luxury/resale).\n- Do NOT include the currency symbol in the numbers — only the numeric amount.\n- "summary" must be one or two sentences citing the typical price range, in ${localCurrency}, and note whether the estimate came from web sources or general knowledge.\n\nRespond ONLY with a JSON object on a single line — no markdown:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
+  const sourcesBlock = sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
+  const prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
   const response = await zai.chat.completions.create({
     messages: [{ role: 'user', content: prompt }],
     thinking: { type: 'disabled' },
@@ -210,10 +184,7 @@ export async function POST(req: NextRequest) {
     // Step 1: identify the item
     const identified = await identifyItem(zai, image)
 
-    // Step 2: Run web search + DB search + AI price estimate ALL IN PARALLEL.
-    // The AI uses its own training knowledge as a fallback when web sources
-    // are weak — so the user always gets a price range as long as the item
-    // was identified.
+    // Step 2: Run web search + DB search IN PARALLEL (saves ~2-3s)
     const locationQualifier = location?.city ? `in ${location.city}${location.country ? ' ' + location.country : ''}` : location?.country ? `in ${location.country}` : ''
     const query = locationQualifier ? `${identified.searchQuery} ${locationQualifier} price` : `${identified.searchQuery} price`
 
@@ -257,31 +228,12 @@ export async function POST(req: NextRequest) {
       } catch (e) { console.error('[/api/scan] DB search failed:', e); return [] }
     })()
 
-    // AI price estimate fires immediately, in parallel with web + DB search.
-    // We pass an empty sources array — the AI uses its own training knowledge
-    // (the new prompt explicitly tells it to). This means a price range is
-    // ALWAYS produced, even when web search returns nothing.
-    const aiEstimatePromise = estimatePrice(zai, query, location, [], identified.name)
-      .catch(() => null as PriceEstimate | null)
+    // Wait for both — parallel execution saves ~2-3s
+    const [sources, localPrices] = await Promise.all([webSearchPromise, dbSearchPromise])
 
-    // Wait for all three — parallel execution saves ~3-5s vs sequential.
-    const [sources, localPrices, aiEstimate] = await Promise.all([webSearchPromise, dbSearchPromise, aiEstimatePromise])
-
-    // Step 3: Combine signals into a final price range.
-    // Priority: local prices > AI estimate. If both exist, we use the wider
-    // envelope so the user sees the full realistic range.
+    // Step 3: ONLY estimate price if no local prices (saves 3-5s when locals exist)
     let finalPrice: PriceEstimate | null = null
-    if (localPrices.length > 0 && aiEstimate && aiEstimate.estimatedLow !== null && aiEstimate.estimatedHigh !== null) {
-      const mins = localPrices.map((p) => p.priceMin)
-      const maxs = localPrices.map((p) => p.priceMax)
-      const low = Math.min(...mins, aiEstimate.estimatedLow)
-      const high = Math.max(...maxs, aiEstimate.estimatedHigh)
-      finalPrice = {
-        estimatedLow: low, estimatedHigh: high,
-        currency: localPrices[0].currency,
-        summary: `AI estimate: ${aiEstimate.currency} ${aiEstimate.estimatedLow}–${aiEstimate.estimatedHigh}. Confirmed by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
-      }
-    } else if (localPrices.length > 0) {
+    if (localPrices.length > 0) {
       const mins = localPrices.map((p) => p.priceMin)
       const maxs = localPrices.map((p) => p.priceMax)
       finalPrice = {
@@ -290,9 +242,8 @@ export async function POST(req: NextRequest) {
         summary: `Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
       }
     } else {
-      // No local prices — use the AI estimate (which always returns something
-      // when the item was identified, using the AI's own knowledge as fallback).
-      finalPrice = aiEstimate
+      // No local prices — estimate from web search
+      finalPrice = await estimatePrice(zai, query, location, sources)
       if (finalPrice && finalPrice.estimatedLow !== null) { finalPrice.currency = localCurrencyForLocation(location || {}) }
     }
 

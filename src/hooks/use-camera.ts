@@ -29,6 +29,9 @@ export function useCamera({ facingMode = 'environment' }: UseCameraOptions = {})
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
+    // Reflect the stopped state in the UI (e.g. viewfinder placeholder,
+    // "Scan item" button enablement) instead of leaving status stuck on 'live'.
+    setStatus('idle')
   }, [])
 
   const start = useCallback(
