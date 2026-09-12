@@ -7,6 +7,15 @@ import { db } from '@/lib/db'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+// How long to wait for the direct ZAI SDK call before falling back to the proxy.
+// 25s gives the SDK plenty of time on a warm call but doesn't make the user
+// stare at a spinner for a full minute when ZAI is overloaded.
+const DIRECT_ZAI_TIMEOUT_MS = 25000
+// How long to wait on each proxy attempt.
+const PROXY_TIMEOUT_MS = 45000
+// Number of proxy retry attempts with exponential backoff.
+const PROXY_MAX_ATTEMPTS = 3
+
 // Currency mapping
 const CURRENCY_BY_COUNTRY_CODE: Record<string, string> = {
   US: 'USD', GB: 'GBP', ET: 'ETB', KE: 'KES', IN: 'INR', CN: 'CNY',
