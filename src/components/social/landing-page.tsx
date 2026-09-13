@@ -133,6 +133,10 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
     <div className="min-h-screen bg-background">
       {/* ===== Hero ===== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-emerald-50">
+        {/* App install — pinned top-right corner */}
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
+          <PwaInstallButton compact />
+        </div>
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl" />
@@ -576,11 +580,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
             >
               I already have an account
             </Button>
-            <PwaInstallButton className="border-white/70 bg-transparent text-white hover:border-white hover:bg-white hover:text-primary" />
           </div>
-          <p className="text-xs text-primary-foreground/80 mt-4">
-            Prefer your phone? Install the circub app — full-screen, own home-screen icon, works like native.
-          </p>
           <p className="text-xs text-primary-foreground/70 mt-6">
             Free forever. No credit card. Personal or Company account · your choice.
           </p>

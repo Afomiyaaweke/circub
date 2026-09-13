@@ -27,7 +27,13 @@ type InstallPromptEvent = Event & {
  *   instructions (Add to Home Screen), highlighting the user's platform.
  * - Hidden entirely when the app is already running installed (standalone).
  */
-export function PwaInstallButton({ className }: { className?: string }) {
+export function PwaInstallButton({
+  className,
+  compact = false,
+}: {
+  className?: string
+  compact?: boolean
+}) {
   const [promptEvent, setPromptEvent] = useState<InstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState(false)
   const [isIos, setIsIos] = useState(false)
@@ -92,15 +98,17 @@ export function PwaInstallButton({ className }: { className?: string }) {
     <>
       <Button
         onClick={handleClick}
-        size="lg"
+        size={compact ? 'sm' : 'lg'}
         variant="outline"
         className={cn(
-          'h-12 px-6 gap-2 border-foreground/15 bg-foreground/5 text-foreground hover:border-foreground hover:bg-foreground hover:text-background',
+          compact
+            ? 'h-9 px-3 gap-1.5 text-sm border-primary/30 bg-background/80 text-primary hover:bg-primary hover:text-primary-foreground backdrop-blur-sm shadow-sm'
+            : 'h-12 px-6 gap-2 border-foreground/15 bg-foreground/5 text-foreground hover:border-foreground hover:bg-foreground hover:text-background',
           className
         )}
       >
-        <Smartphone className="w-4 h-4" />
-        Get the mobile app
+        <Smartphone className={compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+        {compact ? 'Get the app' : 'Get the mobile app'}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
