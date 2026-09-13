@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/components/auth-provider";
+import { PwaRegister } from "@/components/pwa-register";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +21,13 @@ export const metadata: Metadata = {
   description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
   keywords: ["circub", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge"],
   authors: [{ name: "circub Team" }],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "circub",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -42,6 +50,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#16a34a",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,6 +70,7 @@ export default function RootLayout({
         <AuthProvider>{children}</AuthProvider>
         <Toaster />
         <Analytics />
+        <PwaRegister />
       </body>
     </html>
   );
