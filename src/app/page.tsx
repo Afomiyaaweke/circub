@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Mail, Phone, MapPin, Twitter, Instagram } from 'lucide-react'
 import { Header } from '@/components/social/header'
-import { LeftSidebar } from '@/components/social/left-sidebar'
 import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage } from '@/components/social/landing-page'
 import { RegisterModal } from '@/components/social/register-modal'
@@ -280,15 +279,6 @@ export default function Home() {
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-          <LeftSidebar
-            user={me}
-            loading={false}
-            onMessage={handleOpenMessages}
-            onManageNetwork={() => setActiveTab('network')}
-            onEditProfile={() => setEditProfileOpen(true)}
-            editProfileOpen={editProfileOpen}
-          />
-
           {activeTab === 'feed' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <FeedTab user={me} onMessage={handleMessageUser} onRefreshUser={fetchMe} />
@@ -321,12 +311,15 @@ export default function Home() {
 
           <RightSidebar
             refreshSignal={refreshSignal}
+            user={me}
             onMessage={handleMessageUser}
             onOpenMessages={handleOpenMessages}
             incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
             onOpenLocalPrice={setLocalPriceId}
             onOpenLocalProfile={setLocalProfileUserId}
             onGoToFeed={() => setActiveTab('local')}
+            onEditProfile={() => setEditProfileOpen(true)}
+            onManageNetwork={() => setActiveTab('network')}
           />
         </div>
       </div>
