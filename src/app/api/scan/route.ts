@@ -228,30 +228,135 @@ interface PriceEstimate {
   estimatedLow: number | null; estimatedHigh: number | null; currency: string | null; summary: string
 }
 
-async function estimatePrice(searchQuery: string, location: ScanLocation | null, sources: ScanResult['sources']): Promise<PriceEstimate | null> {
+async function estimatePrice(searchQuery: string, location: ScanLocation | null, sources: ScanResult['sources']): Promise<PriceEstimate> {
   const locationName = location?.city ? `${location.city}${location.country ? ', ' + location.country : ''}` : location?.country || 'worldwide'
   const localCurrency = localCurrencyForLocation(location || {})
 
   let prompt: string
   if (sources.length > 0) {
     const sourcesBlock = sources.slice(0, 8).map((s, i) => `${i + 1}. ${s.title}\n${s.snippet}\n(${s.host})`).join('\n\n')
-    prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
+    prompt = `You are a price-analysis assistant. Below are web search results for the query:\n"${searchQuery}"\nintended to be purchased in/near: ${locationName}.\n\nSearch results:\n${sourcesBlock}\n\nTask: estimate the current realistic retail price range for this product in that location.\n\nThe local currency in ${locationName} is ${localCurrency}. Express the price in ${localCurrency}.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number>,"estimatedHigh":<number>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}."}`
   } else {
-    prompt = `You are a price-analysis assistant. No live web results are available right now.\nEstimate from general knowledge a realistic retail price range for "${searchQuery}" purchased in/near ${locationName}.\nThe local currency is ${localCurrency}. Be conservative and clearly approximate.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number or null>,"estimatedHigh":<number or null>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}, starting with 'Approximate (from AI knowledge):'."}`
+    prompt = `You are a price-analysis assistant. No live web results are available right now.\nEstimate from general knowledge a realistic retail price range for "${searchQuery}" purchased in/near ${locationName}.\nThe local currency is ${localCurrency}. Be conservative and clearly approximate.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number>,"estimatedHigh":<number>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}, starting with 'Approximate (from AI knowledge):'."}`
   }
 
-  const content = await llmText(prompt)
-  if (!content) return null
-  const parsed = extractJson(content) as PriceEstimate | null
-  if (parsed) {
-    return {
-      estimatedLow: typeof parsed.estimatedLow === 'number' ? parsed.estimatedLow : null,
-      estimatedHigh: typeof parsed.estimatedHigh === 'number' ? parsed.estimatedHigh : null,
-      currency: localCurrency,
-      summary: parsed.summary ? String(parsed.summary).slice(0, 600) : '',
-    }
+  // ALWAYS return numbers — the UI must never say "Price unavailable".
+  // Tier 1: full analysis prompt (JSON). Tier 2: minimal numeric prompt.
+  // Tier 3: regex any price amounts out of the raw model text.
+  // Tier 4: keyword-based rough range (clearly labeled as a rough guess).
+  const rawTexts: string[] = []
+
+  // --- Tier 1 + 2: LLM attempts -------------------------------------------
+  const narrowPrompt = `What does "${searchQuery}" typically cost in ${locationName}? Answer in ${localCurrency} only.\nReply with ONLY a range in the exact form LOW-HIGH (example: 45-120). No words, no currency symbol.`
+  for (const p of [prompt, narrowPrompt]) {
+    try {
+      const content = await llmText(p, p === prompt ? 22_000 : 15_000)
+      if (!content) continue
+      rawTexts.push(content)
+      const parsed = extractJson(content) as Partial<PriceEstimate> & { low?: unknown; high?: unknown } | null
+      const low = pickNumber(parsed?.estimatedLow ?? parsed?.low)
+      const high = pickNumber(parsed?.estimatedHigh ?? parsed?.high)
+      const est = saneRange(low, high, localCurrency)
+      if (est) {
+        const summary = p === prompt && parsed?.summary
+          ? String(parsed.summary).slice(0, 600)
+          : `Estimated range for "${searchQuery}" in ${locationName} (approximate).`
+        return { ...est, summary }
+      }
+      // JSON had no numbers — maybe the text still contains an amount (Tier 3)
+      const est3 = saneRange(...amountsFromText(content, localCurrency) as [number | null, number | null], localCurrency)
+      if (est3) return { ...est3, summary: `Approximate price for "${searchQuery}" in ${locationName}.` }
+    } catch { /* next tier */ }
   }
-  return { estimatedLow: null, estimatedHigh: null, currency: localCurrency, summary: content.slice(0, 600) }
+
+  // --- Tier 3 (again) on any raw text we collected --------------------------
+  for (const t of rawTexts) {
+    const est = saneRange(...amountsFromText(t, localCurrency) as [number | null, number | null], localCurrency)
+    if (est) return { ...est, summary: `Approximate price for "${searchQuery}" in ${locationName}.` }
+  }
+
+  // --- Tier 4: keyword rough range (AI totally unreachable) -----------------
+  return roughEstimate(searchQuery, localCurrency)
+}
+
+function pickNumber(v: unknown): number | null {
+  const n = typeof v === 'string' ? Number(v.replace(/[,\s]/g, '')) : typeof v === 'number' ? v : NaN
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+// Pull plausible price amounts out of free text ("about 150 to 300 ETB",
+// "$25", "ETB 1,200-1,500", "50-200").
+function amountsFromText(text: string, currency: string): [number | null, number | null] {
+  if (!text) return [null, null]
+  const sym = currency === 'USD' ? '\\$' : currency
+  // 1) explicit range "120-1500" or "120 to 1500" (optionally currency-marked)
+  const range = text.match(new RegExp(`${sym}?\\s*([\\d][\\d,\\.]{0,9})\\s*(?:-|–|—|to|~)\\s*\\$?\\s*([\\d][\\d,\\.]{0,9})`, 'i'))
+  if (range) {
+    const a = pickNumber(range[1])
+    const b = pickNumber(range[2])
+    if (a && b) return [a, b]
+  }
+  // 2) any currency-marked amounts
+  const marked = [...text.matchAll(new RegExp(`${sym}\\s*([\\d][\\d,\\.]{0,9})`, 'gi'))].map((m) => pickNumber(m[1])).filter((n): n is number => n !== null)
+  if (marked.length >= 2) return [Math.min(...marked), Math.max(...marked)]
+  if (marked.length === 1) return [marked[0], null]
+  return [null, null]
+}
+
+function saneRange(low: number | null, high: number | null, currency: string): PriceEstimate | null {
+  if (low === null && high === null) return null
+  if (low !== null && high !== null && low > high) [low, high] = [high, low]
+  // Discard absurd values (typos like 0.0001 or 999999999)
+  const cap = 50_000_000
+  if (low !== null && (low < 0.01 || low > cap)) low = null
+  if (high !== null && (high < 0.01 || high > cap)) high = null
+  if (low === null && high === null) return null
+  const round = (n: number) => (n >= 1000 ? Math.round(n / 50) * 50 : n >= 100 ? Math.round(n / 5) * 5 : Math.round(n * 100) / 100)
+  return {
+    estimatedLow: low !== null ? round(low) : null,
+    estimatedHigh: high !== null ? round(high) : null,
+    currency,
+    summary: '',
+  }
+}
+
+// Typical USD price bands for generic product keywords + rough FX — the final
+// safety net so the user ALWAYS sees an estimate (labeled as a rough guess).
+const ROUGH_USD_RANGES: Array<[RegExp, number, number]> = [
+  [/iphone|smart ?phone|\bphone\b|galaxy|pixel|redmi|xiaomi|tecno|infinix/i, 60, 1200],
+  [/laptop|macbook|notebook|thinkpad|chromebook/i, 250, 2000],
+  [/\btv\b|television|monitor|projector/i, 90, 900],
+  [/headphone|ear ?bud|air ?pod|speaker|\bbuds\b/i, 10, 350],
+  [/watch|smart ?watch|fitbit/i, 20, 700],
+  [/camera|\blens\b|dslr|tripod/i, 100, 2500],
+  [/shoe|sneaker|boot|sandal|heel/i, 15, 200],
+  [/bag|backpack|hand ?bag|luggage|wallet/i, 15, 300],
+  [/chip|soda|\bcola\b|biscuit|chocolate|snack|bread|juice|water|milk|coffee|tea|\brice\b|\boil\b|pasta|flour|sugar|\begg/i, 0.5, 15],
+  [/shampoo|soap|cream|lotion|detergent|tooth ?paste|deodorant|diaper/i, 1, 25],
+  [/shirt|dress|jacket|jeans|trouser|clothes|t-?shirt|hoodie/i, 8, 120],
+  [/\bbook\b|pen|pencil|notebook|eraser/i, 1, 40],
+  [/toy|game|console|playstation|xbox|nintendo/i, 20, 600],
+  [/bike|bicycle|scooter|motorcycle|helmet/i, 50, 3000],
+  [/tire|tyre|battery|engine|car ?part/i, 30, 800],
+]
+const ROUGH_FX_PER_USD: Record<string, number> = {
+  USD: 1, ETB: 125, KES: 129, NGN: 1500, UGX: 3700, TZS: 2600, GHS: 12, ZAR: 18,
+  EUR: 0.9, GBP: 0.78, INR: 88, CNY: 7.1, AED: 3.67, SAR: 3.75, TRY: 41, BRL: 5.4,
+  EGP: 48, JPY: 150, CAD: 1.37, AUD: 1.5, SGD: 1.28, MYR: 4.2, THB: 32, IDR: 16000,
+  PHP: 58, VND: 25500, RWF: 1400, MXN: 18,
+}
+
+function roughEstimate(searchQuery: string, currency: string): PriceEstimate {
+  const hit = ROUGH_USD_RANGES.find(([re]) => re.test(searchQuery))
+  const [usdLow, usdHigh] = hit ? [hit[1], hit[2]] : [2, 250]
+  const fx = ROUGH_FX_PER_USD[currency] || 1
+  const roundRough = (n: number) => (n >= 1000 ? Math.round(n / 100) * 100 : n >= 100 ? Math.round(n / 10) * 10 : n)
+  return {
+    estimatedLow: roundRough(usdLow * fx),
+    estimatedHigh: roundRough(usdHigh * fx),
+    currency,
+    summary: `Rough guess from typical market prices — live AI pricing was unreachable for "${searchQuery}". Treat as a wide ballpark only.`,
+  }
 }
 
 export async function POST(req: NextRequest) {
