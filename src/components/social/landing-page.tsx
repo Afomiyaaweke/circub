@@ -161,7 +161,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
 
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Locals post real prices for products, services, restaurants, transport and more in their cities.
-                Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can\'t find what they need.
+                Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can’t find what they need.
               </p>
 
               <div className="flex items-center gap-3 flex-wrap pt-2">
@@ -181,13 +181,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
                 >
                   Sign in
                 </Button>
-                <PwaInstallButton />
               </div>
-
-              {/* Mobile app hint */}
-              <p className="text-xs text-muted-foreground/70 -mt-3">
-                Install circub on your phone — full-screen app, works like native.
-              </p>
 
               {/* Continue as Guest — orange button, prominent */}
               {onContinueAsGuest && (
@@ -344,7 +338,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               From traveler to informed in 5 steps
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Whether you\'re planning your next trip or already at the market, here\'s how to use circub.
+              Whether you’re planning your next trip or already at the market, here’s how to use circub.
             </p>
           </div>
 
@@ -431,7 +425,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Share what things really cost in your city · don\'t wait for travelers to ask.</span>
+                  <span>Share what things really cost in your city · don’t wait for travelers to ask.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <ChevronRight className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -563,7 +557,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
             Join the local price revolution.
           </h2>
           <p className="text-lg text-primary-foreground/90 mb-8 max-w-xl mx-auto">
-            Whether you\'re a traveler looking for honest prices, a local sharing your knowledge, or a business reaching customers worldwide · there\'s a place for you on circub.
+            Whether you’re a traveler looking for honest prices, a local sharing your knowledge, or a business reaching customers worldwide · there’s a place for you on circub.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <Button
@@ -582,7 +576,11 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
             >
               I already have an account
             </Button>
+            <PwaInstallButton className="border-white/70 bg-transparent text-white hover:border-white hover:bg-white hover:text-primary" />
           </div>
+          <p className="text-xs text-primary-foreground/80 mt-4">
+            Prefer your phone? Install the circub app — full-screen, own home-screen icon, works like native.
+          </p>
           <p className="text-xs text-primary-foreground/70 mt-6">
             Free forever. No credit card. Personal or Company account · your choice.
           </p>
