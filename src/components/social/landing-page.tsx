@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { PwaInstallButton } from '@/components/pwa-install-button'
 import { cn } from '@/lib/utils'
 
 interface LandingPageProps {
@@ -180,7 +181,13 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
                 >
                   Sign in
                 </Button>
+                <PwaInstallButton />
               </div>
+
+              {/* Mobile app hint */}
+              <p className="text-xs text-muted-foreground/70 -mt-3">
+                Install circub on your phone — full-screen app, works like native.
+              </p>
 
               {/* Continue as Guest — orange button, prominent */}
               {onContinueAsGuest && (
