@@ -5,8 +5,6 @@ import { Mail, Phone, MapPin, Twitter, Instagram } from 'lucide-react'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage } from '@/components/social/landing-page'
-import { RegisterModal } from '@/components/social/register-modal'
-import { LoginModal } from '@/components/social/login-modal'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 
@@ -23,7 +21,14 @@ const LocalProfileModal = lazy(() => import('@/components/social/local-profile-m
 const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
 const EditProfileModal = lazy(() => import('@/components/social/edit-profile-modal').then(m => ({ default: m.EditProfileModal })))
 const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
+const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
+const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
 import type { User, TabKey } from '@/lib/types'
+
+// localStorage key for the cached session user — enables instant repeat loads
+// (dashboard paints immediately, then revalidates against /api/auth/me).
+// Guests are never cached: guest mode is intentionally per-visit only.
+const ME_CACHE_KEY = 'circub.me.v1'
 
 export default function Home() {
   const [me, setMe] = useState<User | null>(null)
@@ -45,10 +50,16 @@ export default function Home() {
       const res = await fetch('/api/auth/me')
       if (res.status === 401) {
         setMe(null)
+        try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
         return
       }
       const data = await res.json()
       setMe(data)
+      // Cache the signed-in user so the next visit paints instantly
+      // (revalidated below by this same fetch on every load).
+      if (data && data.id && data.id !== 'guest') {
+        try { localStorage.setItem(ME_CACHE_KEY, JSON.stringify(data)) } catch {}
+      }
     } catch {
       setMe(null)
     } finally {
@@ -57,6 +68,18 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    // Instant paint from the cached session (repeat loads — mobile & web):
+    // render the dashboard/landing immediately, then revalidate in background.
+    try {
+      const cached = localStorage.getItem(ME_CACHE_KEY)
+      if (cached) {
+        const u = JSON.parse(cached)
+        if (u && u.id && u.id !== 'guest') {
+          setMe(u)
+          setAuthChecked(true)
+        }
+      }
+    } catch {}
     fetchMe()
   }, [fetchMe])
 
@@ -176,6 +199,7 @@ export default function Home() {
     } catch {
       /* ignore */
     }
+    try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
     setMe(null)
     setMessagesOpen(false)
     setRegisterOpen(false)
@@ -216,6 +240,7 @@ export default function Home() {
             // Guest users can see ALL tabs and browse everything, but
             // posting prices, voting, messaging, and editing profile
             // will prompt them to register.
+            try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
             setMe({
               id: 'guest',
               name: 'Guest',
@@ -246,18 +271,22 @@ export default function Home() {
             })
           }}
         />
-        <RegisterModal
-          open={registerOpen}
-          onOpenChange={setRegisterOpen}
-          onAuthed={handleAuthed}
-          onSwitchToLogin={() => setLoginOpen(true)}
-        />
-        <LoginModal
-          open={loginOpen}
-          onOpenChange={setLoginOpen}
-          onAuthed={handleAuthed}
-          onSwitchToRegister={() => setRegisterOpen(true)}
-        />
+        <Suspense fallback={null}>
+          <RegisterModal
+            open={registerOpen}
+            onOpenChange={setRegisterOpen}
+            onAuthed={handleAuthed}
+            onSwitchToLogin={() => setLoginOpen(true)}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <LoginModal
+            open={loginOpen}
+            onOpenChange={setLoginOpen}
+            onAuthed={handleAuthed}
+            onSwitchToRegister={() => setRegisterOpen(true)}
+          />
+        </Suspense>
       </>
     )
   }

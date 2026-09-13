@@ -39,6 +39,20 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Fast repeat loads on web browsers (no SW): brand images are stable,
+      // so let them live in the browser cache for a week + stale-while-revalidate.
+      {
+        source: "/icons/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/:asset(logo.png|logo-mark.png|favicon.ico|favicon.png|favicon-32.png|favicon-64.png|favicon-256.png|apple-touch-icon.png)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=604800" },
+        ],
+      },
     ]
   },
 };

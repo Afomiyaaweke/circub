@@ -150,6 +150,10 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
                 <img
                   src="/logo.png"
                   alt="circub"
+                  width={112}
+                  height={112}
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
                 />
               </div>
