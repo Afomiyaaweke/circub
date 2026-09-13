@@ -1,6 +1,7 @@
 // Guides API: list registered tour guides with filters
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { guideDistanceKm } from '@/lib/geo'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +11,11 @@ export async function GET(req: NextRequest) {
     const specialty = searchParams.get('specialty')?.trim() || ''
     const country = searchParams.get('country')?.trim() || ''
     const availableOnly = searchParams.get('available') === 'true'
+    // "Near me": client sends its lat/lng; we compute km per guide from the
+    // guide's free-text location via the city table and sort nearest-first.
+    const lat = Number(searchParams.get('lat'))
+    const lng = Number(searchParams.get('lng'))
+    const nearMe = Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)
 
     const where: any = { isGuide: true }
     if (availableOnly) where.guideAvailable = true
@@ -45,7 +51,30 @@ export async function GET(req: NextRequest) {
       guideSpecialties: g.guideSpecialties ? g.guideSpecialties.split(',').filter(Boolean) : [],
     }))
 
-    return NextResponse.json({ guides: result })
+    // Enrich with star-review count + distance (both cheap, post-query).
+    const counts = await db.guideRating.groupBy({
+      by: ['guideId'],
+      where: { guideId: { in: guides.map((g) => g.id) } },
+      _count: { guideId: true },
+    })
+    const countMap = new Map(counts.map((c) => [c.guideId, c._count.guideId]))
+    const enriched = result.map((g) => ({
+      ...g,
+      ratingCount: countMap.get(g.id) || 0,
+      distanceKm: nearMe ? guideDistanceKm({ lat, lng }, g.location) : null,
+    }))
+
+    if (nearMe) {
+      // Nearest first; guides without resolvable location sink to the end.
+      enriched.sort((a, b) => {
+        const da = a.distanceKm ?? Number.POSITIVE_INFINITY
+        const db = b.distanceKm ?? Number.POSITIVE_INFINITY
+        if (da !== db) return da - db
+        return (b.rating || 0) - (a.rating || 0)
+      })
+    }
+
+    return NextResponse.json({ guides: enriched })
   } catch (error) {
     console.error('Failed to fetch guides:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })

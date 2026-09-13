@@ -1,15 +1,30 @@
 'use client'
 
+// Live Zone — registered tour guides.
+// New in this version:
+//  - AI Guide Match: ask any travel question (or pick one straight from the
+//    community feed) and get recommended guides + locations with reasons.
+//  - "Near me": GPS-based distance sort (haversine via the city table).
+//  - Tourist star ratings are visible on every card with review count;
+//    tapping them opens the full reviews dialog.
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck, MessageSquare, Radio, UserCircle, Share2 } from 'lucide-react'
+import {
+  Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck,
+  MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
+  ChevronUp, Lightbulb, Users,
+} from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
+import { getCoordinates } from '@/lib/location'
 import { GuideRatingModal } from './guide-rating-modal'
+import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
 import type { User } from '@/lib/types'
 
 interface LiveZoneTabProps {
@@ -17,6 +32,48 @@ interface LiveZoneTabProps {
   onMessage: (userId: string) => void
   onBecomeGuide: () => void
   onToggleAvailability: () => void
+}
+
+interface AiGuideResult {
+  id: string
+  name: string
+  location?: string | null
+  profilePicture?: string | null
+  avatarColor?: string
+  rating?: number
+  ratingCount?: number
+  distanceKm?: number | null
+  verifiedLocal?: boolean
+  guideLicense?: string | null
+  guideLanguages: string[]
+  guideSpecialties: string[]
+  guideHourlyRate?: number | null
+  guideCurrency?: string | null
+  guideAvailable?: boolean
+  reason?: string
+}
+
+interface AiMatchResult {
+  summary: string
+  guides: AiGuideResult[]
+  locations: Array<{ name: string; area: string; why: string; tip: string }>
+  tier?: string
+}
+
+const EXAMPLE_QUESTIONS = [
+  'Where should I eat injera in Addis?',
+  'Who can show me the rock churches of Lalibela?',
+  'Best trekking guide for the Simien Mountains?',
+]
+
+// Feed posts that read like travel questions become one-tap match chips.
+const QUESTION_RE = /\?|^(what|where|when|who|how|which|can|should|is|are|any|looking|recommend|help|need)\b/i
+
+const TIER_LABEL: Record<string, string> = {
+  ai: 'AI match',
+  'ai-narrow': 'AI shortlist',
+  keyword: 'Keyword match',
+  none: 'No guides yet',
 }
 
 export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability }: LiveZoneTabProps) {
@@ -27,8 +84,28 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [language, setLanguage] = useState('')
   const [specialty, setSpecialty] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
+
+  // Near-me (GPS distance sort)
+  const [nearMe, setNearMe] = useState(false)
+  const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [locating, setLocating] = useState(false)
+
+  // AI guide match
+  const [aiQuestion, setAiQuestion] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<AiMatchResult | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiUseLocation, setAiUseLocation] = useState(true)
+  const [feedQs, setFeedQs] = useState<string[]>([])
+  const [feedQsLoading, setFeedQsLoading] = useState(false)
+  const [showFeedQs, setShowFeedQs] = useState(false)
+
+  // Modals
   const [ratingGuide, setRatingGuide] = useState<{ id: string; name: string; profilePicture?: string | null } | null>(null)
   const [ratingModalOpen, setRatingModalOpen] = useState(false)
+  const [reviewsGuide, setReviewsGuide] = useState<{ id: string; name: string } | null>(null)
+  const [reviewsOpen, setReviewsOpen] = useState(false)
+  const { toast } = useToast()
 
   const fetchGuides = useCallback(async () => {
     setLoading(true)
@@ -39,16 +116,89 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       if (language) params.set('language', language)
       if (specialty) params.set('specialty', specialty)
       if (availableOnly) params.set('available', 'true')
+      if (nearMe && myCoords) {
+        params.set('lat', String(myCoords.lat))
+        params.set('lng', String(myCoords.lng))
+      }
       const res = await fetch(`/api/guides?${params.toString()}`)
       const data = await res.json()
       setGuides(data.guides || [])
     } catch { setGuides([]) } finally { setLoading(false) }
-  }, [search, location, language, specialty, availableOnly])
+  }, [search, location, language, specialty, availableOnly, nearMe, myCoords])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
     return () => clearTimeout(t)
   }, [fetchGuides])
+
+  const handleNearMe = async () => {
+    if (nearMe) { setNearMe(false); return } // toggle back to rating sort
+    setLocating(true)
+    try {
+      const { coords, error } = await getCoordinates()
+      if (!coords) {
+        toast({ title: 'Could not get your location', description: error || 'Enable GPS and try again.', variant: 'destructive' })
+        return
+      }
+      setMyCoords({ lat: coords.lat, lng: coords.lng })
+      setNearMe(true)
+      toast({ title: 'Sorted by distance', description: 'Guides nearest to you are shown first.' })
+    } finally {
+      setLocating(false)
+    }
+  }
+
+  const loadFeedQuestions = useCallback(async () => {
+    setFeedQsLoading(true)
+    try {
+      const res = await fetch('/api/posts?limit=40')
+      const data = await res.json()
+      const qs: string[] = ((data.posts || []) as Array<{ content?: string }>)
+        .map((p) => String(p.content || '').replace(/\s+/g, ' ').trim())
+        .filter((c: string) => c.length >= 15 && c.length <= 160 && QUESTION_RE.test(c))
+      setFeedQs(Array.from(new Set<string>(qs)).slice(0, 5))
+    } catch { setFeedQs([]) } finally { setFeedQsLoading(false) }
+  }, [])
+
+  useEffect(() => { loadFeedQuestions() }, [loadFeedQuestions])
+
+  const runAiMatch = async (q: string) => {
+    const question = q.trim()
+    if (!question || aiLoading) return
+    setAiQuestion(question)
+    setAiLoading(true)
+    setAiResult(null)
+    setAiError(null)
+    try {
+      const body: Record<string, unknown> = { question }
+      if (aiUseLocation && myCoords) {
+        body.lat = myCoords.lat
+        body.lng = myCoords.lng
+      }
+      const res = await fetch('/api/guides/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Recommendation failed')
+      setAiResult(data)
+    } catch (e) {
+      setAiError((e as Error).message || 'Something went wrong')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const openReviews = (g: { id: string; name: string }) => {
+    setReviewsGuide(g)
+    setReviewsOpen(true)
+  }
+
+  const openRating = (g: { id: string; name: string; profilePicture?: string | null }) => {
+    setRatingGuide(g)
+    setRatingModalOpen(true)
+  }
 
   const isGuide = me?.isGuide
   const isAvailable = (me as any)?.guideAvailable
@@ -93,6 +243,200 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             </Button>
           )}
         </div>
+      </Card>
+
+      {/* AI Guide Match */}
+      <Card className="p-4 sm:p-5 shadow-sm border-primary/20">
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="w-4 h-4 text-primary shrink-0" />
+          <h3 className="font-semibold text-foreground text-sm">AI Guide Match</h3>
+          <span className="text-[10px] text-muted-foreground">· ask anything, get guides + places</span>
+        </div>
+
+        <Textarea
+          placeholder='e.g. "I have 3 days in Ethiopia — who can take me to Lalibela and where should I eat?"'
+          value={aiQuestion}
+          onChange={(e) => setAiQuestion(e.target.value)}
+          className="min-h-[56px] resize-y bg-card text-sm"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              runAiMatch(aiQuestion)
+            }
+          }}
+        />
+
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <Button
+            size="sm"
+            onClick={() => runAiMatch(aiQuestion)}
+            disabled={aiLoading || !aiQuestion.trim()}
+            className="bg-primary hover:bg-primary/90 gap-1.5"
+          >
+            {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {aiLoading ? 'Matching...' : 'Recommend guides'}
+          </Button>
+          <button
+            onClick={() => setAiUseLocation(!aiUseLocation)}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors',
+              aiUseLocation && myCoords
+                ? 'bg-primary/10 text-primary border-primary/30'
+                : 'bg-card text-muted-foreground border-border'
+            )}
+          >
+            <Navigation className="w-3 h-3" />
+            {myCoords ? (aiUseLocation ? 'Using my location' : 'Ignore my location') : 'Get GPS for context'}
+          </button>
+          {myCoords == null && (
+            <Button size="sm" variant="outline" onClick={handleNearMe} disabled={locating} className="text-xs gap-1.5">
+              {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+              Get GPS
+            </Button>
+          )}
+        </div>
+
+        {/* Question chips: feed questions first, then examples */}
+        <div className="mt-3">
+          <button
+            onClick={() => setShowFeedQs(!showFeedQs)}
+            className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            <Users className="w-3 h-3" />
+            Questions from the feed
+            {showFeedQs ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {showFeedQs && (
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              {feedQsLoading ? (
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading feed questions...
+                </span>
+              ) : feedQs.length === 0 ? (
+                <span className="text-[11px] text-muted-foreground">No questions in the feed yet — ask one in the Feed tab!</span>
+              ) : (
+                feedQs.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => runAiMatch(q)}
+                    className="max-w-full truncate text-left text-[11px] px-2.5 py-1.5 rounded-full bg-accent text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                    title={q}
+                  >
+                    {q}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            {EXAMPLE_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                onClick={() => runAiMatch(q)}
+                className="text-[11px] px-2.5 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* AI result */}
+        {aiError && (
+          <p className="mt-3 text-xs text-destructive">{aiError} — showing keyword matches instead is not possible right now, try again.</p>
+        )}
+        {aiLoading && (
+          <div className="mt-3 space-y-2">
+            {[1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        )}
+        {aiResult && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
+                {TIER_LABEL[aiResult.tier || 'ai'] || 'Match'}
+              </Badge>
+              <p className="text-sm text-foreground font-medium flex-1 min-w-[200px]">{aiResult.summary}</p>
+            </div>
+
+            {/* Recommended guides */}
+            {aiResult.guides.length > 0 ? (
+              <div className="space-y-2">
+                {aiResult.guides.map((g) => (
+                  <div key={g.id} className="rounded-lg border border-border p-3 hover:border-primary/30 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="w-9 h-9 border border-accent overflow-hidden shrink-0">
+                        {g.profilePicture ? (
+                          <img src={g.profilePicture} alt={g.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+                            {g.name?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-sm font-semibold text-foreground truncate">{g.name}</span>
+                          {g.verifiedLocal && <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
+                          <GuideStars value={g.rating || 0} />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {g.location || 'Location not set'}
+                          {g.distanceKm != null ? ` · ${g.distanceKm} km away` : ''}
+                          {g.guideAvailable ? '' : ' · offline'}
+                        </p>
+                      </div>
+                      {me?.id !== g.id && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => onMessage(g.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            Message
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })} className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1">
+                            <Star className="w-3 h-3" />
+                            Rate
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    {g.reason && (
+                      <p className="mt-2 text-xs text-primary/90 flex items-start gap-1.5">
+                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                        {g.reason}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No registered guides yet — the place recommendations below still stand.</p>
+            )}
+
+            {/* Recommended locations */}
+            {aiResult.locations.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {aiResult.locations.map((l, i) => (
+                  <div key={i} className="rounded-lg bg-accent/60 p-3">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="text-sm font-semibold text-foreground truncate">{l.name}</span>
+                    </div>
+                    {l.area && <p className="text-[10px] text-muted-foreground mt-0.5">{l.area}</p>}
+                    <p className="text-xs text-muted-foreground mt-1.5">{l.why}</p>
+                    {l.tip && (
+                      <p className="text-[11px] text-amber-700 mt-1.5 flex items-start gap-1.5">
+                        <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
+                        {l.tip}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Search bar */}
@@ -242,6 +586,20 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <Radio className={cn('w-3.5 h-3.5', availableOnly && 'animate-pulse')} />
           Available now
         </button>
+        {/* Near me — GPS distance sort */}
+        <button
+          onClick={handleNearMe}
+          disabled={locating}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors disabled:opacity-60',
+            nearMe
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-card text-muted-foreground border-border hover:border-primary/40'
+          )}
+        >
+          {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className={cn('w-3.5 h-3.5', nearMe && 'animate-pulse')} />}
+          {nearMe ? 'Nearest first' : 'Near me'}
+        </button>
       </div>
 
       {/* Guide cards */}
@@ -278,8 +636,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             const isOwn = me?.id === g.id
             return (
               <Card key={g.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
-                {/* Top row: availability + rating */}
-                <div className="flex items-center justify-between mb-3">
+                {/* Top row: availability + star rating (tap = reviews) */}
+                <div className="flex items-center justify-between mb-3 gap-2">
                   <div className="flex items-center gap-1.5">
                     {g.guideAvailable ? (
                       <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
@@ -292,13 +650,22 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         Offline
                       </span>
                     )}
+                    {g.distanceKm != null && (
+                      <span className="flex items-center gap-1 text-xs font-medium text-primary">
+                        <Navigation className="w-3 h-3" />
+                        {g.distanceKm} km away
+                      </span>
+                    )}
                   </div>
-                  {g.rating > 0 && (
-                    <span className="flex items-center gap-0.5 text-xs font-medium text-amber-600">
-                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      {g.rating.toFixed(1)}
-                    </span>
-                  )}
+                  <button
+                    onClick={() => openReviews({ id: g.id, name: g.name })}
+                    className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700"
+                    title="See all reviews"
+                  >
+                    <GuideStars value={g.rating || 0} />
+                    {g.rating > 0 ? g.rating.toFixed(1) : 'New'}
+                    <span className="text-muted-foreground">({g.ratingCount || 0})</span>
+                  </button>
                 </div>
 
                 {/* Avatar + name + location */}
@@ -379,10 +746,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setRatingGuide({ id: g.id, name: g.name, profilePicture: g.profilePicture })
-                          setRatingModalOpen(true)
-                        }}
+                        onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })}
                         className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1.5"
                       >
                         <Star className="w-3.5 h-3.5" />
@@ -434,6 +798,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         onOpenChange={setRatingModalOpen}
         guide={ratingGuide}
         onRated={() => fetchGuides()}
+      />
+
+      {/* Guide reviews modal */}
+      <GuideReviewsModal
+        open={reviewsOpen}
+        onOpenChange={setReviewsOpen}
+        guide={reviewsGuide}
       />
     </div>
   )
