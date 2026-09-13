@@ -7,6 +7,7 @@ export interface User {
   bio?: string | null
   headline?: string | null
   location?: string | null
+  profilePicture?: string | null
   postsCount: number
   followersCount: number
   likesCount?: number

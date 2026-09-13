@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
-  ChevronUp, Lightbulb, Users,
+  ChevronUp, Lightbulb, Users, CalendarCheck, CalendarDays,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,8 @@ import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { GuideRatingModal } from './guide-rating-modal'
 import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
+import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
+import { GuideBookingsModal } from './guide-bookings-modal'
 import type { User } from '@/lib/types'
 
 interface LiveZoneTabProps {
@@ -105,6 +107,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [ratingModalOpen, setRatingModalOpen] = useState(false)
   const [reviewsGuide, setReviewsGuide] = useState<{ id: string; name: string } | null>(null)
   const [reviewsOpen, setReviewsOpen] = useState(false)
+  const [bookingGuide, setBookingGuide] = useState<BookingGuideInfo | null>(null)
+  const [bookingOpen, setBookingOpen] = useState(false)
+  const [bookingsOpen, setBookingsOpen] = useState(false)
+  const [pendingBookings, setPendingBookings] = useState(0)
   const { toast } = useToast()
 
   const fetchGuides = useCallback(async () => {
@@ -162,6 +168,18 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
 
   useEffect(() => { loadFeedQuestions() }, [loadFeedQuestions])
 
+  // Pending incoming booking count for the header badge.
+  const loadBookingCount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bookings')
+      if (!res.ok) return
+      const data = await res.json()
+      setPendingBookings(data.pendingCount || 0)
+    } catch { /* badge is best-effort */ }
+  }, [])
+
+  useEffect(() => { loadBookingCount() }, [loadBookingCount])
+
   const runAiMatch = async (q: string) => {
     const question = q.trim()
     if (!question || aiLoading) return
@@ -198,6 +216,19 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const openRating = (g: { id: string; name: string; profilePicture?: string | null }) => {
     setRatingGuide(g)
     setRatingModalOpen(true)
+  }
+
+  const openBooking = (g: { id: string; name: string; profilePicture?: string | null; location?: string | null; rating?: number | null; ratingCount?: number | null; guideHourlyRate?: number | null; guideCurrency?: string | null; guideAvailable?: boolean }) => {
+    if (!me) {
+      toast({ title: 'Log in to book', description: 'Create an account or log in to request a tour.', variant: 'destructive' })
+      return
+    }
+    setBookingGuide({
+      id: g.id, name: g.name, profilePicture: g.profilePicture, location: g.location,
+      rating: g.rating, ratingCount: g.ratingCount, guideHourlyRate: g.guideHourlyRate,
+      guideCurrency: g.guideCurrency, guideAvailable: g.guideAvailable,
+    })
+    setBookingOpen(true)
   }
 
   const isGuide = me?.isGuide
@@ -242,6 +273,19 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               {isAvailable ? 'Available' : 'Offline'}
             </Button>
           )}
+          <Button
+            onClick={() => setBookingsOpen(true)}
+            variant="outline"
+            className="gap-1.5 shrink-0 relative"
+          >
+            <CalendarCheck className="w-4 h-4" />
+            Bookings
+            {pendingBookings > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
+                {pendingBookings > 9 ? '9+' : pendingBookings}
+              </span>
+            )}
+          </Button>
         </div>
       </Card>
 
@@ -390,6 +434,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       </div>
                       {me?.id !== g.id && (
                         <div className="flex items-center gap-1.5 shrink-0">
+                          <Button size="sm" onClick={() => openBooking(g)} className="bg-primary hover:bg-primary/90 text-xs gap-1">
+                            <CalendarCheck className="w-3 h-3" />
+                            Book
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => onMessage(g.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1">
                             <MessageSquare className="w-3 h-3" />
                             Message
@@ -736,6 +784,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     <div className="flex items-center gap-1.5">
                       <Button
                         size="sm"
+                        onClick={() => openBooking(g)}
+                        className="bg-primary hover:bg-primary/90 text-xs gap-1.5"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                        Book
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => onMessage(g.id)}
                         className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5"
@@ -805,6 +861,25 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         open={reviewsOpen}
         onOpenChange={setReviewsOpen}
         guide={reviewsGuide}
+      />
+
+      {/* Guide booking modal (tourist requests a tour) */}
+      <GuideBookingModal
+        open={bookingOpen}
+        onOpenChange={setBookingOpen}
+        guide={bookingGuide}
+        onBooked={() => loadBookingCount()}
+        onMessage={onMessage}
+      />
+
+      {/* My bookings modal (incoming + outgoing) */}
+      <GuideBookingsModal
+        open={bookingsOpen}
+        onOpenChange={setBookingsOpen}
+        isGuide={Boolean(isGuide)}
+        meId={me?.id || ''}
+        onMessage={onMessage}
+        onChanged={() => loadBookingCount()}
       />
     </div>
   )

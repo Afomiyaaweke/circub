@@ -66,6 +66,8 @@ model User {
   localPriceReports LocalPriceReport[]
   guideRatingsReceived GuideRating[] @relation("GuideRatingReceiver")
   guideRatingsGiven GuideRating[] @relation("GuideRatingRater")
+  bookingsAsTourist GuideBooking[] @relation("BookingTourist")
+  bookingsAsGuide GuideBooking[] @relation("BookingGuide")
 
   connRequested  Connection[] @relation("ConnRequester")
   connReceived  Connection[] @relation("ConnReceiver")
@@ -267,4 +269,25 @@ model GuideRating {
 
   @@unique([raterId, guideId])
   @@index([guideId])
+}
+
+// Guide bookings: tourists request a tour with a registered guide.
+// status: PENDING -> ACCEPTED / DECLINED (guide), CANCELLED (tourist), COMPLETED (after tour)
+model GuideBooking {
+  id        String   @id @default(cuid())
+  touristId String
+  guideId   String
+  status    String   @default("PENDING") // PENDING | ACCEPTED | DECLINED | COMPLETED | CANCELLED
+  date      DateTime? // proposed tour date
+  days      Int?     // duration in days
+  people    Int?     // group size
+  message   String?  // tourist's request note
+  reply     String?  // guide's reply note
+  tourist   User     @relation("BookingTourist", fields: [touristId], references: [id], onDelete: Cascade)
+  guide     User     @relation("BookingGuide", fields: [guideId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([guideId, status]) // guide inbox lookup
+  @@index([touristId, status]) // tourist "my requests" lookup
 }
