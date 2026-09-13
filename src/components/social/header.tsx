@@ -55,7 +55,7 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
-      <div className="mx-auto max-w-[1400px] px-3 sm:px-6 py-3 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="mx-auto max-w-[1400px] px-2 sm:px-6 py-3 flex items-center justify-between gap-1.5 sm:gap-4">
         {/* Logo */}
         <div className="flex items-center gap-2 shrink-0 min-w-0">
           <img
@@ -72,7 +72,7 @@ export function Header({
 
         {/* Nav tabs · only show when logged in */}
         {user && (
-          <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-center sm:justify-start">
+          <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-center sm:justify-start">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
@@ -81,7 +81,7 @@ export function Header({
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
                   className={cn(
-                    'flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-sm font-medium transition-colors shrink-0',
+                    'flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium transition-colors shrink-0',
                     isActive
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -98,7 +98,7 @@ export function Header({
             {/* Messages button with badge */}
             <button
               onClick={onOpenMessages}
-              className="relative flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors shrink-0"
+              className="relative flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors shrink-0"
               aria-label="Messages"
             >
               <MessageSquare className="w-4 h-4" />
@@ -114,7 +114,7 @@ export function Header({
 
         {/* Auth actions */}
         {!user ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Button
               variant="ghost"
               size="sm"
@@ -157,7 +157,7 @@ export function Header({
                   )}
                 </p>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              <ChevronDown className="hidden w-3.5 h-3.5 text-muted-foreground sm:block" />
             </button>
 
             {menuOpen && (
