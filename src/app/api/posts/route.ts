@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 // GET /api/posts?authorId=...&search=...&limit=20
 export async function GET(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     }
 
     const posts = await db.post.findMany({
-      where,
+      where: caseInsensitiveWhere(where),
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: {

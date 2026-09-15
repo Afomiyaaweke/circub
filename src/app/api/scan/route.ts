@@ -420,7 +420,8 @@ export async function POST(req: NextRequest) {
         })
         const orClauses = searchTerms.flatMap((term) => [{ productName: { contains: term } }, { category: { contains: term } }])
         const allPosts = await db.localPricePost.findMany({
-          where: { OR: orClauses },
+          // caseInsensitiveWhere: production Postgres `contains` is case-sensitive
+          where: caseInsensitiveWhere({ OR: orClauses }),
           select: { id: true, productName: true, category: true, currency: true, priceMin: true, priceMax: true, city: true, country: true, helpfulCount: true, author: { select: { name: true, verifiedLocal: true } } },
           take: 15, orderBy: { helpfulCount: 'desc' },
         })

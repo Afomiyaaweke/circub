@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     const where: any = { productName: { contains: productName }, country: { contains: country } }
     if (city) where.city = { contains: city }
     if (postId) where.id = { not: postId }
-    const posts = await db.localPricePost.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, rating: true } } } })
+    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy: { createdAt: 'desc' }, take: 50, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, rating: true } } } })
     if (posts.length === 0) return NextResponse.json({ consensus: null })
     const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
     const priceMins = posts.map((p) => p.priceMin), priceMaxes = posts.map((p) => p.priceMax)

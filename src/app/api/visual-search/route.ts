@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { identifyItem, llmText } from '@/lib/ai-backends'
 import { currencyForCountry } from '@/lib/location'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -235,7 +236,9 @@ export async function POST(req: NextRequest) {
     let searchTerm = termCandidates[0] || name
     if (orClauses.length > 0) {
       const posts = await db.localPricePost.findMany({
-        where: { OR: orClauses },
+        // caseInsensitiveWhere: production Postgres `contains` is CASE-SENSITIVE
+        // (searching "dax" missed posts named "DAX" — "not found but it's there").
+        where: caseInsensitiveWhere({ OR: orClauses }),
         select: {
           id: true, productName: true, category: true, currency: true,
           priceMin: true, priceMax: true, recommendedPrice: true,

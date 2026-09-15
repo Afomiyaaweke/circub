@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 // GET /api/products?search=...&category=...&authorId=...
 export async function GET(req: NextRequest) {
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     }
 
     const products = await db.product.findMany({
-      where,
+      where: caseInsensitiveWhere(where),
       orderBy: { createdAt: 'desc' },
       include: {
         author: {

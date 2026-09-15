@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guideDistanceKm } from '@/lib/geo'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     if (specialty) where.guideSpecialties = { contains: specialty }
 
     const guides = await db.user.findMany({
-      where,
+      where: caseInsensitiveWhere(where),
       orderBy: { rating: 'desc' },
       select: {
         id: true, name: true, avatarColor: true, profilePicture: true,

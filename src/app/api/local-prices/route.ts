@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 // Cache the public feed list for 30s on the CDN/edge, allow serving stale
 // for up to 60s while revalidating in the background. With 5,000 concurrent
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     if (sort === 'popular') orderBy = { helpfulCount: 'desc' }
     let me: any = null
     try { const s = await getCurrentUser(); if (s) me = await db.user.findUnique({ where: { id: s.id }, include: { localPriceVotes: true } }) } catch {}
-    const posts = await db.localPricePost.findMany({ where, orderBy, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true }, take: 100 })
+    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true }, take: 100 })
     const result = posts.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
     if (!productName || !country) return NextResponse.json({ error: 'productName and country required' }, { status: 400 })
     const where: any = { productName: { contains: productName }, country: { contains: country } }
     if (city) where.city = { contains: city }
-    const posts = await db.localPricePost.findMany({ where, orderBy: { createdAt: 'asc' } })
+    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy: { createdAt: 'asc' } })
     if (posts.length === 0) return NextResponse.json({ history: { history: [] } })
     const now = Date.now(), DAY = 86400000
     const windows = [{ label: 'Current', minDays: 0, maxDays: 45 }, { label: '3 months ago', minDays: 45, maxDays: 120 }, { label: '6 months ago', minDays: 120, maxDays: 220 }, { label: '1 year ago', minDays: 220, maxDays: 400 }]
