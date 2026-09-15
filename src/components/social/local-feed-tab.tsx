@@ -281,7 +281,9 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   // the compared price range, the searched location) and uploads the captured
   // photo as the post image. The new post then feeds back into the same
   // location comparison for everyone else.
-  const handlePostProduct = async () => {
+  // Pass a `group` (a place card from the "Compare by location" breakdown)
+  // to add the product IN THAT PLACE with that place's price range.
+  const handlePostProduct = async (group?: { key: string; place: string; currency: string; min: number; max: number }) => {
     const r = searchResults
     if (!r) return
     let imageUrl = ''
@@ -301,7 +303,12 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     // -> Coffee). Falls back to Other — the user can always change it.
     const kw = keywords.toLowerCase()
     const category = CATEGORIES.find((c) => kw.includes(c.toLowerCase())) || 'Other'
-    const priceSrc = r.locationCompare ?? r.aiPriceEstimate
+    // The place being added: an explicit location-group pick wins, then the
+    // active "Compare by location" filter, then the searched location.
+    const activeGroup = locFilter ? groupMatchesByLocation(r.localMatches).find((g) => g.key === locFilter) : undefined
+    const place = group ?? activeGroup
+    const [gCity, gCountry] = place ? place.key.split('|') : ['', '']
+    const priceSrc = place ?? r.locationCompare ?? r.aiPriceEstimate
     setPostPrefill({
       productName: firstName || search || undefined,
       description: r.aiDescription || undefined,
@@ -309,8 +316,8 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       currency: priceSrc?.currency,
       priceMin: priceSrc ? priceSrc.min : undefined,
       priceMax: priceSrc ? priceSrc.max : undefined,
-      country: r.location?.country || undefined,
-      city: r.location?.city || undefined,
+      country: gCountry || r.location?.country || undefined,
+      city: gCity || r.location?.city || undefined,
       imageUrl: imageUrl || undefined,
     })
     setModalOpen(true)
@@ -542,10 +549,13 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {groups.map((g) => (
-                      <button
+                      <div
                         key={g.key}
                         onClick={() => setLocFilter(locFilter === g.key ? null : g.key)}
-                        className={`text-left px-2.5 py-2 rounded-lg border transition-colors space-y-0.5 ${locFilter === g.key ? 'border-emerald-500 bg-emerald-100/70' : g.near ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50' : 'border-border bg-card hover:bg-accent/50'}`}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setLocFilter(locFilter === g.key ? null : g.key) }}
+                        className={`text-left px-2.5 py-2 rounded-lg border transition-colors space-y-0.5 cursor-pointer ${locFilter === g.key ? 'border-emerald-500 bg-emerald-100/70' : g.near ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50' : 'border-border bg-card hover:bg-accent/50'}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-foreground truncate flex items-center gap-1">
@@ -555,9 +565,18 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                         </div>
                         <div className="flex items-center justify-between gap-2 text-xs">
                           <span className="font-bold text-emerald-700">{g.currency} {g.min}–{g.max}</span>
-                          <span className="text-muted-foreground shrink-0">{g.count} price{g.count !== 1 ? 's' : ''}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-muted-foreground">{g.count} price{g.count !== 1 ? 's' : ''}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handlePostProduct(g) }}
+                              className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                              title={`Add this product as a price post in ${g.place} — pre-filled with the ${g.currency} ${g.min}–${g.max} range posted there`}
+                            >
+                              <Plus className="w-3 h-3" /> Add here
+                            </button>
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -623,7 +642,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
             <div className="pt-2 border-t border-border flex items-center gap-2.5 flex-wrap">
               <Button
                 size="sm"
-                onClick={handlePostProduct}
+                onClick={() => void handlePostProduct()}
                 disabled={prefillingPost}
                 className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 shrink-0"
                 title="Add this product as a price post — pre-filled with the identified name, photo and compared price range"
@@ -632,7 +651,12 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 {prefillingPost ? 'Preparing photo...' : 'Post this product'}
               </Button>
               <p className="text-[11px] text-muted-foreground min-w-0 flex-1">
-                Add it with your price — pre-filled from this search{searchFileRef.current ? ' and photo' : ''}.
+                {(() => {
+                  const ag = locFilter ? groupMatchesByLocation(searchResults.localMatches).find((g) => g.key === locFilter) : undefined
+                  return ag
+                    ? `Add it in ${ag.place} — pre-filled with the ${ag.currency} ${ag.min}–${ag.max} range posted there${searchFileRef.current ? ' and your photo' : ''}.`
+                    : `Add it with your price — pre-filled from this search${searchFileRef.current ? ' and photo' : ''}.`
+                })()}
               </p>
             </div>
           </Card>
