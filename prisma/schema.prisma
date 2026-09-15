@@ -323,3 +323,16 @@ model GuideBooking {
   @@index([guideId, status]) // guide inbox lookup
   @@index([touristId, status]) // tourist "my requests" lookup
 }
+
+// Contact form submissions from the /contact page ("Send Us a Message").
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([handled, createdAt])
+}

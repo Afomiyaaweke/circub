@@ -5,7 +5,7 @@ import {
   MapPin, Users, Building2, Sparkles, Lightbulb, ShieldCheck, Globe,
   TrendingUp, BadgeCheck, ArrowRight, MessageSquare, Eye, ThumbsUp,
   UserPlus, Search, Heart, Star, ChevronRight, Plane, Compass, PackageOpen,
-  Mail, Phone, Twitter, Instagram
+  Mail, Phone, Twitter, Instagram, Clock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -607,31 +607,39 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               <a href="#" className="hover:text-primary">Terms</a>
               <a href="#" className="hover:text-primary">Help</a>
               <a href="#" className="hover:text-primary">About</a>
+              <a href="/contact" className="hover:text-primary">Contact us</a>
             </div>
           </div>
-          {/* ===== Contact info ===== */}
+          {/* ===== Contact info — matches the /contact page EXACTLY ===== */}
           <div className="mt-8 pt-6 border-t border-background/10">
             <p className="text-xs font-semibold uppercase tracking-wider text-background/60">Contact us</p>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
               <a
-                href="mailto:hello@circub.app"
+                href="mailto:support@tenetbid.com"
                 className="flex items-center gap-2.5 text-background/80 hover:text-primary transition-colors"
               >
                 <Mail className="h-4 w-4 shrink-0 text-primary" />
-                hello@circub.app
+                support@tenetbid.com
               </a>
               <a
-                href="tel:+251911234567"
+                href="mailto:contact@tenetbid.com"
+                className="flex items-center gap-2.5 text-background/80 hover:text-primary transition-colors"
+              >
+                <Mail className="h-4 w-4 shrink-0 text-primary" />
+                contact@tenetbid.com
+              </a>
+              <a
+                href="tel:+251956140291"
                 className="flex items-center gap-2.5 text-background/80 hover:text-primary transition-colors"
               >
                 <Phone className="h-4 w-4 shrink-0 text-primary" />
-                +251 911 234 567
+                +251 956 140 291
               </a>
               <div className="flex items-center gap-2.5 text-background/80">
-                <MapPin className="h-4 w-4 shrink-0 text-primary" />
-                Addis Ababa, Ethiopia
+                <Clock className="h-4 w-4 shrink-0 text-primary" />
+                Mon-Fri: 8:30 AM – 5:30 PM EAT · Sat: 9:00 AM – 1:00 PM EAT
               </div>
-              <div className="flex items-center gap-4 text-background/80">
+              <div className="flex items-center gap-4 text-background/80 lg:col-span-2">
                 <a
                   href="https://x.com/circubapp"
                   target="_blank"
