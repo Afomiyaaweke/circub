@@ -472,8 +472,29 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
               >
                 Apply
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={searchingByImage || (!pickCountry && !pickCity.trim())}
+                onClick={() => {
+                  const city = pickCity.trim() || null
+                  const country = pickCountry || city
+                  setCustomLocation({ city, country, countryCode: null })
+                  setLocPickOpen(false)
+                  // Jump straight to adding a product in the picked place —
+                  // location pre-filled (country only from a real country
+                  // pick, never the city fallback), the user types the rest.
+                  setPostPrefill({ country: pickCountry || undefined, city: city || undefined })
+                  setModalOpen(true)
+                }}
+                className="gap-1.5 h-9 shrink-0 border-emerald-500/50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                title="Add a product price in the picked place — opens the post form with the location pre-filled"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add product
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Matches are ranked for this place — same city first, then same country. Default is your current location.</p>
+            <p className="text-xs text-muted-foreground">Matches are ranked for this place — same city first, then same country. Or skip the search and add a product there directly.</p>
           </Card>
         )}
 
@@ -529,10 +550,19 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
               </div>
             )}
             {!searchResults.locationCompare && searchResults.localMatches.length === 0 && searchResults.location && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 shrink-0" />
-                No local prices near {searchResults.location.city || searchResults.location.country} yet — be the first to post one!
-              </p>
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  No local prices near {searchResults.location.city || searchResults.location.country} yet — be the first!
+                </span>
+                <button
+                  onClick={() => void handlePostProduct()}
+                  className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                  title="Add this product as a price post — pre-filled with the searched location"
+                >
+                  <Plus className="w-3 h-3" /> Add it
+                </button>
+              </div>
             )}
 
             {/* Compare by location — every location that has a matching
