@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, SlidersHorizontal, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine } from 'lucide-react'
+import { MapPin, Plus, Search, SlidersHorizontal, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,6 +51,20 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   // (device GPS with IP fallback) and reused for every subsequent search.
   const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null)
   const locationPromiseRef = useRef<Promise<ResolvedLocation | null> | null>(null)
+  // Camera-search option panels + custom compare location. "Search by name
+  // first" lets the user search prices WITHOUT a photo; "Compare by
+  // location" lets them pick WHERE to compare prices (defaults to the
+  // auto-detected current location).
+  const [camMenuOpen, setCamMenuOpen] = useState(false)
+  const [nameSearchOpen, setNameSearchOpen] = useState(false)
+  const [nameQuery, setNameQuery] = useState('')
+  const [locPickOpen, setLocPickOpen] = useState(false)
+  const [pickCountry, setPickCountry] = useState('')
+  const [pickCity, setPickCity] = useState('')
+  const [customLocation, setCustomLocation] = useState<{ city: string | null; country: string | null; countryCode?: string | null } | null>(null)
+  // When set, the results panel's match cards are filtered to one location
+  // group from the "Compare by location" breakdown (key: city|country|currency).
+  const [locFilter, setLocFilter] = useState<string | null>(null)
   // AI search results — shown in a panel above the feed after a camera
   // capture or image upload. Contains the AI identification + price
   // estimate + matching local posts ranked by the user's location.
@@ -114,20 +128,28 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     }
   }
 
+  // The location a search should compare prices in: the user's explicit
+  // "Compare by location" pick wins over the auto-detected location.
+  const locationForSearch = async (): Promise<{ city: string | null; country: string | null; countryCode: string | null } | null> => {
+    if (customLocation) return { city: customLocation.city, country: customLocation.country, countryCode: customLocation.countryCode ?? null }
+    // Wait for the auto-detected location briefly (kickLocation starts it on
+    // the click; IP fallback resolves in ~1-2s, GPS may need longer — don't
+    // block the search on it).
+    let loc = userLocation
+    if (!loc && locationPromiseRef.current) {
+      loc = await Promise.race([
+        locationPromiseRef.current,
+        new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+      ])
+      if (loc) setUserLocation(loc)
+    }
+    return loc ? { city: loc.city, country: loc.country, countryCode: loc.countryCode } : null
+  }
+
   const handleImageSearch = async (file: File) => {
     setSearchingByImage(true)
     try {
-      // Location for the price comparison — the click already kicked off the
-      // resolve (kickLocation); wait for it briefly (IP fallback resolves in
-      // ~1-2s, GPS may need longer — don't block the search on it).
-      let loc = userLocation
-      if (!loc && locationPromiseRef.current) {
-        loc = await Promise.race([
-          locationPromiseRef.current,
-          new Promise<null>((r) => setTimeout(() => r(null), 4000)),
-        ])
-        if (loc) setUserLocation(loc)
-      }
+      const loc = await locationForSearch()
       const formData = new FormData()
       formData.append('file', file)
       if (loc) formData.append('location', JSON.stringify({ city: loc.city, country: loc.country, countryCode: loc.countryCode }))
@@ -157,6 +179,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       // most local posts — far better feed results than the raw first keyword.
       const firstKeyword: string = (vlmData.searchTerm || keywords.split(',')[0] || '').trim()
       setSearch(firstKeyword)
+      setLocFilter(null)
       setSearchImage(imageUrl)
       // Store the full results so we can show the AI description + price
       // estimate + matching local posts in a panel above the feed.
@@ -182,6 +205,48 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     } finally { setSearchingByImage(false) }
   }
 
+  // "Search by name first" — same location-ranked price comparison as the
+  // camera search, but the product name is TYPED instead of photographed.
+  const handleTextSearch = async (query: string) => {
+    const q = query.trim()
+    if (!q) return
+    setSearchingByImage(true)
+    try {
+      const loc = await locationForSearch()
+      const formData = new FormData()
+      formData.append('query', q)
+      if (loc) formData.append('location', JSON.stringify(loc))
+      const res = await fetch('/api/visual-search', { method: 'POST', body: formData })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Search failed') }
+      const data = await res.json()
+      const term: string = (data.searchTerm || q).trim()
+      const localMatches = Array.isArray(data.localMatches) ? data.localMatches : []
+      setSearch(term)
+      setSearchImage(null)
+      setLocFilter(null)
+      setSearchResults({
+        aiDescription: data.aiDescription || '',
+        aiPriceEstimate: data.aiPriceEstimate || null,
+        localMatches,
+        keywords: term,
+        imageUrl: '',
+        locationCompare: data.locationCompare || null,
+        location: data.location || null,
+      })
+      const nearCount = (data.locationCompare?.count as number) || 0
+      toast({
+        title: localMatches.length > 0 ? `Found ${localMatches.length} local price${localMatches.length !== 1 ? 's' : ''} for "${term}"` : `No local prices for "${term}" yet`,
+        description: localMatches.length > 0
+          ? nearCount > 0
+            ? `${data.locationCompare.currency} ${data.locationCompare.min}–${data.locationCompare.max} · ${nearCount} near ${data.locationCompare.place}`
+            : 'See the results panel — grouped by location'
+          : 'Try "Compare by location" for another city, or post the first price.',
+      })
+    } catch (e) {
+      toast({ title: 'Search failed', description: (e as Error).message, variant: 'destructive' })
+    } finally { setSearchingByImage(false) }
+  }
+
   // Kick off location resolution on the FIRST user gesture (camera-search
   // click) — browsers only allow the geolocation prompt from a gesture, and
   // by the time the user has picked/captured a photo it has usually resolved.
@@ -198,6 +263,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     setSearch('')
     setSearchImage(null)
     setSearchResults(null)
+    setLocFilter(null)
   }
 
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
@@ -243,7 +309,15 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card h-9 sm:h-10 text-sm" />
         </div>
-        <PhotoSearchButton onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} />
+        <PhotoSearchButton
+          onImage={handleImageSearch}
+          loading={searchingByImage}
+          onInitiate={kickLocation}
+          onMenuAction={(action) => {
+            if (action === 'name') { setNameSearchOpen(true); setLocPickOpen(false) }
+            else if (action === 'location') { setLocPickOpen(true); setNameSearchOpen(false) }
+          }}
+        />
         <Button
           type="button"
           variant="outline"
@@ -271,6 +345,80 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
             <button onClick={handleClearSearch} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
           </div>
         )}
+        {customLocation && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-emerald-500/40 bg-emerald-50">
+            <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="text-xs text-emerald-800 truncate max-w-[140px]">Comparing in: {[customLocation.city, customLocation.country].filter(Boolean).join(', ')}</span>
+            <button onClick={() => { setCustomLocation(null); setPickCountry(''); setPickCity('') }} className="p-0.5 rounded hover:bg-emerald-100 text-emerald-700" aria-label="Back to my location"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
+
+        {/* "Search by name first" — type the product name instead of
+            uploading a product pic; same location-ranked price compare. */}
+        {nameSearchOpen && (
+          <Card className="w-full p-3 shadow-sm border-primary/30 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><PenLine className="w-4 h-4 text-primary" /> Search by name first</p>
+              <button onClick={() => setNameSearchOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close name search"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs text-muted-foreground">No photo needed — type the product name (e.g. "coffee beans", "power bank"). Can&apos;t find it? Use the camera instead.</p>
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleTextSearch(nameQuery) }}
+              className="flex items-center gap-2"
+            >
+              <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Product name..." className="flex-1 h-9 bg-card text-sm" />
+              <Button type="submit" size="sm" disabled={searchingByImage || !nameQuery.trim()} className="bg-primary hover:bg-primary/90 gap-1.5 h-9 shrink-0">
+                {searchingByImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />} Search
+              </Button>
+            </form>
+          </Card>
+        )}
+
+        {/* "Compare by location" — pick WHERE to compare prices (defaults
+            to the auto-detected current location). Applies to the next
+            camera search or name search. */}
+        {locPickOpen && (
+          <Card className="w-full p-3 shadow-sm border-emerald-500/40 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-emerald-600" /> Compare prices by location</p>
+              <button onClick={() => setLocPickOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close location picker"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                size="sm"
+                variant={customLocation ? 'outline' : 'default'}
+                onClick={() => { setCustomLocation(null); setPickCountry(''); setPickCity(''); kickLocation() }}
+                className="gap-1.5 h-9 shrink-0"
+              >
+                <Navigation className="w-3.5 h-3.5" /> My location
+              </Button>
+              <Select value={pickCountry || 'any'} onValueChange={(v) => setPickCountry(v === 'any' ? '' : v)}>
+                <SelectTrigger className="w-[160px] bg-card h-9 text-sm"><SelectValue placeholder="Any country" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any country</SelectItem>
+                  {filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input value={pickCity} onChange={(e) => setPickCity(e.target.value)} placeholder="City (optional)" className="w-[150px] h-9 bg-card text-sm" />
+              <Button
+                type="button"
+                size="sm"
+                disabled={searchingByImage || (!pickCountry && !pickCity.trim())}
+                onClick={() => {
+                  const city = pickCity.trim() || null
+                  setCustomLocation({ city, country: pickCountry || city, countryCode: null })
+                  setLocPickOpen(false)
+                  toast({ title: 'Comparing in ' + [city, pickCountry].filter(Boolean).join(', '), description: 'Run a camera search or name search to see prices there.' })
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 h-9 shrink-0"
+              >
+                Apply
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Matches are ranked for this place — same city first, then same country. Default is your current location.</p>
+          </Card>
+        )}
 
         {/* AI search results panel — shows after a camera capture or image
             upload. Contains the AI identification + price estimate (in the
@@ -279,10 +427,16 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
         {searchResults && (
           <Card className="p-4 shadow-sm border-primary/20 space-y-3">
             <div className="flex items-start gap-3">
-              <img src={searchResults.imageUrl} alt="Captured" className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border" />
+              {searchResults.imageUrl ? (
+                <img src={searchResults.imageUrl} alt="Captured" className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border" />
+              ) : (
+                <div className="w-16 h-16 rounded-lg shrink-0 border border-border bg-accent flex items-center justify-center">
+                  <PenLine className="w-6 h-6 text-primary" />
+                </div>
+              )}
               <div className="flex-1 min-w-0 space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">AI identified</span>
+                  <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">{searchResults.imageUrl ? 'AI identified' : 'Searched by name'}</span>
                   <span className="text-xs text-muted-foreground truncate">{searchResults.keywords || 'No product recognized'}</span>
                 </div>
                 {searchResults.aiDescription && (
@@ -324,18 +478,70 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
               </p>
             )}
 
+            {/* Compare by location — every location that has a matching
+                price, side by side (range + count per place). Click a place
+                to filter the match cards below to it. */}
+            {(() => {
+              const groups = groupMatchesByLocation(searchResults.localMatches)
+              if (groups.length < 2) return null
+              return (
+                <div className="space-y-1.5 pt-2 border-t border-border">
+                  <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 shrink-0" />
+                    Compare by location
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {groups.map((g) => (
+                      <button
+                        key={g.key}
+                        onClick={() => setLocFilter(locFilter === g.key ? null : g.key)}
+                        className={`text-left px-2.5 py-2 rounded-lg border transition-colors space-y-0.5 ${locFilter === g.key ? 'border-emerald-500 bg-emerald-100/70' : g.near ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50' : 'border-border bg-card hover:bg-accent/50'}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-foreground truncate flex items-center gap-1">
+                            <MapPin className="w-3 h-3 shrink-0 text-muted-foreground" />{g.place}
+                          </span>
+                          {g.near && <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">Near you</span>}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-bold text-emerald-700">{g.currency} {g.min}–{g.max}</span>
+                          <span className="text-muted-foreground shrink-0">{g.count} price{g.count !== 1 ? 's' : ''}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Local price matches — real prices from locals, grouped by how
-                close they are to the user's location. */}
-            {searchResults.localMatches.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-border">
-                <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  {searchResults.localMatches.length} local price{searchResults.localMatches.length !== 1 && 's'} found
-                </p>
-                {(() => {
-                  const near = searchResults.localMatches.filter((m) => m.locMatch === 'city' || m.locMatch === 'country')
-                  const elsewhere = searchResults.localMatches.filter((m) => m.locMatch !== 'city' && m.locMatch !== 'country')
-                  return (
+                close they are to the user's location (or filtered to one
+                location when the user picked a place above). */}
+            {searchResults.localMatches.length > 0 && (() => {
+              const filtered = locFilter
+                ? searchResults.localMatches.filter((m: any) => matchLocationKey(m) === locFilter)
+                : searchResults.localMatches
+              const near = filtered.filter((m: any) => m.locMatch === 'city' || m.locMatch === 'country')
+              const elsewhere = filtered.filter((m: any) => m.locMatch !== 'city' && m.locMatch !== 'country')
+              const activeGroup = locFilter ? groupMatchesByLocation(searchResults.localMatches).find((g) => g.key === locFilter) : undefined
+              return (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      {locFilter && activeGroup
+                        ? `${activeGroup.place} — ${filtered.length} local price${filtered.length !== 1 ? 's' : ''}`
+                        : `${filtered.length} local price${filtered.length !== 1 ? 's' : ''} found`}
+                    </p>
+                    {locFilter && (
+                      <button onClick={() => setLocFilter(null)} className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
+                        <X className="w-3 h-3" /> show all
+                      </button>
+                    )}
+                  </div>
+                  {filtered.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No matches in this place.</p>
+                  ) : (
                     <>
                       {near.length > 0 && (
                         <div className="space-y-1.5">
@@ -356,10 +562,10 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                         </div>
                       )}
                     </>
-                  )
-                })()}
-              </div>
-            )}
+                  )}
+                </div>
+              )
+            })()}
           </Card>
         )}
         <Select value={country} onValueChange={setCountry}>
@@ -423,35 +629,68 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   )
 }
 
-function PhotoSearchButton({ onImage, loading, onInitiate }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void }) {
+function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onMenuAction?: (action: 'name' | 'location') => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [menuOpen, setMenuOpen] = useState(false)
   return (
     <>
       <input type="file" accept="image/*" ref={inputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImage(f); if (inputRef.current) inputRef.current.value = '' }} className="hidden" />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          if (SCAN_COMING_SOON) {
-            toast({ title: 'Camera search is coming soon', description: 'Camera search will be available in a future update.' })
-            return
-          }
-          // Start resolving the user's location NOW (user gesture — required
-          // for the geolocation permission prompt) so it is ready by the time
-          // the photo is chosen, enabling the location-based price compare.
-          onInitiate?.()
-          inputRef.current?.click()
-        }}
-        disabled={loading}
-        className="bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs shrink-0"
-        title="Search by taking a photo or uploading an image. AI will analyze it, then compare prices near you."
-      >
-        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
-        <span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span>
-        {SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
-      </Button>
+      <div className="relative shrink-0">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (SCAN_COMING_SOON) {
+              toast({ title: 'Camera search is coming soon', description: 'Camera search will be available in a future update.' })
+              return
+            }
+            // Start resolving the user's location NOW (user gesture — required
+            // for the geolocation permission prompt) so it is ready by the time
+            // the photo is chosen, enabling the location-based price compare.
+            onInitiate?.()
+            setMenuOpen((o) => !o)
+          }}
+          disabled={loading}
+          className="bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs"
+          title="Search by photo, by name, or compare prices in another location"
+        >
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
+          <span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span>
+          {SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
+        </Button>
+        {/* Options menu — take a photo, search by name first (no photo
+            needed), or compare prices in a chosen location. */}
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+            <div className="absolute right-0 top-full mt-1.5 z-50 w-64 rounded-xl border border-border bg-card shadow-lg p-1.5 space-y-0.5">
+              <button
+                onClick={() => { setMenuOpen(false); inputRef.current?.click() }}
+                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
+              >
+                <p className="text-sm font-medium text-foreground flex items-center gap-2"><Camera className="w-4 h-4 text-primary shrink-0" />Take photo or upload</p>
+                <p className="text-[11px] text-muted-foreground">AI identifies the product from a picture</p>
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); onMenuAction?.('name') }}
+                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
+              >
+                <p className="text-sm font-medium text-foreground flex items-center gap-2"><PenLine className="w-4 h-4 text-primary shrink-0" />Search by name first</p>
+                <p className="text-[11px] text-muted-foreground">Type the product name — no photo needed</p>
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); onMenuAction?.('location') }}
+                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
+              >
+                <p className="text-sm font-medium text-foreground flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600 shrink-0" />Compare by location</p>
+                <p className="text-[11px] text-muted-foreground">Pick the city or country to compare prices in</p>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </>
   )
 }
@@ -477,6 +716,37 @@ function LocalMatchCard({ post, onOpen }: { post: any; onOpen: (id: string) => v
       </div>
     </button>
   )
+}
+
+// Location key for a match — used by the "Compare by location" breakdown
+// and the match-card filter (city|country|currency so cross-currency posts
+// are never merged into one misleading range).
+function matchLocationKey(m: { city?: string | null; country?: string | null; currency?: string }): string {
+  return `${m.city || ''}|${m.country || ''}|${m.currency || ''}`
+}
+
+// Group local matches by place with a per-place price range, so the user
+// can compare the same product across locations at a glance. Near-you
+// groups sort first, then by match count.
+function groupMatchesByLocation(matches: Array<any>): Array<{
+  key: string; place: string; currency: string; min: number; max: number; count: number; near: boolean
+}> {
+  const map = new Map<string, { key: string; place: string; currency: string; min: number; max: number; count: number; near: boolean }>()
+  for (const m of matches) {
+    const key = matchLocationKey(m)
+    const place = [m.city, m.country].filter(Boolean).join(', ') || 'Unknown location'
+    const g = map.get(key) ?? {
+      key, place, currency: m.currency || '',
+      min: m.priceMin, max: m.priceMax, count: 0,
+      near: m.locMatch === 'city' || m.locMatch === 'country',
+    }
+    g.min = Math.min(g.min, m.priceMin)
+    g.max = Math.max(g.max, m.priceMax)
+    g.count += 1
+    if (m.locMatch === 'city' || m.locMatch === 'country') g.near = true
+    map.set(key, g)
+  }
+  return Array.from(map.values()).sort((a, b) => Number(b.near) - Number(a.near) || b.count - a.count || a.place.localeCompare(b.place))
 }
 
 // One-line comparison between the local price range near the user and the

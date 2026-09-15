@@ -19,6 +19,12 @@ export const maxDuration = 60
 //   3. Search the local price posts DB and RANK matches by the user's
 //      location (same city > same country > elsewhere) and compute a
 //      location-based comparison summary (AI estimate vs prices near you).
+//
+//   TWO MODES:
+//   - image mode: FormData 'file' — full AI vision identification.
+//   - text mode:  FormData 'query' (no file) — "search first before
+//     uploading a product pic": the user types the product name and gets
+//     the SAME location-ranked local price comparison without any photo.
 // ============================================================================
 
 interface SearchLocation {
@@ -97,10 +103,17 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
-    if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: 'Invalid file type.' }, { status: 400 })
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'Image too large. Max 5 MB.' }, { status: 400 })
+    // Text mode — "search first before uploading product pic": a typed
+    // product name instead of an image. Both modes share the whole
+    // location-ranked search pipeline below.
+    const rawQuery = formData.get('query')
+    const textQuery = typeof rawQuery === 'string' ? rawQuery.trim().slice(0, 120) : ''
+    if (!file && !textQuery) return NextResponse.json({ error: 'No file or query provided' }, { status: 400 })
+    if (file) {
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+      if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: 'Invalid file type.' }, { status: 400 })
+      if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'Image too large. Max 5 MB.' }, { status: 400 })
+    }
 
     // Optional client location (JSON string) — used to rank local matches
     // and to convert the AI estimate into the user's local currency.
@@ -119,11 +132,7 @@ export async function POST(req: NextRequest) {
       } catch { /* ignore malformed location — search continues worldwide */ }
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const base64 = buffer.toString('base64')
-    const dataUrl = `data:${file.type};base64,${base64}`
-
-    // ---- STEP 1: Identify the product (multi-provider vision chain) ----
+    // ---- STEP 1: Identify the product ----
     let name = ''
     let brand: string | null = null
     let category: string | null = null
@@ -131,41 +140,54 @@ export async function POST(req: NextRequest) {
     let searchQuery = ''
     let aiUsed = false
     let identified = false
+    const mode: 'image' | 'text' = file ? 'image' : 'text'
 
-    try {
-      const ident = await identifyItem(dataUrl)
-      name = ident.name || ''
-      brand = ident.brand ?? null
-      category = ident.category ?? null
-      aiDescription = ident.description || ''
-      searchQuery = ident.searchQuery || ''
-      aiUsed = true
-      identified = !!name && name.toLowerCase() !== 'unknown item'
-    } catch {
-      // All AI providers failed — degrade to filename keywords (same honest
-      // behaviour as before, but now only when EVERY provider is down).
-    }
+    if (file) {
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const base64 = buffer.toString('base64')
+      const dataUrl = `data:${file.type};base64,${base64}`
 
-    if (!identified) {
-      if (aiUsed) {
-        // The AI answered but found no purchasable product — do NOT fall
-        // back to filename noise (that made the feed search look broken).
-        return NextResponse.json({
-          keywords: '',
-          searchTerm: '',
-          aiDescription: 'Could not identify a product in this image.',
-          aiPriceEstimate: null,
-          aiUsed: true,
-          identified: false,
-          localMatches: [],
-          locationCompare: null,
-          location,
-        })
+      try {
+        const ident = await identifyItem(dataUrl)
+        name = ident.name || ''
+        brand = ident.brand ?? null
+        category = ident.category ?? null
+        aiDescription = ident.description || ''
+        searchQuery = ident.searchQuery || ''
+        aiUsed = true
+        identified = !!name && name.toLowerCase() !== 'unknown item'
+      } catch {
+        // All AI providers failed — degrade to filename keywords (same honest
+        // behaviour as before, but now only when EVERY provider is down).
       }
-      // ALL AI providers failed — degrade to filename keywords (honest last
-      // resort, same behaviour as before but only when everything is down).
-      name = file.name.replace(/\.(png|jpg|jpeg|webp|gif)$/i, '').replace(/[-_]/g, ' ').replace(/\d+/g, ' ').trim()
-      aiDescription = 'AI analysis unavailable. Using filename as search keyword.'
+
+      if (!identified) {
+        if (aiUsed) {
+          // The AI answered but found no purchasable product — do NOT fall
+          // back to filename noise (that made the feed search look broken).
+          return NextResponse.json({
+            keywords: '',
+            searchTerm: '',
+            aiDescription: 'Could not identify a product in this image.',
+            aiPriceEstimate: null,
+            aiUsed: true,
+            identified: false,
+            localMatches: [],
+            locationCompare: null,
+            location,
+            mode,
+          })
+        }
+        // ALL AI providers failed — degrade to filename keywords (honest last
+        // resort, same behaviour as before but only when everything is down).
+        name = file.name.replace(/\.(png|jpg|jpeg|webp|gif)$/i, '').replace(/[-_]/g, ' ').replace(/\d+/g, ' ').trim()
+        aiDescription = 'AI analysis unavailable. Using filename as search keyword.'
+      }
+    } else {
+      // TEXT MODE — the product name is typed by the user; no vision needed.
+      name = textQuery
+      searchQuery = textQuery
+      identified = true
     }
 
     const keywords = [name, brand, category].filter(Boolean).join(', ')
@@ -182,6 +204,7 @@ export async function POST(req: NextRequest) {
         localMatches: [],
         locationCompare: null,
         location,
+        mode,
       })
     }
 
@@ -319,6 +342,7 @@ export async function POST(req: NextRequest) {
       localMatches,
       locationCompare,
       location,
+      mode,
     })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Visual search failed.' }, { status: 500 })
