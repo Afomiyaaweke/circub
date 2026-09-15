@@ -384,9 +384,51 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       </Card>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[140px] sm:min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card h-9 sm:h-10 text-sm" />
+        {/* Unified search bar — the country/city/category filters live INSIDE
+            the search field as segmented sections of one pill. Desktop: a
+            single row (input | country | city | category). Phone: the pill
+            wraps — search on top, filters on a second row inside the bar. */}
+        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs overflow-hidden">
+          <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[150px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
+          </div>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
+          <Select value={country} onValueChange={setCountry}>
+            <SelectTrigger
+              className={
+                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[150px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (country !== 'All countries' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+              }
+            >
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent><SelectItem value="All countries">All countries</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
+          <Select value={city} onValueChange={setCity}>
+            <SelectTrigger
+              className={
+                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[112px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (city !== 'All cities' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+              }
+            >
+              <SelectValue placeholder="All cities" />
+            </SelectTrigger>
+            <SelectContent><SelectItem value="All cities">All cities</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger
+              className={
+                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[132px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (category !== 'All categories' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+              }
+            >
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent><SelectItem value="All categories">All categories</SelectItem>{filterValues.categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
         </div>
         <PhotoSearchButton
           onImage={handleImageSearch}
@@ -770,18 +812,6 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
             </div>
           </Card>
         )}
-        <Select value={country} onValueChange={setCountry}>
-          <SelectTrigger className="w-full sm:w-[130px] bg-card h-9 text-sm"><MapPin className="w-3.5 h-3.5 mr-1 text-muted-foreground shrink-0" /><SelectValue placeholder="All countries" /></SelectTrigger>
-          <SelectContent><SelectItem value="All countries">All countries</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-        </Select>
-        <Select value={city} onValueChange={setCity}>
-          <SelectTrigger className="w-full sm:w-[120px] bg-card h-9 text-sm"><SelectValue placeholder="All cities" /></SelectTrigger>
-          <SelectContent><SelectItem value="All cities">All cities</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-        </Select>
-        <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-full sm:w-[140px] bg-card h-9 text-sm"><SelectValue placeholder="All categories" /></SelectTrigger>
-          <SelectContent><SelectItem value="All categories">All categories</SelectItem>{filterValues.categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-        </Select>
       </div>
 
       {loading ? (
