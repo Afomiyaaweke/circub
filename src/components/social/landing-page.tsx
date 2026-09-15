@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PwaInstallButton } from '@/components/pwa-install-button'
+import { APP_VERSION } from '@/lib/app-version'
 import { cn } from '@/lib/utils'
 
 interface LandingPageProps {
@@ -673,6 +674,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
           </div>
           <div className="mt-8 pt-6 border-t border-background/10 text-xs text-background/60 text-center">
             © {new Date().getFullYear()} circub · Connecting travelers with verified local knowledge, one price at a time.
+            <span className="ml-2 text-[10px] font-mono opacity-70">{APP_VERSION}</span>
           </div>
         </div>
       </footer>

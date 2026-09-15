@@ -1,19 +1,17 @@
-/* circub service worker — fast by default, fresh by design.
+/* circub service worker — fresh first, offline-safe second.
  * Strategy:
  *  - build assets (hashed) + icons + brand images + manifest: cache-first (immutable)
- *  - navigations (HTML): stale-while-revalidate — cached shell paints INSTANTLY,
- *    a fresh copy is fetched in the background for the next load.
- *    SAFE because the HTML is a generic client-rendered shell: everything
- *    user-specific (session, prices, feeds) is fetched client-side via /api/*,
- *    which is always network (never cached).
+ *  - navigations (HTML): NETWORK-FIRST — every open loads the LATEST deployed
+ *    build, so the phone (PWA / Android app) and the desktop web always show
+ *    the same version. The cached shell is ONLY used when the network fails
+ *    (offline / flaky connection).
  *  - API GETs: network-only (prices/feeds must stay fresh)
  *  - POST/PUT/PATCH/DELETE: never touched
  *
- * ⚠️ Bump VERSION on EVERY deploy that changes code: cached HTML references
- * hashed /_next assets of that deployment. (A missed bump risks one stale
- * view; the background revalidation self-heals on the following load.)
+ * ⚠️ Bump VERSION on EVERY deploy that changes code: cached assets reference
+ * hashed /_next files of that deployment.
  */
-const VERSION = 'circub-v11';
+const VERSION = 'circub-v12';
 const SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -80,27 +78,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2) navigations — stale-while-revalidate (instant repeat loads on mobile)
+  // 2) navigations — NETWORK-FIRST (mobile/desktop always show the same build;
+  //    cached shell only saves an OFFLINE visit)
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.open(VERSION).then(async (cache) => {
-        const cached = await cache.match(request).then((h) => h || cache.match('/'));
-        const refresh = fetch(request)
-          .then((res) => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(VERSION).then((c) => c.put(request, copy));
-            }
-            return res;
-          })
-          .catch(() => undefined);
-        if (cached) {
-          event.waitUntil(refresh); // update silently for the next load
-          return cached;
-        }
-        // first ever visit: must go to network; offline -> shell
-        return refresh.then((res) => res || caches.match('/'));
-      })
+      fetch(request)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(request, copy));
+          }
+          return res;
+        })
+        .catch(() =>
+          // offline: serve the cached shell for this navigation
+          caches.match(request).then((hit) => hit || caches.match('/'))
+        )
     );
     return;
   }
