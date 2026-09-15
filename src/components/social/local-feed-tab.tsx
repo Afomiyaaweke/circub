@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, SlidersHorizontal, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +30,6 @@ interface LocalFeedTabProps {
   onRefreshUser: () => void
 }
 
-type SortKey = 'recent' | 'popular'
 
 export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [posts, setPosts] = useState<LocalPricePost[]>([])
@@ -39,7 +38,6 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [country, setCountry] = useState('All countries')
   const [city, setCity] = useState('All cities')
   const [category, setCategory] = useState('All categories')
-  const [sort, setSort] = useState<SortKey>('recent')
   const [modalOpen, setModalOpen] = useState(false)
   const [pricelensOpen, setPricelensOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
@@ -105,12 +103,12 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       if (country && country !== 'All countries') params.set('country', country)
       if (city && city !== 'All cities') params.set('city', city)
       if (category && category !== 'All categories') params.set('category', category)
-      params.set('sort', sort)
+      // Posts default to most recent (API default) — no sort dropdown in the UI.
       const res = await fetch(`/api/local-prices?${params.toString()}`)
       const data = await res.json()
       setPosts(data.posts || [])
     } catch { setPosts([]) } finally { setLoading(false) }
-  }, [search, country, city, category, sort])
+  }, [search, country, city, category])
 
   useEffect(() => {
     const t = setTimeout(fetchPosts, 250)
@@ -640,20 +638,16 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           </Card>
         )}
         <Select value={country} onValueChange={setCountry}>
-          <SelectTrigger className="w-full sm:w-[160px] bg-card h-9 sm:h-10 text-sm"><MapPin className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" /><SelectValue placeholder="All countries" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[130px] bg-card h-9 text-sm"><MapPin className="w-3.5 h-3.5 mr-1 text-muted-foreground shrink-0" /><SelectValue placeholder="All countries" /></SelectTrigger>
           <SelectContent><SelectItem value="All countries">All countries</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={city} onValueChange={setCity}>
-          <SelectTrigger className="w-full sm:w-[150px] bg-card h-9 sm:h-10 text-sm"><SelectValue placeholder="All cities" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[120px] bg-card h-9 text-sm"><SelectValue placeholder="All cities" /></SelectTrigger>
           <SelectContent><SelectItem value="All cities">All cities</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-full sm:w-[160px] bg-card h-9 sm:h-10 text-sm"><SelectValue placeholder="All categories" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[140px] bg-card h-9 text-sm"><SelectValue placeholder="All categories" /></SelectTrigger>
           <SelectContent><SelectItem value="All categories">All categories</SelectItem>{filterValues.categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-        </Select>
-        <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-          <SelectTrigger className="w-full sm:w-[140px] bg-card h-9 sm:h-10 text-sm"><SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 text-muted-foreground shrink-0" /><SelectValue placeholder="Sort" /></SelectTrigger>
-          <SelectContent><SelectItem value="recent">Most recent</SelectItem><SelectItem value="popular">Most helpful</SelectItem></SelectContent>
         </Select>
       </div>
 

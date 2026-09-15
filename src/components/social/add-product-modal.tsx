@@ -20,6 +20,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { compressImage } from '@/lib/image-compress'
+import { identifyPhoto, matchCategory, type IdentifyCompareResult } from '@/lib/photo-identify'
+import { ComparePreview } from './compare-preview'
 
 interface AddProductModalProps {
   open: boolean
@@ -53,6 +56,8 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [compareResult, setCompareResult] = useState<IdentifyCompareResult | null>(null)
+  const [comparing, setComparing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -67,14 +72,19 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
     setDescription('')
     setCategory('Beverages')
     setImageUrl('')
+    setCompareResult(null)
+    setComparing(false)
   }
 
   const handleUpload = async (file: File) => {
     if (!file) return
     setUploading(true)
+    let compressed: File | Blob = file
     try {
+      // Downscale first — phone photos are 2-5 MB and would bloat the DB.
+      compressed = await compressImage(file)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) {
         const err = await res.json()
@@ -89,9 +99,35 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
         description: (e as Error).message,
         variant: 'destructive',
       })
-    } finally {
       setUploading(false)
+      return
     }
+    setUploading(false)
+
+    // Identify the product from the SAME photo and pull matching price
+    // posts — the form shows the comparison while the user finishes typing.
+    // Errors are non-fatal: the image is already uploaded.
+    setComparing(true)
+    try {
+      const result = await identifyPhoto(compressed, { country })
+      setCompareResult(result)
+      // Pre-fill only EMPTY fields — never override what the user typed.
+      if (!name.trim() && result.searchTerm) setName(result.searchTerm)
+      if (!description.trim() && result.aiDescription) setDescription(result.aiDescription)
+      const hit = matchCategory(result.searchTerm, CATEGORIES)
+      if (hit) setCategory(hit)
+      if (!price) {
+        // Prefill ONLY from real posted prices (locationCompare) — the AI
+        // estimate is too unreliable to type into the user's form. It still
+        // shows in the comparison preview for reference.
+        const range = result.locationCompare
+        if (range && range.currency && CURRENCIES.includes(range.currency)) {
+          setCurrency(range.currency)
+          setPrice(String(Math.round((range.min + range.max) / 2)))
+        }
+      }
+    } catch { /* comparison is optional — saving continues as usual */ }
+    setComparing(false)
   }
 
   const handleSave = async () => {
@@ -360,7 +396,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
                     variant="ghost"
                     size="sm"
                     className="absolute top-2 right-2 h-7 w-7 p-0 bg-white/90 hover:bg-white"
-                    onClick={() => setImageUrl('')}
+                    onClick={() => { setImageUrl(''); setCompareResult(null) }}
                     aria-label="Remove image"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -370,15 +406,15 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
+                  disabled={uploading || comparing}
                   className="w-full rounded-lg border-2 border-dashed border-border bg-accent/20 px-4 py-7 flex flex-col items-center text-center hover:border-primary hover:bg-accent/40 transition-colors disabled:opacity-60"
                 >
                   <Upload className="w-7 h-7 text-primary mb-2" />
                   <span className="font-medium text-sm text-foreground">
-                    {uploading ? 'Uploading...' : 'Add product photo'}
+                    {uploading ? 'Uploading...' : comparing ? 'Analyzing photo…' : 'Add product photo'}
                   </span>
                   <span className="text-xs text-muted-foreground mt-0.5">
-                    or drag and drop
+                    {comparing ? 'AI identifies the product and finds similar prices' : 'or drag and drop'}
                   </span>
                   <span className="text-[10px] text-muted-foreground/70 mt-1">
                     PNG, JPEG, WebP, GIF · max 5 MB
@@ -387,6 +423,11 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
               )}
             </div>
           </div>
+
+          {/* AI identification + similar-posts comparison from the attached
+              photo — lets the user price the product against the feed
+              BEFORE saving. */}
+          {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
         </div>
 
         {/* Footer actions */}
