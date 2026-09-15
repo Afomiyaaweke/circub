@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck, Handshake, Hourglass, Camera } from 'lucide-react'
+import { ExternalLink, Package, Sparkles, Tag, AlertCircle, BadgeCheck, Handshake, Hourglass, Camera, MapPin } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -167,33 +167,65 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
 
       {sources.length > 0 && <SourcesList sources={sources} />}
 
-      {/* Local price posts from the circub DB — real prices from locals */}
+      {/* Local price posts from the circub DB — real prices from locals,
+          ranked by the scan location (city > country > elsewhere). Posts
+          inside the user's location get a "Near you" badge so the location
+          comparison is obvious at a glance. */}
       {result.localPrices && result.localPrices.length > 0 && (
         <div className="space-y-2">
           <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-600">
             Local prices ({result.localPrices.length})
+            {(() => {
+              const nearCount = result.localPrices.filter((p) => isNearLocation(p, location)).length
+              if (nearCount === 0 || !location?.city && !location?.country) return null
+              const place = location.city ? `${location.city}${location.country ? ', ' + location.country : ''}` : location.country
+              return <span className="normal-case text-zinc-400"> · {nearCount} near {place}</span>
+            })()}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {result.localPrices.map((post, i) => (
-              <div key={i} className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-zinc-900 truncate">{post.productName}</span>
-                  <span className="text-sm font-bold text-emerald-700 shrink-0">
-                    {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `–${post.priceMax}` : ''}
-                  </span>
+            {result.localPrices.map((post, i) => {
+              const near = isNearLocation(post, location)
+              return (
+                <div key={i} className={`rounded-lg border p-2.5 space-y-1 ${near ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-200 bg-emerald-50/50'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-zinc-900 truncate">{post.productName}</span>
+                    <span className="text-sm font-bold text-emerald-700 shrink-0">
+                      {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `–${post.priceMax}` : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                    {near && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-semibold text-white shrink-0">
+                        <MapPin className="h-2.5 w-2.5" /> Near you
+                      </span>
+                    )}
+                    <span className="truncate">{post.city ? post.city + ', ' : ''}{post.country}</span>
+                    {post.authorVerifiedLocal && <BadgeCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
+                    <span className="truncate">· {post.authorName}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <span className="truncate">{post.city ? post.city + ', ' : ''}{post.country}</span>
-                  {post.authorVerifiedLocal && <BadgeCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
-                  <span className="truncate">· {post.authorName}</span>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
     </motion.div>
   )
+}
+
+// True when a local price post falls inside the scan location (city match
+// beats country match). Used for the "Near you" badge + near count.
+function isNearLocation(
+  post: { city: string | null; country: string },
+  location: { city?: string | null; country?: string | null } | null
+): boolean {
+  if (!location) return false
+  const pc = (post.country || '').toLowerCase()
+  const pcity = (post.city || '').toLowerCase()
+  const locCountry = (location.country || '').toLowerCase()
+  const locCity = (location.city || '').toLowerCase()
+  if (locCity && pcity && (pcity === locCity || pcity.includes(locCity) || locCity.includes(pcity))) return true
+  return !!(locCountry && pc && (pc === locCountry || pc.includes(locCountry) || locCountry.includes(pc)))
 }
 
 function SourcesList({ sources }: { sources: ScanResult['sources'] }) {
