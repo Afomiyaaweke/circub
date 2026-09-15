@@ -17,9 +17,11 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import type { LocalPricePost } from '@/lib/types'
 
-// SCAN ON HOLD — flip to false to re-enable both camera entry points
-// ("Scan with camera" / PriceLens and Camera search).
-const SCAN_COMING_SOON = true
+// Camera scan + camera search are LIVE — clicking either entry point opens the
+// camera/search flow (AI identifies the item, then compares the AI price
+// estimate against real local price posts). Flip to true to hold them behind
+// a "Soon" badge again (e.g. while the AI backend is unavailable).
+const SCAN_COMING_SOON = false
 
 interface LocalFeedTabProps {
   onRefreshUser: () => void

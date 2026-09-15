@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, Bookmark, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass } from 'lucide-react'
+import { MapPin, Users, Bookmark, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -210,6 +210,14 @@ export function Header({
                   <MessageSquare className="w-4 h-4 text-muted-foreground" />
                   Messages
                 </button>
+                <a
+                  href="/contact"
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
+                >
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  Contact us
+                </a>
                 <div className="border-t border-border my-1" />
                 <button
                   onClick={() => {
