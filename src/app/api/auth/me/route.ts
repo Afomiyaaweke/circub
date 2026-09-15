@@ -39,6 +39,8 @@ export async function GET() {
       bio: me.bio,
       headline: me.headline,
       location: me.location,
+      phone: me.phone,
+      whatsapp: me.whatsapp,
       accountType: me.accountType,
       companyName: me.companyName,
       companyWebsite: me.companyWebsite,
@@ -87,6 +89,9 @@ export async function PATCH(req: Request) {
     if (typeof body.bio === 'string') data.bio = body.bio.trim().slice(0, 2000) || null
     if (typeof body.profilePicture === 'string') data.profilePicture = body.profilePicture.trim() || null
     if (typeof body.expertiseTags === 'string') data.expertiseTags = body.expertiseTags.trim().slice(0, 300) || null
+    // Contact channels (same as local price posts: phone / email / WhatsApp)
+    if (typeof body.phone === 'string') data.phone = body.phone.trim().slice(0, 40) || null
+    if (typeof body.whatsapp === 'string') data.whatsapp = body.whatsapp.trim().slice(0, 200) || null
 
     // --- guide profile fields (only meaningful for guides) ---
     if (me.isGuide) {
@@ -111,7 +116,7 @@ export async function PATCH(req: Request) {
       data,
       select: {
         id: true, name: true, headline: true, location: true, bio: true,
-        profilePicture: true, expertiseTags: true,
+        profilePicture: true, expertiseTags: true, phone: true, whatsapp: true,
         isGuide: true, guideLicense: true, guideLanguages: true,
         guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
         guideBio: true, guideAvailable: true,

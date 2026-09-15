@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Camera, X, MapPin, Briefcase, Lightbulb, Sparkles, UserCircle, Save, Loader2, Compass, Languages, Award, DollarSign, Star } from 'lucide-react'
+import { Camera, X, MapPin, Briefcase, Lightbulb, Sparkles, UserCircle, Save, Loader2, Compass, Languages, Award, DollarSign, Star, Phone, Mail, MessageCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,9 @@ export function EditProfileModal({ open, onOpenChange, user, onSaved }: EditProf
   const [headline, setHeadline] = useState('')
   const [location, setLocation] = useState('')
   const [bio, setBio] = useState('')
+  // Contact channels (same as local price posts: phone / email / WhatsApp)
+  const [phone, setPhone] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
   const [expertiseTags, setExpertiseTags] = useState('')
   // Guide profile fields (editable when the account is a registered guide)
   const [guideBio, setGuideBio] = useState('')
@@ -48,6 +51,8 @@ export function EditProfileModal({ open, onOpenChange, user, onSaved }: EditProf
       setHeadline(user.headline || '')
       setLocation(user.location || '')
       setBio(user.bio || '')
+      setPhone(user.phone || '')
+      setWhatsapp(user.whatsapp || '')
       setProfilePicture(user.profilePicture || null)
       const tags = user.expertiseTags
       setExpertiseTags(Array.isArray(tags) ? tags.join(', ') : (tags as string) || '')
@@ -95,7 +100,7 @@ export function EditProfileModal({ open, onOpenChange, user, onSaved }: EditProf
     if (!name.trim()) { toast({ title: 'Name is required', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const payload: Record<string, unknown> = { name, headline, location, bio, profilePicture, expertiseTags }
+      const payload: Record<string, unknown> = { name, headline, location, bio, profilePicture, expertiseTags, phone: phone.trim() || null, whatsapp: whatsapp.trim() || null }
       if (isGuide) {
         payload.guideBio = guideBio
         payload.guideSpecialties = guideSpecialties
@@ -146,6 +151,33 @@ export function EditProfileModal({ open, onOpenChange, user, onSaved }: EditProf
           <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />Location</label><Input placeholder="e.g. Kuala Lumpur, Malaysia" value={location} onChange={(e) => setLocation(e.target.value)} /></div>
           <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" />Expertise (comma-separated)</label><Input placeholder="e.g. Coffee, Markets, Handicrafts" value={expertiseTags} onChange={(e) => setExpertiseTags(e.target.value)} /></div>
           <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5" />Bio</label><Textarea placeholder="Tell the community who you are and what you know..." value={bio} onChange={(e) => setBio(e.target.value)} className="min-h-[80px] resize-y" /></div>
+
+          {/* ===== Contact information (same channels as local price posts) ===== */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground">Contact information</h3>
+            </div>
+            <p className="text-[11px] text-muted-foreground -mt-1">Shown on your profile so travelers and locals can reach you. Same channels as local price posts.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />Phone</label>
+                <Input type="tel" placeholder="+251 911 234 567" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />WhatsApp</label>
+                <Input placeholder="+251 911 234 567 or wa.me/251911234567" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />Sign-in email</label>
+              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-accent/40 text-sm text-muted-foreground truncate">
+                <Mail className="w-3.5 h-3.5 shrink-0" />
+                {user?.email || '—'}
+              </div>
+              <p className="text-[10px] text-muted-foreground">Your sign-in email is used for contact — it can’t be changed here.</p>
+            </div>
+          </div>
 
           {/* ===== Guide profile section (registered guides only) ===== */}
           {isGuide && (

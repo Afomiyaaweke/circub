@@ -66,6 +66,10 @@ model User {
   guideAvailable Boolean  @default(true)
   profilePicture String?
 
+  // Contact information (same channels as local price posts: phone / email / WhatsApp)
+  phone          String?
+  whatsapp       String?
+
   products       Product[]
   posts          Post[]
   postLikes      PostLike[]

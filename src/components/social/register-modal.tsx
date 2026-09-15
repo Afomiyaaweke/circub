@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { User, Building2, Mail, Lock, MapPin, Briefcase, Globe, X, Sparkles, UserCircle, ArrowRight } from 'lucide-react'
+import { User, Building2, Mail, Lock, MapPin, Briefcase, Globe, X, Sparkles, UserCircle, ArrowRight, Phone, MessageCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,9 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   const [name, setName] = useState('')
   const [headline, setHeadline] = useState('')
   const [location, setLocation] = useState('')
+  // Contact channels (same as local price posts: phone / email / WhatsApp)
+  const [phone, setPhone] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
   const [bio, setBio] = useState('')
   // Company fields
   const [companyName, setCompanyName] = useState('')
@@ -63,6 +66,8 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
     setName('')
     setHeadline('')
     setLocation('')
+    setPhone('')
+    setWhatsapp('')
     setBio('')
     setCompanyName('')
     setContactName('')
@@ -110,6 +115,8 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         body.name = name
         body.headline = headline
         body.location = location
+        body.phone = phone
+        body.whatsapp = whatsapp
         body.bio = bio
       } else {
         body.companyName = companyName
@@ -228,6 +235,21 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                 value={location}
                 onChange={setLocation}
               />
+              {/* Contact channels — same as local price posts (phone / email / WhatsApp) */}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
+                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-primary" />Contact information <span className="font-normal text-muted-foreground">(optional)</span></p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />Phone</label>
+                    <Input type="tel" placeholder="+251 911 234 567" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />WhatsApp</label>
+                    <Input placeholder="wa.me/251911234567" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Shown on your profile so others can reach you. You can change it later in Edit profile.</p>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground font-medium">Bio (optional)</label>
                 <Textarea

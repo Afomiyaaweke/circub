@@ -14,6 +14,9 @@ interface RegisterBody {
   headline?: string
   location?: string
   bio?: string
+  // Contact channels (same as local price posts: phone / email / WhatsApp)
+  phone?: string
+  whatsapp?: string
   // Company
   companyName?: string
   companyWebsite?: string
@@ -93,6 +96,8 @@ export async function POST(req: NextRequest) {
       userData.headline = sanitizeInput(body.headline || '', 200) || null
       userData.location = sanitizeInput(body.location || '', 200) || null
       userData.bio = sanitizeInput(body.bio || '', 2000) || null
+      userData.phone = sanitizeInput(body.phone || '', 40) || null
+      userData.whatsapp = sanitizeInput(body.whatsapp || '', 200) || null
       userData.isLocal = true
     } else {
       userData.name = sanitizeInput(body.contactName || body.companyName!, 100)

@@ -35,6 +35,8 @@ export interface User {
   guideCurrency?: string | null
   guideBio?: string | null
   guideAvailable?: boolean
+  phone?: string | null
+  whatsapp?: string | null
 }
 
 export interface Product {

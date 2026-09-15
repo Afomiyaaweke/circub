@@ -7,6 +7,8 @@ import {
   Trophy,
   TrendingUp,
   Mail,
+  Phone,
+  MessageCircle,
   MapPin,
   MessageSquareText,
   Star,
@@ -176,6 +178,35 @@ export function RightSidebar({
               )}
               {user?.bio && (
                 <p className="text-xs text-muted-foreground line-clamp-3 px-2">{user.bio}</p>
+              )}
+
+              {/* Contact rows — same channels as local price posts: phone / email / WhatsApp */}
+              {(user?.phone || user?.whatsapp || user?.email) && (
+                <div className="w-full space-y-1 px-2 pt-1">
+                  {user?.phone && (
+                    <a href={`tel:${user.phone}`} className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors justify-center">
+                      <Phone className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{user.phone}</span>
+                    </a>
+                  )}
+                  {user?.whatsapp && (
+                    <a
+                      href={user.whatsapp.startsWith('http') ? user.whatsapp : `https://wa.me/${user.whatsapp.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors justify-center"
+                    >
+                      <MessageCircle className="w-3 h-3 shrink-0" />
+                      <span className="truncate">WhatsApp</span>
+                    </a>
+                  )}
+                  {user?.email && (
+                    <a href={`mailto:${user.email}`} className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors justify-center">
+                      <Mail className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{user.email}</span>
+                    </a>
+                  )}
+                </div>
               )}
 
               {/* Stats row */}
