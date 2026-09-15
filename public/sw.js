@@ -13,7 +13,7 @@
  * hashed /_next assets of that deployment. (A missed bump risks one stale
  * view; the background revalidation self-heals on the following load.)
  */
-const VERSION = 'circub-v10';
+const VERSION = 'circub-v11';
 const SHELL = [
   '/',
   '/manifest.webmanifest',

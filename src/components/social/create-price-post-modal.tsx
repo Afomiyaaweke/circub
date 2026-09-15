@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles } from 'lucide-react'
 import {
   Dialog,
@@ -21,15 +21,32 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
+import { compressImage } from '@/lib/image-compress'
+
+// Optional values carried over from the camera-search results panel — when
+// the AI identifies a product from a picture, "Post this product" opens this
+// modal with everything it can fill in already set.
+export interface CreatePricePostPrefill {
+  productName?: string
+  description?: string
+  category?: string
+  currency?: string
+  priceMin?: number | string
+  priceMax?: number | string
+  country?: string
+  city?: string
+  imageUrl?: string
+}
 
 interface CreatePricePostModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void
+  prefill?: CreatePricePostPrefill | null
 }
 
-const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS']
-const CATEGORIES = [
+const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS', 'HKD', 'AED', 'ZAR', 'CAD', 'SGD', 'THB', 'EGP', 'MAD']
+export const CATEGORIES = [
   'Coffee',
   'Food',
   'Handicrafts',
@@ -44,7 +61,7 @@ const CATEGORIES = [
   'Other',
 ]
 
-export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePricePostModalProps) {
+export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }: CreatePricePostModalProps) {
   const [postType, setPostType] = useState<'PRODUCT' | 'SERVICE'>('PRODUCT')
   const [productName, setProductName] = useState('')
   const [description, setDescription] = useState('')
@@ -69,6 +86,21 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
+  // Apply the camera-search prefill each time the modal OPENS with one —
+  // user edits stay intact while the modal stays open; closing resets.
+  useEffect(() => {
+    if (!open || !prefill) return
+    if (prefill.productName) setProductName(prefill.productName)
+    if (prefill.description) setDescription(prefill.description)
+    if (prefill.category && CATEGORIES.includes(prefill.category)) setCategory(prefill.category)
+    if (prefill.currency && CURRENCIES.includes(prefill.currency)) setCurrency(prefill.currency)
+    if (prefill.priceMin !== undefined && prefill.priceMin !== '') setPriceMin(String(prefill.priceMin))
+    if (prefill.priceMax !== undefined && prefill.priceMax !== '') setPriceMax(String(prefill.priceMax))
+    if (prefill.country) setCountry(prefill.country)
+    if (prefill.city) setCity(prefill.city)
+    if (prefill.imageUrl) setImageUrl(prefill.imageUrl)
+  }, [open, prefill])
+
   const reset = () => {
     setPostType('PRODUCT')
     setProductName('')
@@ -92,8 +124,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated }: CreatePr
     if (!file) return
     setUploading(true)
     try {
+      // Downscale first — phone photos are 2-5 MB and would bloat the DB.
+      const compressed = await compressImage(file)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) {
         const err = await res.json()

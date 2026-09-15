@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
-import { CreatePricePostModal } from './create-price-post-modal'
+import { CreatePricePostModal, CATEGORIES } from './create-price-post-modal'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
@@ -16,6 +16,8 @@ import { PriceLensModal } from './pricelens-modal'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
+import { compressImage } from '@/lib/image-compress'
+import type { CreatePricePostPrefill } from './create-price-post-modal'
 import type { LocalPricePost } from '@/lib/types'
 
 // Camera scan + camera search are LIVE — clicking either entry point opens the
@@ -65,6 +67,13 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   // When set, the results panel's match cards are filtered to one location
   // group from the "Compare by location" breakdown (key: city|country|currency).
   const [locFilter, setLocFilter] = useState<string | null>(null)
+  // "Post this product" — pre-fills the create-post modal from the current
+  // camera-search results (identified name, category, price range, photo).
+  const [postPrefill, setPostPrefill] = useState<CreatePricePostPrefill | null>(null)
+  const [prefillingPost, setPrefillingPost] = useState(false)
+  // The original captured File behind searchResults.imageUrl — kept so the
+  // photo can be uploaded (compressed) when the user chooses to post it.
+  const searchFileRef = useRef<File | null>(null)
   // AI search results — shown in a panel above the feed after a camera
   // capture or image upload. Contains the AI identification + price
   // estimate + matching local posts ranked by the user's location.
@@ -153,6 +162,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       const formData = new FormData()
       formData.append('file', file)
       if (loc) formData.append('location', JSON.stringify({ city: loc.city, country: loc.country, countryCode: loc.countryCode }))
+      searchFileRef.current = file
       const vlmRes = await fetch('/api/visual-search', { method: 'POST', body: formData })
       if (!vlmRes.ok) { const e = await vlmRes.json(); throw new Error(e.error || 'Visual search failed') }
       const vlmData = await vlmRes.json()
@@ -218,6 +228,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       if (loc) formData.append('location', JSON.stringify(loc))
       const res = await fetch('/api/visual-search', { method: 'POST', body: formData })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Search failed') }
+      searchFileRef.current = null
       const data = await res.json()
       const term: string = (data.searchTerm || q).trim()
       const localMatches = Array.isArray(data.localMatches) ? data.localMatches : []
@@ -264,6 +275,47 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     setSearchImage(null)
     setSearchResults(null)
     setLocFilter(null)
+    searchFileRef.current = null
+  }
+
+  // "Post this product" — turn the camera-search result into a price post.
+  // Pre-fills the create modal with the identified product (name, category,
+  // the compared price range, the searched location) and uploads the captured
+  // photo as the post image. The new post then feeds back into the same
+  // location comparison for everyone else.
+  const handlePostProduct = async () => {
+    const r = searchResults
+    if (!r) return
+    let imageUrl = ''
+    if (searchFileRef.current) {
+      setPrefillingPost(true)
+      try {
+        const compressed = await compressImage(searchFileRef.current)
+        const fd = new FormData()
+        fd.append('file', compressed)
+        const res = await fetch('/api/upload', { method: 'POST', body: fd })
+        if (res.ok) imageUrl = (await res.json()).url || ''
+      } catch { /* photo is optional — the post can still go out without it */ } finally { setPrefillingPost(false) }
+    }
+    const keywords = r.keywords || ''
+    const firstName = keywords.split(',')[0]?.trim() || ''
+    // Match the AI keywords against the post categories ("Coffee Beans, Coffee"
+    // -> Coffee). Falls back to Other — the user can always change it.
+    const kw = keywords.toLowerCase()
+    const category = CATEGORIES.find((c) => kw.includes(c.toLowerCase())) || 'Other'
+    const priceSrc = r.locationCompare ?? r.aiPriceEstimate
+    setPostPrefill({
+      productName: firstName || search || undefined,
+      description: r.aiDescription || undefined,
+      category,
+      currency: priceSrc?.currency,
+      priceMin: priceSrc ? priceSrc.min : undefined,
+      priceMax: priceSrc ? priceSrc.max : undefined,
+      country: r.location?.country || undefined,
+      city: r.location?.city || undefined,
+      imageUrl: imageUrl || undefined,
+    })
+    setModalOpen(true)
   }
 
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
@@ -298,7 +350,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
             </div>
             <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
           </div>
-          <Button onClick={() => setModalOpen(true)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
+          <Button onClick={() => { setPostPrefill(null); setModalOpen(true) }} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
             <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
           </Button>
         </div>
@@ -566,6 +618,25 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 </div>
               )
             })()}
+
+            {/* Post this product — add the identified item as a price post
+                with the captured photo, pre-filled from this search. The new
+                post then shows up in everyone's location comparison. */}
+            <div className="pt-2 border-t border-border flex items-center gap-2.5 flex-wrap">
+              <Button
+                size="sm"
+                onClick={handlePostProduct}
+                disabled={prefillingPost}
+                className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 shrink-0"
+                title="Add this product as a price post — pre-filled with the identified name, photo and compared price range"
+              >
+                {prefillingPost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {prefillingPost ? 'Preparing photo...' : 'Post this product'}
+              </Button>
+              <p className="text-[11px] text-muted-foreground min-w-0 flex-1">
+                Add it with your price — pre-filled from this search{searchFileRef.current ? ' and photo' : ''}.
+              </p>
+            </div>
           </Card>
         )}
         <Select value={country} onValueChange={setCountry}>
@@ -599,7 +670,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
               ? `The camera search found ${searchResults.localMatches.length} matching price${searchResults.localMatches.length !== 1 ? 's' : ''} — see the results panel above. Or adjust your filters below.`
               : 'No posts match your filters. Try adjusting search or filters · or be the first to post a local price!'}
           </p>
-          <Button onClick={() => setModalOpen(true)} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
+          <Button onClick={() => { setPostPrefill(null); setModalOpen(true) }} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
         </Card>
       ) : (
         <>
@@ -612,7 +683,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
         </>
       )}
 
-      <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={handleCreated} />
+      <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={() => { setPostPrefill(null); handleCreated() }} prefill={postPrefill} />
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} />
