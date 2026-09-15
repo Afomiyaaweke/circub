@@ -61,7 +61,11 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [locPickOpen, setLocPickOpen] = useState(false)
   const [pickCountry, setPickCountry] = useState('')
   const [pickCity, setPickCity] = useState('')
-  const [customLocation, setCustomLocation] = useState<{ city: string | null; country: string | null; countryCode?: string | null } | null>(null)
+  // One or MORE places the user picked for the price compare — "add two or
+  // more locations". `place` is the display label; the FIRST pick is the
+  // primary location sent to the search API, the rest are matched client-side
+  // (badges + per-place summary lines in the results panel).
+  const [customLocations, setCustomLocations] = useState<Array<{ city: string | null; country: string | null; countryCode?: string | null; place: string }>>([])
   // When set, the results panel's match cards are filtered to one location
   // group from the "Compare by location" breakdown (key: city|country|currency).
   const [locFilter, setLocFilter] = useState<string | null>(null)
@@ -138,7 +142,10 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   // The location a search should compare prices in: the user's explicit
   // "Compare by location" pick wins over the auto-detected location.
   const locationForSearch = async (): Promise<{ city: string | null; country: string | null; countryCode: string | null } | null> => {
-    if (customLocation) return { city: customLocation.city, country: customLocation.country, countryCode: customLocation.countryCode ?? null }
+    if (customLocations.length) {
+      const l = customLocations[0]
+      return { city: l.city, country: l.country, countryCode: l.countryCode ?? null }
+    }
     // Wait for the auto-detected location briefly (kickLocation starts it on
     // the click; IP fallback resolves in ~1-2s, GPS may need longer — don't
     // block the search on it).
@@ -276,6 +283,21 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     searchFileRef.current = null
   }
 
+  // Add the currently typed place to the multi-location compare list.
+  const addPlace = () => {
+    const city = pickCity.trim() || null
+    const country = pickCountry || city
+    const place = [city, pickCountry].filter(Boolean).join(', ')
+    if (!place) return
+    if (customLocations.some((p) => p.place.toLowerCase() === place.toLowerCase())) {
+      toast({ title: 'Already added', description: `${place} is already in your compare list.` })
+      return
+    }
+    setCustomLocations([...customLocations, { city, country, countryCode: null, place }])
+    setPickCity('')
+    toast({ title: `${place} added`, description: 'Add another place to compare side by side, or close and run a search.' })
+  }
+
   // "Post this product" — turn the camera-search result into a price post.
   // Pre-fills the create modal with the identified product (name, category,
   // the compared price range, the searched location) and uploads the captured
@@ -402,11 +424,13 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
             <button onClick={handleClearSearch} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
           </div>
         )}
-        {customLocation && (
+        {customLocations.length > 0 && (
           <div className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-emerald-500/40 bg-emerald-50">
             <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="text-xs text-emerald-800 truncate max-w-[140px]">Comparing in: {[customLocation.city, customLocation.country].filter(Boolean).join(', ')}</span>
-            <button onClick={() => { setCustomLocation(null); setPickCountry(''); setPickCity('') }} className="p-0.5 rounded hover:bg-emerald-100 text-emerald-700" aria-label="Back to my location"><X className="w-3.5 h-3.5" /></button>
+            <span className="text-xs text-emerald-800 truncate max-w-[220px]">
+              Comparing in: {customLocations.slice(0, 2).map((p) => p.place).join(' · ')}{customLocations.length > 2 ? ` +${customLocations.length - 2} more` : ''}
+            </span>
+            <button onClick={() => setCustomLocations([])} className="p-0.5 rounded hover:bg-emerald-100 text-emerald-700" aria-label="Back to my location"><X className="w-3.5 h-3.5" /></button>
           </div>
         )}
 
@@ -444,8 +468,8 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
               <Button
                 type="button"
                 size="sm"
-                variant={customLocation ? 'outline' : 'default'}
-                onClick={() => { setCustomLocation(null); setPickCountry(''); setPickCity(''); kickLocation() }}
+                variant={customLocations.length ? 'outline' : 'default'}
+                onClick={() => { setCustomLocations([]); setPickCountry(''); setPickCity(''); kickLocation() }}
                 className="gap-1.5 h-9 shrink-0"
               >
                 <Navigation className="w-3.5 h-3.5" /> My location
@@ -462,16 +486,22 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 type="button"
                 size="sm"
                 disabled={searchingByImage || (!pickCountry && !pickCity.trim())}
-                onClick={() => {
-                  const city = pickCity.trim() || null
-                  setCustomLocation({ city, country: pickCountry || city, countryCode: null })
-                  setLocPickOpen(false)
-                  toast({ title: 'Comparing in ' + [city, pickCountry].filter(Boolean).join(', '), description: 'Run a camera search or name search to see prices there.' })
-                }}
-                className="bg-emerald-600 hover:bg-emerald-700 h-9 shrink-0"
+                onClick={addPlace}
+                className="bg-emerald-600 hover:bg-emerald-700 h-9 shrink-0 gap-1.5"
               >
-                Apply
+                <Plus className="w-3.5 h-3.5" /> Add place
               </Button>
+              {customLocations.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setLocPickOpen(false)}
+                  className="h-9 shrink-0"
+                >
+                  Done
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
@@ -480,7 +510,11 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 onClick={() => {
                   const city = pickCity.trim() || null
                   const country = pickCountry || city
-                  setCustomLocation({ city, country, countryCode: null })
+                  const place = [city, pickCountry].filter(Boolean).join(', ')
+                  // Keep the place for later compares too — without duping it.
+                  if (place) {
+                    setCustomLocations((prev) => prev.some((p) => p.place.toLowerCase() === place.toLowerCase()) ? prev : [...prev, { city, country, countryCode: null, place }])
+                  }
                   setLocPickOpen(false)
                   // Jump straight to adding a product in the picked place —
                   // location pre-filled (country only from a real country
@@ -494,7 +528,18 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 <Plus className="w-3.5 h-3.5" /> Add product
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Matches are ranked for this place — same city first, then same country. Or skip the search and add a product there directly.</p>
+            {customLocations.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {customLocations.map((p, i) => (
+                  <span key={`${p.place}-${i}`} className="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-full border border-emerald-300 bg-emerald-50 text-xs text-emerald-800">
+                    <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                    {p.place}
+                    <button onClick={() => setCustomLocations(customLocations.filter((_, j) => j !== i))} className="p-0.5 rounded-full hover:bg-emerald-100 text-emerald-700" aria-label={`Remove ${p.place}`}><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Add two or more places to compare them side by side — the first place ranks the matches, and every place gets its own price line in the results. Or skip the search and add a product directly.</p>
           </Card>
         )}
 
@@ -549,6 +594,37 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 </p>
               </div>
             )}
+            {/* Multi-location compare — one price line per additional picked
+                place (the first pick already has the "Compare near" box
+                above), aggregated from the grouped matches. */}
+            {customLocations.length > 1 && (() => {
+              const groups = groupMatchesByLocation(searchResults.localMatches)
+              const lines = customLocations.slice(1, 5).map((p) => {
+                const ms = groups.filter((g) => groupMatchesPick(g, p))
+                if (ms.length === 0) return { place: p.place, empty: true, currency: '', min: 0, max: 0, count: 0 }
+                return {
+                  place: p.place, empty: false,
+                  currency: ms[0].currency,
+                  min: Math.min(...ms.map((g) => g.min)),
+                  max: Math.max(...ms.map((g) => g.max)),
+                  count: ms.reduce((s, g) => s + g.count, 0),
+                }
+              })
+              return (
+                <div className="space-y-1">
+                  {lines.map((l) => (
+                    <p key={l.place} className="text-xs text-emerald-900 flex items-center gap-1.5 flex-wrap">
+                      <MapPin className="w-3 h-3 shrink-0 text-emerald-600" />
+                      <span className="font-semibold">{l.place}:</span>
+                      {l.empty
+                        ? <span className="text-muted-foreground">no local prices yet</span>
+                        : <span><span className="font-bold">{l.currency} {l.min}–{l.max}</span> · {l.count} price{l.count !== 1 ? 's' : ''}</span>}
+                    </p>
+                  ))}
+                </div>
+              )
+            })()}
+
             {!searchResults.locationCompare && searchResults.localMatches.length === 0 && searchResults.location && (
               <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
                 <span className="flex items-center gap-1.5">
@@ -570,6 +646,8 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                 to filter the match cards below to it. */}
             {(() => {
               const groups = groupMatchesByLocation(searchResults.localMatches)
+                .map((g) => ({ ...g, picked: customLocations.some((p) => groupMatchesPick(g, p)) }))
+                .sort((a, b) => Number(b.picked) - Number(a.picked) || Number(b.near) - Number(a.near) || b.count - a.count || a.place.localeCompare(b.place))
               if (groups.length < 2) return null
               return (
                 <div className="space-y-1.5 pt-2 border-t border-border">
@@ -585,12 +663,13 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setLocFilter(locFilter === g.key ? null : g.key) }}
-                        className={`text-left px-2.5 py-2 rounded-lg border transition-colors space-y-0.5 cursor-pointer ${locFilter === g.key ? 'border-emerald-500 bg-emerald-100/70' : g.near ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50' : 'border-border bg-card hover:bg-accent/50'}`}
+                        className={`text-left px-2.5 py-2 rounded-lg border transition-colors space-y-0.5 cursor-pointer ${locFilter === g.key ? 'border-emerald-500 bg-emerald-100/70' : g.picked ? 'border-emerald-400 bg-emerald-50/70 hover:bg-emerald-50' : g.near ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50' : 'border-border bg-card hover:bg-accent/50'}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-foreground truncate flex items-center gap-1">
                             <MapPin className="w-3 h-3 shrink-0 text-muted-foreground" />{g.place}
                           </span>
+                          {g.picked && <span className="text-[9px] font-semibold uppercase tracking-wide text-white bg-emerald-600 px-1.5 py-0.5 rounded-full shrink-0">Your pick</span>}
                           {g.near && <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">Near you</span>}
                         </div>
                         <div className="flex items-center justify-between gap-2 text-xs">
@@ -842,6 +921,18 @@ function LocalMatchCard({ post, onOpen }: { post: any; onOpen: (id: string) => v
 // are never merged into one misleading range).
 function matchLocationKey(m: { city?: string | null; country?: string | null; currency?: string }): string {
   return `${m.city || ''}|${m.country || ''}|${m.currency || ''}`
+}
+
+// Does a location group (from the breakdown) belong to one of the user's
+// picked compare places? A pick with a city compares THAT city only (the
+// country fallback must not sweep in every other group from the same
+// country); a country-only pick matches any group in that country.
+function groupMatchesPick(g: { key: string }, p: { city: string | null; country: string | null }): boolean {
+  const [gCity, gCountry] = g.key.split('|')
+  const norm = (s: string | null | undefined) => (s || '').trim().toLowerCase()
+  if (p.city) return norm(gCity) === norm(p.city)
+  if (p.country) return norm(gCountry) === norm(p.country)
+  return false
 }
 
 // Group local matches by place with a per-place price range, so the user
