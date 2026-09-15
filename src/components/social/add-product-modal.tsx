@@ -430,8 +430,8 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
           {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
         </div>
 
-        {/* Footer actions */}
-        <div className="mt-6 flex items-center justify-end gap-3">
+        {/* Footer actions — pinned to the bottom of the sheet while scrolling */}
+        <div className="sticky bottom-0 -mx-6 sm:-mx-8 mt-6 flex items-center justify-end gap-3 px-6 sm:px-8 py-3 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             variant="outline"
             onClick={handleCancel}

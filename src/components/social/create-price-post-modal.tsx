@@ -559,8 +559,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
         </div>
 
-        {/* Footer */}
-        <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-border">
+        {/* Footer — pinned to the bottom of the sheet while scrolling */}
+        <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 mt-6 flex items-center justify-end gap-3 pt-4 px-4 sm:px-6 md:px-8 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 md:pb-8 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             variant="outline"
             onClick={handleCancel}
