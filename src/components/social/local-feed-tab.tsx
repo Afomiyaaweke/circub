@@ -17,6 +17,10 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import type { LocalPricePost } from '@/lib/types'
 
+// SCAN ON HOLD — flip to false to re-enable both camera entry points
+// ("Scan with camera" / PriceLens and Camera search).
+const SCAN_COMING_SOON = true
+
 interface LocalFeedTabProps {
   onRefreshUser: () => void
 }
@@ -190,7 +194,13 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setPricelensOpen(true)}
+          onClick={() => {
+            if (SCAN_COMING_SOON) {
+              toast({ title: 'Scan is coming soon', description: 'Camera scanning will be available in a future update.' })
+              return
+            }
+            setPricelensOpen(true)
+          }}
           disabled={searchingByImage}
           className="bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
           title="Open PriceLens — point your camera at a product, AI identifies it and finds live local prices"
@@ -198,6 +208,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <ScanLine className="w-3.5 h-3.5 text-emerald-600" />
           <span className="hidden sm:inline">Scan with camera</span>
           <span className="sm:hidden">Scan</span>
+          {SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
         </Button>
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
@@ -327,12 +338,28 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
 
 function PhotoSearchButton({ onImage, loading }: { onImage: (file: File) => void; loading: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
   return (
     <>
       <input type="file" accept="image/*" ref={inputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImage(f); if (inputRef.current) inputRef.current.value = '' }} className="hidden" />
-      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={loading} className="bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs shrink-0" title="Search by taking a photo or uploading an image. AI will analyze it and recommend matching prices.">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          if (SCAN_COMING_SOON) {
+            toast({ title: 'Camera search is coming soon', description: 'Camera search will be available in a future update.' })
+            return
+          }
+          inputRef.current?.click()
+        }}
+        disabled={loading}
+        className="bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs shrink-0"
+        title="Search by taking a photo or uploading an image. AI will analyze it and recommend matching prices."
+      >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
         <span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span>
+        {SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
       </Button>
     </>
   )
