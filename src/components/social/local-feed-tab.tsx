@@ -283,6 +283,23 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
     searchFileRef.current = null
   }
 
+  // Camera-search menu action (shared by the desktop labeled button and the
+  // compact phone icon inside the search bar).
+  const openSearchMenu = (action: 'name' | 'location') => {
+    if (action === 'name') { setNameSearchOpen(true); setLocPickOpen(false) }
+    else if (action === 'location') { setLocPickOpen(true); setNameSearchOpen(false) }
+  }
+
+  // PriceLens scan (shared by the desktop labeled button and the compact
+  // phone icon inside the search bar).
+  const openScan = () => {
+    if (SCAN_COMING_SOON) {
+      toast({ title: 'Scan is coming soon', description: 'Camera scanning will be available in a future update.' })
+      return
+    }
+    setPricelensOpen(true)
+  }
+
   // Add the currently typed place to the multi-location compare list.
   const addPlace = () => {
     const city = pickCity.trim() || null
@@ -388,10 +405,19 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
             the search field as segmented sections of one pill. Desktop: a
             single row (input | country | city | category). Phone: the pill
             wraps — search on top, filters on a second row inside the bar. */}
-        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs overflow-hidden">
-          <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[150px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
+        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs">
+          <div className="flex items-center flex-1 basis-full sm:basis-auto sm:min-w-[150px] min-w-0">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
+            </div>
+            {/* Phone: Camera search + Scan collapse into compact icon buttons
+                INSIDE the search bar — saves a whole row, and the camera menu
+                drops from the pill's right edge so it always fits the screen. */}
+            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onMenuAction={openSearchMenu} />
+            <Button type="button" variant="ghost" size="icon" onClick={openScan} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Scan with camera — PriceLens">
+              <ScanLine className="w-4 h-4 text-emerald-600" />
+            </Button>
           </div>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           <Select value={country} onValueChange={setCountry}>
@@ -431,27 +457,19 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           </Select>
         </div>
         <PhotoSearchButton
+          className="hidden sm:block"
           onImage={handleImageSearch}
           loading={searchingByImage}
           onInitiate={kickLocation}
-          onMenuAction={(action) => {
-            if (action === 'name') { setNameSearchOpen(true); setLocPickOpen(false) }
-            else if (action === 'location') { setLocPickOpen(true); setNameSearchOpen(false) }
-          }}
+          onMenuAction={openSearchMenu}
         />
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => {
-            if (SCAN_COMING_SOON) {
-              toast({ title: 'Scan is coming soon', description: 'Camera scanning will be available in a future update.' })
-              return
-            }
-            setPricelensOpen(true)
-          }}
+          onClick={openScan}
           disabled={searchingByImage}
-          className="bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
+          className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
           title="Open PriceLens — point your camera at a product, AI identifies it and finds live local prices"
         >
           <ScanLine className="w-3.5 h-3.5 text-emerald-600" />
@@ -857,14 +875,14 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   )
 }
 
-function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onMenuAction?: (action: 'name' | 'location') => void }) {
+function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onMenuAction?: (action: 'name' | 'location') => void; compact?: boolean; className?: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [menuOpen, setMenuOpen] = useState(false)
   return (
     <>
       <input type="file" accept="image/*" ref={inputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImage(f); if (inputRef.current) inputRef.current.value = '' }} className="hidden" />
-      <div className="relative shrink-0">
+      <div className={`relative shrink-0 ${className || ''}`}>
         <Button
           type="button"
           variant="outline"
@@ -881,19 +899,23 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction }: { onI
             setMenuOpen((o) => !o)
           }}
           disabled={loading}
-          className="bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs"
+          className={compact
+            ? 'bg-card border-primary/30 h-9 w-9 px-0 justify-center'
+            : 'bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs'}
           title="Search by photo, by name, or compare prices in another location"
         >
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
-          <span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span>
-          {SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
+          {!compact && <><span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span></>}
+          {!compact && SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
         </Button>
         {/* Options menu — take a photo, search by name first (no photo
-            needed), or compare prices in a chosen location. */}
+            needed), or compare prices in a chosen location. Anchored to the
+            trigger's right edge with a viewport guard so it never clips off
+            screen on phones. */}
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-            <div className="absolute right-0 top-full mt-1.5 z-50 w-64 rounded-xl border border-border bg-card shadow-lg p-1.5 space-y-0.5">
+            <div className="absolute right-0 top-full mt-1.5 z-50 w-64 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card shadow-lg p-1.5 space-y-0.5">
               <button
                 onClick={() => { setMenuOpen(false); inputRef.current?.click() }}
                 className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"

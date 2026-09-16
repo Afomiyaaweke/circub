@@ -101,6 +101,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [feedQs, setFeedQs] = useState<string[]>([])
   const [feedQsLoading, setFeedQsLoading] = useState(false)
   const [showFeedQs, setShowFeedQs] = useState(false)
+  // AI Guide Match form collapsed to a small button by default — expands on tap.
+  const [aiOpen, setAiOpen] = useState(false)
 
   // Modals
   const [ratingGuide, setRatingGuide] = useState<{ id: string; name: string; profilePicture?: string | null } | null>(null)
@@ -201,6 +203,9 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Recommendation failed')
       setAiResult(data)
+      // Tuck the form away once a match is ready — the result stays visible
+      // under the slim header, keeping the Guides page clean.
+      setAiOpen(false)
     } catch (e) {
       setAiError((e as Error).message || 'Something went wrong')
     } finally {
@@ -289,19 +294,35 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       </Card>
 
-      {/* AI Guide Match */}
-      <Card className="p-4 sm:p-5 shadow-sm border-primary/20">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="w-4 h-4 text-primary shrink-0" />
-          <h3 className="font-semibold text-foreground text-sm">AI Guide Match</h3>
-          <span className="text-[10px] text-muted-foreground">· ask anything, get guides + places</span>
-        </div>
+      {/* AI Guide Match — a small collapsible button by default; tap to
+          expand the ask form. A finished match stays visible even collapsed. */}
+      <Card className="p-3 sm:p-5 shadow-sm border-primary/20">
+        <button
+          type="button"
+          onClick={() => setAiOpen(!aiOpen)}
+          aria-expanded={aiOpen}
+          className="w-full flex items-center gap-2.5 text-left"
+        >
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">AI Guide Match</span>
+            <span className="block text-[11px] text-muted-foreground truncate">Ask anything · get matched guides + places</span>
+          </span>
+          {aiResult && !aiOpen && (
+            <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-1 shrink-0">Match ready</span>
+          )}
+          {aiOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+        </button>
 
+        {aiOpen && (
+        <>
         <Textarea
           placeholder='e.g. "I have 3 days in Ethiopia — who can take me to Lalibela and where should I eat?"'
           value={aiQuestion}
           onChange={(e) => setAiQuestion(e.target.value)}
-          className="min-h-[56px] resize-y bg-card text-sm"
+          className="mt-3 min-h-[56px] resize-y bg-card text-sm"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
@@ -384,12 +405,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             ))}
           </div>
         </div>
+        </>
+        )}
 
-        {/* AI result */}
-        {aiError && (
+        {/* AI result — stays visible even with the form collapsed */}
+        {aiError && aiOpen && (
           <p className="mt-3 text-xs text-destructive">{aiError} — showing keyword matches instead is not possible right now, try again.</p>
         )}
-        {aiLoading && (
+        {aiLoading && aiOpen && (
           <div className="mt-3 space-y-2">
             {[1, 2].map((i) => (
               <Skeleton key={i} className="h-16 w-full" />
@@ -489,7 +512,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
 
       {/* Search bar */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
+        <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[180px] min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search by name, location, or specialty..."
@@ -499,7 +522,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           />
         </div>
         {/* Location search */}
-        <div className="relative min-w-[140px]">
+        <div className="relative w-[calc(50%-0.25rem)] sm:w-auto sm:min-w-[140px]">
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="City or country..."
@@ -512,7 +535,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px]"
+          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px] w-[calc(50%-0.25rem)] sm:w-auto"
         >
           <option value="">All languages</option>
           <optgroup label="Africa">
@@ -598,7 +621,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         <select
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
-          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px]"
+          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px] w-[calc(50%-0.25rem)] sm:w-auto"
         >
           <option value="">All specialties</option>
           <option value="Historical">Historical</option>

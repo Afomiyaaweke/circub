@@ -355,8 +355,10 @@ export default function Home() {
       </div>
 
       <footer className="mt-auto border-t border-border bg-white">
-        {/* ===== Contact info — matches the /contact page EXACTLY ===== */}
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
+        {/* ===== Contact info — matches the /contact page EXACTLY =====
+            Hidden on phones: the contact block made the mobile footer tall
+            and cluttered — the /contact page and the header still have it. */}
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-4 hidden sm:flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
           <a href="/contact" className="font-semibold uppercase tracking-wider text-foreground/60 hover:text-primary transition-colors">Contact</a>
           <a href="mailto:support@tenetbid.com" className="flex items-center gap-1.5 hover:text-primary transition-colors">
             <Mail className="h-3.5 w-3.5" />
