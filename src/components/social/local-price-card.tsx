@@ -16,6 +16,7 @@ interface LocalPriceCardProps {
   onOpen?: (postId: string) => void
   onVote?: (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => void
   onAuthorClick?: (authorId: string) => void
+  onMessage?: (authorId: string) => void
   onDelete?: (postId: string) => void
   onEdit?: (post: LocalPricePost) => void
   canDelete?: boolean
@@ -33,7 +34,7 @@ function formatPrice(value: number, currency: string) {
 // panel, a share row, an author row and a vote row: ~700px per card on a
 // phone. Everything kept, but tightened: photo is a side thumbnail, price is
 // one line with fair/tourist inline, share lives in the footer icon group.
-export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
+export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
   const { toast } = useToast()
@@ -224,6 +225,13 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
         </button>
         {!compact && (
           <div className="flex items-center gap-1 shrink-0">
+            {/* Message the poster directly from the card — hidden on your own posts */}
+            {onMessage && !canEdit && !canDelete && (
+              <Button size="sm" variant="outline" onClick={() => onMessage(post.author.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0" title={`Message ${post.author.name}`}>
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Message</span>
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0">
               <Eye className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Details</span>

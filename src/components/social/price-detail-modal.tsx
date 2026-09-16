@@ -17,6 +17,7 @@ import {
   ArrowDownRight,
   History,
   Eye,
+  MessageCircle,
 } from 'lucide-react'
 import {
   Dialog,
@@ -48,6 +49,8 @@ interface PriceDetailModalProps {
   postId: string | null
   onClose: () => void
   onAuthorClick: (authorId: string) => void
+  onMessage?: (authorId: string) => void
+  currentUserId?: string | null
 }
 
 const REPORT_OPTIONS = [
@@ -65,7 +68,7 @@ function formatPrice(value: number | null | undefined, currency: string) {
   return `${currency} ${value}`
 }
 
-export function PriceDetailModal({ postId, onClose, onAuthorClick }: PriceDetailModalProps) {
+export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, currentUserId }: PriceDetailModalProps) {
   const [post, setPost] = useState<LocalPricePost | null>(null)
   const [consensus, setConsensus] = useState<LocalPriceConsensus | null>(null)
   const [history, setHistory] = useState<LocalPriceHistory | null>(null)
@@ -443,10 +446,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick }: PriceDetail
               {/* Author */}
               <div className="rounded-xl border border-border p-4">
                 <h3 className="text-sm font-semibold text-foreground mb-3">Posted by</h3>
-                <button
-                  onClick={() => onAuthorClick?.(post.author.id)}
-                  className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
-                >
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onAuthorClick?.(post.author.id)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                  >
                   <Avatar className="w-12 h-12 border-2 border-accent">
                     <AvatarFallback className="bg-primary/15 text-primary font-semibold">
                       {post.author.name.charAt(0).toUpperCase()}
@@ -479,11 +483,24 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick }: PriceDetail
                       <span>{post.author.helpfulVotes ?? 0} helpful votes</span>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="border-primary text-primary shrink-0">
-                    <Eye className="w-3.5 h-3.5 mr-1" />
-                    Profile
-                  </Button>
-                </button>
+                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {onMessage && post.author.id !== currentUserId && (
+                      <Button
+                        size="sm"
+                        onClick={() => onMessage(post.author.id)}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                        Message
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="border-primary text-primary shrink-0" onClick={(e) => { e.stopPropagation(); onAuthorClick?.(post.author.id) }}>
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      Profile
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {/* Vote row */}

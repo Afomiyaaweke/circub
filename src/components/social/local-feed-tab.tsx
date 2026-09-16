@@ -29,10 +29,11 @@ const SCAN_COMING_SOON = false
 
 interface LocalFeedTabProps {
   onRefreshUser: () => void
+  onMessage?: (userId: string) => void
 }
 
 
-export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
+export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
   // Load part by part: render a small batch first, append more on scroll
@@ -855,7 +856,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {visiblePosts.map((p) => (
-              <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
+              <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onMessage={onMessage} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
             ))}
           </div>
           <div ref={postsSentinelRef} />
@@ -867,7 +868,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
 
       <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={() => { setPostPrefill(null); handleCreated() }} prefill={postPrefill} />
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
-      <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} />
+      <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} />
       <PriceLensModal
         open={pricelensOpen}

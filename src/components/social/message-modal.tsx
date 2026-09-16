@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import type { User, Conversation, Message } from '@/lib/types'
 
 interface MessageModalProps {
@@ -129,6 +130,8 @@ export function MessageModal({
       })
       if (!res.ok) {
         const e = await res.json()
+        // Session expired mid-chat — bounce to login/register like other actions
+        if (res.status === 401) dispatchAuthExpired('session-expired')
         throw new Error(e.error || 'Failed')
       }
       const data = await res.json()

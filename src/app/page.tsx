@@ -168,9 +168,21 @@ export default function Home() {
   }, [])
 
   const handleMessageUser = useCallback((userId: string) => {
+    // Messaging requires an account — guests are taken straight to sign-up,
+    // expired sessions to login (same flow as posting/voting).
+    if (!me) {
+      setLoginOpen(true)
+      toast({ title: 'Sign in to message', description: 'Log in or create a free account to message locals and guides.' })
+      return
+    }
+    if (me.id === 'guest') {
+      setRegisterOpen(true)
+      toast({ title: 'Sign up to continue', description: 'Create a free account to post prices, vote, and message locals. It takes 10 seconds.' })
+      return
+    }
     setMessageTargetId(userId)
     setMessagesOpen(true)
-  }, [])
+  }, [me, toast])
 
   const handleOpenMessages = useCallback(() => {
     setMessageTargetId(null)
@@ -315,7 +327,7 @@ export default function Home() {
 
           {activeTab === 'local' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LocalFeedTab onRefreshUser={fetchMe} />
+              <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} />
             </Suspense>
           )}
 
@@ -357,7 +369,7 @@ export default function Home() {
       </Suspense>
 
       <Suspense fallback={null}>
-        <PriceDetailModal postId={localPriceId} onClose={() => setLocalPriceId(null)} onAuthorClick={setLocalProfileUserId} />
+        <PriceDetailModal postId={localPriceId} onClose={() => setLocalPriceId(null)} onAuthorClick={setLocalProfileUserId} onMessage={handleMessageUser} currentUserId={me?.id ?? null} />
       </Suspense>
 
       <Suspense fallback={null}>
@@ -370,6 +382,26 @@ export default function Home() {
 
       <Suspense fallback={null}>
         <GuideRegisterModal open={guideRegisterOpen} onOpenChange={setGuideRegisterOpen} user={me} onSaved={() => { fetchMe(); setActiveTab('guides') }} />
+      </Suspense>
+
+      {/* Auth modals also in the dashboard: guests who hit an auth-gated action
+          (message a poster, vote, post) get the sign-up prompt without leaving
+          the dashboard. No-ops while closed. */}
+      <Suspense fallback={null}>
+        <RegisterModal
+          open={registerOpen}
+          onOpenChange={setRegisterOpen}
+          onAuthed={handleAuthed}
+          onSwitchToLogin={() => setLoginOpen(true)}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LoginModal
+          open={loginOpen}
+          onOpenChange={setLoginOpen}
+          onAuthed={handleAuthed}
+          onSwitchToRegister={() => setRegisterOpen(true)}
+        />
       </Suspense>
     </div>
   )
