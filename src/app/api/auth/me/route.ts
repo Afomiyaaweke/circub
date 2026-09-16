@@ -62,6 +62,10 @@ export async function GET() {
       guideCurrency: me.guideCurrency,
       guideBio: me.guideBio,
       guideAvailable: me.guideAvailable,
+      // Verification document: expose only the type + whether it's on file —
+      // NEVER the image itself (a multi-MB data URL would bloat every load).
+      guideIdDocType: me.guideIdDocType,
+      hasIdDoc: !!me.guideIdDocUrl,
     })
   } catch (error) {
     console.error('Failed to fetch current user:', error)

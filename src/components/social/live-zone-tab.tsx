@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
-  ChevronUp, Lightbulb, Users, CalendarCheck, CalendarDays,
+  ChevronUp, Lightbulb, Users, CalendarCheck, CalendarDays, ShieldCheck,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -265,19 +265,30 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               Become a guide
             </Button>
           ) : (
-            <Button
-              onClick={onToggleAvailability}
-              variant="outline"
-              className={cn(
-                'gap-1.5 shrink-0',
-                isAvailable
-                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
-                  : 'border-muted text-muted-foreground'
-              )}
-            >
-              <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
-              {isAvailable ? 'Available' : 'Offline'}
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                onClick={onBecomeGuide}
+                variant="outline"
+                className="gap-1.5 shrink-0"
+                title="Edit your guide profile or replace your ID/passport document"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span className="hidden sm:inline">Guide profile</span>
+              </Button>
+              <Button
+                onClick={onToggleAvailability}
+                variant="outline"
+                className={cn(
+                  'gap-1.5 shrink-0',
+                  isAvailable
+                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                    : 'border-muted text-muted-foreground'
+                )}
+              >
+                <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
+                {isAvailable ? 'Available' : 'Offline'}
+              </Button>
+            </div>
           )}
           <Button
             onClick={() => setBookingsOpen(true)}
@@ -651,6 +662,12 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         <div className="flex items-center gap-1 flex-wrap">
                           <span className="text-sm font-semibold text-foreground truncate">{g.name}</span>
                           {g.verifiedLocal && <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
+                          {(g as any).idVerified && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 bg-emerald-100 rounded px-1 py-0.5 shrink-0" title="ID or passport verified">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              ID
+                            </span>
+                          )}
                           <GuideStars value={g.rating || 0} />
                         </div>
                         <p className="text-[11px] text-muted-foreground truncate">
@@ -798,6 +815,12 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">
                           <Award className="w-2.5 h-2.5 mr-0.5" />
                           Licensed
+                        </Badge>
+                      )}
+                      {(g as any).idVerified && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0" title="ID or passport verified">
+                          <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
+                          ID
                         </Badge>
                       )}
                     </div>

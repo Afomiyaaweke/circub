@@ -54,6 +54,8 @@ model User {
   guideCurrency  String?
   guideBio       String?
   guideAvailable Boolean  @default(true)
+  guideIdDocType String?   // Verification document type: 'ID' | 'PASSPORT'
+  guideIdDocUrl  String?   // Uploaded ID/passport photo (data URL) — verification only, never shown publicly
   profilePicture String?
 
   products       Product[]

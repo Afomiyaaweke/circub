@@ -35,6 +35,10 @@ export interface User {
   guideCurrency?: string | null
   guideBio?: string | null
   guideAvailable?: boolean
+  // Verification document (own profile: type + presence only; guide lists: idVerified)
+  guideIdDocType?: 'ID' | 'PASSPORT' | string | null
+  hasIdDoc?: boolean
+  idVerified?: boolean
   phone?: string | null
   whatsapp?: string | null
 }

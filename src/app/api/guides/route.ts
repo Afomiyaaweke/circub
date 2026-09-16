@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
         isGuide: true, guideLicense: true, guideLanguages: true,
         guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
         guideBio: true, guideAvailable: true, verifiedLocal: true,
+        guideIdDocType: true, guideIdDocUrl: true,
         helpfulVotes: true, localPostCount: true,
       },
       take: 50,
@@ -55,6 +56,10 @@ export async function GET(req: NextRequest) {
       ...g,
       guideLanguages: g.guideLanguages ? g.guideLanguages.split(',').filter(Boolean) : [],
       guideSpecialties: g.guideSpecialties ? g.guideSpecialties.split(',').filter(Boolean) : [],
+      // Privacy: the document itself (guideIdDocUrl) is NEVER exposed —
+      // other users only learn that a verifiable ID/passport is on file.
+      idVerified: !!g.guideIdDocUrl,
+      guideIdDocUrl: undefined,
     }))
 
     // Enrich with star-review count + distance (both cheap, post-query).
@@ -95,6 +100,22 @@ export async function POST(req: NextRequest) {
     const me = await getCurrentUser()
     if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
+    // Document validation: type must be ID or PASSPORT; a document is REQUIRED
+    // when first registering as a guide (existing guides keep their file and
+    // can add/replace it any time). The image itself arrives as a data URL
+    // from /api/upload (max 4 MB, compressed client-side).
+    const docType = typeof body.guideIdDocType === 'string' ? body.guideIdDocType.trim().toUpperCase() : ''
+    if (docType && docType !== 'ID' && docType !== 'PASSPORT') {
+      return NextResponse.json({ error: 'Document type must be ID or PASSPORT' }, { status: 400 })
+    }
+    const docUrl = typeof body.guideIdDocUrl === 'string' && body.guideIdDocUrl.trim() ? body.guideIdDocUrl.trim() : null
+    if (docUrl && docUrl.length > 6_000_000) {
+      return NextResponse.json({ error: 'Document image too large. Retake the photo and try again.' }, { status: 413 })
+    }
+    if (!me.isGuide && !me.guideIdDocUrl && !docUrl) {
+      return NextResponse.json({ error: 'Upload your ID or passport to register as a guide' }, { status: 400 })
+    }
+
     const updated = await db.user.update({
       where: { id: me.id },
       data: {
@@ -106,11 +127,15 @@ export async function POST(req: NextRequest) {
         guideCurrency: body.guideCurrency?.trim() || null,
         guideBio: body.guideBio?.trim() || null,
         guideAvailable: body.guideAvailable !== false,
+        // Document is only written when a new upload is provided — never cleared
+        // by a plain profile save.
+        ...(docUrl ? { guideIdDocUrl: docUrl, guideIdDocType: docType || null } : {}),
       },
       select: {
         id: true, name: true, isGuide: true, guideLicense: true,
         guideLanguages: true, guideSpecialties: true, guideHourlyRate: true,
         guideCurrency: true, guideBio: true, guideAvailable: true,
+        guideIdDocType: true,
       },
     })
 
