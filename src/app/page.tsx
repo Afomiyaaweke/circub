@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
-import { Mail, Phone, Clock, Twitter, Instagram } from 'lucide-react'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage } from '@/components/social/landing-page'
@@ -355,32 +354,6 @@ export default function Home() {
       </div>
 
       <footer className="mt-auto border-t border-border bg-white">
-        {/* ===== Contact info — matches the /contact page EXACTLY =====
-            Hidden on phones: the contact block made the mobile footer tall
-            and cluttered — the /contact page and the header still have it. */}
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-4 hidden sm:flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
-          <a href="/contact" className="font-semibold uppercase tracking-wider text-foreground/60 hover:text-primary transition-colors">Contact</a>
-          <a href="mailto:support@tenetbid.com" className="flex items-center gap-1.5 hover:text-primary transition-colors">
-            <Mail className="h-3.5 w-3.5" />
-            support@tenetbid.com
-          </a>
-          <a href="tel:+251956140291" className="flex items-center gap-1.5 hover:text-primary transition-colors">
-            <Phone className="h-3.5 w-3.5" />
-            +251 956 140 291
-          </a>
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            Mon-Fri: 8:30 AM – 5:30 PM EAT · Sat: 9:00 AM – 1:00 PM EAT
-          </span>
-          <a href="https://x.com/circubapp" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-primary transition-colors" aria-label="circub on X (Twitter)">
-            <Twitter className="h-3.5 w-3.5" />
-            @circubapp
-          </a>
-          <a href="https://instagram.com/circub.app" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-primary transition-colors" aria-label="circub on Instagram">
-            <Instagram className="h-3.5 w-3.5" />
-            @circub.app
-          </a>
-        </div>
         <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-3 pb-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <p>
             © {new Date().getFullYear()} circub · Local price intelligence for travelers.
