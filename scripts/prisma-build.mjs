@@ -38,10 +38,25 @@ execSync(`${prismaBin} generate ${schemaFlag}`, { stdio: 'inherit' })
 // This makes the first deploy just work without needing a manual db push.
 if (isPostgres && process.env.VERCEL === '1') {
   console.log('[prisma-build] Vercel environment detected. Pushing schema to Postgres (idempotent)...')
-  try {
-    execSync(`${prismaBin} db push --accept-data-loss ${schemaFlag}`, { stdio: 'inherit' })
-  } catch (e) {
-    // Don't fail the build if db push fails — the migrations might already be applied.
-    console.warn('[prisma-build] db push failed (continuing):', e.message)
+  // The push MUST succeed or every User query 500s at runtime (missing
+  // columns -> P2022 -> login/register/profile save all break, while the
+  // deploy itself looks green). Retry once before giving up.
+  let pushed = false
+  for (let attempt = 1; attempt <= 2 && !pushed; attempt++) {
+    try {
+      execSync(`${prismaBin} db push --accept-data-loss ${schemaFlag}`, { stdio: 'inherit' })
+      pushed = true
+    } catch (e) {
+      console.warn(`[prisma-build] db push attempt ${attempt} failed:`, e.message)
+      if (attempt === 1) {
+        console.warn('[prisma-build] Retrying in 5s (transient DB connection issues are common on cold builds)...')
+        execSync('sleep 5')
+      }
+    }
+  }
+  if (!pushed) {
+    // Don't fail the build — the deploy may still be wanted — but make the
+    // failure impossible to miss in the Vercel build log.
+    console.error('[prisma-build] WARNING: db push FAILED after retries. If the schema changed, the live site WILL 500 on auth/profile routes until a successful deploy.')
   }
 }

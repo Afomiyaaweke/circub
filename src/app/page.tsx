@@ -184,6 +184,22 @@ export default function Home() {
     setMessagesOpen(true)
   }, [me, toast])
 
+  // Editing the profile requires a real account — guests were getting a dead
+  // "Save failed" toast when the modal's PATCH hit 401. Same gating as messaging.
+  const handleEditProfile = useCallback(() => {
+    if (!me) {
+      setLoginOpen(true)
+      toast({ title: 'Sign in to edit your profile', description: 'Log in or create a free account to personalize your profile.' })
+      return
+    }
+    if (me.id === 'guest') {
+      setRegisterOpen(true)
+      toast({ title: 'Sign up to save a profile', description: 'Create a free account first — your profile saves with it. It takes 10 seconds.' })
+      return
+    }
+    setEditProfileOpen(true)
+  }, [me, toast])
+
   const handleOpenMessages = useCallback(() => {
     setMessageTargetId(null)
     setMessagesOpen(true)
@@ -314,7 +330,7 @@ export default function Home() {
         onSignUp={() => setRegisterOpen(true)}
         onLogin={() => setLoginOpen(true)}
         onLogout={handleLogout}
-        onEditProfile={() => setEditProfileOpen(true)}
+        onEditProfile={handleEditProfile}
       />
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
@@ -358,7 +374,7 @@ export default function Home() {
             onOpenLocalPrice={setLocalPriceId}
             onOpenLocalProfile={setLocalProfileUserId}
             onGoToFeed={() => setActiveTab('local')}
-            onEditProfile={() => setEditProfileOpen(true)}
+            onEditProfile={handleEditProfile}
             onManageNetwork={() => setActiveTab('network')}
           />
         </div>
@@ -373,7 +389,7 @@ export default function Home() {
       </Suspense>
 
       <Suspense fallback={null}>
-        <LocalProfileModal userId={localProfileUserId} onClose={() => setLocalProfileUserId(null)} onOpenPost={setLocalPriceId} />
+        <LocalProfileModal userId={localProfileUserId} onClose={() => setLocalProfileUserId(null)} onOpenPost={setLocalPriceId} onMessage={handleMessageUser} currentUserId={me?.id ?? null} />
       </Suspense>
 
       <Suspense fallback={null}>

@@ -206,6 +206,21 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </div>
       )}
 
+      {/* Message the poster — full-width row under the post itself, always
+          labeled (the old footer button was an unlabeled icon on phones).
+          Hidden on your own posts and in compact mode. */}
+      {onMessage && !canEdit && !canDelete && !compact && (
+        <Button
+          variant="outline"
+          onClick={() => onMessage(post.author.id)}
+          className="mt-2 w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5 h-8"
+          title={`Message ${post.author.name}`}
+        >
+          <MessageCircle className="w-3.5 h-3.5" />
+          Message the poster
+        </Button>
+      )}
+
       {/* Footer: author left — Details / Save / Share right (share was its own row before) */}
       <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between gap-2">
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
@@ -231,13 +246,6 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </button>
         {!compact && (
           <div className="flex items-center gap-1 shrink-0">
-            {/* Message the poster directly from the card — hidden on your own posts */}
-            {onMessage && !canEdit && !canDelete && (
-              <Button size="sm" variant="outline" onClick={() => onMessage(post.author.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0" title={`Message ${post.author.name}`}>
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Message</span>
-              </Button>
-            )}
             <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0">
               <Eye className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Details</span>

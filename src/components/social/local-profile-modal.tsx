@@ -1,16 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, MapPin, Star, BadgeCheck, ThumbsUp, Calendar, Briefcase, Sparkles } from 'lucide-react'
+import { X, MapPin, Star, BadgeCheck, ThumbsUp, Calendar, Briefcase, Sparkles, MessageCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
 interface LocalProfileModalProps {
   userId: string | null
   onClose: () => void
   onOpenPost: (postId: string) => void
+  onMessage?: (userId: string) => void
+  currentUserId?: string | null
 }
 
 interface ProfileData {
@@ -34,7 +37,7 @@ function formatPrice(value: number | null | undefined, currency: string) {
   return `${currency} ${value}`
 }
 
-export function LocalProfileModal({ userId, onClose, onOpenPost }: LocalProfileModalProps) {
+export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, currentUserId }: LocalProfileModalProps) {
   const [data, setData] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -79,6 +82,18 @@ export function LocalProfileModal({ userId, onClose, onOpenPost }: LocalProfileM
                 </h2>
                 {data.profile.verifiedLocal && <p className="text-xs text-primary font-medium">Verified Local</p>}
               </div>
+              {/* Message this poster straight from their profile — hidden on your own */}
+              {onMessage && data.profile.id !== currentUserId && (
+                <Button
+                  size="sm"
+                  onClick={() => onMessage(data.profile!.id)}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs gap-1.5 h-8 shrink-0 self-center"
+                  title={`Message ${data.profile.name}`}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Message
+                </Button>
+              )}
             </div>
             <div className="p-5 sm:p-6 space-y-4">
               {data.profile.bio && <p className="text-sm text-foreground/90 leading-relaxed">{data.profile.bio}</p>}

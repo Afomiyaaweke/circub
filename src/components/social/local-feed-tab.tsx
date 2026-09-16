@@ -869,7 +869,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
       <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={() => { setPostPrefill(null); handleCreated() }} prefill={postPrefill} />
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} />
-      <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} />
+      <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} onMessage={onMessage} currentUserId={currentUserId} />
       <PriceLensModal
         open={pricelensOpen}
         onOpenChange={setPricelensOpen}
