@@ -6,7 +6,6 @@ import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage } from '@/components/social/landing-page'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
-import { APP_VERSION } from '@/lib/app-version'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
 const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
@@ -293,7 +292,7 @@ export default function Home() {
 
   // Logged-in → dashboard
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-[58px] md:pb-0">
+    <div className="min-h-screen flex flex-col bg-background pb-[36px] md:pb-0">
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -352,20 +351,6 @@ export default function Home() {
           />
         </div>
       </div>
-
-      <footer className="mt-auto border-t border-border bg-white">
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-3 pb-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-          <p>
-            © {new Date().getFullYear()} circub · Local price intelligence for travelers.
-            <span className="ml-2 text-[10px] font-mono opacity-60" title="Same version shows on your phone — mobile and web are always in sync">{APP_VERSION}</span>
-          </p>
-          <p className="flex items-center gap-3">
-            <a href="/privacy" className="hover:text-primary transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-primary transition-colors">Terms</a>
-            <a href="#" className="hover:text-primary transition-colors">Help</a>
-          </p>
-        </div>
-      </footer>
 
       <Suspense fallback={null}>
         <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />

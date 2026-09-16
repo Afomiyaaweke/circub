@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, Bookmark, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail } from 'lucide-react'
+import { MapPin, Users, Bookmark, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -56,13 +56,13 @@ export function Header({
   return (
     <>
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
-      <div className="mx-auto max-w-[1400px] px-2 sm:px-6 py-3 flex items-center justify-between gap-1.5 sm:gap-4">
+      <div className="mx-auto max-w-[1400px] px-2 sm:px-6 py-0.5 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4">
         {/* Logo */}
         <div className="flex items-center gap-2 shrink-0 min-w-0">
           <img
             src="/logo-mark.png"
             alt="circub"
-            className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
+            className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
           />
           <div className="min-w-0 hidden md:block">
             <p className="text-xs text-muted-foreground italic truncate">
@@ -136,10 +136,10 @@ export function Header({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-accent transition-colors"
+              className="flex items-center gap-1.5 px-1.5 py-0.5 sm:gap-2 sm:px-2 sm:py-1.5 rounded-full hover:bg-accent transition-colors"
               aria-label="User menu"
             >
-              <Avatar className="w-8 h-8 border border-accent">
+              <Avatar className="w-7 h-7 sm:w-8 sm:h-8 border border-accent">
                 <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
                   {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -162,25 +162,7 @@ export function Header({
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-12 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[220px]">
-                <div className="px-4 py-2 border-b border-border">
-                  <p className="text-sm font-semibold text-foreground truncate">
-                    {user.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                  <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
-                    {isCompany ? (
-                      <>
-                        <Building2 className="w-3 h-3" />
-                        Company account
-                      </>
-                    ) : (
-                      <>
-                        Personal account
-                      </>
-                    )}
-                  </p>
-                </div>
+              <div className="absolute right-0 top-10 sm:top-12 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[220px]">
                 <button
                   onClick={() => {
                     setMenuOpen(false)
@@ -219,6 +201,22 @@ export function Header({
                   <Mail className="w-4 h-4 text-muted-foreground" />
                   Contact us
                 </a>
+                <a
+                  href="/privacy"
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
+                >
+                  <Shield className="w-4 h-4 text-muted-foreground" />
+                  Privacy
+                </a>
+                <a
+                  href="/terms"
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  Terms
+                </a>
                 <div className="border-t border-border my-1" />
                 <button
                   onClick={() => {
@@ -253,14 +251,14 @@ export function Header({
                 key={tab.key}
                 onClick={() => onTabChange(tab.key)}
                 className={cn(
-                  'relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                  'relative flex flex-col items-center justify-center gap-0 py-0.5 text-[9px] leading-tight font-medium transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={tab.label}
               >
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
               </button>
             )
@@ -269,11 +267,11 @@ export function Header({
           {/* Messages with badge */}
           <button
             onClick={onOpenMessages}
-            className="relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors"
+            className="relative flex flex-col items-center justify-center gap-0 py-0.5 text-[9px] leading-tight font-medium text-muted-foreground transition-colors"
             aria-label="Messages"
           >
             <span className="relative">
-              <MessageSquare className="w-5 h-5" />
+              <MessageSquare className="w-4 h-4" />
               {incomingInvitationsCount > 0 && (
                 <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-semibold bg-primary text-primary-foreground rounded-full">
                   {incomingInvitationsCount > 9 ? '9+' : incomingInvitationsCount}
