@@ -25,6 +25,7 @@ const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
   { key: 'guides', label: 'Guides', icon: Compass },
   { key: 'network', label: 'Network', icon: Users },
   { key: 'bookmark', label: 'Bookmark', icon: Bookmark },
+  { key: 'profile', label: 'Profile', icon: UserCircle },
 ]
 
 export function Header({
@@ -242,7 +243,7 @@ export function Header({
         className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-6">
+        <div className="grid grid-cols-7">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key

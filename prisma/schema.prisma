@@ -92,6 +92,7 @@ model User {
   // Direct messages
   msgsSent       Message[]    @relation("MsgSender")
   msgsReceived   Message[]    @relation("MsgReceiver")
+  stories        Story[]
 
   @@index([accountType])
   @@index([isLocal, verifiedLocal])
@@ -203,6 +204,19 @@ model Message {
 
   @@index([receiverId, read]) // unread inbox lookup
   @@index([senderId, receiverId, createdAt]) // conversation thread
+}
+
+model Story {
+  id        String   @id @default(cuid())
+  imageUrl  String   // data URL (uploaded photo)
+  caption   String?
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // createdAt + 24h — stories disappear like Instagram
+
+  @@index([authorId, expiresAt])
+  @@index([expiresAt])
 }
 
 // =====================================================

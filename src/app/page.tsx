@@ -13,6 +13,7 @@ const NetworkTab = lazy(() => import('@/components/social/network-tab').then(m =
 const LocalFeedTab = lazy(() => import('@/components/social/local-feed-tab').then(m => ({ default: m.LocalFeedTab })))
 const LiveZoneTab = lazy(() => import('@/components/social/live-zone-tab').then(m => ({ default: m.LiveZoneTab })))
 const MainContent = lazy(() => import('@/components/social/main-content').then(m => ({ default: m.MainContent })))
+const ProfileTab = lazy(() => import('@/components/social/profile-tab').then(m => ({ default: m.ProfileTab })))
 
 // Lazy-load modals (only loaded when opened)
 const PriceDetailModal = lazy(() => import('@/components/social/price-detail-modal').then(m => ({ default: m.PriceDetailModal })))
@@ -362,6 +363,18 @@ export default function Home() {
           {activeTab === 'bookmark' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <MainContent user={me} activeTab={activeTab} refreshSignal={refreshSignal} onUserChanged={fetchMe} onRefreshAll={handleRefreshAll} />
+            </Suspense>
+          )}
+
+          {activeTab === 'profile' && (
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <ProfileTab
+                me={me}
+                onEditProfile={handleEditProfile}
+                onOpenListing={setLocalPriceId}
+                onUserChanged={fetchMe}
+                onSignUp={() => setRegisterOpen(true)}
+              />
             </Suspense>
           )}
 

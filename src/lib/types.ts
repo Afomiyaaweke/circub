@@ -202,7 +202,7 @@ export interface LocalPriceHistory {
   history: PriceHistoryPoint[]
 }
 
-export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark'
+export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark' | 'profile'
 
 // =====================================================
 // PRICELENS SCAN — camera product identification + pricing

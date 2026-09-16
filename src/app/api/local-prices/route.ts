@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get('category')?.trim() || ''
     const sort = searchParams.get('sort') || 'recent'
     const search = searchParams.get('search')?.trim() || ''
+    // authorId: "my listings" view on the Instagram-style profile tab
+    const authorId = searchParams.get('authorId')?.trim() || ''
     const where: any = {}
+    if (authorId) where.authorId = authorId
     if (country) where.country = { contains: country }
     if (city) where.city = { contains: city }
     if (category && category !== 'All categories') where.category = category
