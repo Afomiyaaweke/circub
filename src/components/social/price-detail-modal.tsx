@@ -18,6 +18,7 @@ import {
   History,
   Eye,
   MessageCircle,
+  Clock,
 } from 'lucide-react'
 import {
   Dialog,
@@ -37,6 +38,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
 import { useToast } from '@/hooks/use-toast'
 import type {
   LocalPricePost,
@@ -244,6 +246,17 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     <Badge variant="outline" className="text-[10px]">
                       {post.category}
                     </Badge>
+                    {/* Freshness — how old this price is (amber warning once outside the history's Current window) */}
+                    <span
+                      className={cn(
+                        'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded shrink-0',
+                        freshnessClasses[freshnessLevel(post.createdAt)]
+                      )}
+                      title={freshnessTitle(post.createdAt)}
+                    >
+                      <Clock className="w-2.5 h-2.5" />
+                      {timeAgoLabel(post.createdAt)}
+                    </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
                     {post.productName}
@@ -251,6 +264,17 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   <p className="mt-1.5 text-sm text-muted-foreground flex items-center gap-1.5">
                     <MapPin className="w-4 h-4 text-primary" />
                     {detailedLocation}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Posted on{' '}
+                    {new Date(post.createdAt).toLocaleDateString(undefined, {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                    {freshnessLevel(post.createdAt) === 'stale' && (
+                      <span className="text-amber-700 font-medium"> · may be outdated</span>
+                    )}
                   </p>
                 </div>
                 <button

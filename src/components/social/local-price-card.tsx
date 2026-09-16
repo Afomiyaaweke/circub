@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
+import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
 import type { LocalPricePost } from '@/lib/types'
 
 interface LocalPriceCardProps {
@@ -97,6 +98,11 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             {post.postType === 'SERVICE' ? 'Service' : 'Product'}
           </Badge>
           <span className="text-[10px] text-muted-foreground truncate">{post.category}</span>
+          {/* Freshness — how old this price is (amber warning once outside the history's Current window) */}
+          <span className={cn('ml-auto flex items-center gap-0.5 shrink-0 text-[10px] px-1 rounded', freshnessClasses[freshnessLevel(post.createdAt)])} title={freshnessTitle(post.createdAt)}>
+            <Clock className="w-2.5 h-2.5" />
+            {timeAgoLabel(post.createdAt)}
+          </span>
         </div>
         {(canDelete || canEdit) && (
           <div className="relative shrink-0">
