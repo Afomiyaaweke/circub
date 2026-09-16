@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Send, ArrowLeft, MessageCircle } from 'lucide-react'
+import { Send, ArrowLeft, MessageCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -150,9 +150,9 @@ export function MessageModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-3xl max-h-[85vh] p-0 gap-0 overflow-hidden max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:rounded-none max-sm:pb-0">
         <DialogTitle className="sr-only">Messages</DialogTitle>
-        <div className="flex h-[80vh]">
+        <div className="flex h-[100dvh] sm:h-[80vh]">
           {/* Conversations list (hidden on mobile when chatting) */}
           <div
             className={cn(
@@ -275,13 +275,6 @@ export function MessageModal({
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={() => onOpenChange(false)}
-                    className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-                    aria-label="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
                 </div>
 
                 {/* Messages */}
@@ -358,7 +351,7 @@ export function MessageModal({
                 </div>
 
                 {/* Composer */}
-                <div className="p-3 border-t border-border bg-card flex items-end gap-2">
+                <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border bg-card flex items-end gap-2">
                   <Input
                     placeholder="Write a message..."
                     value={draft}
