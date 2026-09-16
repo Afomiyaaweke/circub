@@ -292,222 +292,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       </Card>
 
-      {/* AI Guide Match — a small collapsible button by default; tap to
-          expand the ask form. A finished match stays visible even collapsed. */}
-      <Card className="p-3 sm:p-5 shadow-sm border-primary/20">
-        <button
-          type="button"
-          onClick={() => setAiOpen(!aiOpen)}
-          aria-expanded={aiOpen}
-          className="w-full flex items-center gap-2.5 text-left"
-        >
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-foreground">AI Guide Match</span>
-            <span className="block text-[11px] text-muted-foreground truncate">Ask anything · get matched guides + places</span>
-          </span>
-          {aiResult && !aiOpen && (
-            <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-1 shrink-0">Match ready</span>
-          )}
-          {aiOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
-        </button>
-
-        {aiOpen && (
-        <>
-        <Textarea
-          placeholder='e.g. "I have 3 days in Ethiopia — who can take me to Lalibela and where should I eat?"'
-          value={aiQuestion}
-          onChange={(e) => setAiQuestion(e.target.value)}
-          className="mt-3 min-h-[56px] resize-y bg-card text-sm"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              runAiMatch(aiQuestion)
-            }
-          }}
-        />
-
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <Button
-            size="sm"
-            onClick={() => runAiMatch(aiQuestion)}
-            disabled={aiLoading || !aiQuestion.trim()}
-            className="bg-primary hover:bg-primary/90 gap-1.5"
-          >
-            {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            {aiLoading ? 'Matching...' : 'Recommend guides'}
-          </Button>
-          <button
-            onClick={() => setAiUseLocation(!aiUseLocation)}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors',
-              aiUseLocation && myCoords
-                ? 'bg-primary/10 text-primary border-primary/30'
-                : 'bg-card text-muted-foreground border-border'
-            )}
-          >
-            <Navigation className="w-3 h-3" />
-            {myCoords ? (aiUseLocation ? 'Using my location' : 'Ignore my location') : 'Get GPS for context'}
-          </button>
-          {myCoords == null && (
-            <Button size="sm" variant="outline" onClick={handleNearMe} disabled={locating} className="text-xs gap-1.5">
-              {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
-              Get GPS
-            </Button>
-          )}
-        </div>
-
-        {/* Question chips: feed questions first, then examples */}
-        <div className="mt-3">
-          <button
-            onClick={() => setShowFeedQs(!showFeedQs)}
-            className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            <Users className="w-3 h-3" />
-            Questions from the feed
-            {showFeedQs ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-          {showFeedQs && (
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-              {feedQsLoading ? (
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Loading feed questions...
-                </span>
-              ) : feedQs.length === 0 ? (
-                <span className="text-[11px] text-muted-foreground">No questions in the feed yet — ask one in the Feed tab!</span>
-              ) : (
-                feedQs.map((q, i) => (
-                  <button
-                    key={i}
-                    onClick={() => runAiMatch(q)}
-                    className="max-w-full truncate text-left text-[11px] px-2.5 py-1.5 rounded-full bg-accent text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                    title={q}
-                  >
-                    {q}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-            {EXAMPLE_QUESTIONS.map((q) => (
-              <button
-                key={q}
-                onClick={() => runAiMatch(q)}
-                className="text-[11px] px-2.5 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
-        </>
-        )}
-
-        {/* AI result — stays visible even with the form collapsed */}
-        {aiError && aiOpen && (
-          <p className="mt-3 text-xs text-destructive">{aiError} — showing keyword matches instead is not possible right now, try again.</p>
-        )}
-        {aiLoading && aiOpen && (
-          <div className="mt-3 space-y-2">
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        )}
-        {aiResult && (
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
-                {TIER_LABEL[aiResult.tier || 'ai'] || 'Match'}
-              </Badge>
-              <p className="text-sm text-foreground font-medium flex-1 min-w-[200px]">{aiResult.summary}</p>
-            </div>
-
-            {/* Recommended guides */}
-            {aiResult.guides.length > 0 ? (
-              <div className="space-y-2">
-                {aiResult.guides.map((g) => (
-                  <div key={g.id} className="rounded-lg border border-border p-3 hover:border-primary/30 transition-colors">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar className="w-9 h-9 border border-accent overflow-hidden shrink-0">
-                        {g.profilePicture ? (
-                          <img src={g.profilePicture} alt={g.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
-                            {g.name?.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-sm font-semibold text-foreground truncate">{g.name}</span>
-                          {g.verifiedLocal && <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
-                          <GuideStars value={g.rating || 0} />
-                        </div>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {g.location || 'Location not set'}
-                          {g.distanceKm != null ? ` · ${g.distanceKm} km away` : ''}
-                          {g.guideAvailable ? '' : ' · offline'}
-                        </p>
-                      </div>
-                      {me?.id !== g.id && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button size="sm" onClick={() => openBooking(g)} className="bg-primary hover:bg-primary/90 text-xs gap-1">
-                            <CalendarCheck className="w-3 h-3" />
-                            Book
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => onMessage(g.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1">
-                            <MessageSquare className="w-3 h-3" />
-                            Message
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })} className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1">
-                            <Star className="w-3 h-3" />
-                            Rate
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    {g.reason && (
-                      <p className="mt-2 text-xs text-primary/90 flex items-start gap-1.5">
-                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
-                        {g.reason}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No registered guides yet — the place recommendations below still stand.</p>
-            )}
-
-            {/* Recommended locations */}
-            {aiResult.locations.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {aiResult.locations.map((l, i) => (
-                  <div key={i} className="rounded-lg bg-accent/60 p-3">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="text-sm font-semibold text-foreground truncate">{l.name}</span>
-                    </div>
-                    {l.area && <p className="text-[10px] text-muted-foreground mt-0.5">{l.area}</p>}
-                    <p className="text-xs text-muted-foreground mt-1.5">{l.why}</p>
-                    {l.tip && (
-                      <p className="text-[11px] text-amber-700 mt-1.5 flex items-start gap-1.5">
-                        <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
-                        {l.tip}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
-
       {/* Search bar — one unified pill (mirrors the Local Price feed). The
           search accepts comma-separated terms ("Addis, English, Hiking"):
           each term matches name, bio, languages, specialties or location and
@@ -645,6 +429,27 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <option value="Wellness">Wellness & Spa</option>
           <option value="Family">Family Friendly</option>
         </select>
+        {/* AI Guide Match — lives inside the search pill now. Tap to open the
+            ask form in the panel below; a finished match keeps the button lit. */}
+        <button
+          type="button"
+          onClick={() => setAiOpen(!aiOpen)}
+          aria-expanded={aiOpen}
+          title="AI Guide Match — ask anything · get matched guides + places"
+          className={
+            'flex items-center gap-1.5 h-9 pl-2.5 pr-3 basis-full sm:basis-auto sm:flex-none min-w-0 text-xs sm:text-sm font-medium border-0 border-t border-input sm:border-t-0 sm:border-l rounded-none transition-colors cursor-pointer ' +
+            (aiOpen || aiResult ? 'bg-primary/10 text-primary' : 'bg-transparent text-muted-foreground hover:text-primary')
+          }
+        >
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span className="sm:hidden font-semibold shrink-0">AI Guide Match</span>
+          <span className="hidden sm:inline shrink-0">AI Match</span>
+          <span className="sm:hidden flex-1 min-w-0 truncate text-[11px] font-normal opacity-80">Ask anything · get matched guides + places</span>
+          {aiResult && !aiOpen && (
+            <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5 shrink-0">Match ready</span>
+          )}
+          {aiOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0 ml-auto sm:ml-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0 ml-auto sm:ml-0" />}
+        </button>
         </div>
         <button
           onClick={() => setAvailableOnly(!availableOnly)}
@@ -673,6 +478,239 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           {nearMe ? 'Nearest' : 'Near me'}
         </button>
       </div>
+
+      {/* AI Guide Match panel — opens from the AI button inside the search
+          pill. The ask form tucks away after a match; the result stays. */}
+      {(aiOpen || aiResult) && (
+      <Card className="p-3 sm:p-5 shadow-sm border-primary/20">
+        {aiOpen ? (
+        <>
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">AI Guide Match</span>
+            <span className="block text-[11px] text-muted-foreground truncate">Ask anything · get matched guides + places</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setAiOpen(false)}
+            aria-label="Hide the AI form"
+            className="shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+        </div>
+
+        <Textarea
+          placeholder='e.g. "I have 3 days in Ethiopia — who can take me to Lalibela and where should I eat?"'
+          value={aiQuestion}
+          onChange={(e) => setAiQuestion(e.target.value)}
+          className="mt-3 min-h-[56px] resize-y bg-card text-sm"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              runAiMatch(aiQuestion)
+            }
+          }}
+        />
+
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <Button
+            size="sm"
+            onClick={() => runAiMatch(aiQuestion)}
+            disabled={aiLoading || !aiQuestion.trim()}
+            className="bg-primary hover:bg-primary/90 gap-1.5"
+          >
+            {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {aiLoading ? 'Matching...' : 'Recommend guides'}
+          </Button>
+          <button
+            onClick={() => setAiUseLocation(!aiUseLocation)}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors',
+              aiUseLocation && myCoords
+                ? 'bg-primary/10 text-primary border-primary/30'
+                : 'bg-card text-muted-foreground border-border'
+            )}
+          >
+            <Navigation className="w-3 h-3" />
+            {myCoords ? (aiUseLocation ? 'Using my location' : 'Ignore my location') : 'Get GPS for context'}
+          </button>
+          {myCoords == null && (
+            <Button size="sm" variant="outline" onClick={handleNearMe} disabled={locating} className="text-xs gap-1.5">
+              {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+              Get GPS
+            </Button>
+          )}
+        </div>
+
+        {/* Question chips: feed questions first, then examples */}
+        <div className="mt-3">
+          <button
+            onClick={() => setShowFeedQs(!showFeedQs)}
+            className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            <Users className="w-3 h-3" />
+            Questions from the feed
+            {showFeedQs ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {showFeedQs && (
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              {feedQsLoading ? (
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading feed questions...
+                </span>
+              ) : feedQs.length === 0 ? (
+                <span className="text-[11px] text-muted-foreground">No questions in the feed yet — ask one in the Feed tab!</span>
+              ) : (
+                feedQs.map((q, i) => (
+                  <button
+                    key={i}
+                    onClick={() => runAiMatch(q)}
+                    className="max-w-full truncate text-left text-[11px] px-2.5 py-1.5 rounded-full bg-accent text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                    title={q}
+                  >
+                    {q}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            {EXAMPLE_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                onClick={() => runAiMatch(q)}
+                className="text-[11px] px-2.5 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+        </>
+        ) : (
+        <button
+          type="button"
+          onClick={() => setAiOpen(true)}
+          className="w-full flex items-center gap-2.5 text-left cursor-pointer"
+        >
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 shrink-0">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">AI Guide Match</span>
+            <span className="block text-[11px] text-muted-foreground truncate">Ask anything · get matched guides + places</span>
+          </span>
+          <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-2 py-1 shrink-0">Match ready</span>
+          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+        </button>
+        )}
+
+        {/* AI result — stays visible even with the form collapsed */}
+        {aiError && aiOpen && (
+          <p className="mt-3 text-xs text-destructive">{aiError} — showing keyword matches instead is not possible right now, try again.</p>
+        )}
+        {aiLoading && aiOpen && (
+          <div className="mt-3 space-y-2">
+            {[1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
+          </div>
+        )}
+        {aiResult && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
+                {TIER_LABEL[aiResult.tier || 'ai'] || 'Match'}
+              </Badge>
+              <p className="text-sm text-foreground font-medium flex-1 min-w-[200px]">{aiResult.summary}</p>
+            </div>
+
+            {/* Recommended guides */}
+            {aiResult.guides.length > 0 ? (
+              <div className="space-y-2">
+                {aiResult.guides.map((g) => (
+                  <div key={g.id} className="rounded-lg border border-border p-3 hover:border-primary/30 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="w-9 h-9 border border-accent overflow-hidden shrink-0">
+                        {g.profilePicture ? (
+                          <img src={g.profilePicture} alt={g.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+                            {g.name?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-sm font-semibold text-foreground truncate">{g.name}</span>
+                          {g.verifiedLocal && <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
+                          <GuideStars value={g.rating || 0} />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {g.location || 'Location not set'}
+                          {g.distanceKm != null ? ` · ${g.distanceKm} km away` : ''}
+                          {g.guideAvailable ? '' : ' · offline'}
+                        </p>
+                      </div>
+                      {me?.id !== g.id && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button size="sm" onClick={() => openBooking(g)} className="bg-primary hover:bg-primary/90 text-xs gap-1">
+                            <CalendarCheck className="w-3 h-3" />
+                            Book
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => onMessage(g.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            Message
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })} className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1">
+                            <Star className="w-3 h-3" />
+                            Rate
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    {g.reason && (
+                      <p className="mt-2 text-xs text-primary/90 flex items-start gap-1.5">
+                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                        {g.reason}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No registered guides yet — the place recommendations below still stand.</p>
+            )}
+
+            {/* Recommended locations */}
+            {aiResult.locations.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {aiResult.locations.map((l, i) => (
+                  <div key={i} className="rounded-lg bg-accent/60 p-3">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="text-sm font-semibold text-foreground truncate">{l.name}</span>
+                    </div>
+                    {l.area && <p className="text-[10px] text-muted-foreground mt-0.5">{l.area}</p>}
+                    <p className="text-xs text-muted-foreground mt-1.5">{l.why}</p>
+                    {l.tip && (
+                      <p className="text-[11px] text-amber-700 mt-1.5 flex items-start gap-1.5">
+                        <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
+                        {l.tip}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+      )}
 
       {/* Guide cards */}
       {loading ? (
