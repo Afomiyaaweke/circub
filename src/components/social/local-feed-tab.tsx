@@ -833,8 +833,8 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => <Card key={i} className="p-4 space-y-3"><Skeleton className="h-3 w-20" /><Skeleton className="h-5 w-3/4" /><Skeleton className="h-3 w-1/2" /><Skeleton className="h-16 w-full" /><Skeleton className="h-3 w-full" /></Card>)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => <Card key={i} className="p-3 space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-5 w-3/4" /><Skeleton className="h-10 w-full" /><Skeleton className="h-3 w-full" /></Card>)}
         </div>
       ) : posts.length === 0 ? (
         <Card className="p-6 sm:p-10 text-center shadow-sm">
@@ -850,7 +850,7 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
       ) : (
         <>
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {posts.map((p) => (
               <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
             ))}
