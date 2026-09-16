@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
+import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
 import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
 import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
@@ -80,6 +81,8 @@ const TIER_LABEL: Record<string, string> = {
 
 export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability }: LiveZoneTabProps) {
   const [guides, setGuides] = useState<any[]>([])
+  // Load part by part: render a small batch first, append more on scroll
+  const { visible: visibleGuides, hasMore: guidesHasMore, sentinelRef: guidesSentinelRef } = useProgressiveList(guides, 6, 6)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [language, setLanguage] = useState('')
@@ -742,7 +745,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {guides.map((g) => {
+          {visibleGuides.map((g) => {
             const isOwn = me?.id === g.id
             return (
               <Card key={g.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -907,6 +910,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               </Card>
             )
           })}
+          <div ref={guidesSentinelRef} />
+          {guidesHasMore && (
+            <p className="text-center text-xs text-muted-foreground py-2 col-span-full">Loading more guides…</p>
+          )}
         </div>
       )}
 

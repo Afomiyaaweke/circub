@@ -135,7 +135,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onDelete, 
           </p>
         </div>
         {post.imageUrl && !compact && (
-          <img src={post.imageUrl} alt={post.productName} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover border border-border bg-accent/30 shrink-0" />
+          <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover border border-border bg-accent/30 shrink-0" />
         )}
       </div>
 

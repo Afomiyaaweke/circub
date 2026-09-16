@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Sparkles, TrendingUp, Newspaper } from 'lucide-react'
+import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PostComposer } from './post-composer'
@@ -18,6 +19,8 @@ interface FeedTabProps {
 export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  // Load part by part: render a small batch first, append more on scroll
+  const { visible: visiblePosts, hasMore: feedHasMore, sentinelRef: feedSentinelRef } = useProgressiveList(posts, 4, 4)
   const { toast } = useToast()
 
   const fetchPosts = useCallback(async () => {
@@ -143,7 +146,7 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
         </Card>
       ) : (
         <div className="space-y-4">
-          {posts.map((p) => (
+          {visiblePosts.map((p) => (
             <PostCard
               key={p.id}
               post={p}
@@ -155,10 +158,13 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
               onMessage={onMessage}
             />
           ))}
-          <div className="text-center py-6 text-xs text-muted-foreground flex items-center justify-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5" />
-            You&apos;ve reached the end · add more connections for more posts.
-          </div>
+          <div ref={feedSentinelRef} />
+          {!feedHasMore && (
+            <div className="text-center py-6 text-xs text-muted-foreground flex items-center justify-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5" />
+              You&apos;ve reached the end · add more connections for more posts.
+            </div>
+          )}
         </div>
       )}
     </div>

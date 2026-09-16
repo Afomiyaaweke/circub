@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation } from 'lucide-react'
+import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +35,8 @@ interface LocalFeedTabProps {
 export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
+  // Load part by part: render a small batch first, append more on scroll
+  const { visible: visiblePosts, hasMore: postsHasMore, sentinelRef: postsSentinelRef } = useProgressiveList(posts, 6, 6)
   const [search, setSearch] = useState('')
   const [country, setCountry] = useState('All countries')
   const [city, setCity] = useState('All cities')
@@ -851,10 +854,14 @@ export function LocalFeedTab({ onRefreshUser }: LocalFeedTabProps) {
         <>
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {posts.map((p) => (
+            {visiblePosts.map((p) => (
               <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
             ))}
           </div>
+          <div ref={postsSentinelRef} />
+          {postsHasMore && (
+            <p className="text-center text-xs text-muted-foreground py-2">Loading more prices…</p>
+          )}
         </>
       )}
 

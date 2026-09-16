@@ -266,7 +266,7 @@ export function PostCard({
               ) : post.imageUrl && post.imageUrl.startsWith('data:video') ? (
                 <video src={post.imageUrl} controls className="w-full max-h-64 object-contain bg-black" />
               ) : (
-                <img src={post.imageUrl || ''} alt="Post image" className="w-full max-h-64 object-cover" />
+                <img loading="lazy" decoding="async" src={post.imageUrl || ''} alt="Post image" className="w-full max-h-64 object-cover" />
               )}
               <div className="absolute top-2 right-2 flex gap-1.5">
                 <button onClick={() => editFileRef.current?.click()} disabled={uploadingImage} className="p-1.5 rounded-md bg-white/90 hover:bg-white text-muted-foreground" title="Replace image">
@@ -306,7 +306,7 @@ export function PostCard({
               {post.imageUrl.startsWith('data:video') ? (
                 <video src={post.imageUrl} controls className="w-full max-h-[480px] object-contain bg-black" />
               ) : (
-                <img src={post.imageUrl} alt="Post image" className="w-full max-h-[480px] object-cover" />
+                <img loading="lazy" decoding="async" src={post.imageUrl} alt="Post image" className="w-full max-h-[480px] object-cover" />
               )}
             </div>
           )}
