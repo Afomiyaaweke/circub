@@ -24,6 +24,10 @@ interface RegisterBody {
   companyIndustry?: string
   // Optional for company: contact person name
   contactName?: string
+  // Legal confirmation (sent by the register modal after the user ticks the
+  // Terms of Service + Privacy Policy box); Google OAuth registration has no
+  // body, so only an explicit false is rejected.
+  acceptedTerms?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -39,6 +43,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body: RegisterBody = await req.json()
+
+    // Legal gate: reject registrations that explicitly did NOT accept the
+    // Terms of Service / Privacy Policy
+    if (body.acceptedTerms === false) {
+      return NextResponse.json(
+        { error: 'You must agree to the Terms of Service and Privacy Policy' },
+        { status: 400 }
+      )
+    }
 
     // Validate required
     if (!body.email || !body.password) {

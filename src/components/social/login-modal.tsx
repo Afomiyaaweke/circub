@@ -24,6 +24,9 @@ interface LoginModalProps {
 export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }: LoginModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // Legal gate: the Terms of Service + Privacy Policy must be confirmed
+  // before signing in.
+  const [agreed, setAgreed] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -44,6 +47,14 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   useEffect(() => { if (fieldErrors && Object.keys(fieldErrors).length > 0) setFieldErrors({}) }, [email, password])
 
   const handleSubmit = async () => {
+    if (!agreed) {
+      toast({
+        title: 'Please confirm first',
+        description: 'You must agree to the Terms of Service and Privacy Policy before signing in.',
+        variant: 'destructive',
+      })
+      return
+    }
     setFormError(null)
     const errors: Record<string, string> = {}
     if (!email.trim()) errors.email = 'Email is required'
@@ -78,6 +89,14 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   }
 
   const handleGoogleSignIn = () => {
+    if (!agreed) {
+      toast({
+        title: 'Please confirm first',
+        description: 'Agree to the Terms of Service and Privacy Policy before continuing with Google.',
+        variant: 'destructive',
+      })
+      return
+    }
     if (googleConfigured === false) {
       toast({
         title: 'Google sign-in unavailable',
@@ -181,9 +200,24 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
             {fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
           </div>
 
+          <label className="flex items-start gap-2.5 cursor-pointer select-none rounded-lg border border-border bg-accent/40 p-3">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 w-4 h-4 shrink-0 accent-[hsl(var(--primary))] cursor-pointer"
+            />
+            <span className="text-xs leading-relaxed text-foreground">
+              I have read and agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">Terms of Service</a>
+              {' '}and the{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">Privacy Policy</a>.
+            </span>
+          </label>
+
           <Button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !agreed}
             className="w-full bg-primary hover:bg-primary/90 gap-2 h-11"
           >
             {submitting ? 'Signing in...' : <>Sign in <ArrowRight className="w-4 h-4" /></>}

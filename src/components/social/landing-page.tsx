@@ -612,8 +612,8 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               </div>
             </div>
             <div className="flex items-center gap-6 text-sm text-background/80">
-              <a href="#" className="hover:text-primary">Privacy</a>
-              <a href="#" className="hover:text-primary">Terms</a>
+              <a href="/privacy" className="hover:text-primary">Privacy</a>
+              <a href="/terms" className="hover:text-primary">Terms</a>
               <a href="#" className="hover:text-primary">Help</a>
               <a href="#" className="hover:text-primary">About</a>
               <a href="/contact" className="hover:text-primary">Contact us</a>

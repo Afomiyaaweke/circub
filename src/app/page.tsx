@@ -360,8 +360,8 @@ export default function Home() {
             <span className="ml-2 text-[10px] font-mono opacity-60" title="Same version shows on your phone — mobile and web are always in sync">{APP_VERSION}</span>
           </p>
           <p className="flex items-center gap-3">
-            <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-            <a href="#" className="hover:text-primary transition-colors">Terms</a>
+            <a href="/privacy" className="hover:text-primary transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-primary transition-colors">Terms</a>
             <a href="#" className="hover:text-primary transition-colors">Help</a>
           </p>
         </div>
