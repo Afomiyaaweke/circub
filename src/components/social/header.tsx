@@ -54,6 +54,7 @@ export function Header({
   const isCompany = user?.accountType === 'COMPANY'
 
   return (
+    <>
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
       <div className="mx-auto max-w-[1400px] px-2 sm:px-6 py-3 flex items-center justify-between gap-1.5 sm:gap-4">
         {/* Logo */}
@@ -70,9 +71,9 @@ export function Header({
           </div>
         </div>
 
-        {/* Nav tabs · only show when logged in */}
+        {/* Nav tabs · desktop only — phones get the bottom tab bar below */}
         {user && (
-          <nav className="flex items-center gap-0.5 sm:gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-center sm:justify-start">
+          <nav className="hidden md:flex items-center gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-start">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
@@ -235,5 +236,55 @@ export function Header({
         )}
       </div>
     </header>
+
+    {/* Mobile bottom tab bar — the same tabs, docked to the bottom on phones.
+        Fixed + safe-area padding so it clears the home indicator. */}
+    {user && (
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
+        aria-label="Primary"
+      >
+        <div className="grid grid-cols-6">
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                onClick={() => onTabChange(tab.key)}
+                className={cn(
+                  'relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                )}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={tab.label}
+              >
+                {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
+                <Icon className="w-5 h-5" />
+                <span>{tab.label}</span>
+              </button>
+            )
+          })}
+
+          {/* Messages with badge */}
+          <button
+            onClick={onOpenMessages}
+            className="relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors"
+            aria-label="Messages"
+          >
+            <span className="relative">
+              <MessageSquare className="w-5 h-5" />
+              {incomingInvitationsCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-semibold bg-primary text-primary-foreground rounded-full">
+                  {incomingInvitationsCount > 9 ? '9+' : incomingInvitationsCount}
+                </span>
+              )}
+            </span>
+            <span>Messages</span>
+          </button>
+        </div>
+      </nav>
+    )}
+    </>
   )
 }
