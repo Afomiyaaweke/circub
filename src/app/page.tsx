@@ -292,7 +292,7 @@ export default function Home() {
 
   // Logged-in → dashboard
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-[36px] md:pb-0">
+    <div className="min-h-screen flex flex-col bg-background pb-[46px] md:pb-0">
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}

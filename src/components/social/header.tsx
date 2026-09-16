@@ -251,14 +251,14 @@ export function Header({
                 key={tab.key}
                 onClick={() => onTabChange(tab.key)}
                 className={cn(
-                  'relative flex flex-col items-center justify-center gap-0 py-0.5 text-[9px] leading-tight font-medium transition-colors',
+                  'relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] leading-tight font-medium transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={tab.label}
               >
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
-                <Icon className="w-4 h-4" />
+                <Icon className="w-[18px] h-[18px]" />
                 <span>{tab.label}</span>
               </button>
             )
@@ -267,11 +267,11 @@ export function Header({
           {/* Messages with badge */}
           <button
             onClick={onOpenMessages}
-            className="relative flex flex-col items-center justify-center gap-0 py-0.5 text-[9px] leading-tight font-medium text-muted-foreground transition-colors"
+            className="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] leading-tight font-medium text-muted-foreground transition-colors"
             aria-label="Messages"
           >
             <span className="relative">
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-[18px] h-[18px]" />
               {incomingInvitationsCount > 0 && (
                 <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-semibold bg-primary text-primary-foreground rounded-full">
                   {incomingInvitationsCount > 9 ? '9+' : incomingInvitationsCount}
