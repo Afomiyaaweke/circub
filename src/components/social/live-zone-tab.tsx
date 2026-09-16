@@ -82,7 +82,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [guides, setGuides] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [location, setLocation] = useState('')
   const [language, setLanguage] = useState('')
   const [specialty, setSpecialty] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
@@ -120,7 +119,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
-      if (location) params.set('country', location)
       if (language) params.set('language', language)
       if (specialty) params.set('specialty', specialty)
       if (availableOnly) params.set('available', 'true')
@@ -132,7 +130,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const data = await res.json()
       setGuides(data.guides || [])
     } catch { setGuides([]) } finally { setLoading(false) }
-  }, [search, location, language, specialty, availableOnly, nearMe, myCoords])
+  }, [search, language, specialty, availableOnly, nearMe, myCoords])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
@@ -510,32 +508,31 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         )}
       </Card>
 
-      {/* Search bar */}
+      {/* Search bar — one unified pill (mirrors the Local Price feed). The
+          search accepts comma-separated terms ("Addis, English, Hiking"):
+          each term matches name, bio, languages, specialties or location and
+          the terms are AND-ed. The standalone "City or country" input is
+          gone — locations are simply search terms now. */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[180px] min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Search by name, location, or specialty..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-card"
-          />
-        </div>
-        {/* Location search */}
-        <div className="relative w-[calc(50%-0.25rem)] sm:w-auto sm:min-w-[140px]">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="City or country..."
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="pl-9 bg-card h-9"
-          />
-        </div>
+        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[200px] flex-wrap rounded-lg border border-input bg-card shadow-xs overflow-hidden">
+          <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[180px] min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search guides — e.g. Addis, English, Hiking"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
+            />
+          </div>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
         {/* Language filter — world-class list */}
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px] w-[calc(50%-0.25rem)] sm:w-auto"
+          className={
+            'h-9 pl-2.5 pr-3 text-xs sm:text-sm basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] min-w-0 bg-transparent rounded-none shadow-none border-0 border-t border-input sm:border-t-0 focus:outline-none focus:ring-0 cursor-pointer ' +
+            (language ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-foreground')
+          }
         >
           <option value="">All languages</option>
           <optgroup label="Africa">
@@ -621,7 +618,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         <select
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
-          className="h-9 px-3 rounded-md border border-border bg-card text-sm text-foreground max-w-[160px] w-[calc(50%-0.25rem)] sm:w-auto"
+          className={
+            'h-9 pl-2.5 pr-3 text-xs sm:text-sm basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] min-w-0 bg-transparent rounded-none shadow-none border-0 border-t border-input sm:border-t-0 sm:border-l focus:outline-none focus:ring-0 cursor-pointer ' +
+            (specialty ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-foreground')
+          }
         >
           <option value="">All specialties</option>
           <option value="Historical">Historical</option>
@@ -645,31 +645,32 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <option value="Wellness">Wellness & Spa</option>
           <option value="Family">Family Friendly</option>
         </select>
+        </div>
         <button
           onClick={() => setAvailableOnly(!availableOnly)}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors',
+            'flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-medium border transition-colors shrink-0',
             availableOnly
               ? 'bg-primary/10 text-primary border-primary/30'
               : 'bg-card text-muted-foreground border-border'
           )}
         >
           <Radio className={cn('w-3.5 h-3.5', availableOnly && 'animate-pulse')} />
-          Available now
+          Available
         </button>
         {/* Near me — GPS distance sort */}
         <button
           onClick={handleNearMe}
           disabled={locating}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium border transition-colors disabled:opacity-60',
+            'flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-medium border transition-colors disabled:opacity-60 shrink-0',
             nearMe
               ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-card text-muted-foreground border-border hover:border-primary/40'
           )}
         >
           {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className={cn('w-3.5 h-3.5', nearMe && 'animate-pulse')} />}
-          {nearMe ? 'Nearest first' : 'Near me'}
+          {nearMe ? 'Nearest' : 'Near me'}
         </button>
       </div>
 

@@ -21,14 +21,19 @@ export async function GET(req: NextRequest) {
     const where: any = { isGuide: true }
     if (availableOnly) where.guideAvailable = true
     if (country) where.location = { contains: country }
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { guideBio: { contains: search } },
-        { guideSpecialties: { contains: search } },
-        { location: { contains: search } },
-      ]
-    }
+    // Comma-separated search: "Addis, English, Hiking" — each term matches
+    // ANY field (name, bio, languages, specialties, location) and the terms
+    // themselves are AND-ed together.
+    const termOr = (t: string) => ([
+      { name: { contains: t } },
+      { guideBio: { contains: t } },
+      { guideSpecialties: { contains: t } },
+      { guideLanguages: { contains: t } },
+      { location: { contains: t } },
+    ])
+    const terms = search.split(',').map((t) => t.trim()).filter(Boolean)
+    if (terms.length === 1) where.OR = termOr(terms[0])
+    else if (terms.length > 1) where.AND = terms.map((t) => ({ OR: termOr(t) }))
     if (language) where.guideLanguages = { contains: language }
     if (specialty) where.guideSpecialties = { contains: specialty }
 
