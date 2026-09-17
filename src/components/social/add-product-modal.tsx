@@ -377,7 +377,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
               </label>
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 ref={fileRef}
                 onChange={(e) => {
                   const f = e.target.files?.[0]

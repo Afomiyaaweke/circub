@@ -6,11 +6,14 @@
 // (or http://localhost:3000/api/debug-auth/google)
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { nextAuthOptions } from '@/lib/auth-options'
 
 export async function GET(req: NextRequest) {
   let session: any = null
   try {
-    session = await getServerSession()
+    // Shared options so the session JWT is decoded with the SAME secret the
+    // route handler used to encrypt it.
+    session = await getServerSession(nextAuthOptions)
   } catch (e: any) {
     session = { error: e.message }
   }

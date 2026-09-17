@@ -11,6 +11,7 @@
 import { cookies } from 'next/headers'
 import { getServerSession } from 'next-auth'
 import { db } from '@/lib/db'
+import { nextAuthOptions } from '@/lib/auth-options'
 
 const SESSION_COOKIE = 'sc_session'
 const SESSION_SECRET = process.env.SESSION_SECRET || 'circub-fallback-change-me-in-production'
@@ -66,7 +67,11 @@ async function getCustomSessionEmail(): Promise<string | null> {
 
 async function getNextAuthEmail(): Promise<string | null> {
   try {
-    const session = await getServerSession()
+    // MUST pass the shared options — calling getServerSession() bare resolves
+    // the decryption secret from NEXTAUTH_SECRET/AUTH_SECRET only, so the
+    // session JWT written by the route handler (SESSION_SECRET || ...) can
+    // never be decoded and Google users would always look signed out.
+    const session = await getServerSession(nextAuthOptions)
     return session?.user?.email || null
   } catch {
     return null
@@ -87,7 +92,7 @@ export async function getCurrentUser() {
 
     // If no user exists but we have a valid Google session, auto-create one.
     // This is the first-sign-in path for Google OAuth users.
-    const nextAuthSession = await getServerSession()
+    const nextAuthSession = await getServerSession(nextAuthOptions)
     if (nextAuthSession?.user?.email === email) {
       console.log('[session] Auto-creating user for Google OAuth:', email)
       const newUser = await db.user.create({
