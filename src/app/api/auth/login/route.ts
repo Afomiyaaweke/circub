@@ -43,6 +43,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Deactivated accounts cannot sign back in — the message tells the owner
+    // exactly how to reactivate (checked AFTER the password check so the
+    // account's existence/status is never leaked to non-owners).
+    if (user.deactivatedAt) {
+      return NextResponse.json(
+        { error: 'This account has been deactivated. Email support@tenetbid.com to reactivate it.' },
+        { status: 403 }
+      )
+    }
+
     await setSessionCookie(user.email)
 
     return NextResponse.json({

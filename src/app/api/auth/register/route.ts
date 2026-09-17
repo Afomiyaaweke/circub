@@ -97,6 +97,14 @@ export async function POST(req: NextRequest) {
       where: { email: body.email.trim().toLowerCase() },
     })
     if (existing) {
+      // Deactivated accounts don't come back through re-registration — point
+      // the user at the support inbox instead of the generic "already exists".
+      if (existing.deactivatedAt) {
+        return NextResponse.json(
+          { error: 'This account was deactivated. Email support@tenetbid.com to reactivate it.' },
+          { status: 403 }
+        )
+      }
       return NextResponse.json(
         { error: 'An account with this email already exists' },
         { status: 409 }

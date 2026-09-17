@@ -61,6 +61,12 @@ model User {
   userIdDocUrl    String?   // uploaded document (data URL) — owner-only, never exposed
   verifiedAt      DateTime?
 
+  // Account deactivation (user-initiated soft-off; reversible by support).
+  // deactivatedAt set = account signed out everywhere, login blocked with a
+  // clear message, and the reason was forwarded to the contact-us inbox.
+  deactivatedAt      DateTime?
+  deactivationReason String?
+
   // Company-specific fields
   companyName    String?
   companyWebsite String?

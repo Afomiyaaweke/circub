@@ -88,7 +88,13 @@ export async function getCurrentUser() {
   if (!email) return null
   try {
     const user = await db.user.findUnique({ where: { email } })
-    if (user) return user
+    if (user) {
+      // Deactivated accounts are signed out everywhere: every API that uses
+      // getCurrentUser() sees them as not logged in (401s), which bounces the
+      // client back to the landing page.
+      if (user.deactivatedAt) return null
+      return user
+    }
 
     // If no user exists but we have a valid Google session, auto-create one.
     // This is the first-sign-in path for Google OAuth users.

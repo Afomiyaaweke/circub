@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText } from 'lucide-react'
+import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ interface HeaderProps {
   onLogout: () => void
   onEditProfile: () => void
   onOpenNetwork: () => void
+  onDeactivateAccount: () => void
 }
 
 // Bookmark and Network live inside the Profile tab now (Instagram-style) —
@@ -40,6 +41,7 @@ export function Header({
   onLogout,
   onEditProfile,
   onOpenNetwork,
+  onDeactivateAccount,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -221,6 +223,16 @@ export function Header({
                   Terms
                 </a>
                 <div className="border-t border-border my-1" />
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onDeactivateAccount()
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
+                >
+                  <UserX className="w-4 h-4" />
+                  Deactivate account
+                </button>
                 <button
                   onClick={() => {
                     setMenuOpen(false)

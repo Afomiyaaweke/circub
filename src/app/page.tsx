@@ -20,6 +20,7 @@ const MessageModal = lazy(() => import('@/components/social/message-modal').then
 const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
 const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
 const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
+const DeactivateAccountModal = lazy(() => import('@/components/social/deactivate-account-modal').then(m => ({ default: m.DeactivateAccountModal })))
 import type { User, TabKey } from '@/lib/types'
 
 // localStorage key for the cached session user — enables instant repeat loads
@@ -38,6 +39,9 @@ export default function Home() {
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
+  // "Deactivate account" (header menu, next to Sign out) — asks for a reason,
+  // forwards it to the contact-us inbox, then signs the user out.
+  const [deactivateOpen, setDeactivateOpen] = useState(false)
   // Bumped every time an "Edit profile" entry point is used (header menu,
   // right sidebar) — routes to the Profile tab in edit mode (full tab).
   const [editSignal, setEditSignal] = useState(0)
@@ -111,6 +115,11 @@ export default function Home() {
   // of the login modal — guests don't have credentials to log in with.
   useEffect(() => {
     const handler = () => {
+      // While the Deactivate modal is open the 401 storm it causes (every
+      // background API now returns 401 for the deactivated user) must NOT
+      // trigger the "Session expired" bounce / login modal on top of it —
+      // the modal's own Done flow signs the user out cleanly.
+      if (deactivateOpen) return
       const isGuest = me?.id === 'guest'
       if (isGuest) {
         // Guest tried to do something that requires auth (post, vote, etc.)
@@ -138,7 +147,7 @@ export default function Home() {
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
-  }, [toast, me])
+  }, [toast, me, deactivateOpen])
 
   // Listen for "Ask a Guide" events from the PriceLens scanner — when
   // a user scans a product and taps "Ask a local guide about this item",
@@ -255,6 +264,19 @@ export default function Home() {
     toast({ title: 'Signed out' })
   }, [toast])
 
+  // After a successful deactivation: same teardown as logout, different copy.
+  const handleDeactivated = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      /* ignore */
+    }
+    try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
+    setMe(null)
+    setMessagesOpen(false)
+    toast({ title: 'Account deactivated', description: 'Your reason was sent to our team. Email support@tenetbid.com to come back any time.' })
+  }, [toast])
+
   const handleAuthed = useCallback(() => {
     // Fetch fresh user data from /api/auth/me
     fetchMe()
@@ -353,7 +375,17 @@ export default function Home() {
         onLogout={handleLogout}
         onEditProfile={handleEditProfile}
         onOpenNetwork={() => openProfileSection('network')}
+        onDeactivateAccount={() => setDeactivateOpen(true)}
       />
+
+      <Suspense fallback={null}>
+        <DeactivateAccountModal
+          open={deactivateOpen}
+          onOpenChange={setDeactivateOpen}
+          user={me ? { name: me.name, email: me.email } : null}
+          onDeactivated={handleDeactivated}
+        />
+      </Suspense>
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
