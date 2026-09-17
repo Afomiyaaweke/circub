@@ -10,8 +10,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, Loader2,
-  Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, ShieldCheck, Sparkles, Star, Trash2, UserCircle, Users, X,
+  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, Loader2,
+  Check, Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Trash2, UserCircle, Users, X,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { compressImage } from '@/lib/image-compress'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
+import { normalizeUsername, validateUsername, profileLink } from '@/lib/username'
 import { getSavedItems, unsaveItem, type SavedItem } from '@/lib/saved-items'
 import { GuideStars } from './guide-reviews-modal'
 import { NetworkTab } from './network-tab'
@@ -122,6 +123,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // Full-tab Edit Profile view (Instagram-style) — replaces the old modal
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
+  // Username: the shareable profile handle (circub.app/u/<username>).
+  const [username, setUsername] = useState('')
+  const [uStatus, setUStatus] = useState<'idle' | 'checking' | 'available' | 'error'>('idle')
+  const [uMsg, setUMsg] = useState('')
   const [headline, setHeadline] = useState('')
   const [location, setLocation] = useState('')
   const [bio, setBio] = useState('')
@@ -241,6 +246,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // ------------------------------------------------------------- edit mode
   const openEdit = useCallback(() => {
     setName(me.name || '')
+    setUsername((me as any).username || '')
+    setUStatus('idle')
+    setUMsg('')
     setHeadline(me.headline || '')
     setLocation(me.location || '')
     setBio(me.bio || '')
@@ -270,6 +278,29 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         .catch(() => {})
     }
   }, [me])
+
+  // Live username availability probe (debounced) — skipped when the handle
+  // is unchanged from the one already on the account.
+  useEffect(() => {
+    if (!editing) return
+    const current = ((me as any).username as string) || ''
+    if (!username) { setUStatus('idle'); setUMsg(''); return }
+    if (username === current) { setUStatus('idle'); setUMsg(''); return }
+    const check = validateUsername(username)
+    if (!check.ok) { setUStatus('error'); setUMsg(check.error); return }
+    setUStatus('checking'); setUMsg('Checking availability...')
+    const t = setTimeout(() => {
+      fetch(`/api/users/check-username?u=${encodeURIComponent(check.username)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.available) { setUStatus('available'); setUMsg(profileLink(check.username).replace(/^https?:\/\//, '') + ' is yours') }
+          else { setUStatus('error'); setUMsg(d?.error || 'That username is already taken — please pick another') }
+        })
+        .catch(() => { setUStatus('idle'); setUMsg('') })
+    }, 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username, editing])
 
   // ------------------------------------------------------- verification flow
   const openVerification = useCallback(() => {
@@ -358,11 +389,38 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     } finally { setUploading(false) }
   }
 
+  // Share this profile: copies /u/<username> (or opens the native share
+  // sheet on phones). Without a username yet, sends the user to set one —
+  // the handle IS the shareable ID.
+  const shareProfile = async () => {
+    const handle = ((me as any).username as string) || ''
+    if (!handle) {
+      toast({ title: 'Set a username first', description: 'Pick your unique ID in Edit profile, then share it.' })
+      openEdit()
+      return
+    }
+    const link = profileLink(handle)
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `${me.name} on Circub`, url: link })
+        return
+      }
+      await navigator.clipboard.writeText(link)
+      toast({ title: 'Profile link copied', description: link.replace(/^https?:\/\//, '') })
+    } catch {
+      // Clipboard blocked (or share dismissed) — show it so the user can copy manually.
+      toast({ title: 'Your profile link', description: link.replace(/^https?:\/\//, '') })
+    }
+  }
+
   const saveProfile = async () => {
     if (!name.trim()) { toast({ title: 'Name is required', variant: 'destructive' }); return }
+    const uCheck = validateUsername(username)
+    if (!uCheck.ok) { toast({ title: 'Check your username', description: uCheck.error, variant: 'destructive' }); return }
+    if (uStatus === 'error') { toast({ title: 'Username unavailable', description: uMsg || 'Please pick another username.', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const payload: Record<string, unknown> = { name, headline, location, bio, profilePicture, expertiseTags, phone: phone.trim() || null, whatsapp: whatsapp.trim() || null }
+      const payload: Record<string, unknown> = { name, headline, location, bio, profilePicture, expertiseTags, phone: phone.trim() || null, whatsapp: whatsapp.trim() || null, username: uCheck.username }
       if (isGuide) {
         payload.guideBio = guideBio
         payload.guideSpecialties = guideSpecialties
@@ -586,6 +644,30 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             </div>
 
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><UserCircle className="w-3.5 h-3.5" />Full name *</label><Input placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+            {/* Username — the unique ID people use to find + share this profile */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><AtSign className="w-3.5 h-3.5" />Username</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
+                <Input
+                  placeholder="yourname"
+                  value={username}
+                  onChange={(e) => setUsername(normalizeUsername(e.target.value))}
+                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-green-500/60 focus-visible:ring-green-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {uStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                  {uStatus === 'available' && <Check className="w-4 h-4 text-green-600" />}
+                </span>
+              </div>
+              {uMsg ? (
+                <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">Your unique ID — your profile lives at <span className="font-semibold">circub.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
+              )}
+            </div>
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5" />Headline</label><Input placeholder="e.g. Verified Local · Traveler · Food enthusiast" value={headline} onChange={(e) => setHeadline(e.target.value)} /></div>
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />Location</label><Input placeholder="e.g. Kuala Lumpur, Malaysia" value={location} onChange={(e) => setLocation(e.target.value)} /></div>
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" />Expertise (comma-separated)</label><Input placeholder="e.g. Coffee, Markets, Handicrafts" value={expertiseTags} onChange={(e) => setExpertiseTags(e.target.value)} /></div>
@@ -869,6 +951,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             {me.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary" />}
             {me.idVerified && <BadgeCheck className="w-4 h-4 text-blue-500" aria-label="Verified with ID or passport" />}
           </h1>
+          {(me as any).username && (
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><AtSign className="w-3.5 h-3.5" />{(me as any).username}</p>
+          )}
           {me.headline && <p className="text-sm text-muted-foreground">{me.headline}</p>}
           {me.bio && <p className="mt-1 text-sm text-foreground/90 whitespace-pre-line">{me.bio}</p>}
           {me.location && (
@@ -877,6 +962,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         </div>
 
         <div className="mt-4 flex gap-2">
+          <Button onClick={shareProfile} variant="outline" className="w-9 shrink-0 h-9 rounded-lg p-0 justify-center" aria-label="Share profile" title="Share profile">
+            <Share2 className="w-4 h-4" />
+          </Button>
           <Button onClick={openEdit} variant="outline" className="flex-1 h-9 rounded-lg text-xs sm:text-sm">Edit profile</Button>
           <Button onClick={openVerification} variant="outline"
             className={cn('flex-1 h-9 rounded-lg text-xs sm:text-sm gap-1', isIdVerified && 'border-blue-500/40 text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-400')}>

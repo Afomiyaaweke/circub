@@ -3,12 +3,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
+import { validateUsername } from '@/lib/username'
 
 interface RegisterBody {
   accountType: 'PERSONAL' | 'COMPANY'
   // Shared
   email: string
   password: string
+  // Shareable profile handle (circub.app/u/<username>) — required, unique
+  username?: string
   // Personal
   name?: string
   headline?: string
@@ -95,6 +98,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Username: required, normalized + validated, globally unique — it is the
+    // public ID people use to find and share the profile.
+    const uCheck = validateUsername(String(body.username || ''))
+    if (!uCheck.ok) {
+      return NextResponse.json({ error: uCheck.error }, { status: 400 })
+    }
+    const usernameTaken = await db.user.findUnique({
+      where: { username: uCheck.username },
+      select: { id: true },
+    })
+    if (usernameTaken) {
+      return NextResponse.json(
+        { error: 'That username is already taken — please pick another' },
+        { status: 409 }
+      )
+    }
+
     const hashed = await bcrypt.hash(body.password, 10)
 
     // Build user record
@@ -102,6 +122,7 @@ export async function POST(req: NextRequest) {
       email: body.email.trim().toLowerCase(),
       password: hashed,
       accountType: body.accountType,
+      username: uCheck.username,
     }
 
     if (body.accountType === 'PERSONAL') {
@@ -132,6 +153,7 @@ export async function POST(req: NextRequest) {
           id: user.id,
           email: user.email,
           name: user.name,
+          username: user.username,
           accountType: user.accountType,
           companyName: user.companyName,
           headline: user.headline,

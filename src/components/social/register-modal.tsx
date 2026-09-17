@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { normalizeUsername, validateUsername } from '@/lib/username'
+import { AtSign, Check, Loader2 } from 'lucide-react'
 
 interface RegisterModalProps {
   open: boolean
@@ -50,6 +52,12 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   // Shared
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // Username: the shareable profile handle (circub.app/u/<username>).
+  // Auto-suggested from the name / company name until the user edits it.
+  const [username, setUsername] = useState('')
+  const [usernameTouched, setUsernameTouched] = useState(false)
+  const [uStatus, setUStatus] = useState<'idle' | 'checking' | 'available' | 'error'>('idle')
+  const [uMsg, setUMsg] = useState('')
   // Legal gate: the Terms of Service + Privacy Policy must be confirmed
   // before an account can be created.
   const [agreed, setAgreed] = useState(false)
@@ -65,6 +73,32 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
       .catch(() => setGoogleConfigured(false))
   }, [])
 
+  // Auto-suggest a handle from the display name until the user edits it.
+  useEffect(() => {
+    if (usernameTouched) return
+    const source = tab === 'PERSONAL' ? name : companyName
+    setUsername(normalizeUsername(source))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, companyName, tab, usernameTouched])
+
+  // Live availability check (debounced) -- same probe the Edit profile uses.
+  useEffect(() => {
+    if (!username) { setUStatus('idle'); setUMsg(''); return }
+    const check = validateUsername(username)
+    if (!check.ok) { setUStatus('error'); setUMsg(check.error); return }
+    setUStatus('checking'); setUMsg('Checking availability...')
+    const t = setTimeout(() => {
+      fetch(`/api/users/check-username?u=${encodeURIComponent(check.username)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.available) { setUStatus('available'); setUMsg('circub.app/u/' + d.username + ' is free') }
+          else { setUStatus('error'); setUMsg(d?.error || 'That username is already taken - please pick another') }
+        })
+        .catch(() => { setUStatus('idle'); setUMsg('') })
+    }, 400)
+    return () => clearTimeout(t)
+  }, [username])
+
   const reset = () => {
     setName('')
     setHeadline('')
@@ -79,6 +113,10 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
     setCompanyIndustry('')
     setEmail('')
     setPassword('')
+    setUsername('')
+    setUsernameTouched(false)
+    setUStatus('idle')
+    setUMsg('')
   }
 
   const handleSubmit = async () => {
@@ -106,6 +144,15 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
       })
       return
     }
+    const uCheck = validateUsername(username)
+    if (!uCheck.ok) {
+      toast({ title: 'Username needed', description: uCheck.error, variant: 'destructive' })
+      return
+    }
+    if (uStatus === 'error') {
+      toast({ title: 'Username unavailable', description: uMsg || 'Please pick another username.', variant: 'destructive' })
+      return
+    }
     if (tab === 'PERSONAL' && !name.trim()) {
       toast({ title: 'Name required', variant: 'destructive' })
       return
@@ -122,6 +169,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         email,
         password,
         acceptedTerms: true,
+        username: uCheck.username,
       }
       if (tab === 'PERSONAL') {
         body.name = name
@@ -323,6 +371,30 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
 
           {/* Shared credentials */}
           <div className="pt-4 border-t border-border space-y-4">
+            {/* Username: the unique ID that makes the profile shareable */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><AtSign className="w-3.5 h-3.5" />Username *</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
+                <Input
+                  placeholder="yourname"
+                  value={username}
+                  onChange={(e) => { setUsernameTouched(true); setUsername(normalizeUsername(e.target.value)) }}
+                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-green-500/60 focus-visible:ring-green-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {uStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                  {uStatus === 'available' && <Check className="w-4 h-4 text-green-600" />}
+                </span>
+              </div>
+              {uMsg ? (
+                <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', (uStatus === 'checking' || uStatus === 'idle') && 'text-muted-foreground')}>{uMsg}</p>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">Your unique ID — people find and share your profile at circub.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
+              )}
+            </div>
             <Field
               label="Email *"
               icon={Mail}

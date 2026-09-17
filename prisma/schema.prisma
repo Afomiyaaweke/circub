@@ -26,6 +26,11 @@ model User {
   name           String
   email          String   @unique
   password       String? // hashed with bcrypt; null for Google OAuth users
+  // Shareable profile handle — the unique ID people use to find and share a
+  // profile (circub.app/u/<username>). Nullable: accounts created before
+  // usernames existed (and Google OAuth sign-ups) can add one any time from
+  // Edit profile. Always stored normalized: lowercase, [a-z0-9_], 3–20 chars.
+  username       String?  @unique
   avatarColor    String   @default("teal")
   bio            String?
   headline       String?

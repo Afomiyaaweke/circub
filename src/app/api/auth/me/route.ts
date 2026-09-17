@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/session'
 import { db } from '@/lib/db'
+import { validateUsername } from '@/lib/username'
 
 // GET: full profile for the logged-in user (stats, guide fields, ...).
 
@@ -33,6 +34,7 @@ export async function GET() {
     return NextResponse.json({
       id: me.id,
       name: me.name,
+      username: me.username,
       email: me.email,
       avatarColor: me.avatarColor,
       profilePicture: me.profilePicture,
@@ -104,6 +106,29 @@ export async function PATCH(req: Request) {
     if (typeof body.phone === 'string') data.phone = body.phone.trim().slice(0, 40) || null
     if (typeof body.whatsapp === 'string') data.whatsapp = body.whatsapp.trim().slice(0, 200) || null
 
+    // --- username (shareable profile handle) ---
+    // Only touched when the client sends it; validated + globally unique.
+    // Keeping your own current handle is a no-op (no uniqueness error).
+    if (typeof body.username === 'string') {
+      const uCheck = validateUsername(body.username)
+      if (!uCheck.ok) {
+        return NextResponse.json({ error: uCheck.error }, { status: 400 })
+      }
+      if (uCheck.username !== me.username) {
+        const taken = await db.user.findUnique({
+          where: { username: uCheck.username },
+          select: { id: true },
+        })
+        if (taken && taken.id !== me.id) {
+          return NextResponse.json(
+            { error: 'That username is already taken — please pick another' },
+            { status: 409 }
+          )
+        }
+        data.username = uCheck.username
+      }
+    }
+
     // --- guide profile fields (only meaningful for guides) ---
     if (me.isGuide) {
       if (typeof body.guideBio === 'string') data.guideBio = body.guideBio.trim().slice(0, 2000) || null
@@ -126,7 +151,7 @@ export async function PATCH(req: Request) {
       where: { id: me.id },
       data,
       select: {
-        id: true, name: true, headline: true, location: true, bio: true,
+        id: true, name: true, username: true, headline: true, location: true, bio: true,
         profilePicture: true, expertiseTags: true, phone: true, whatsapp: true,
         isGuide: true, guideLicense: true, guideLanguages: true,
         guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
@@ -141,7 +166,15 @@ export async function PATCH(req: Request) {
         guideSpecialties: updated.guideSpecialties ? updated.guideSpecialties.split(',').filter(Boolean) : [],
       },
     })
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'P2002') {
+      // Unique-constraint race: someone else grabbed the handle between the
+      // check above and this write.
+      return NextResponse.json(
+        { error: 'That username is already taken — please pick another' },
+        { status: 409 }
+      )
+    }
     console.error('Failed to update profile:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
