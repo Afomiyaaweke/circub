@@ -1,4 +1,4 @@
-// DELETE /api/guides/me — stop being a guide (owner action).
+// DELETE /api/guides/me - stop being a guide (owner action).
 //
 // Flips isGuide off so the guide card disappears from the Live Zone and the
 // "Become a guide" entry points come back. Guide details (languages,

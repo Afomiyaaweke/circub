@@ -1,7 +1,7 @@
 // GET /api/users/check-username?u=<handle>[&exclude=<userId>]
 // Public availability probe for the shareable profile handle.
 // Used live by the sign-up modal and Edit profile. Only reveals whether a
-// handle is free — no user data is returned.
+// handle is free - no user data is returned.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { validateUsername } from '@/lib/username'

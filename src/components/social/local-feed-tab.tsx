@@ -21,7 +21,7 @@ import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
 import type { LocalPricePost } from '@/lib/types'
 
-// Camera scan + camera search are LIVE — clicking either entry point opens the
+// Camera scan + camera search are LIVE - clicking either entry point opens the
 // camera/search flow (AI identifies the item, then compares the AI price
 // estimate against real local price posts). Flip to true to hold them behind
 // a "Soon" badge again (e.g. while the AI backend is unavailable).
@@ -51,7 +51,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [searchImage, setSearchImage] = useState<string | null>(null)
   const [searchingByImage, setSearchingByImage] = useState(false)
-  // User location for the camera-search price comparison — resolved once
+  // User location for the camera-search price comparison - resolved once
   // (device GPS with IP fallback) and reused for every subsequent search.
   const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null)
   const locationPromiseRef = useRef<Promise<ResolvedLocation | null> | null>(null)
@@ -65,7 +65,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   const [locPickOpen, setLocPickOpen] = useState(false)
   const [pickCountry, setPickCountry] = useState('')
   const [pickCity, setPickCity] = useState('')
-  // One or MORE places the user picked for the price compare — "add two or
+  // One or MORE places the user picked for the price compare - "add two or
   // more locations". `place` is the display label; the FIRST pick is the
   // primary location sent to the search API, the rest are matched client-side
   // (badges + per-place summary lines in the results panel).
@@ -73,14 +73,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   // When set, the results panel's match cards are filtered to one location
   // group from the "Compare by location" breakdown (key: city|country|currency).
   const [locFilter, setLocFilter] = useState<string | null>(null)
-  // "Post this product" — pre-fills the create-post modal from the current
+  // "Post this product" - pre-fills the create-post modal from the current
   // camera-search results (identified name, category, price range, photo).
   const [postPrefill, setPostPrefill] = useState<CreatePricePostPrefill | null>(null)
   const [prefillingPost, setPrefillingPost] = useState(false)
-  // The original captured File behind searchResults.imageUrl — kept so the
+  // The original captured File behind searchResults.imageUrl - kept so the
   // photo can be uploaded (compressed) when the user chooses to post it.
   const searchFileRef = useRef<File | null>(null)
-  // AI search results — shown in a panel above the feed after a camera
+  // AI search results - shown in a panel above the feed after a camera
   // capture or image upload. Contains the AI identification + price
   // estimate + matching local posts ranked by the user's location.
   const [searchResults, setSearchResults] = useState<{
@@ -111,7 +111,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
       if (country && country !== 'All countries') params.set('country', country)
       if (city && city !== 'All cities') params.set('city', city)
       if (category && category !== 'All categories') params.set('category', category)
-      // Posts default to most recent (API default) — no sort dropdown in the UI.
+      // Posts default to most recent (API default) - no sort dropdown in the UI.
       const res = await fetch(`/api/local-prices?${params.toString()}`)
       const data = await res.json()
       setPosts(data.posts || [])
@@ -151,7 +151,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
       return { city: l.city, country: l.country, countryCode: l.countryCode ?? null }
     }
     // Wait for the auto-detected location briefly (kickLocation starts it on
-    // the click; IP fallback resolves in ~1-2s, GPS may need longer — don't
+    // the click; IP fallback resolves in ~1-2s, GPS may need longer - don't
     // block the search on it).
     let loc = userLocation
     if (!loc && locationPromiseRef.current) {
@@ -178,7 +178,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
       const keywords: string = (vlmData.keywords || '').trim()
       const imageUrl = URL.createObjectURL(file)
       // The AI chain answered but found no purchasable product (or every
-      // provider is down AND the filename has no hints) — say so clearly
+      // provider is down AND the filename has no hints) - say so clearly
       // instead of silently filling the search box with garbage.
       if (vlmData.identified === false && !keywords) {
         setSearchImage(imageUrl)
@@ -195,7 +195,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
         return
       }
       // searchTerm is chosen server-side as the candidate that matches the
-      // most local posts — far better feed results than the raw first keyword.
+      // most local posts - far better feed results than the raw first keyword.
       const firstKeyword: string = (vlmData.searchTerm || keywords.split(',')[0] || '').trim()
       setSearch(firstKeyword)
       setLocFilter(null)
@@ -224,7 +224,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
     } finally { setSearchingByImage(false) }
   }
 
-  // "Search by name first" — same location-ranked price comparison as the
+  // "Search by name first" - same location-ranked price comparison as the
   // camera search, but the product name is TYPED instead of photographed.
   const handleTextSearch = async (query: string) => {
     const q = query.trim()
@@ -258,8 +258,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
         title: localMatches.length > 0 ? `Found ${localMatches.length} local price${localMatches.length !== 1 ? 's' : ''} for "${term}"` : `No local prices for "${term}" yet`,
         description: localMatches.length > 0
           ? nearCount > 0
-            ? `${data.locationCompare.currency} ${data.locationCompare.min}–${data.locationCompare.max} · ${nearCount} near ${data.locationCompare.place}`
-            : 'See the results panel — grouped by location'
+            ? `${data.locationCompare.currency} ${data.locationCompare.min}-${data.locationCompare.max} · ${nearCount} near ${data.locationCompare.place}`
+            : 'See the results panel - grouped by location'
           : 'Try "Compare by location" for another city, or post the first price.',
       })
     } catch (e) {
@@ -268,7 +268,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   }
 
   // Kick off location resolution on the FIRST user gesture (camera-search
-  // click) — browsers only allow the geolocation prompt from a gesture, and
+  // click) - browsers only allow the geolocation prompt from a gesture, and
   // by the time the user has picked/captured a photo it has usually resolved.
   const kickLocation = () => {
     if (!locationPromiseRef.current) {
@@ -319,7 +319,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
     toast({ title: `${place} added`, description: 'Add another place to compare side by side, or close and run a search.' })
   }
 
-  // "Post this product" — turn the camera-search result into a price post.
+  // "Post this product" - turn the camera-search result into a price post.
   // Pre-fills the create modal with the identified product (name, category,
   // the compared price range, the searched location) and uploads the captured
   // photo as the post image. The new post then feeds back into the same
@@ -338,12 +338,12 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
         fd.append('file', compressed)
         const res = await fetch('/api/upload', { method: 'POST', body: fd })
         if (res.ok) imageUrl = (await res.json()).url || ''
-      } catch { /* photo is optional — the post can still go out without it */ } finally { setPrefillingPost(false) }
+      } catch { /* photo is optional - the post can still go out without it */ } finally { setPrefillingPost(false) }
     }
     const keywords = r.keywords || ''
     const firstName = keywords.split(',')[0]?.trim() || ''
     // Match the AI keywords against the post categories ("Coffee Beans, Coffee"
-    // -> Coffee). Falls back to Other — the user can always change it.
+    // -> Coffee). Falls back to Other - the user can always change it.
     const kw = keywords.toLowerCase()
     const category = CATEGORIES.find((c) => kw.includes(c.toLowerCase())) || 'Other'
     // The place being added: an explicit location-group pick wins, then the
@@ -405,10 +405,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
       </Card>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Unified search bar — the country/city/category filters live INSIDE
+        {/* Unified search bar - the country/city/category filters live INSIDE
             the search field as segmented sections of one pill. Desktop: a
             single row (input | country | city | category). Phone: the pill
-            wraps — search on top, filters on a second row inside the bar. */}
+            wraps - search on top, filters on a second row inside the bar. */}
         <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs">
           <div className="flex items-center flex-1 basis-full sm:basis-auto sm:min-w-[150px] min-w-0">
             <div className="relative flex-1 min-w-0">
@@ -416,10 +416,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
             </div>
             {/* Phone: Camera search + Scan collapse into compact icon buttons
-                INSIDE the search bar — saves a whole row, and the camera menu
+                INSIDE the search bar - saves a whole row, and the camera menu
                 drops from the pill's right edge so it always fits the screen. */}
             <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onMenuAction={openSearchMenu} />
-            <Button type="button" variant="ghost" size="icon" onClick={openScan} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Scan with camera — PriceLens">
+            <Button type="button" variant="ghost" size="icon" onClick={openScan} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Scan with camera - PriceLens">
               <ScanLine className="w-4 h-4 text-emerald-600" />
             </Button>
           </div>
@@ -474,7 +474,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           onClick={openScan}
           disabled={searchingByImage}
           className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
-          title="Open PriceLens — point your camera at a product, AI identifies it and finds live local prices"
+          title="Open PriceLens - point your camera at a product, AI identifies it and finds live local prices"
         >
           <ScanLine className="w-3.5 h-3.5 text-emerald-600" />
           <span className="hidden sm:inline">Scan with camera</span>
@@ -498,7 +498,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           </div>
         )}
 
-        {/* "Search by name first" — type the product name instead of
+        {/* "Search by name first" - type the product name instead of
             uploading a product pic; same location-ranked price compare. */}
         {nameSearchOpen && (
           <Card className="w-full p-3 shadow-sm border-primary/30 space-y-2">
@@ -506,7 +506,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><PenLine className="w-4 h-4 text-primary" /> Search by name first</p>
               <button onClick={() => setNameSearchOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close name search"><X className="w-4 h-4" /></button>
             </div>
-            <p className="text-xs text-muted-foreground">No photo needed — type the product name (e.g. "coffee beans", "power bank"). Can&apos;t find it? Use the camera instead.</p>
+            <p className="text-xs text-muted-foreground">No photo needed - type the product name (e.g. "coffee beans", "power bank"). Can&apos;t find it? Use the camera instead.</p>
             <form
               onSubmit={(e) => { e.preventDefault(); handleTextSearch(nameQuery) }}
               className="flex items-center gap-2"
@@ -519,7 +519,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           </Card>
         )}
 
-        {/* "Compare by location" — pick WHERE to compare prices (defaults
+        {/* "Compare by location" - pick WHERE to compare prices (defaults
             to the auto-detected current location). Applies to the next
             camera search or name search. */}
         {locPickOpen && (
@@ -575,19 +575,19 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                   const city = pickCity.trim() || null
                   const country = pickCountry || city
                   const place = [city, pickCountry].filter(Boolean).join(', ')
-                  // Keep the place for later compares too — without duping it.
+                  // Keep the place for later compares too - without duping it.
                   if (place) {
                     setCustomLocations((prev) => prev.some((p) => p.place.toLowerCase() === place.toLowerCase()) ? prev : [...prev, { city, country, countryCode: null, place }])
                   }
                   setLocPickOpen(false)
-                  // Jump straight to adding a product in the picked place —
+                  // Jump straight to adding a product in the picked place -
                   // location pre-filled (country only from a real country
                   // pick, never the city fallback), the user types the rest.
                   setPostPrefill({ country: pickCountry || undefined, city: city || undefined })
                   setModalOpen(true)
                 }}
                 className="gap-1.5 h-9 shrink-0 border-emerald-500/50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                title="Add a product price in the picked place — opens the post form with the location pre-filled"
+                title="Add a product price in the picked place - opens the post form with the location pre-filled"
               >
                 <Plus className="w-3.5 h-3.5" /> Add product
               </Button>
@@ -603,11 +603,11 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                 ))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Add two or more places to compare them side by side — the first place ranks the matches, and every place gets its own price line in the results. Or skip the search and add a product directly.</p>
+            <p className="text-xs text-muted-foreground">Add two or more places to compare them side by side - the first place ranks the matches, and every place gets its own price line in the results. Or skip the search and add a product directly.</p>
           </Card>
         )}
 
-        {/* AI search results panel — shows after a camera capture or image
+        {/* AI search results panel - shows after a camera capture or image
             upload. Contains the AI identification + price estimate (in the
             user's local currency) + matching local posts ranked by location,
             so the user can compare AI vs real local prices near them. */}
@@ -632,7 +632,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                 {searchResults.aiPriceEstimate && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                      ✨ AI est: {searchResults.aiPriceEstimate.currency} {searchResults.aiPriceEstimate.min}–{searchResults.aiPriceEstimate.max}
+                      ✨ AI est: {searchResults.aiPriceEstimate.currency} {searchResults.aiPriceEstimate.min}-{searchResults.aiPriceEstimate.max}
                     </span>
                   </div>
                 )}
@@ -642,7 +642,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               </button>
             </div>
 
-            {/* Location-based price comparison — AI estimate vs real local
+            {/* Location-based price comparison - AI estimate vs real local
                 prices from the user's city / country. */}
             {searchResults.locationCompare && (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-1">
@@ -651,14 +651,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                   Compare near {searchResults.locationCompare.place}
                 </p>
                 <p className="text-sm text-emerald-900">
-                  <span className="font-bold">{searchResults.locationCompare.currency} {searchResults.locationCompare.min}–{searchResults.locationCompare.max}</span>
+                  <span className="font-bold">{searchResults.locationCompare.currency} {searchResults.locationCompare.min}-{searchResults.locationCompare.max}</span>
                   {' '}· {searchResults.locationCompare.count} local price{searchResults.locationCompare.count !== 1 && 's'}
                   {' '}{searchResults.locationCompare.scope === 'city' ? 'in your city' : 'in your country'}
                   {compareSummaryText(searchResults.locationCompare, searchResults.aiPriceEstimate)}
                 </p>
               </div>
             )}
-            {/* Multi-location compare — one price line per additional picked
+            {/* Multi-location compare - one price line per additional picked
                 place (the first pick already has the "Compare near" box
                 above), aggregated from the grouped matches. */}
             {customLocations.length > 1 && (() => {
@@ -682,7 +682,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                       <span className="font-semibold">{l.place}:</span>
                       {l.empty
                         ? <span className="text-muted-foreground">no local prices yet</span>
-                        : <span><span className="font-bold">{l.currency} {l.min}–{l.max}</span> · {l.count} price{l.count !== 1 ? 's' : ''}</span>}
+                        : <span><span className="font-bold">{l.currency} {l.min}-{l.max}</span> · {l.count} price{l.count !== 1 ? 's' : ''}</span>}
                     </p>
                   ))}
                 </div>
@@ -693,19 +693,19 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  No local prices near {searchResults.location.city || searchResults.location.country} yet — be the first!
+                  No local prices near {searchResults.location.city || searchResults.location.country} yet - be the first!
                 </span>
                 <button
                   onClick={() => void handlePostProduct()}
                   className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
-                  title="Add this product as a price post — pre-filled with the searched location"
+                  title="Add this product as a price post - pre-filled with the searched location"
                 >
                   <Plus className="w-3 h-3" /> Add it
                 </button>
               </div>
             )}
 
-            {/* Compare by location — every location that has a matching
+            {/* Compare by location - every location that has a matching
                 price, side by side (range + count per place). Click a place
                 to filter the match cards below to it. */}
             {(() => {
@@ -737,13 +737,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                           {g.near && <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">Near you</span>}
                         </div>
                         <div className="flex items-center justify-between gap-2 text-xs">
-                          <span className="font-bold text-emerald-700">{g.currency} {g.min}–{g.max}</span>
+                          <span className="font-bold text-emerald-700">{g.currency} {g.min}-{g.max}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <span className="text-muted-foreground">{g.count} price{g.count !== 1 ? 's' : ''}</span>
                             <button
                               onClick={(e) => { e.stopPropagation(); void handlePostProduct(g) }}
                               className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
-                              title={`Add this product as a price post in ${g.place} — pre-filled with the ${g.currency} ${g.min}–${g.max} range posted there`}
+                              title={`Add this product as a price post in ${g.place} - pre-filled with the ${g.currency} ${g.min}-${g.max} range posted there`}
                             >
                               <Plus className="w-3 h-3" /> Add here
                             </button>
@@ -756,7 +756,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               )
             })()}
 
-            {/* Local price matches — real prices from locals, grouped by how
+            {/* Local price matches - real prices from locals, grouped by how
                 close they are to the user's location (or filtered to one
                 location when the user picked a place above). */}
             {searchResults.localMatches.length > 0 && (() => {
@@ -772,7 +772,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                     <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
                       {locFilter && activeGroup
-                        ? `${activeGroup.place} — ${filtered.length} local price${filtered.length !== 1 ? 's' : ''}`
+                        ? `${activeGroup.place} - ${filtered.length} local price${filtered.length !== 1 ? 's' : ''}`
                         : `${filtered.length} local price${filtered.length !== 1 ? 's' : ''} found`}
                     </p>
                     {locFilter && (
@@ -809,7 +809,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               )
             })()}
 
-            {/* Post this product — add the identified item as a price post
+            {/* Post this product - add the identified item as a price post
                 with the captured photo, pre-filled from this search. The new
                 post then shows up in everyone's location comparison. */}
             <div className="pt-2 border-t border-border flex items-center gap-2.5 flex-wrap">
@@ -818,7 +818,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                 onClick={() => void handlePostProduct()}
                 disabled={prefillingPost}
                 className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 shrink-0"
-                title="Add this product as a price post — pre-filled with the identified name, photo and compared price range"
+                title="Add this product as a price post - pre-filled with the identified name, photo and compared price range"
               >
                 {prefillingPost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 {prefillingPost ? 'Preparing photo...' : 'Post this product'}
@@ -827,8 +827,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                 {(() => {
                   const ag = locFilter ? groupMatchesByLocation(searchResults.localMatches).find((g) => g.key === locFilter) : undefined
                   return ag
-                    ? `Add it in ${ag.place} — pre-filled with the ${ag.currency} ${ag.min}–${ag.max} range posted there${searchFileRef.current ? ' and your photo' : ''}.`
-                    : `Add it with your price — pre-filled from this search${searchFileRef.current ? ' and photo' : ''}.`
+                    ? `Add it in ${ag.place} - pre-filled with the ${ag.currency} ${ag.min}-${ag.max} range posted there${searchFileRef.current ? ' and your photo' : ''}.`
+                    : `Add it with your price - pre-filled from this search${searchFileRef.current ? ' and photo' : ''}.`
                 })()}
               </p>
             </div>
@@ -846,7 +846,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           <h3 className="font-semibold text-foreground">No local price posts found</h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
             {searchResults && searchResults.localMatches.length > 0
-              ? `The camera search found ${searchResults.localMatches.length} matching price${searchResults.localMatches.length !== 1 ? 's' : ''} — see the results panel above. Or adjust your filters below.`
+              ? `The camera search found ${searchResults.localMatches.length} matching price${searchResults.localMatches.length !== 1 ? 's' : ''} - see the results panel above. Or adjust your filters below.`
               : 'No posts match your filters. Try adjusting search or filters · or be the first to post a local price!'}
           </p>
           <Button onClick={() => { setPostPrefill(null); setModalOpen(true) }} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
@@ -900,7 +900,7 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact
               toast({ title: 'Camera search is coming soon', description: 'Camera search will be available in a future update.' })
               return
             }
-            // Start resolving the user's location NOW (user gesture — required
+            // Start resolving the user's location NOW (user gesture - required
             // for the geolocation permission prompt) so it is ready by the time
             // the photo is chosen, enabling the location-based price compare.
             onInitiate?.()
@@ -916,7 +916,7 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact
           {!compact && <><span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span></>}
           {!compact && SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
         </Button>
-        {/* Options menu — take a photo, search by name first (no photo
+        {/* Options menu - take a photo, search by name first (no photo
             needed), or compare prices in a chosen location. Anchored to the
             trigger's right edge with a viewport guard so it never clips off
             screen on phones. */}
@@ -936,7 +936,7 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact
                 className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
               >
                 <p className="text-sm font-medium text-foreground flex items-center gap-2"><PenLine className="w-4 h-4 text-primary shrink-0" />Search by name first</p>
-                <p className="text-[11px] text-muted-foreground">Type the product name — no photo needed</p>
+                <p className="text-[11px] text-muted-foreground">Type the product name - no photo needed</p>
               </button>
               <button
                 onClick={() => { setMenuOpen(false); onMenuAction?.('location') }}
@@ -963,7 +963,7 @@ function LocalMatchCard({ post, onOpen }: { post: any; onOpen: (id: string) => v
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-foreground truncate">{post.productName}</span>
         <span className="text-sm font-bold text-emerald-700 shrink-0">
-          {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `–${post.priceMax}` : ''}
+          {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `-${post.priceMax}` : ''}
         </span>
       </div>
       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -977,7 +977,7 @@ function LocalMatchCard({ post, onOpen }: { post: any; onOpen: (id: string) => v
   )
 }
 
-// Location key for a match — used by the "Compare by location" breakdown
+// Location key for a match - used by the "Compare by location" breakdown
 // and the match-card filter (city|country|currency so cross-currency posts
 // are never merged into one misleading range).
 function matchLocationKey(m: { city?: string | null; country?: string | null; currency?: string }): string {
@@ -1021,7 +1021,7 @@ function groupMatchesByLocation(matches: Array<any>): Array<{
 }
 
 // One-line comparison between the local price range near the user and the
-// AI estimate — only when both exist in the SAME currency (honest: no FX
+// AI estimate - only when both exist in the SAME currency (honest: no FX
 // guessing). Returns a trailing sentence like " · ~35% below the AI estimate".
 function compareSummaryText(
   cmp: { min: number; max: number; currency: string; count: number },
@@ -1032,7 +1032,7 @@ function compareSummaryText(
   const localMid = (cmp.min + cmp.max) / 2
   if (aiMid <= 0) return ''
   const diffPct = Math.round(((localMid - aiMid) / aiMid) * 100)
-  if (diffPct <= -25) return ` — a great local deal, ~${-diffPct}% below the AI estimate`
-  if (diffPct < 15) return ' — in line with the AI estimate'
-  return ` — ~${diffPct}% above the AI estimate, haggle or look around`
+  if (diffPct <= -25) return ` - a great local deal, ~${-diffPct}% below the AI estimate`
+  if (diffPct < 15) return ' - in line with the AI estimate'
+  return ` - ~${diffPct}% above the AI estimate, haggle or look around`
 }

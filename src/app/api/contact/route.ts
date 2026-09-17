@@ -1,4 +1,4 @@
-// POST /api/contact — store a "Send Us a Message" submission from the /contact page.
+// POST /api/contact - store a "Send Us a Message" submission from the /contact page.
 // Rate limited, sanitized, persisted to the ContactMessage table.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'

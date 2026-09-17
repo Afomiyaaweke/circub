@@ -19,7 +19,7 @@ export const maxDuration = 60
 //   2. Concurrency limiter + small waiting queue (smooths bursts)
 //   3. Exact-duplicate response cache (double-taps / identical retries)
 //   4. Round-robin load balancing across upstream scan backends (direct ZAI
-//      first, then proxies) with failover — spreads load for many users.
+//      first, then proxies) with failover - spreads load for many users.
 // ============================================================================
 
 // --- 1) Per-IP rate limiting: max 15 scans per rolling 60s per IP ---
@@ -89,7 +89,7 @@ async function acquireScanSlot(): Promise<void> {
     }, QUEUE_TIMEOUT_MS)
     slotWaiters.push(entry)
   })
-  // Resolved by releaseScanSlot — the slot was transferred to us, so the
+  // Resolved by releaseScanSlot - the slot was transferred to us, so the
   // active count is unchanged.
 }
 
@@ -187,7 +187,7 @@ function localCurrencyForLocation(location: { country?: string | null; countryCo
 }
 
 // ZAI client construction moved to @/lib/zai-config and the provider chains
-// (vision / search / text) to @/lib/ai-backends — multi-provider failover that
+// (vision / search / text) to @/lib/ai-backends - multi-provider failover that
 // works from BOTH inside the z.ai platform AND from Vercel (whose network
 // cannot reach the platform's private internal API).
 
@@ -240,7 +240,7 @@ async function estimatePrice(searchQuery: string, location: ScanLocation | null,
     prompt = `You are a price-analysis assistant. No live web results are available right now.\nEstimate from general knowledge a realistic retail price range for "${searchQuery}" purchased in/near ${locationName}.\nThe local currency is ${localCurrency}. Be conservative and clearly approximate.\n\nRespond ONLY with a JSON object:\n{"estimatedLow":<number>,"estimatedHigh":<number>,"currency":"${localCurrency}","summary":"one or two sentences in ${localCurrency}, starting with 'Approximate (from AI knowledge):'."}`
   }
 
-  // ALWAYS return numbers — the UI must never say "Price unavailable".
+  // ALWAYS return numbers - the UI must never say "Price unavailable".
   // Tier 1: full analysis prompt (JSON). Tier 2: minimal numeric prompt.
   // Tier 3: regex any price amounts out of the raw model text.
   // Tier 4: keyword-based rough range (clearly labeled as a rough guess).
@@ -263,7 +263,7 @@ async function estimatePrice(searchQuery: string, location: ScanLocation | null,
           : `Estimated range for "${searchQuery}" in ${locationName} (approximate).`
         return { ...est, summary }
       }
-      // JSON had no numbers — maybe the text still contains an amount (Tier 3)
+      // JSON had no numbers - maybe the text still contains an amount (Tier 3)
       const est3 = saneRange(...amountsFromText(content, localCurrency) as [number | null, number | null], localCurrency)
       if (est3) return { ...est3, summary: `Approximate price for "${searchQuery}" in ${locationName}.` }
     } catch { /* next tier */ }
@@ -290,7 +290,7 @@ function amountsFromText(text: string, currency: string): [number | null, number
   if (!text) return [null, null]
   const sym = currency === 'USD' ? '\\$' : currency
   // 1) explicit range "120-1500" or "120 to 1500" (optionally currency-marked)
-  const range = text.match(new RegExp(`${sym}?\\s*([\\d][\\d,\\.]{0,9})\\s*(?:-|–|—|to|~)\\s*\\$?\\s*([\\d][\\d,\\.]{0,9})`, 'i'))
+  const range = text.match(new RegExp(`${sym}?\\s*([\\d][\\d,\\.]{0,9})\\s*(?:-|-|-|to|~)\\s*\\$?\\s*([\\d][\\d,\\.]{0,9})`, 'i'))
   if (range) {
     const a = pickNumber(range[1])
     const b = pickNumber(range[2])
@@ -320,7 +320,7 @@ function saneRange(low: number | null, high: number | null, currency: string): P
   }
 }
 
-// Typical USD price bands for generic product keywords + rough FX — the final
+// Typical USD price bands for generic product keywords + rough FX - the final
 // safety net so the user ALWAYS sees an estimate (labeled as a rough guess).
 const ROUGH_USD_RANGES: Array<[RegExp, number, number]> = [
   [/iphone|smart ?phone|\bphone\b|galaxy|pixel|redmi|xiaomi|tecno|infinix/i, 60, 1200],
@@ -355,7 +355,7 @@ function roughEstimate(searchQuery: string, currency: string): PriceEstimate {
     estimatedLow: roundRough(usdLow * fx),
     estimatedHigh: roundRough(usdHigh * fx),
     currency,
-    summary: `Rough guess from typical market prices — live AI pricing was unreachable for "${searchQuery}". Treat as a wide ballpark only.`,
+    summary: `Rough guess from typical market prices - live AI pricing was unreachable for "${searchQuery}". Treat as a wide ballpark only.`,
   }
 }
 
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
   const rl = checkRateLimit(ip)
   if (!rl.ok) {
     return NextResponse.json(
-      { error: `You're scanning very fast — please wait ${rl.retryAfterSec}s and try again.` },
+      { error: `You're scanning very fast - please wait ${rl.retryAfterSec}s and try again.` },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } }
     )
   }
@@ -395,7 +395,7 @@ export async function POST(req: NextRequest) {
       {
         error: queueFull
           ? 'Scanner is very busy right now. Please try again in a few seconds.'
-          : 'Scanner is busy — your scan timed out waiting in the queue. Please try again.',
+          : 'Scanner is busy - your scan timed out waiting in the queue. Please try again.',
       },
       { status: queueFull ? 429 : 503, headers: queueFull ? { 'Retry-After': '5' } : undefined }
     )
@@ -443,7 +443,7 @@ export async function POST(req: NextRequest) {
       } catch (e) { console.error('[/api/scan] DB search failed:', e); return [] }
     })()
 
-    // Wait for both — parallel execution saves ~2-3s
+    // Wait for both - parallel execution saves ~2-3s
     const [sources, localPrices] = await Promise.all([webSearchPromise, dbSearchPromise])
 
     // Step 3: ONLY estimate price if no local prices (saves 3-5s when locals exist)
@@ -457,7 +457,7 @@ export async function POST(req: NextRequest) {
         summary: `Verified by ${localPrices.length} local${localPrices.length !== 1 ? 's' : ''} in ${localPrices[0].city || localPrices[0].country}.`,
       }
     } else {
-      // No local prices — estimate from web search
+      // No local prices - estimate from web search
       finalPrice = await estimatePrice(query, location, sources)
       if (finalPrice && finalPrice.estimatedLow !== null) { finalPrice.currency = localCurrencyForLocation(location || {}) }
     }
@@ -505,17 +505,17 @@ export async function POST(req: NextRequest) {
         }
       }
     }
-    // All providers failed — report honestly. The client holds the captured
+    // All providers failed - report honestly. The client holds the captured
     // photo and auto-retries (8s/12s/18s), so a transient outage recovers by
     // itself without the user re-tapping.
     if (directWasRateLimited) {
       return NextResponse.json(
-        { error: 'The AI service is rate-limited right now (quota). Scanning should work again in a few minutes — please try again.' },
+        { error: 'The AI service is rate-limited right now (quota). Scanning should work again in a few minutes - please try again.' },
         { status: 429, headers: { 'Retry-After': '60' } }
       )
     }
     return NextResponse.json(
-      { error: 'The AI service is unreachable right now. Your photo is kept — the scan retries automatically in a few seconds.' },
+      { error: 'The AI service is unreachable right now. Your photo is kept - the scan retries automatically in a few seconds.' },
       { status: 503 }
     )
   } finally {

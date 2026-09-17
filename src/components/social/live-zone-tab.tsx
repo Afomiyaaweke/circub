@@ -1,6 +1,6 @@
 'use client'
 
-// Live Zone — registered tour guides.
+// Live Zone - registered tour guides.
 // New in this version:
 //  - AI Guide Match: ask any travel question (or pick one straight from the
 //    community feed) and get recommended guides + locations with reasons.
@@ -103,7 +103,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [feedQs, setFeedQs] = useState<string[]>([])
   const [feedQsLoading, setFeedQsLoading] = useState(false)
   const [showFeedQs, setShowFeedQs] = useState(false)
-  // AI Guide Match form collapsed to a small button by default — expands on tap.
+  // AI Guide Match form collapsed to a small button by default - expands on tap.
   const [aiOpen, setAiOpen] = useState(false)
 
   // Modals
@@ -204,7 +204,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Recommendation failed')
       setAiResult(data)
-      // Tuck the form away once a match is ready — the result stays visible
+      // Tuck the form away once a match is ready - the result stays visible
       // under the slim header, keeping the Guides page clean.
       setAiOpen(false)
     } catch (e) {
@@ -306,24 +306,24 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       </Card>
 
-      {/* Search bar — one unified pill (mirrors the Local Price feed). The
+      {/* Search bar - one unified pill (mirrors the Local Price feed). The
           search accepts comma-separated terms ("Addis, English, Hiking"):
           each term matches name, bio, languages, specialties or location and
           the terms are AND-ed. The standalone "City or country" input is
-          gone — locations are simply search terms now. */}
+          gone - locations are simply search terms now. */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[200px] flex-wrap rounded-lg border border-input bg-card shadow-xs overflow-hidden">
           <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[180px] min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search guides — e.g. Addis, English, Hiking"
+              placeholder="Search guides - e.g. Addis, English, Hiking"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
             />
           </div>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-        {/* Language filter — world-class list */}
+        {/* Language filter - world-class list */}
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
@@ -412,7 +412,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             <option value="Sign Language (BSL)">Sign Language (BSL)</option>
           </optgroup>
         </select>
-        {/* Specialty filter — expanded list */}
+        {/* Specialty filter - expanded list */}
         <select
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
@@ -443,13 +443,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <option value="Wellness">Wellness & Spa</option>
           <option value="Family">Family Friendly</option>
         </select>
-        {/* AI Guide Match — lives inside the search pill now. Tap to open the
+        {/* AI Guide Match - lives inside the search pill now. Tap to open the
             ask form in the panel below; a finished match keeps the button lit. */}
         <button
           type="button"
           onClick={() => setAiOpen(!aiOpen)}
           aria-expanded={aiOpen}
-          title="AI Guide Match — ask anything · get matched guides + places"
+          title="AI Guide Match - ask anything · get matched guides + places"
           className={
             'flex items-center gap-1.5 h-9 pl-2.5 pr-3 basis-full sm:basis-auto sm:flex-none min-w-0 text-xs sm:text-sm font-medium border-0 border-t border-input sm:border-t-0 sm:border-l rounded-none transition-colors cursor-pointer ' +
             (aiOpen || aiResult ? 'bg-primary/10 text-primary' : 'bg-transparent text-muted-foreground hover:text-primary')
@@ -477,7 +477,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <Radio className={cn('w-3.5 h-3.5', availableOnly && 'animate-pulse')} />
           Available
         </button>
-        {/* Near me — GPS distance sort */}
+        {/* Near me - GPS distance sort */}
         <button
           onClick={handleNearMe}
           disabled={locating}
@@ -493,7 +493,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </button>
       </div>
 
-      {/* AI Guide Match panel — opens from the AI button inside the search
+      {/* AI Guide Match panel - opens from the AI button inside the search
           pill. The ask form tucks away after a match; the result stays. */}
       {(aiOpen || aiResult) && (
       <Card className="p-3 sm:p-5 shadow-sm border-primary/20">
@@ -518,7 +518,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
 
         <Textarea
-          placeholder='e.g. "I have 3 days in Ethiopia — who can take me to Lalibela and where should I eat?"'
+          placeholder='e.g. "I have 3 days in Ethiopia - who can take me to Lalibela and where should I eat?"'
           value={aiQuestion}
           onChange={(e) => setAiQuestion(e.target.value)}
           className="mt-3 min-h-[56px] resize-y bg-card text-sm"
@@ -577,7 +577,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   <Loader2 className="w-3 h-3 animate-spin" /> Loading feed questions...
                 </span>
               ) : feedQs.length === 0 ? (
-                <span className="text-[11px] text-muted-foreground">No questions in the feed yet — ask one in the Feed tab!</span>
+                <span className="text-[11px] text-muted-foreground">No questions in the feed yet - ask one in the Feed tab!</span>
               ) : (
                 feedQs.map((q, i) => (
                   <button
@@ -623,9 +623,9 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </button>
         )}
 
-        {/* AI result — stays visible even with the form collapsed */}
+        {/* AI result - stays visible even with the form collapsed */}
         {aiError && aiOpen && (
-          <p className="mt-3 text-xs text-destructive">{aiError} — showing keyword matches instead is not possible right now, try again.</p>
+          <p className="mt-3 text-xs text-destructive">{aiError} - showing keyword matches instead is not possible right now, try again.</p>
         )}
         {aiLoading && aiOpen && (
           <div className="mt-3 space-y-2">
@@ -703,7 +703,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No registered guides yet — the place recommendations below still stand.</p>
+              <p className="text-xs text-muted-foreground">No registered guides yet - the place recommendations below still stand.</p>
             )}
 
             {/* Recommended locations */}
@@ -764,7 +764,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {visibleGuides.map((g) => {
             const isOwn = me?.id === g.id
-            // Shared action buttons — reused by the mobile grid and the desktop row
+            // Shared action buttons - reused by the mobile grid and the desktop row
             const bookMessageRateBtns = (
               <>
                 <Button
@@ -920,7 +920,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   </div>
                 )}
 
-                {/* Rate + actions — stacks to two rows on phones, single row on sm+ */}
+                {/* Rate + actions - stacks to two rows on phones, single row on sm+ */}
                 <div className="mt-4 pt-3 border-t border-border">
                   <div className="flex items-center justify-between gap-2 min-w-0">
                     {g.guideHourlyRate != null && g.guideCurrency ? (

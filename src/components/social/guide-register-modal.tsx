@@ -35,7 +35,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
   const [confirmStop, setConfirmStop] = useState(false)
   const [stopping, setStopping] = useState(false)
   // Verification document: type toggle + uploaded photo (data URL preview).
-  // Existing guides already have a document on file server-side (hasIdDoc) —
+  // Existing guides already have a document on file server-side (hasIdDoc) -
   // they only see a confirmation chip and may re-upload a replacement.
   const [docType, setDocType] = useState<'ID' | 'PASSPORT'>('ID')
   const [docUrl, setDocUrl] = useState<string | null>(null)
@@ -78,7 +78,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     }
   }
 
-  // Stop being a guide — removes the guide card from the Live Zone but keeps
+  // Stop being a guide - removes the guide card from the Live Zone but keeps
   // every guide detail (and the verification document) for an instant return.
   const stopBeingGuide = async () => {
     setStopping(true)
@@ -158,7 +158,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
               <ShieldCheck className="w-3.5 h-3.5 text-primary" />ID or passport *
             </label>
             <p className="text-[11px] text-muted-foreground -mt-1">
-              A clear photo of your document so the team can verify you. Used for verification only — travelers never see it.
+              A clear photo of your document so the team can verify you. Used for verification only - travelers never see it.
             </p>
 
             {/* Document type toggle */}
@@ -220,7 +220,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
               >
                 <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-xs text-foreground flex-1">
-                  {docType === 'ID' ? 'ID card' : 'Passport'} on file — verified
+                  {docType === 'ID' ? 'ID card' : 'Passport'} on file - verified
                 </span>
                 <span className="text-[11px] text-primary font-medium shrink-0">Replace</span>
               </button>
@@ -268,7 +268,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
               value={specialties}
               onChange={setSpecialties}
               placeholder="e.g. Historical, Food, Safari…"
-              hint="Type a specialty and press Enter. Use your own words — no preset list."
+              hint="Type a specialty and press Enter. Use your own words - no preset list."
             />
           </div>
 
@@ -308,7 +308,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-3 pt-4 border-t border-border">
-          {/* Leave the guide program — existing guides only */}
+          {/* Leave the guide program - existing guides only */}
           {(user as any)?.isGuide ? (
             <Button variant="ghost" onClick={() => setConfirmStop(true)} disabled={saving || stopping}
               className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs gap-1.5">
@@ -329,7 +329,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
             <AlertDialogHeader>
               <AlertDialogTitle>Stop being a guide?</AlertDialogTitle>
               <AlertDialogDescription>
-                Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept — registering again restores your card instantly.
+                Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept - registering again restores your card instantly.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

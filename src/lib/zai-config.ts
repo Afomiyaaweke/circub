@@ -42,7 +42,7 @@ export function zaiConfigFilePaths(): string[] {
 }
 
 export async function loadZaiConfig(): Promise<{ config: ZaiConfig; source: string }> {
-  // 1) Environment variables (highest priority — recommended for Vercel)
+  // 1) Environment variables (highest priority - recommended for Vercel)
   const envToken = process.env.ZAI_TOKEN
   if (process.env.ZAI_BASE_URL && process.env.ZAI_API_KEY && envToken) {
     return {
@@ -74,7 +74,7 @@ export async function loadZaiConfig(): Promise<{ config: ZaiConfig; source: stri
         }
       }
     } catch {
-      // missing or invalid — try the next source
+      // missing or invalid - try the next source
     }
   }
 
@@ -97,7 +97,7 @@ export interface ZaiClient {
 export async function getZaiClient(): Promise<{ client: ZaiClient; source: string }> {
   const { config, source } = await loadZaiConfig()
   const ZAI = (await import('z-ai-web-dev-sdk')).default
-  // Construct directly — no config-file discovery, no process.cwd() patching.
+  // Construct directly - no config-file discovery, no process.cwd() patching.
   // (The SDK's types mark the constructor private to steer you at ZAI.create(),
   // but the runtime constructor is public and accepts the exact same config
   // object that loadConfig() would have returned.)

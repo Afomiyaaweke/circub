@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // Permissions-Policy: allow camera + microphone for this origin
           // (needed for the live camera scan feature).
-          // geolocation is still blocked — we don't use it.
+          // geolocation is still blocked - we don't use it.
           { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
           {
             key: "Strict-Transport-Security",

@@ -1,7 +1,7 @@
-// Shared NextAuth v4 Google OAuth initiation — used by the login + register
+// Shared NextAuth v4 Google OAuth initiation - used by the login + register
 // modals so both always run the exact same handshake.
 //
-// NextAuth v4 REQUIRES starting OAuth with an authenticated POST — a plain
+// NextAuth v4 REQUIRES starting OAuth with an authenticated POST - a plain
 // GET to /api/auth/signin/google never reaches Google; the route falls into
 // its "render sign-in page" branch and bounces the user back to pages.signIn
 // with the provider id leaked as ?error=google (next-auth/next/index.js maps

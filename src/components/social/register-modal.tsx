@@ -297,7 +297,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                 value={location}
                 onChange={setLocation}
               />
-              {/* Contact channels — same as local price posts (phone / email / WhatsApp) */}
+              {/* Contact channels - same as local price posts (phone / email / WhatsApp) */}
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
                 <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-primary" />Contact information <span className="font-normal text-muted-foreground">(optional)</span></p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -394,7 +394,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               {uMsg ? (
                 <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', (uStatus === 'checking' || uStatus === 'idle') && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
-                <p className="text-[10px] text-muted-foreground">Your unique ID — people find and share your profile at circub.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
+                <p className="text-[10px] text-muted-foreground">Your unique ID - people find and share your profile at circub.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
               )}
             </div>
             <Field
@@ -418,7 +418,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
 
         {/* Footer */}
         <div className="mt-6 space-y-3">
-          {/* Legal confirmation — required before the account can be created */}
+          {/* Legal confirmation - required before the account can be created */}
           <label className="flex items-start gap-2.5 cursor-pointer select-none rounded-lg border border-border bg-accent/40 p-3">
             <input
               type="checkbox"
@@ -472,7 +472,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                     })
                     return
                   }
-                  // NextAuth v4 handshake — see src/lib/google-signin.ts for
+                  // NextAuth v4 handshake - see src/lib/google-signin.ts for
                   // why a plain GET redirect can never start the OAuth flow.
                   setGoogleLoading(true)
                   const ok = await startGoogleSignIn()

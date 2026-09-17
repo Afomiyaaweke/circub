@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Deactivated accounts cannot sign back in — the message tells the owner
+    // Deactivated accounts cannot sign back in - the message tells the owner
     // exactly how to reactivate (checked AFTER the password check so the
     // account's existence/status is never leaked to non-owners).
     if (user.deactivatedAt) {

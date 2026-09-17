@@ -1,5 +1,5 @@
 // ============================================================================
-// USERNAME — the shareable profile handle (circub.app/u/<username>).
+// USERNAME - the shareable profile handle (circub.app/u/<username>).
 // One source of truth for normalization + validation, used by the register
 // API, the profile PATCH endpoint, the availability-check endpoint and both
 // UIs (sign-up modal + Edit profile). Always stored lowercase, [a-z0-9_].
@@ -38,7 +38,7 @@ export function validateUsername(raw: string): UsernameCheck {
     return { ok: false, error: 'Only lowercase letters, numbers and underscores are allowed' }
   }
   if (RESERVED_USERNAMES.has(username)) {
-    return { ok: false, error: 'That username is reserved — please pick another' }
+    return { ok: false, error: 'That username is reserved - please pick another' }
   }
   return { ok: true, username }
 }

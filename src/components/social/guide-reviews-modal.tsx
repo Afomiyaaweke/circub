@@ -78,7 +78,7 @@ export function GuideReviewsModal({ open, onOpenChange, guide }: GuideReviewsMod
             </DialogDescription>
           )}
           {!loading && reviews.length === 0 && (
-            <DialogDescription>No reviews yet — be the first to rate this guide.</DialogDescription>
+            <DialogDescription>No reviews yet - be the first to rate this guide.</DialogDescription>
           )}
         </DialogHeader>
 

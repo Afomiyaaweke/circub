@@ -1,9 +1,9 @@
 'use client'
 
-// "Deactivate account" modal — opened from the header menu, right next to
+// "Deactivate account" modal - opened from the header menu, right next to
 // Sign out. Asks WHY the user is leaving (required), then:
 //   1. POST /api/auth/deactivate { reason }  → soft-off + the reason lands in
-//      the contact-us inbox (ContactMessage — the same channel the /contact
+//      the contact-us inbox (ContactMessage - the same channel the /contact
 //      page writes to).
 //   2. Shows a confirmation with an optional "open in email app" mailto link
 //      to support@tenetbid.com with the reason pre-filled, so the user also
@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils'
 
 const SUPPORT_EMAIL = 'support@tenetbid.com'
 
-// Quick-pick reasons — one tap fills the textarea (still editable).
+// Quick-pick reasons - one tap fills the textarea (still editable).
 const QUICK_REASONS = [
   'I no longer need circub',
   'Privacy concerns',
@@ -88,7 +88,7 @@ export function DeactivateAccountModal({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to deactivate your account')
 
-      // Direct email trail — pre-filled "contact us" email the user can send.
+      // Direct email trail - pre-filled "contact us" email the user can send.
       const params = new URLSearchParams({
         subject: 'Account deactivation request',
         body: mailBody,
@@ -133,7 +133,7 @@ export function DeactivateAccountModal({
               <DialogDescription className="text-sm text-muted-foreground">
                 Your reason was sent to our team at{' '}
                 <span className="font-medium text-foreground">{SUPPORT_EMAIL}</span>. You have been
-                signed out — we are sorry to see you go.
+                signed out - we are sorry to see you go.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -158,7 +158,7 @@ export function DeactivateAccountModal({
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
                 You will be signed out and won&apos;t be able to sign back in. Your posts stay
-                visible. Deactivation is reversible — email{' '}
+                visible. Deactivation is reversible - email{' '}
                 <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary font-medium hover:underline">
                   {SUPPORT_EMAIL}
                 </a>{' '}

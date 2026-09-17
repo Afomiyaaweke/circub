@@ -24,7 +24,7 @@ import {
 } from '@/lib/location'
 
 // Auto-scan cadence (ms). Lower = faster scanning. 2.5s is safe because
-// scanInFlight prevents overlapping scans — if the AI is still busy the
+// scanInFlight prevents overlapping scans - if the AI is still busy the
 // tick is skipped and the next scan fires as soon as the server responds.
 const AUTO_SCAN_INTERVAL = 2500
 // Mean-brightness delta (0-255 scale) below which the scene counts as
@@ -42,14 +42,14 @@ const AUTO_CAPTURE_MAX_DIM = 320
 const AUTO_CAPTURE_QUALITY = 0.45
 // When the AI service is busy or quota-blocked (429/503), a manual scan holds
 // its captured photo and re-posts it automatically on this schedule (seconds)
-// before giving up. The camera stays live the whole time — the user just
+// before giving up. The camera stays live the whole time - the user just
 // watches the countdown and keeps pointing at the item.
 const RETRY_DELAYS_S = [8, 12, 18]
 
 interface PriceLensModalProps {
   open: boolean
   onOpenChange: (v: boolean) => void
-  /** Fired when a scan identifies a product — passes the product name so
+  /** Fired when a scan identifies a product - passes the product name so
    *  the parent can fill the search box and show matching local posts. */
   onPickItem?: (label: string) => void
 }
@@ -139,7 +139,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const retryFrameRef = useRef<string | null>(null)
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryTickerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // True while scheduleRetry() owns the UX (retry card or final message) —
+  // True while scheduleRetry() owns the UX (retry card or final message) -
   // runScan's catch uses this to avoid overwriting the retry card.
   const retryHandledRef = useRef(false)
 
@@ -161,12 +161,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     const attempt = retryAttemptRef.current + 1
     retryAttemptRef.current = attempt
     if (attempt > RETRY_DELAYS_S.length) {
-      // All retries exhausted — hand back to the user with a clear message.
+      // All retries exhausted - hand back to the user with a clear message.
       retryFrameRef.current = null
       retryHandledRef.current = false
       setRetryInfo(null)
       setScanError(
-        `The AI service is busy right now (auto-retried ${RETRY_DELAYS_S.length} times). Your camera is still live — tap Scan to try again in a minute.`
+        `The AI service is busy right now (auto-retried ${RETRY_DELAYS_S.length} times). Your camera is still live - tap Scan to try again in a minute.`
       )
       return
     }
@@ -241,7 +241,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     if (open) void detectLocation()
   }, [open, detectLocation])
 
-  // True when the camera element is already delivering frames — capture is
+  // True when the camera element is already delivering frames - capture is
   // then instant (no start, no wait).
   const ensureCameraReady = useCallback(async (): Promise<boolean> => {
     const video = videoRef.current
@@ -255,7 +255,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   const runScan = useCallback(async (heldFrame?: string) => {
     if (scanInFlight.current) return
     if (heldFrame) {
-      // Retrying a held photo — stop the countdown; retry bookkeeping stays.
+      // Retrying a held photo - stop the countdown; retry bookkeeping stays.
       // The previous scheduleRetry() handling is now consumed.
       stopRetryTimers()
       retryHandledRef.current = false
@@ -266,7 +266,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     let frame = heldFrame ?? null
     let sceneSig: number[] | null = null
     if (!frame) {
-      // Start camera if not already delivering frames — when it is (the normal
+      // Start camera if not already delivering frames - when it is (the normal
       // case) this returns immediately and capture is instant.
       const ready = await ensureCameraReady()
       if (!ready) {
@@ -297,7 +297,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
     setScanError(null)
     setActiveHistoryId(null)
     try {
-      // Client-side timeout: never let a hung backend stall the UI — a timeout
+      // Client-side timeout: never let a hung backend stall the UI - a timeout
       // is treated like any transient busy error (photo held + auto-retry).
       const res = await fetch('/api/scan', {
         method: 'POST',
@@ -315,14 +315,14 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         const message = err?.error || `Request failed (${res.status})`
         const transient = res.status === 429 || res.status === 503
         if (transient && !autoScan) {
-          // AI busy / quota block — hold THIS photo and retry automatically
+          // AI busy / quota block - hold THIS photo and retry automatically
           // with a visible countdown (manual scans only; auto-scan pauses
-          // instead, see below — keeps the scanner "less busy").
+          // instead, see below - keeps the scanner "less busy").
           scheduleRetry(frame)
           return
         }
         if (res.status === 429) {
-          // Server is protecting itself (rate limit / queue full) — back off
+          // Server is protecting itself (rate limit / queue full) - back off
           // politely: stop auto-scanning and show the paused state instead
           // of hammering a busy backend.
           setAutoScan(false)
@@ -347,17 +347,17 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
         if (searchQuery) onPickItem(searchQuery.split(' ').slice(0, 3).join(' '))
       }
     } catch (err) {
-      // Fetch timeout/abort — same recovery path as a 503: hold the photo and
+      // Fetch timeout/abort - same recovery path as a 503: hold the photo and
       // auto-retry (manual scans only; auto-scan just continues its loop).
       const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
       if (timedOut && !autoScan && frame) {
-        scheduleRetry(frame) // sets retryHandledRef — the branch below keeps the card
+        scheduleRetry(frame) // sets retryHandledRef - the branch below keeps the card
       }
       const msg = timedOut
-        ? 'Scan timed out — the AI is slow right now. Retrying automatically…'
+        ? 'Scan timed out - the AI is slow right now. Retrying automatically…'
         : err instanceof Error ? err.message : 'Scan failed.'
       if (retryHandledRef.current) {
-        // scheduleRetry() just took over the UX (retry card) — keep it.
+        // scheduleRetry() just took over the UX (retry card) - keep it.
         retryHandledRef.current = false
       } else {
         cancelRetry()
@@ -391,12 +391,12 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   }, [autoScan, paused, status, open])
 
   const handleStart = useCallback(() => {
-    // Also trigger location detection on this user gesture — some
+    // Also trigger location detection on this user gesture - some
     // browsers (iOS Safari) require a user gesture before geolocation
     // will prompt for permission.
     void detectLocation()
     // ONE TAP: start the camera, capture the first frame the instant it is
-    // ready, and send it to the AI — no second tap needed.
+    // ready, and send it to the AI - no second tap needed.
     void (async () => {
       await start('environment')
       const ready = await waitForVideoFrame(videoRef.current, 2000)
@@ -427,7 +427,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0 bg-white text-zinc-900 border-zinc-200">
-        <DialogTitle className="sr-only">PriceLens — scan a product with your camera</DialogTitle>
+        <DialogTitle className="sr-only">PriceLens - scan a product with your camera</DialogTitle>
 
         {/* Header with Go Back button */}
         <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-100 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
@@ -492,7 +492,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                     <div className="leading-tight">
                       <p className="text-xs font-medium text-zinc-800">Auto-scan</p>
                       <p className="text-[9px] text-zinc-500">
-                        {paused ? 'paused — tap ▶ to resume' : `every ${AUTO_SCAN_INTERVAL / 1000}s`}
+                        {paused ? 'paused - tap ▶ to resume' : `every ${AUTO_SCAN_INTERVAL / 1000}s`}
                       </p>
                     </div>
                   </div>

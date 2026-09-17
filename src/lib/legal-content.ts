@@ -1,4 +1,4 @@
-// Legal documents — Privacy Policy and Terms of Service (Tenetbid / Circub).
+// Legal documents - Privacy Policy and Terms of Service (Tenetbid / Circub).
 // Content provided by the client (circub-privacy-policy.docx / circub-terms-of-service.docx,
 // extracted verbatim). Rendered by src/components/social/legal-page.tsx at /privacy and /terms.
 
@@ -31,7 +31,7 @@ export const PRIVACY_DOC: LegalDoc = {
         'Payment information, if you make or receive payments through the Service (e.g. tips, paid consultations)',
         'Communications with our support team',
         'Information collected automatically',
-        'Location data (city/region-level or precise GPS, depending on your device permissions) — used to show relevant local prices and connect you with nearby locals or travelers',
+        'Location data (city/region-level or precise GPS, depending on your device permissions) - used to show relevant local prices and connect you with nearby locals or travelers',
         'Device information, IP address, browser type, operating system',
         'Usage data: pages viewed, searches performed, listings clicked, time spent in-app',
         'Log data and crash reports',
@@ -59,11 +59,11 @@ export const PRIVACY_DOC: LegalDoc = {
       title: '3. Legal Bases for Processing (EEA/UK Users)',
       items: [
         'Where applicable, we rely on:',
-        'Consent — e.g. for marketing emails or precise location access',
-        'Performance of a contract — to provide the core features of the Service you\'ve signed up for',
-        'Legitimate interests — e.g. fraud prevention, service improvement, and building aggregated data products, balanced against your rights',
-        'Legal obligations — e.g. responding to lawful requests from authorities',
-        'Vital interests — in rare cases where necessary to protect someone\'s safety',
+        'Consent - e.g. for marketing emails or precise location access',
+        'Performance of a contract - to provide the core features of the Service you\'ve signed up for',
+        'Legitimate interests - e.g. fraud prevention, service improvement, and building aggregated data products, balanced against your rights',
+        'Legal obligations - e.g. responding to lawful requests from authorities',
+        'Vital interests - in rare cases where necessary to protect someone\'s safety',
       ],
     },
     {
@@ -303,7 +303,7 @@ export const TERMS_DOC: LegalDoc = {
     {
       title: '16. Privacy',
       items: [
-        'Our collection and use of your information is described in our Privacy Policy — please review it alongside these Terms.',
+        'Our collection and use of your information is described in our Privacy Policy - please review it alongside these Terms.',
       ],
     },
     {

@@ -64,13 +64,13 @@ export async function GET() {
       guideCurrency: me.guideCurrency,
       guideBio: me.guideBio,
       guideAvailable: me.guideAvailable,
-      // Verification document: expose only the type + whether it's on file —
+      // Verification document: expose only the type + whether it's on file -
       // NEVER the image itself (a multi-MB data URL would bloat every load).
       guideIdDocType: me.guideIdDocType,
       hasIdDoc: !!me.guideIdDocUrl,
       // Account verification (ID/passport upload): the badge flag + document
       // type only. The image is fetched separately by its owner via
-      // GET /api/verification — never shipped through /me.
+      // GET /api/verification - never shipped through /me.
       idVerified: me.idVerified || !!me.guideIdDocUrl,
       userIdDocType: me.userIdDocType,
       hasUserIdDoc: !!me.userIdDocUrl,
@@ -82,7 +82,7 @@ export async function GET() {
   }
 }
 
-// PATCH /api/auth/me — update own profile.
+// PATCH /api/auth/me - update own profile.
 // Fixes the old 405: the edit-profile modal has always called this, but the
 // handler never existed. Accepts base profile fields + all guide fields so
 // guides can fix their guide profile here too (same shape the guide-register
@@ -121,7 +121,7 @@ export async function PATCH(req: Request) {
         })
         if (taken && taken.id !== me.id) {
           return NextResponse.json(
-            { error: 'That username is already taken — please pick another' },
+            { error: 'That username is already taken - please pick another' },
             { status: 409 }
           )
         }
@@ -171,7 +171,7 @@ export async function PATCH(req: Request) {
       // Unique-constraint race: someone else grabbed the handle between the
       // check above and this write.
       return NextResponse.json(
-        { error: 'That username is already taken — please pick another' },
+        { error: 'That username is already taken - please pick another' },
         { status: 409 }
       )
     }

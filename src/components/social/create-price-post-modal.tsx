@@ -25,7 +25,7 @@ import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, matchCategory, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { ComparePreview } from './compare-preview'
 
-// Optional values carried over from the camera-search results panel — when
+// Optional values carried over from the camera-search results panel - when
 // the AI identifies a product from a picture, "Post this product" opens this
 // modal with everything it can fill in already set.
 export interface CreatePricePostPrefill {
@@ -90,7 +90,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // Apply the camera-search prefill each time the modal OPENS with one —
+  // Apply the camera-search prefill each time the modal OPENS with one -
   // user edits stay intact while the modal stays open; closing resets.
   useEffect(() => {
     if (!open || !prefill) return
@@ -131,7 +131,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setUploading(true)
     let compressed: File | Blob = file
     try {
-      // Downscale first — phone photos are 2-5 MB and would bloat the DB.
+      // Downscale first - phone photos are 2-5 MB and would bloat the DB.
       compressed = await compressImage(file)
       const fd = new FormData()
       fd.append('file', compressed)
@@ -155,13 +155,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setUploading(false)
 
     // Identify the product from the SAME photo and pull matching price
-    // posts — the form shows the comparison while the user finishes typing.
+    // posts - the form shows the comparison while the user finishes typing.
     // Errors are non-fatal: the photo is already uploaded.
     setComparing(true)
     try {
       const result = await identifyPhoto(compressed, { city, country })
       setCompareResult(result)
-      // Pre-fill only EMPTY fields — never override what the user typed.
+      // Pre-fill only EMPTY fields - never override what the user typed.
       if (!productName.trim() && result.searchTerm) setProductName(result.searchTerm)
       if (!description.trim() && result.aiDescription) setDescription(result.aiDescription)
       if (!category || category === 'Other') {
@@ -169,7 +169,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
         if (hit) setCategory(hit)
       }
       if (!priceMin && !priceMax) {
-        // Prefill ONLY from real posted prices (locationCompare) — the AI
+        // Prefill ONLY from real posted prices (locationCompare) - the AI
         // estimate is too unreliable to type into the user's form. It still
         // shows in the comparison preview for reference.
         const range = result.locationCompare
@@ -179,15 +179,15 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           setPriceMax(String(range.max))
         }
       }
-    } catch { /* comparison is optional — posting continues as usual */ }
+    } catch { /* comparison is optional - posting continues as usual */ }
     setComparing(false)
   }
 
   const handleSave = async () => {
-    // Guest users can't post prices — prompt them to register
+    // Guest users can't post prices - prompt them to register
     if (typeof window !== 'undefined') {
       // Check if the user is a guest by checking localStorage (set by page.tsx)
-      // Actually we can just try the API call — authFetch will handle the 401
+      // Actually we can just try the API call - authFetch will handle the 401
       // and dispatch the auth-expired event which shows the register modal.
       // But for a better UX, let's check first.
     }
@@ -554,12 +554,12 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           </div>
 
           {/* AI identification + similar-posts comparison from the attached
-              photo — lets the user price the product against the feed
+              photo - lets the user price the product against the feed
               BEFORE publishing. */}
           {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
         </div>
 
-        {/* Footer — pinned to the bottom of the sheet while scrolling */}
+        {/* Footer - pinned to the bottom of the sheet while scrolling */}
         <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 mt-6 flex items-center justify-end gap-3 pt-4 px-4 sm:px-6 md:px-8 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 md:pb-8 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             variant="outline"

@@ -4,7 +4,7 @@
 // Vercel-ready:
 // - Cookie `secure` flag is set based on VERCEL_ENV / NODE_ENV (HTTPS in prod)
 // - sameSite=lax so Google OAuth callback + cross-navigation work
-// - Rate limiter is best-effort in-memory (per-instance on Vercel — see notes)
+// - Rate limiter is best-effort in-memory (per-instance on Vercel - see notes)
 // - Session secret defaults to a stable value if env var is missing, but
 //   you MUST set SESSION_SECRET on Vercel for cross-instance consistency.
 
@@ -67,7 +67,7 @@ async function getCustomSessionEmail(): Promise<string | null> {
 
 async function getNextAuthEmail(): Promise<string | null> {
   try {
-    // MUST pass the shared options — calling getServerSession() bare resolves
+    // MUST pass the shared options - calling getServerSession() bare resolves
     // the decryption secret from NEXTAUTH_SECRET/AUTH_SECRET only, so the
     // session JWT written by the route handler (SESSION_SECRET || ...) can
     // never be decoded and Google users would always look signed out.
@@ -121,13 +121,13 @@ export async function getCurrentUser() {
   }
 }
 
-// Rate limiting — in-memory, per-instance.
+// Rate limiting - in-memory, per-instance.
 //
 // IMPORTANT for Vercel: serverless functions don't share memory, so on
 // Vercel each function instance has its own counter. With 5,000 concurrent
 // users this means a user might hit N instances each with a low count,
 // effectively bypassing the limit. For real protection on Vercel, use
-// Upstash Redis (@upstash/ratelimit) — this is a best-effort fallback.
+// Upstash Redis (@upstash/ratelimit) - this is a best-effort fallback.
 //
 // For now: keep the existing behavior so dev still works, but make the
 // limits a bit more generous so legitimate users don't get blocked on

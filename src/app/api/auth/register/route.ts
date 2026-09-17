@@ -10,7 +10,7 @@ interface RegisterBody {
   // Shared
   email: string
   password: string
-  // Shareable profile handle (circub.app/u/<username>) — required, unique
+  // Shareable profile handle (circub.app/u/<username>) - required, unique
   username?: string
   // Personal
   name?: string
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
       where: { email: body.email.trim().toLowerCase() },
     })
     if (existing) {
-      // Deactivated accounts don't come back through re-registration — point
+      // Deactivated accounts don't come back through re-registration - point
       // the user at the support inbox instead of the generic "already exists".
       if (existing.deactivatedAt) {
         return NextResponse.json(
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Username: required, normalized + validated, globally unique — it is the
+    // Username: required, normalized + validated, globally unique - it is the
     // public ID people use to find and share the profile.
     const uCheck = validateUsername(String(body.username || ''))
     if (!uCheck.ok) {
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     })
     if (usernameTaken) {
       return NextResponse.json(
-        { error: 'That username is already taken — please pick another' },
+        { error: 'That username is already taken - please pick another' },
         { status: 409 }
       )
     }

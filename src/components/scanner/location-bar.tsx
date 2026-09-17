@@ -68,7 +68,7 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
               )}
             </motion.div>
           ) : (
-            <p className="truncate text-sm text-zinc-500">Not set — prices will be worldwide</p>
+            <p className="truncate text-sm text-zinc-500">Not set - prices will be worldwide</p>
           )}
         </div>
       </div>

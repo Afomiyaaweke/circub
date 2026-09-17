@@ -13,7 +13,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // ---------------------------------------------------------------------------
-// GET /api/scan-debug — deployment marker + AI-path diagnostics.
+// GET /api/scan-debug - deployment marker + AI-path diagnostics.
 //
 // Purpose: when scanning fails in production we need to know exactly WHERE it
 // breaks (config missing? SDK import failing? upstream quota 429?). This
@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic'
 //   GET /api/scan-debug?probe=1  -> also fires ONE tiny AI text completion
 //
 // Safe to keep deployed: GET-only, no secrets in responses (token length and
-// JWT claims only — the claims are already public in the repo).
+// JWT claims only - the claims are already public in the repo).
 // ---------------------------------------------------------------------------
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     ? { wired: true, source: process.env.GEMINI_API_KEY ? 'env' : 'vision-api-env' }
     : { wired: false, note: 'set GEMINI_API_KEY in Vercel Settings -> Environment Variables, then Redeploy' }
 
-  // 3) Resolved config (same priority as /api/scan) — metadata only
+  // 3) Resolved config (same priority as /api/scan) - metadata only
   const { config, source } = await loadZaiConfig()
   report.configSource = source
   report.baseUrl = config.baseUrl
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
     } else {
       report.probe = 'add ?probe=1 to also test one live AI call'
     }
-    // Optional live Gemini/OpenAI-compat probe — proves the pasted key works
+    // Optional live Gemini/OpenAI-compat probe - proves the pasted key works
     // FROM THIS DEPLOYMENT REGION (Gemini is geo-restricted; Vercel default
     // region iad1/US is supported, some sandbox egress IPs are NOT).
     if (probe) {

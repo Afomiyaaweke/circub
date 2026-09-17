@@ -95,7 +95,7 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
             {done ? 'Request sent' : `Book ${guide.name}`}
           </DialogTitle>
           <DialogDescription>
-            {done ? 'The guide has been notified and will reply soon.' : 'Request a tour — the guide confirms before anything is final.'}
+            {done ? 'The guide has been notified and will reply soon.' : 'Request a tour - the guide confirms before anything is final.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -187,7 +187,7 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
               </div>
               {estimate != null && (
                 <p className="text-xs text-muted-foreground">
-                  Estimated cost: <span className="font-semibold text-foreground">{currency} {estimate}</span> ({dNum} day{dNum !== 1 ? 's' : ''} × 8h × {currency} {rate}/hr) — negotiate the final price in chat.
+                  Estimated cost: <span className="font-semibold text-foreground">{currency} {estimate}</span> ({dNum} day{dNum !== 1 ? 's' : ''} × 8h × {currency} {rate}/hr) - negotiate the final price in chat.
                 </p>
               )}
             </div>

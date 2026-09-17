@@ -1,4 +1,4 @@
-// geo.ts — lightweight distance helpers for the guide "near me" feature.
+// geo.ts - lightweight distance helpers for the guide "near me" feature.
 //
 // Guides store `location` as free text ("Addis Ababa, Ethiopia"). Instead of
 // adding lat/lng columns to the schema (migration risk on prod), we resolve

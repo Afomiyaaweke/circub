@@ -22,7 +22,7 @@ interface TagInputProps {
 
 /**
  * Free-text tag input. The user types whatever they want and presses Enter
- * (or comma) to add it as a removable chip. No pre-defined list — the owner
+ * (or comma) to add it as a removable chip. No pre-defined list - the owner
  * fills in their own values. Backspace on an empty input removes the last tag.
  */
 export function TagInput({ value, onChange, placeholder, hint, className, inputId }: TagInputProps) {

@@ -6,7 +6,7 @@
 //   import { authFetch } from '@/lib/auth-fetch'
 //   const res = await authFetch('/api/posts', { method: 'POST', ... })
 //
-// The returned Response is exactly what fetch() returns — no behavior change
+// The returned Response is exactly what fetch() returns - no behavior change
 // for non-401 responses. For 401, the event is dispatched BEFORE the response
 // is returned, so the caller can still read the body if needed.
 

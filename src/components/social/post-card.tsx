@@ -146,7 +146,7 @@ export function PostCard({
 
   return (
     <article className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-      {/* Header: avatar, name, headline, time, menu — avatar + name open the author profile */}
+      {/* Header: avatar, name, headline, time, menu - avatar + name open the author profile */}
       <div className="p-4 flex items-start gap-3">
         <button
           type="button"

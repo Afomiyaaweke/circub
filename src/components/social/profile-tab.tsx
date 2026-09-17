@@ -1,10 +1,10 @@
 'use client'
 
 // ============================================================================
-// PROFILE TAB — Instagram-style profile section.
+// PROFILE TAB - Instagram-style profile section.
 // Your avatar with a story ring, a stats row, a 24-hour Stories row
-// (add / view / delete) and a manage grid for everything you have posted —
-// feed posts, price listings, marketplace products — each one deletable
+// (add / view / delete) and a manage grid for everything you have posted -
+// feed posts, price listings, marketplace products - each one deletable
 // straight from its tile, with a confirmation before it goes.
 // ============================================================================
 
@@ -38,7 +38,7 @@ interface ProfileTabProps {
   me: User
   editSignal?: number
   // Deep link into a section from outside (header menu "My network",
-  // right sidebar) — applied on mount and re-applied when sectionBump changes.
+  // right sidebar) - applied on mount and re-applied when sectionBump changes.
   initialSection?: 'saved' | 'network' | null
   sectionBump?: number
   onOpenListing: (postId: string) => void
@@ -80,7 +80,7 @@ function timeAgo(iso: string): string {
 
 function priceLabel(min: number, max: number, currency: string): string {
   const fmt = (n: number) => (n >= 1000 ? n.toLocaleString() : n)
-  return min === max || max <= min ? `${currency} ${fmt(min)}` : `${currency} ${fmt(min)} – ${fmt(max)}`
+  return min === max || max <= min ? `${currency} ${fmt(min)}` : `${currency} ${fmt(min)} - ${fmt(max)}`
 }
 
 const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[] = [
@@ -120,7 +120,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [confirm, setConfirm] = useState<Deletable | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Full-tab Edit Profile view (Instagram-style) — replaces the old modal
+  // Full-tab Edit Profile view (Instagram-style) - replaces the old modal
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   // Username: the shareable profile handle (circub.app/u/<username>).
@@ -148,7 +148,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const isGuide = Boolean(me.isGuide)
 
   // ---------------------------------------------- verification (ID/passport)
-  // The uploaded document is PRIVATE — it lives in the DB and is only ever
+  // The uploaded document is PRIVATE - it lives in the DB and is only ever
   // returned to its owner via GET /api/verification. Everyone else just sees
   // the idVerified boolean rendered as a blue badge next to the name.
   const [verifying, setVerifying] = useState(false)
@@ -207,7 +207,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   }, [sectionBump, initialSection, isGuest])
 
   // ------------------------------------------------------- saved (bookmark)
-  // Saved items live in localStorage (per device) — posts and price posts
+  // Saved items live in localStorage (per device) - posts and price posts
   // bookmarked from the feed and the Local prices tab via the bookmark icon.
   const [savedItems, setSavedItems] = useState<SavedItem[]>([])
   const [savedView, setSavedView] = useState<SavedItem | null>(null)
@@ -231,7 +231,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     else setSavedView(item)
   }
 
-  // Guests can keep saving on this device — the CTA branch reuses this list.
+  // Guests can keep saving on this device - the CTA branch reuses this list.
   const [guestSaved, setGuestSaved] = useState(false)
 
   // Marketplace: list a new product straight from the profile's Products section
@@ -282,7 +282,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     }
   }, [me])
 
-  // Live username availability probe (debounced) — skipped when the handle
+  // Live username availability probe (debounced) - skipped when the handle
   // is unchanged from the one already on the account.
   useEffect(() => {
     if (!editing) return
@@ -297,7 +297,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         .then((r) => r.json())
         .then((d) => {
           if (d?.available) { setUStatus('available'); setUMsg(profileLink(check.username).replace(/^https?:\/\//, '') + ' is yours') }
-          else { setUStatus('error'); setUMsg(d?.error || 'That username is already taken — please pick another') }
+          else { setUStatus('error'); setUMsg(d?.error || 'That username is already taken - please pick another') }
         })
         .catch(() => { setUStatus('idle'); setUMsg('') })
     }, 400)
@@ -313,7 +313,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     setDocOnFile(null)
     setVerifying(true)
     // Fetch the owner-only document view (GET returns the image to its owner
-    // and nobody else — see src/app/api/verification/route.ts).
+    // and nobody else - see src/app/api/verification/route.ts).
     if (isIdVerified) {
       fetch('/api/verification')
         .then((r) => (r.ok ? r.json() : null))
@@ -380,7 +380,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     if (!file) return
     setUploading(true)
     try {
-      // Avatars render small — compress hard so the profile update payload
+      // Avatars render small - compress hard so the profile update payload
       // stays tiny (raw phone photos previously broke the upload entirely).
       const compressed = await compressImage(file, 800, 0.85)
       const fd = new FormData()
@@ -395,7 +395,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     } finally { setUploading(false) }
   }
 
-  // Stop being a guide — same contract as the guide modal's action: card
+  // Stop being a guide - same contract as the guide modal's action: card
   // leaves the Live Zone, details + document kept for a fast return.
   const stopBeingGuide = async () => {
     setStoppingGuide(true)
@@ -413,7 +413,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   }
 
   // Share this profile: copies /u/<username> (or opens the native share
-  // sheet on phones). Without a username yet, sends the user to set one —
+  // sheet on phones). Without a username yet, sends the user to set one -
   // the handle IS the shareable ID.
   const shareProfile = async () => {
     const handle = ((me as any).username as string) || ''
@@ -431,7 +431,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       await navigator.clipboard.writeText(link)
       toast({ title: 'Profile link copied', description: link.replace(/^https?:\/\//, '') })
     } catch {
-      // Clipboard blocked (or share dismissed) — show it so the user can copy manually.
+      // Clipboard blocked (or share dismissed) - show it so the user can copy manually.
       toast({ title: 'Your profile link', description: link.replace(/^https?:\/\//, '') })
     }
   }
@@ -551,12 +551,12 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   }
 
   // ------------------------------------------------------- saved list markup
-  // One row per bookmarked item — shared by the Saved content section and
+  // One row per bookmarked item - shared by the Saved content section and
   // the guest CTA's "saved on this device" list.
   const renderSavedItems = () => (
     savedItems.length === 0 ? (
       <EmptyState icon={<Bookmark className="w-7 h-7 text-primary/50" />} title="Nothing saved yet"
-        text="Tap the bookmark icon on any post or price card — your saved collection lives here, like Instagram's Saved tab." />
+        text="Tap the bookmark icon on any post or price card - your saved collection lives here, like Instagram's Saved tab." />
     ) : (
       <div className="divide-y divide-border/60">
         {savedItems.map((item) => (
@@ -607,11 +607,11 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           </div>
           <h2 className="text-lg font-bold text-foreground mb-1.5">Your profile lives here</h2>
           <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-            Posts, price listings, products and 24-hour stories — all in one place, like your favourite social app.
+            Posts, price listings, products and 24-hour stories - all in one place, like your favourite social app.
             Sign up free to make it yours.
           </p>
           <div className="flex flex-col gap-2">
-            <Button onClick={onSignUp} className="bg-primary hover:bg-primary/90 text-primary-foreground">Join circub — it's free</Button>
+            <Button onClick={onSignUp} className="bg-primary hover:bg-primary/90 text-primary-foreground">Join circub - it's free</Button>
             <Button variant="outline" onClick={() => setGuestSaved((v) => !v)} className="gap-1.5">
               <Bookmark className="w-4 h-4" />{guestSaved ? 'Hide' : 'View'} your saved items
             </Button>
@@ -619,7 +619,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           {guestSaved && (
             <div className="mt-6 text-left bg-card border border-border rounded-xl p-3">
               <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-1.5"><Bookmark className="w-4 h-4 text-primary" />Saved on this device</h3>
-              <p className="text-[11px] text-muted-foreground mb-2">Bookmarked posts and prices are kept in this browser — sign up to keep them with your account.</p>
+              <p className="text-[11px] text-muted-foreground mb-2">Bookmarked posts and prices are kept in this browser - sign up to keep them with your account.</p>
               {renderSavedItems()}
             </div>
           )}
@@ -667,7 +667,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             </div>
 
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><UserCircle className="w-3.5 h-3.5" />Full name *</label><Input placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-            {/* Username — the unique ID people use to find + share this profile */}
+            {/* Username - the unique ID people use to find + share this profile */}
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><AtSign className="w-3.5 h-3.5" />Username</label>
               <div className="relative">
@@ -688,7 +688,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {uMsg ? (
                 <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
-                <p className="text-[10px] text-muted-foreground">Your unique ID — your profile lives at <span className="font-semibold">circub.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
+                <p className="text-[10px] text-muted-foreground">Your unique ID - your profile lives at <span className="font-semibold">circub.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
               )}
             </div>
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5" />Headline</label><Input placeholder="e.g. Verified Local · Traveler · Food enthusiast" value={headline} onChange={(e) => setHeadline(e.target.value)} /></div>
@@ -717,9 +717,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />Sign-in email</label>
                 <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-accent/40 text-sm text-muted-foreground truncate">
                   <Mail className="w-3.5 h-3.5 shrink-0" />
-                  {me.email || '—'}
+                  {me.email || '-'}
                 </div>
-                <p className="text-[10px] text-muted-foreground">Your sign-in email is used for contact — it can’t be changed here.</p>
+                <p className="text-[10px] text-muted-foreground">Your sign-in email is used for contact - it can’t be changed here.</p>
               </div>
             </div>
 
@@ -744,7 +744,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                     )}
                   </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground -mt-1">These details are what tourists see on your Live Zone card — keep them sharp.</p>
+                <p className="text-[11px] text-muted-foreground -mt-1">These details are what tourists see on your Live Zone card - keep them sharp.</p>
                 <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5" />Guide bio</label><Textarea placeholder="What tours do you run? What makes exploring with you special..." value={guideBio} onChange={(e) => setGuideBio(e.target.value)} className="min-h-[64px] resize-y bg-card" /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Compass className="w-3.5 h-3.5" />Specialties (comma-separated)</label><Input placeholder="e.g. Historical, Food, Hiking" value={guideSpecialties} onChange={(e) => setGuideSpecialties(e.target.value)} className="bg-card" /></div>
@@ -757,7 +757,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   </select></div>
                 </div>
                 <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Award className="w-3.5 h-3.5" />License number (optional)</label><Input placeholder="e.g. ET-GUIDE-2024-0182" value={guideLicense} onChange={(e) => setGuideLicense(e.target.value)} className="bg-card" /></div>
-                {/* Leave the guide program — keeps details + document for rejoining */}
+                {/* Leave the guide program - keeps details + document for rejoining */}
                 <button
                   onClick={() => setConfirmStopGuide(true)}
                   disabled={stoppingGuide}
@@ -776,7 +776,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <AlertDialogHeader>
             <AlertDialogTitle>Stop being a guide?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept — registering again restores your card instantly.
+              Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept - registering again restores your card instantly.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -832,11 +832,11 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   </div>
                   {docOnFile?.docUrl ? (
                     <div className="mt-3">
-                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-blue-500" />Your document — visible only to you</p>
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-blue-500" />Your document - visible only to you</p>
                       <img src={docOnFile.docUrl} alt="Your verification document" className="max-h-64 w-auto rounded-lg border border-border" />
                     </div>
                   ) : docOnFile ? (
-                    <p className="mt-3 text-xs text-muted-foreground">Your guide registration document is on file — it is kept just as private.</p>
+                    <p className="mt-3 text-xs text-muted-foreground">Your guide registration document is on file - it is kept just as private.</p>
                   ) : (
                     <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" />Loading your document...</p>
                   )}
@@ -845,7 +845,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 {/* privacy note */}
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-2.5">
                   <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground leading-relaxed">Your ID/passport is private. Nobody else can open it — other people only see the blue verified badge next to your name.</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Your ID/passport is private. Nobody else can open it - other people only see the blue verified badge next to your name.</p>
                 </div>
 
                 {/* actions */}
@@ -862,7 +862,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
 
                 {docPreview && (
                   <div className="rounded-xl border border-border p-4 space-y-3">
-                    <p className="text-xs font-medium text-foreground">New document ready — submit to update your file.</p>
+                    <p className="text-xs font-medium text-foreground">New document ready - submit to update your file.</p>
                     <img src={docPreview} alt="New document preview" className="max-h-64 w-auto rounded-lg border border-border" />
                     <Button onClick={submitVerification} disabled={submittingVerif} className="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
                       {submittingVerif ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
@@ -878,7 +878,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   <ShieldCheck className="w-7 h-7 text-blue-500 shrink-0" />
                   <div>
                     <h2 className="text-sm font-bold text-foreground">Get the verified badge</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Upload a photo of your ID card or passport. Once verified, a blue check shows next to your name across circub — trust at a glance.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Upload a photo of your ID card or passport. Once verified, a blue check shows next to your name across circub - trust at a glance.</p>
                   </div>
                 </div>
 
@@ -916,7 +916,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                     aria-label="Upload document photo">
                     {docBusy ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : <Camera className="w-6 h-6 text-primary" />}
                     <span className="text-sm font-semibold text-foreground">{docBusy ? 'Processing...' : 'Upload a photo'}</span>
-                    <span className="text-[11px] text-muted-foreground">Take a photo or choose from gallery — JPG or PNG</span>
+                    <span className="text-[11px] text-muted-foreground">Take a photo or choose from gallery - JPG or PNG</span>
                   </button>
                 )}
 
@@ -925,7 +925,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div className="text-xs text-muted-foreground leading-relaxed">
                     <p className="font-medium text-foreground text-xs mb-0.5">Private by default</p>
-                    Your document is stored securely and shown only to you. Nobody else can open it — when people view your profile, all they get is the blue verified badge.
+                    Your document is stored securely and shown only to you. Nobody else can open it - when people view your profile, all they get is the blue verified badge.
                   </div>
                 </div>
               </>
@@ -986,7 +986,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </Avatar>
             </div>
           </div>
-          {/* Stats — Instagram puts them beside the avatar */}
+          {/* Stats - Instagram puts them beside the avatar */}
           <div className="flex-1 grid grid-cols-4 gap-1 text-center">
             {stats.map((s) => (
               <div key={s.label}>
@@ -1056,7 +1056,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       </div>
 
       {/* ----------------------------------------------- content tab strip */}
-      {/* 5 sections — labels hidden on phones (icon-only, like Instagram) */}
+      {/* 5 sections - labels hidden on phones (icon-only, like Instagram) */}
       <div className="max-w-2xl mx-auto mt-4 border-t border-border">
         <div className="flex">
           {CONTENT_TABS.map((t) => {
@@ -1097,7 +1097,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         ) : contentType === 'posts' ? (
           posts.length === 0 ? (
             <EmptyState icon={<ImageIcon className="w-7 h-7 text-primary/50" />} title="No posts yet"
-              text="Share updates with your network from the Feed tab — they'll show up here where you can manage them." />
+              text="Share updates with your network from the Feed tab - they'll show up here where you can manage them." />
           ) : (
             <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
               {posts.map((p) => (
@@ -1111,7 +1111,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         ) : contentType === 'listings' ? (
           listings.length === 0 ? (
             <EmptyState icon={<MapPin className="w-7 h-7 text-primary/50" />} title="No price listings yet"
-              text="Post local prices from the Local prices tab — travelers rely on them, and you can edit or delete them here anytime." />
+              text="Post local prices from the Local prices tab - travelers rely on them, and you can edit or delete them here anytime." />
           ) : (
             <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
               {listings.map((l) => (
@@ -1129,7 +1129,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <NetworkTab me={me} onMessage={onMessage} onRefreshUser={onUserChanged} />
         ) : products.length === 0 ? (
           <EmptyState icon={<Package className="w-7 h-7 text-primary/50" />} title="No products yet"
-            text="List an item for sale and manage it here — travelers and locals browsing the marketplace will see it."
+            text="List an item for sale and manage it here - travelers and locals browsing the marketplace will see it."
             action={
               <Button size="sm" onClick={() => setAddProductOpen(true)} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Plus className="w-3.5 h-3.5" /> Add product
@@ -1340,7 +1340,7 @@ function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel }: {
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
         className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center hover:bg-destructive transition-colors"
-        aria-label={`Delete — ${ariaLabel}`}
+        aria-label={`Delete - ${ariaLabel}`}
       >
         <Trash2 className="w-3 h-3" />
       </button>

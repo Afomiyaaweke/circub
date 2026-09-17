@@ -3,16 +3,16 @@
 // POST /api/guides/recommend { question, lat?, lng? }
 //
 // The user asks anything ("Where can I see rock churches? Who can take me
-// around Lalibela?") — or clicks a question pulled from the community feed —
+// around Lalibela?") - or clicks a question pulled from the community feed -
 // and we return:
 //   guides:    ranked registered guides with a one-line "why" reason
 //   locations: recommended places/attractions matching the question
 //
 // Tiered so the response ALWAYS has recommendations when any guide exists
 // (same philosophy as the never-"price not found" estimate fix):
-//   1. LLM full match  — structured JSON {summary, guides[], locations[]}
-//   2. LLM narrow      — "reply ONLY guide ids, comma separated"
-//   3. Keyword scoring — server-side overlap scoring, zero external calls
+//   1. LLM full match  - structured JSON {summary, guides[], locations[]}
+//   2. LLM narrow      - "reply ONLY guide ids, comma separated"
+//   3. Keyword scoring - server-side overlap scoring, zero external calls
 // Locations fall back to a curated attraction bucket table.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -48,7 +48,7 @@ function overlapScore(tokens: string[], haystack: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Curated attraction buckets — fallback for location recommendations.
+// Curated attraction buckets - fallback for location recommendations.
 // keywords are matched against the question; each place lists why + a tip.
 // ---------------------------------------------------------------------------
 const ATTRACTION_BUCKETS: Array<{
@@ -56,7 +56,7 @@ const ATTRACTION_BUCKETS: Array<{
 }> = [
   {
     name: 'Rock-Hewn Churches of Lalibela', area: 'Lalibela, Amhara',
-    why: 'Eleven medieval churches carved straight down into rock — the top historical sight in Ethiopia.',
+    why: 'Eleven medieval churches carved straight down into rock - the top historical sight in Ethiopia.',
     tip: 'Go at dawn for Genna Christmas in January to see white-robed pilgrims.',
     keywords: ['lalibela', 'rock', 'church', 'churches', 'history', 'historical', 'unesco', 'medieval', 'religion', 'religious', 'christian'],
   },
@@ -69,18 +69,18 @@ const ATTRACTION_BUCKETS: Array<{
   {
     name: 'Danakil Depression & Erta Ale', area: 'Afar region',
     why: 'Salt flats, acid pools and one of Earth\'s few permanent lava lakes.',
-    tip: 'Only visit with an organized convoy — heat is extreme.',
+    tip: 'Only visit with an organized convoy - heat is extreme.',
     keywords: ['danakil', 'erta', 'ale', 'volcano', 'lava', 'salt', 'desert', 'depression', 'afar', 'dallol', 'extreme', 'surreal'],
   },
   {
     name: 'Omo Valley cultures', area: 'Jinka / Turmi, SNNPR',
-    why: 'Meet Hamer, Mursi and Karo communities — the deepest cultural immersion in the country.',
+    why: 'Meet Hamer, Mursi and Karo communities - the deepest cultural immersion in the country.',
     tip: 'Time your trip around Key Afer or Dimeka market days.',
     keywords: ['omo', 'tribe', 'tribes', 'culture', 'cultural', 'mursi', 'hamer', 'karo', 'jinka', 'turmi', 'market', 'community', 'indigenous'],
   },
   {
     name: 'Fasil Ghebbi & Gondar castles', area: 'Gondar, Amhara',
-    why: 'Seventeenth-century imperial compound — "the Camelot of Africa".',
+    why: 'Seventeenth-century imperial compound - "the Camelot of Africa".',
     tip: 'Pair with Debre Berhan Selassie\'s famous angel-ceiling murals.',
     keywords: ['gondar', 'castle', 'castles', 'fasil', 'palace', 'imperial', 'empire', 'architecture', 'heritage'],
   },
@@ -116,7 +116,7 @@ const ATTRACTION_BUCKETS: Array<{
   },
   {
     name: 'Coffee ceremony & café culture', area: 'Nationwide',
-    why: 'Coffee is born here — full buna ceremony with roasting, incense and three rounds.',
+    why: 'Coffee is born here - full buna ceremony with roasting, incense and three rounds.',
     tip: 'Try Yirgacheffe or Sidamo single-origin pour-overs in Addis cafés.',
     keywords: ['coffee', 'buna', 'cafe', 'ceremony', 'yirgacheffe', 'sidamo', 'jebena', 'drink', 'food', 'eat', 'injera', 'cuisine', 'restaurant', 'restaurants', 'dining'],
   },
@@ -128,7 +128,7 @@ const ATTRACTION_BUCKETS: Array<{
   },
   {
     name: 'Tiya stelae fields', area: 'Soddo, SNNPR',
-    why: 'Enigmatic carved stelae — a compact UNESCO day-trip from Addis.',
+    why: 'Enigmatic carved stelae - a compact UNESCO day-trip from Addis.',
     tip: 'Easy half-day pairing with Melka Kunture and Adadi Mariam.',
     keywords: ['tiya', 'daytrip', 'unesco', 'carving', 'soddo', 'adadi'],
   },
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
 
     if (guides.length === 0) {
       return NextResponse.json({
-        summary: 'No guides are registered yet — be the first!',
+        summary: 'No guides are registered yet - be the first!',
         guides: [],
         locations: fallbackLocations(question),
         tier: 'none',
@@ -319,7 +319,7 @@ Reply ONLY with a comma-separated list of the guide index numbers [0]...[${guide
 
     const finalIdx = scored.length > 0
       ? scored.map((x) => x.i)
-      : guides.slice(0, 3).map((_, i) => i) // top-rated pad — never empty
+      : guides.slice(0, 3).map((_, i) => i) // top-rated pad - never empty
 
     const picked = finalIdx.map((n) => {
       const g = guides[n]
@@ -334,7 +334,7 @@ Reply ONLY with a comma-separated list of the guide index numbers [0]...[${guide
         ratingCount: 0,
         distanceKm: hasCoords ? guideDistanceKm({ lat, lng }, g.location) : null,
         reason: hit
-          ? `Specializes in "${hit}" — fits your question`
+          ? `Specializes in "${hit}" - fits your question`
           : 'Top-rated guide for your area',
       }
     })

@@ -125,7 +125,7 @@ export function useCamera({ facingMode = 'environment' }: UseCameraOptions = {})
    * FAST capture: draws the video frame DIRECTLY into a canvas capped at
    * maxDim and encodes once. One draw + one JPEG encode (the old path did a
    * full-resolution encode, then an Image decode + second encode to
-   * downscale — 2-3x the work). Reads readiness from the video element
+   * downscale - 2-3x the work). Reads readiness from the video element
    * itself instead of the status state, so a capture right after the camera
    * starts never fails on a stale state value.
    */

@@ -13,9 +13,9 @@ interface ViewfinderProps {
   scanning: boolean
   onStart: () => void
   onSwitch: () => void
-  /** True while scanning is paused — preview stays live but the scan loop is halted. */
+  /** True while scanning is paused - preview stays live but the scan loop is halted. */
   paused?: boolean
-  /** Called when the user toggles pause — pauses/resumes scanning WITHOUT
+  /** Called when the user toggles pause - pauses/resumes scanning WITHOUT
    *  killing the camera, so the next scan starts instantly. */
   onTogglePause?: () => void
 }
@@ -157,7 +157,7 @@ export function Viewfinder({ videoRef, status, error, scanning, onStart, onSwitc
             {!paused && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />}
             <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', paused ? 'bg-amber-400' : 'bg-emerald-400')} />
           </span>
-          {paused ? 'PAUSED — TAP ▶ TO RESUME' : 'LIVE'}
+          {paused ? 'PAUSED - TAP ▶ TO RESUME' : 'LIVE'}
         </div>
       )}
     </div>

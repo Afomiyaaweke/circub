@@ -1,4 +1,4 @@
-// LocalStorage-based saved posts/price posts. No DB changes needed —
+// LocalStorage-based saved posts/price posts. No DB changes needed -
 // the saves are per-device (browser localStorage). This is intentionally
 // simple so guests can save items too (they don't have a DB user account).
 

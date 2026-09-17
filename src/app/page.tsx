@@ -23,7 +23,7 @@ const LoginModal = lazy(() => import('@/components/social/login-modal').then(m =
 const DeactivateAccountModal = lazy(() => import('@/components/social/deactivate-account-modal').then(m => ({ default: m.DeactivateAccountModal })))
 import type { User, TabKey } from '@/lib/types'
 
-// localStorage key for the cached session user — enables instant repeat loads
+// localStorage key for the cached session user - enables instant repeat loads
 // (dashboard paints immediately, then revalidates against /api/auth/me).
 // Guests are never cached: guest mode is intentionally per-visit only.
 const ME_CACHE_KEY = 'circub.me.v1'
@@ -39,11 +39,11 @@ export default function Home() {
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
-  // "Deactivate account" (header menu, next to Sign out) — asks for a reason,
+  // "Deactivate account" (header menu, next to Sign out) - asks for a reason,
   // forwards it to the contact-us inbox, then signs the user out.
   const [deactivateOpen, setDeactivateOpen] = useState(false)
   // Bumped every time an "Edit profile" entry point is used (header menu,
-  // right sidebar) — routes to the Profile tab in edit mode (full tab).
+  // right sidebar) - routes to the Profile tab in edit mode (full tab).
   const [editSignal, setEditSignal] = useState(0)
   // Bookmark and Network live INSIDE the Profile tab now (Instagram-style):
   // profileSection is the section the Profile tab should open on, bumped
@@ -76,7 +76,7 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    // Instant paint from the cached session (repeat loads — mobile & web):
+    // Instant paint from the cached session (repeat loads - mobile & web):
     // render the dashboard/landing immediately, then revalidate in background.
     try {
       const cached = localStorage.getItem(ME_CACHE_KEY)
@@ -112,18 +112,18 @@ export default function Home() {
 
   // Listen for auth-expired events from authFetch (401 on publish/edit/etc.)
   // If the user is a guest (id === 'guest'), show the register modal instead
-  // of the login modal — guests don't have credentials to log in with.
+  // of the login modal - guests don't have credentials to log in with.
   useEffect(() => {
     const handler = () => {
       // While the Deactivate modal is open the 401 storm it causes (every
       // background API now returns 401 for the deactivated user) must NOT
-      // trigger the "Session expired" bounce / login modal on top of it —
+      // trigger the "Session expired" bounce / login modal on top of it -
       // the modal's own Done flow signs the user out cleanly.
       if (deactivateOpen) return
       const isGuest = me?.id === 'guest'
       if (isGuest) {
         // Guest tried to do something that requires auth (post, vote, etc.)
-        // Take them directly to registration — close everything else,
+        // Take them directly to registration - close everything else,
         // open the Register modal prominently.
         setMessagesOpen(false)
         setLoginOpen(false)
@@ -133,7 +133,7 @@ export default function Home() {
           description: 'Create a free account to post prices, vote, and message locals. It takes 10 seconds.',
         })
       } else {
-        // Logged-in user's session expired — bounce to login
+        // Logged-in user's session expired - bounce to login
         setMe(null)
         setMessagesOpen(false)
         setRegisterOpen(false)
@@ -149,7 +149,7 @@ export default function Home() {
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
   }, [toast, me, deactivateOpen])
 
-  // Listen for "Ask a Guide" events from the PriceLens scanner — when
+  // Listen for "Ask a Guide" events from the PriceLens scanner - when
   // a user scans a product and taps "Ask a local guide about this item",
   // switch to the Guides tab so they can find a guide in their area.
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function Home() {
   }, [])
 
   const handleMessageUser = useCallback((userId: string) => {
-    // Messaging requires an account — guests are taken straight to sign-up,
+    // Messaging requires an account - guests are taken straight to sign-up,
     // expired sessions to login (same flow as posting/voting).
     if (!me) {
       setLoginOpen(true)
@@ -211,7 +211,7 @@ export default function Home() {
     setActiveTab('profile')
   }, [])
 
-  // Editing the profile requires a real account — guests get the sign-up
+  // Editing the profile requires a real account - guests get the sign-up
   // dialog. Real users land on the Profile tab in edit mode (Instagram-style
   // full tab, replacing the old modal).
   const handleEditProfile = useCallback(() => {
@@ -222,7 +222,7 @@ export default function Home() {
     }
     if (me.id === 'guest') {
       setRegisterOpen(true)
-      toast({ title: 'Sign up to save a profile', description: 'Create a free account first — your profile saves with it. It takes 10 seconds.' })
+      toast({ title: 'Sign up to save a profile', description: 'Create a free account first - your profile saves with it. It takes 10 seconds.' })
       return
     }
     setActiveTab('profile')
@@ -318,7 +318,7 @@ export default function Home() {
               avatarColor: 'teal',
               profilePicture: null,
               bio: null,
-              headline: 'Guest user — sign up to post',
+              headline: 'Guest user - sign up to post',
               location: null,
               accountType: 'PERSONAL',
               companyName: null,

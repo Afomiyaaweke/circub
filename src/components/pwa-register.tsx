@@ -10,7 +10,7 @@ import { useEffect } from 'react';
  *     deployed HTML straight from the network.
  *  2. When a NEW service worker has installed + taken over (skipWaiting ->
  *     controllerchange) while the user still has the app open, we reload the
- *     page once so the running session immediately shows the new build —
+ *     page once so the running session immediately shows the new build -
  *     no manual "close and reopen" needed on the phone.
  *  3. A sessionStorage guard prevents reload loops.
  * Failures are silently ignored by design (offline shell is an enhancement).
@@ -28,7 +28,7 @@ export function PwaRegister() {
         sessionStorage.setItem('circub-sw-reloaded', '1');
         window.location.reload();
       } catch {
-        /* private mode etc. — skip the auto reload */
+        /* private mode etc. - skip the auto reload */
       }
     };
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);

@@ -130,7 +130,7 @@ export function MessageModal({
       })
       if (!res.ok) {
         const e = await res.json()
-        // Session expired mid-chat — bounce to login/register like other actions
+        // Session expired mid-chat - bounce to login/register like other actions
         if (res.status === 401) dispatchAuthExpired('session-expired')
         throw new Error(e.error || 'Failed')
       }

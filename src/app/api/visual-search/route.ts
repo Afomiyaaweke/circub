@@ -12,7 +12,7 @@ export const maxDuration = 60
 //   1. Identify the product in the image via the SAME multi-provider vision
 //      chain the PriceLens scanner uses (@/lib/ai-backends -> Gemini /
 //      OpenAI-compatible / ZAI / keyless fallbacks). The old version called
-//      the raw ZAI SDK directly, which is unreachable from Vercel — every
+//      the raw ZAI SDK directly, which is unreachable from Vercel - every
 //      camera search in production silently degraded to filename keywords
 //      and the feed search "stopped working".
 //   2. Estimate a price range with a text LLM IN THE USER'S LOCAL CURRENCY
@@ -22,8 +22,8 @@ export const maxDuration = 60
 //      location-based comparison summary (AI estimate vs prices near you).
 //
 //   TWO MODES:
-//   - image mode: FormData 'file' — full AI vision identification.
-//   - text mode:  FormData 'query' (no file) — "search first before
+//   - image mode: FormData 'file' - full AI vision identification.
+//   - text mode:  FormData 'query' (no file) - "search first before
 //     uploading a product pic": the user types the product name and gets
 //     the SAME location-ranked local price comparison without any photo.
 // ============================================================================
@@ -89,9 +89,9 @@ function placeName(location: SearchLocation | null): string {
   return location.country || 'worldwide'
 }
 
-// Parse "45-120" / "45 to 120" / "45–120" out of an LLM answer.
+// Parse "45-120" / "45 to 120" / "45-120" out of an LLM answer.
 function parseRange(content: string): { min: number; max: number } | null {
-  const m = content.match(/([\d][\d,\.]*)\s*(?:-|–|—|to|~)\s*\$?\s*([\d][\d,\.]*)/i)
+  const m = content.match(/([\d][\d,\.]*)\s*(?:-|-|-|to|~)\s*\$?\s*([\d][\d,\.]*)/i)
   if (!m) return null
   const low = Number(m[1].replace(/[,\s]/g, ''))
   const high = Number(m[2].replace(/[,\s]/g, ''))
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
-    // Text mode — "search first before uploading product pic": a typed
+    // Text mode - "search first before uploading product pic": a typed
     // product name instead of an image. Both modes share the whole
     // location-ranked search pipeline below.
     const rawQuery = formData.get('query')
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'Image too large. Max 5 MB.' }, { status: 400 })
     }
 
-    // Optional client location (JSON string) — used to rank local matches
+    // Optional client location (JSON string) - used to rank local matches
     // and to convert the AI estimate into the user's local currency.
     let location: SearchLocation | null = null
     const rawLocation = formData.get('location')
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
             countryCode: typeof parsed.countryCode === 'string' ? parsed.countryCode : null,
           }
         }
-      } catch { /* ignore malformed location — search continues worldwide */ }
+      } catch { /* ignore malformed location - search continues worldwide */ }
     }
 
     // ---- STEP 1: Identify the product ----
@@ -158,13 +158,13 @@ export async function POST(req: NextRequest) {
         aiUsed = true
         identified = !!name && name.toLowerCase() !== 'unknown item'
       } catch {
-        // All AI providers failed — degrade to filename keywords (same honest
+        // All AI providers failed - degrade to filename keywords (same honest
         // behaviour as before, but now only when EVERY provider is down).
       }
 
       if (!identified) {
         if (aiUsed) {
-          // The AI answered but found no purchasable product — do NOT fall
+          // The AI answered but found no purchasable product - do NOT fall
           // back to filename noise (that made the feed search look broken).
           return NextResponse.json({
             keywords: '',
@@ -179,13 +179,13 @@ export async function POST(req: NextRequest) {
             mode,
           })
         }
-        // ALL AI providers failed — degrade to filename keywords (honest last
+        // ALL AI providers failed - degrade to filename keywords (honest last
         // resort, same behaviour as before but only when everything is down).
         name = file.name.replace(/\.(png|jpg|jpeg|webp|gif)$/i, '').replace(/[-_]/g, ' ').replace(/\d+/g, ' ').trim()
         aiDescription = 'AI analysis unavailable. Using filename as search keyword.'
       }
     } else {
-      // TEXT MODE — the product name is typed by the user; no vision needed.
+      // TEXT MODE - the product name is typed by the user; no vision needed.
       name = textQuery
       searchQuery = textQuery
       identified = true
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
 
     const keywords = [name, brand, category].filter(Boolean).join(', ')
 
-    // No usable identification at all AND no filename hints — tell the client.
+    // No usable identification at all AND no filename hints - tell the client.
     if (!name.trim()) {
       return NextResponse.json({
         keywords: '',
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
       .filter((w) => w.length > 2)
       .slice(0, 12)
 
-    // Candidates for the feed search box — longest/most specific first. The
+    // Candidates for the feed search box - longest/most specific first. The
     // one that actually matches the most local posts wins (checked below).
     const termCandidates = Array.from(new Set([
       nameWords.slice(0, 3).join(' '),
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
     if (orClauses.length > 0) {
       const posts = await db.localPricePost.findMany({
         // caseInsensitiveWhere: production Postgres `contains` is CASE-SENSITIVE
-        // (searching "dax" missed posts named "DAX" — "not found but it's there").
+        // (searching "dax" missed posts named "DAX" - "not found but it's there").
         where: caseInsensitiveWhere({ OR: orClauses }),
         select: {
           id: true, productName: true, category: true, currency: true,
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
         [...termCandidates, ...allWords].some((term) => matches(p.productName, term) || matches(p.category, term))
       )
 
-      // Location scoring — same city beats same country beats everywhere else.
+      // Location scoring - same city beats same country beats everywhere else.
       const locCountry = (location?.country || '').toLowerCase()
       const locCity = (location?.city || '').toLowerCase()
       const scored = filtered.map((p) => {
@@ -332,7 +332,7 @@ export async function POST(req: NextRequest) {
           const range = parseRange(content)
           if (range) aiPriceEstimate = { ...range, currency: localCurrency }
         }
-      } catch { /* estimate is optional — local matches are the primary result */ }
+      } catch { /* estimate is optional - local matches are the primary result */ }
     }
 
     return NextResponse.json({

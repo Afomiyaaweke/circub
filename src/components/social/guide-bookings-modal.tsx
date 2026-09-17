@@ -234,7 +234,7 @@ export function GuideBookingsModal({ open, onOpenChange, isGuide, meId, onMessag
           <p className="text-sm text-muted-foreground text-center py-6">
             {tab === 'incoming'
               ? (isGuide ? 'No booking requests yet. Keep your guide profile sharp and stay Available!' : 'Tourists haven\'t booked you yet.')
-              : 'You haven\'t requested any tours yet — tap Book on any guide card.'}
+              : 'You haven\'t requested any tours yet - tap Book on any guide card.'}
           </p>
         ) : (
           <div className="space-y-3 pr-1">

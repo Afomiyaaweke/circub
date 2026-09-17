@@ -120,13 +120,13 @@ export function RightSidebar({
 
   return (
     <aside className="hidden lg:block w-72 shrink-0 space-y-4">
-      {/* Profile card — the only profile show, on the right side */}
+      {/* Profile card - the only profile show, on the right side */}
       <Card className="overflow-hidden p-0 shadow-sm">
         {/* Cover banner */}
         <div className="h-16 sm:h-20 bg-gradient-to-br from-primary to-emerald-400" />
 
         <div className="px-4 pb-4 -mt-8 sm:-mt-9 flex flex-col items-center text-center">
-          {/* Profile picture — tap toggles all info */}
+          {/* Profile picture - tap toggles all info */}
           <button
             onClick={() => setProfileExpanded(!profileExpanded)}
             className="group relative rounded-full transition-transform active:scale-90 mb-1"
@@ -143,7 +143,7 @@ export function RightSidebar({
             )}
           </button>
 
-          {/* Name — always visible */}
+          {/* Name - always visible */}
           <h2 className="mt-1 font-bold text-foreground text-base sm:text-lg">
             {user?.name ?? '...'}
           </h2>
@@ -180,7 +180,7 @@ export function RightSidebar({
                 <p className="text-xs text-muted-foreground line-clamp-3 px-2">{user.bio}</p>
               )}
 
-              {/* Contact rows — same channels as local price posts: phone / email / WhatsApp */}
+              {/* Contact rows - same channels as local price posts: phone / email / WhatsApp */}
               {(user?.phone || user?.whatsapp || user?.email) && (
                 <div className="w-full space-y-1 px-2 pt-1">
                   {user?.phone && (
@@ -303,7 +303,7 @@ export function RightSidebar({
                 </p>
                 <div className="mt-1 flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-primary">
-                    {formatPrice(p.priceMin, p.currency)} – {formatPrice(p.priceMax, p.currency)}
+                    {formatPrice(p.priceMin, p.currency)} - {formatPrice(p.priceMax, p.currency)}
                   </p>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-0.5">

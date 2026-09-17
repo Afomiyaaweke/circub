@@ -246,7 +246,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     <Badge variant="outline" className="text-[10px]">
                       {post.category}
                     </Badge>
-                    {/* Freshness — how old this price is (amber warning once outside the history's Current window) */}
+                    {/* Freshness - how old this price is (amber warning once outside the history's Current window) */}
                     <span
                       className={cn(
                         'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded shrink-0',
@@ -293,7 +293,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     Typical local price
                   </p>
                   <p className="text-base font-bold text-foreground mt-1">
-                    {formatPrice(post.priceMin, post.currency)} – {formatPrice(post.priceMax, post.currency)}
+                    {formatPrice(post.priceMin, post.currency)} - {formatPrice(post.priceMax, post.currency)}
                   </p>
                 </div>
                 {post.recommendedPrice != null && (
@@ -369,7 +369,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   <div>
                     <div className="flex items-baseline gap-3 flex-wrap">
                       <p className="text-2xl font-bold text-foreground">
-                        {formatPrice(consensus.avgPriceMin, consensus.currency)} – {formatPrice(consensus.avgPriceMax, consensus.currency)}
+                        {formatPrice(consensus.avgPriceMin, consensus.currency)} - {formatPrice(consensus.avgPriceMax, consensus.currency)}
                       </p>
                       {consensus.verdict === 'fair' && (
                         <Badge className="bg-emerald-500 text-white">🟢 Fair price</Badge>
@@ -408,7 +408,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               )}
                             </div>
                             <span className="text-muted-foreground shrink-0">
-                              {formatPrice(cp.priceMin, consensus.currency)} – {formatPrice(cp.priceMax, consensus.currency)}
+                              {formatPrice(cp.priceMin, consensus.currency)} - {formatPrice(cp.priceMax, consensus.currency)}
                             </span>
                           </div>
                         ))}
@@ -438,7 +438,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         >
                           <span className="text-muted-foreground w-28 shrink-0">{h.label}</span>
                           <span className="font-medium text-foreground">
-                            {formatPrice(h.priceMin, history.currency)} – {formatPrice(h.priceMax, history.currency)}
+                            {formatPrice(h.priceMin, history.currency)} - {formatPrice(h.priceMax, history.currency)}
                           </span>
                           <span className="text-xs text-muted-foreground w-20 text-right shrink-0">
                             {h.sampleCount} report{h.sampleCount !== 1 ? 's' : ''}

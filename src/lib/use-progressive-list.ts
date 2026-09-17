@@ -1,6 +1,6 @@
 'use client'
 
-// Progressive list rendering — shows a small batch first, then appends more
+// Progressive list rendering - shows a small batch first, then appends more
 // automatically as the user scrolls (IntersectionObserver sentinel).
 // Keeps the initial render light on phones: fewer DOM nodes + fewer images
 // decode up front; the rest streams in part by part.
@@ -11,7 +11,7 @@ export function useProgressiveList<T>(items: T[], step = 6, initial = 6) {
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   // Reset to the first batch when the underlying data set structurally changes
-  // (new search/filter/refetch) — but NOT on in-place updates like a like/vote,
+  // (new search/filter/refetch) - but NOT on in-place updates like a like/vote,
   // which keep length + first/last ids unchanged.
   const first = items[0] as { id?: unknown } | undefined
   const last = items[items.length - 1] as { id?: unknown } | undefined
@@ -24,7 +24,7 @@ export function useProgressiveList<T>(items: T[], step = 6, initial = 6) {
     }
   }, [sig, initial])
 
-  // Sentinel observer — appends the next batch when it scrolls into view
+  // Sentinel observer - appends the next batch when it scrolls into view
   useEffect(() => {
     const el = sentinelRef.current
     if (!el || typeof IntersectionObserver === 'undefined') return

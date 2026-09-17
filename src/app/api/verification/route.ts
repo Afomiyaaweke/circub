@@ -1,5 +1,5 @@
 // ============================================================================
-// ACCOUNT VERIFICATION (ID / passport) — any signed-in user can upload a
+// ACCOUNT VERIFICATION (ID / passport) - any signed-in user can upload a
 // photo of their ID or passport and immediately get the verified badge.
 //
 // PRIVACY CONTRACT (enforced here, the only place the document is readable):
@@ -9,7 +9,7 @@
 // - POST   → validates + stores the document, sets idVerified = true.
 // - DELETE → clears the document and the badge (owner request).
 // Other users only ever receive the boolean `idVerified` in author selects,
-// which they see as a blue BadgeCheck tag — never the document itself.
+// which they see as a blue BadgeCheck tag - never the document itself.
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -23,7 +23,7 @@ const DOC_URL_RE = /^(data:image\/|https?:\/\/)/
 // anything beyond ~5 MB encoded is rejected to keep DB rows and requests sane.
 const MAX_DOC_URL_CHARS = 7_000_000
 
-// GET — owner-only view of their own verification state + document.
+// GET - owner-only view of their own verification state + document.
 export async function GET() {
   try {
     const me = await getCurrentUser()
@@ -34,7 +34,7 @@ export async function GET() {
       select: {
         idVerified: true,
         userIdDocType: true,
-        userIdDocUrl: true, // owner-only — never selected anywhere else
+        userIdDocUrl: true, // owner-only - never selected anywhere else
         verifiedAt: true,
         guideIdDocUrl: true, // guides verified with their registration document
       },
@@ -54,7 +54,7 @@ export async function GET() {
   }
 }
 
-// POST — submit an ID/passport photo and get verified right away.
+// POST - submit an ID/passport photo and get verified right away.
 export async function POST(req: NextRequest) {
   try {
     const me = await getCurrentUser()
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Upload a photo of your document first.' }, { status: 400 })
     }
     if (docUrl.length > MAX_DOC_URL_CHARS) {
-      return NextResponse.json({ error: 'Document image too large — please retake it.' }, { status: 413 })
+      return NextResponse.json({ error: 'Document image too large - please retake it.' }, { status: 413 })
     }
 
     const updated = await db.user.update({
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       idVerified: updated.idVerified,
       docType: updated.userIdDocType,
       verifiedAt: updated.verifiedAt,
-      // NOTE: the document URL is intentionally NOT echoed back here —
+      // NOTE: the document URL is intentionally NOT echoed back here -
       // the owner can view it any time via GET /api/verification.
     })
   } catch (error) {
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE — remove the document and the verified badge (owner request).
+// DELETE - remove the document and the verified badge (owner request).
 export async function DELETE() {
   try {
     const me = await getCurrentUser()

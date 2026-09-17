@@ -1,4 +1,4 @@
-// Freshness of a price post — aligned with the price-history endpoint's
+// Freshness of a price post - aligned with the price-history endpoint's
 // time windows (src/app/api/local-prices/history/route.ts), whose "Current"
 // bucket covers posts from the last 45 days. Anything older than that is
 // outside the current window, so the price may be outdated and the UI says so.
@@ -36,9 +36,9 @@ export function freshnessLevel(createdAt: string | Date): FreshnessLevel {
 export function freshnessTitle(createdAt: string | Date): string {
   const level = freshnessLevel(createdAt)
   const label = timeAgoLabel(createdAt).toLowerCase()
-  if (level === 'fresh') return `Posted ${label} — fresh price`
+  if (level === 'fresh') return `Posted ${label} - fresh price`
   if (level === 'current') return `Posted ${label}`
-  return `Posted ${label} — this price is old and may be outdated`
+  return `Posted ${label} - this price is old and may be outdated`
 }
 
 // Tailwind classes per level so cards and the detail modal stay consistent

@@ -1,9 +1,10 @@
 // ============================================================
-// DEMO CONTENT SEEDER — one URL to fill, one URL to wipe
+// DEMO CONTENT SEEDER - one URL to fill, one URL to wipe
 // ============================================================
 // GET|POST /api/seed?code=<SECRET>&mode=seed      -> create demo users + ~100 posts
 // GET|POST /api/seed?code=<SECRET>&mode=cleanup   -> remove ALL demo content (cascades)
 // GET|POST /api/seed?code=<SECRET>&mode=status    -> how much demo content exists
+// GET|POST /api/seed?code=<SECRET>&mode=dedash    -> strip em/en dash characters from all text content (one-off data hygiene)
 //
 // Safety model:
 //  - The secret code is required for every action (403 otherwise).
@@ -125,7 +126,7 @@ async function seedDemo() {
       const byUsername = new Map(users.map((u) => [u.username, u]))
       const N = users.length
 
-      // 2) Feed posts (55 creates) — engagement collected for bulk insert
+      // 2) Feed posts (55 creates) - engagement collected for bulk insert
       const likeRows: { postId: string; userId: string; createdAt: Date }[] = []
       const commentRows: { postId: string; authorId: string; content: string; createdAt: Date }[] = []
       const postIds: string[] = []
@@ -168,7 +169,7 @@ async function seedDemo() {
         }
       }
 
-      // 3) Local price posts (46 creates) — votes collected for bulk insert
+      // 3) Local price posts (46 creates) - votes collected for bulk insert
       const voteRows: { postId: string; userId: string; voteType: string; createdAt: Date }[] = []
       for (let j = 0; j < DEMO_LOCAL_POSTS.length; j++) {
         const p = DEMO_LOCAL_POSTS[j]
@@ -275,7 +276,41 @@ async function handle(req: NextRequest) {
       return NextResponse.json({ ok: true, mode, seeded: true, created })
     }
 
-    return NextResponse.json({ error: 'Unknown mode — use seed | cleanup | status' }, { status: 400 })
+    if (mode === 'dedash') {
+      // One-off data hygiene: every long-dash character (em dash + en dash) in
+      // stored text is swapped for a plain hyphen, in-place. Works identically
+      // on local SQLite and prod Postgres: REPLACE() + LIKE exist in both.
+      const targets: Array<[string, string[]]> = [
+        ['User', ['name', 'bio', 'headline', 'location', 'companyName', 'expertiseTags', 'guideBio', 'guideSpecialties', 'guideLanguages']],
+        ['Product', ['name', 'description']],
+        ['Connection', ['note']],
+        ['Post', ['content']],
+        ['Comment', ['content']],
+        ['Message', ['content']],
+        ['Story', ['caption']],
+        ['LocalPricePost', ['productName', 'description', 'localTip']],
+        ['LocalPriceReport', ['note']],
+        ['GuideRating', ['comment']],
+        ['GuideBooking', ['message']],
+        ['ContactMessage', ['name', 'message']],
+      ]
+      const updated: Record<string, number> = {}
+      let total = 0
+      for (const [table, columns] of targets) {
+        for (const column of columns) {
+          // \u2014 = em dash, \u2013 = en dash (escapes keep the source dash-free)
+          const rows = await db.$executeRawUnsafe(
+            `UPDATE "${table}" SET "${column}" = REPLACE(REPLACE("${column}", '\u2014', '-'), '\u2013', '-') ` +
+            `WHERE "${column}" LIKE '%\u2014%' OR "${column}" LIKE '%\u2013%'`
+          )
+          if (rows > 0) updated[`${table}.${column}`] = rows
+          total += rows
+        }
+      }
+      return NextResponse.json({ ok: true, mode, rowsUpdated: total, detail: updated })
+    }
+
+    return NextResponse.json({ error: 'Unknown mode - use seed | cleanup | status | dedash' }, { status: 400 })
   } catch (error) {
     console.error('Seed endpoint failed:', error)
     return NextResponse.json({ error: 'Seed operation failed' }, { status: 500 })

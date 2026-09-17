@@ -1,7 +1,7 @@
-/* circub service worker — fresh first, offline-safe second.
+/* circub service worker - fresh first, offline-safe second.
  * Strategy:
  *  - build assets (hashed) + icons + brand images + manifest: cache-first (immutable)
- *  - navigations (HTML): NETWORK-FIRST — every open loads the LATEST deployed
+ *  - navigations (HTML): NETWORK-FIRST - every open loads the LATEST deployed
  *    build, so the phone (PWA / Android app) and the desktop web always show
  *    the same version. The cached shell is ONLY used when the network fails
  *    (offline / flaky connection).
@@ -11,7 +11,7 @@
  * ⚠️ Bump VERSION on EVERY deploy that changes code: cached assets reference
  * hashed /_next files of that deployment.
  */
-const VERSION = 'circub-v46';
+const VERSION = 'circub-v47';
 const SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -51,11 +51,11 @@ self.addEventListener('fetch', (event) => {
   }
   if (url.origin !== self.location.origin) return;
 
-  // API GETs: ALWAYS network — never cached, never served from cache
+  // API GETs: ALWAYS network - never cached, never served from cache
   // (prices/feeds must stay fresh; /api/auth/me must not hit the disk).
   if (url.pathname.startsWith('/api/')) return;
 
-  // 1) immutable assets + brand images — cache first
+  // 1) immutable assets + brand images - cache first
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
@@ -78,7 +78,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2) navigations — NETWORK-FIRST (mobile/desktop always show the same build;
+  // 2) navigations - NETWORK-FIRST (mobile/desktop always show the same build;
   //    cached shell only saves an OFFLINE visit)
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -98,7 +98,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3) everything else (non-navigation, non-API GETs) — network first,
+  // 3) everything else (non-navigation, non-API GETs) - network first,
   //    cache only as offline fallback; nothing new is written.
   event.respondWith(
     fetch(request)

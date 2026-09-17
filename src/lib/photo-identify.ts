@@ -12,7 +12,7 @@
  * fields (name, description, price range) from the result.
  *
  * The caller is responsible for compressing the file first (compressImage)
- * — pass the compressed File/Blob here so it can be uploaded AND identified
+ * - pass the compressed File/Blob here so it can be uploaded AND identified
  * without compressing twice.
  */
 

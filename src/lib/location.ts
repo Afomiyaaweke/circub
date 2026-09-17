@@ -48,9 +48,9 @@ export function getCoordinates(): Promise<{ coords: Coordinates | null; error: s
         if (settled) return
         settled = true
         let reason = 'Unknown error'
-        if (err.code === err.PERMISSION_DENIED) reason = 'Permission denied — allow location access in your browser settings'
-        else if (err.code === err.POSITION_UNAVAILABLE) reason = 'Position unavailable — GPS may be disabled on this device'
-        else if (err.code === err.TIMEOUT) reason = 'GPS timeout — try moving to an open area'
+        if (err.code === err.PERMISSION_DENIED) reason = 'Permission denied - allow location access in your browser settings'
+        else if (err.code === err.POSITION_UNAVAILABLE) reason = 'Position unavailable - GPS may be disabled on this device'
+        else if (err.code === err.TIMEOUT) reason = 'GPS timeout - try moving to an open area'
         resolve({ coords: null, error: reason })
       },
       options

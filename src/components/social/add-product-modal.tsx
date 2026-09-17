@@ -81,7 +81,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
     setUploading(true)
     let compressed: File | Blob = file
     try {
-      // Downscale first — phone photos are 2-5 MB and would bloat the DB.
+      // Downscale first - phone photos are 2-5 MB and would bloat the DB.
       compressed = await compressImage(file)
       const fd = new FormData()
       fd.append('file', compressed)
@@ -105,19 +105,19 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
     setUploading(false)
 
     // Identify the product from the SAME photo and pull matching price
-    // posts — the form shows the comparison while the user finishes typing.
+    // posts - the form shows the comparison while the user finishes typing.
     // Errors are non-fatal: the image is already uploaded.
     setComparing(true)
     try {
       const result = await identifyPhoto(compressed, { country })
       setCompareResult(result)
-      // Pre-fill only EMPTY fields — never override what the user typed.
+      // Pre-fill only EMPTY fields - never override what the user typed.
       if (!name.trim() && result.searchTerm) setName(result.searchTerm)
       if (!description.trim() && result.aiDescription) setDescription(result.aiDescription)
       const hit = matchCategory(result.searchTerm, CATEGORIES)
       if (hit) setCategory(hit)
       if (!price) {
-        // Prefill ONLY from real posted prices (locationCompare) — the AI
+        // Prefill ONLY from real posted prices (locationCompare) - the AI
         // estimate is too unreliable to type into the user's form. It still
         // shows in the comparison preview for reference.
         const range = result.locationCompare
@@ -126,7 +126,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
           setPrice(String(Math.round((range.min + range.max) / 2)))
         }
       }
-    } catch { /* comparison is optional — saving continues as usual */ }
+    } catch { /* comparison is optional - saving continues as usual */ }
     setComparing(false)
   }
 
@@ -425,12 +425,12 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
           </div>
 
           {/* AI identification + similar-posts comparison from the attached
-              photo — lets the user price the product against the feed
+              photo - lets the user price the product against the feed
               BEFORE saving. */}
           {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
         </div>
 
-        {/* Footer actions — pinned to the bottom of the sheet while scrolling */}
+        {/* Footer actions - pinned to the bottom of the sheet while scrolling */}
         <div className="sticky bottom-0 -mx-6 sm:-mx-8 mt-6 flex items-center justify-end gap-3 px-6 sm:px-8 py-3 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             variant="outline"

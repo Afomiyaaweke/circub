@@ -1,4 +1,4 @@
-// Diagnostic endpoint — returns everything we know about the request.
+// Diagnostic endpoint - returns everything we know about the request.
 // Useful when debugging auth issues from the browser.
 // Safe to delete after debugging.
 import { NextRequest, NextResponse } from 'next/server'

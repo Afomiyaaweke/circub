@@ -4,22 +4,22 @@ import { getZaiClient, type ZaiClient } from '@/lib/zai-config'
 // Multi-provider AI backends for the scan pipeline.
 //
 // WHY: the app's baked-in ZAI credentials point at internal-api.z.ai, which
-// resolves to PRIVATE IPs (172.25.x.x) — reachable ONLY from inside the z.ai
+// resolves to PRIVATE IPs (172.25.x.x) - reachable ONLY from inside the z.ai
 // platform (sandboxes). From Vercel the connection fails with "fetch failed"
 // (~10s stall). Additionally the shared platform account gets quota-429s.
 // The keyless Pollinations VISION tier intermittently exhausts its shared
 // budget (Sep 12: every vision call hung ~29s then answered "budget reached").
 //
-// So /api/scan uses PROVIDER CHAINS — first configured/available provider
+// So /api/scan uses PROVIDER CHAINS - first configured/available provider
 // wins, failures fall through fast:
 //
 //   identify (vision):  1. OpenAI-compatible API  (VISION_API_URL+KEY, or just
-//                         GEMINI_API_KEY — auto-wired to Google's free tier)
+//                         GEMINI_API_KEY - auto-wired to Google's free tier)
 //                       2. ZAI direct             (works inside z.ai platform)
 //                       3. RACE, first success wins:
 //                            - Pollinations vision (openai-fast, detail:low,
 //                              12s timeout, budget circuit breaker)
-//                            - OCR.space label extraction (keyless — reads the
+//                            - OCR.space label extraction (keyless - reads the
 //                              text on the product/label/box and turns it into
 //                              a search query)
 //
@@ -31,12 +31,12 @@ import { getZaiClient, type ZaiClient } from '@/lib/zai-config'
 //
 //   text (price est.):  1. OpenAI-compatible API / Gemini
 //                       2. ZAI chat
-//                       3. Pollinations text (openai-fast — cheap + fast)
+//                       3. Pollinations text (openai-fast - cheap + fast)
 //
 // CIRCUIT BREAKERS (per serverless instance):
 //   - ZAI direct:  network fail = 5min cooldown, 429 = 60s
 //   - Pollinations vision: any failure = 30-120s cooldown (budget blocks last
-//     ~2min; text calls are NOT blocked — they use a separate cheaper tier)
+//     ~2min; text calls are NOT blocked - they use a separate cheaper tier)
 //   - OCR.space: 60s cooldown after a failure (incl. "no text in image")
 // ---------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ const GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest'
 
 export function visionApiConfig(): OpenAICfg | null {
   // GEMINI_API_KEY alone is enough: Google's OpenAI-compatible endpoint has a
-  // generous FREE vision tier — the one-paste fix for prod.
+  // generous FREE vision tier - the one-paste fix for prod.
   const gemini = process.env.GEMINI_API_KEY
   if (gemini) {
     return {
@@ -129,7 +129,7 @@ async function pollinationsChat(
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
   const content = String(data.choices?.[0]?.message?.content ?? '')
   // Pollinations' shared anonymous key sometimes answers HTTP 200 with a
-  // budget/key notice instead of a completion — treat as failure.
+  // budget/key notice instead of a completion - treat as failure.
   if (/budget|api key|raise the key/i.test(content)) throw new Error('pollinations quota/key exhausted')
   return data
 }
@@ -148,7 +148,7 @@ export function zaiCooldownRemainingMs(): number {
   return Math.max(0, zaiCooldownUntil - Date.now())
 }
 
-// Pollinations VISION breaker — separate from text (text tier stays usable
+// Pollinations VISION breaker - separate from text (text tier stays usable
 // even while the vision/image budget is exhausted).
 let polVisionCooldownUntil = 0
 export function pollinationsVisionCooldownRemainingMs(): number {
@@ -156,13 +156,13 @@ export function pollinationsVisionCooldownRemainingMs(): number {
 }
 function notePollinationsVisionFailure(e: unknown): void {
   const msg = String((e as Error)?.message || e)
-  // Budget/quota blocks last a while — back off 2 minutes. Timeouts/net fails
+  // Budget/quota blocks last a while - back off 2 minutes. Timeouts/net fails
   // back off 30s. Unparseable content gets NO cooldown (transient model oddity).
   if (/budget|quota|key/i.test(msg)) polVisionCooldownUntil = Date.now() + 120_000
   else if (/timeout|abort|fetch|network|pollinations \d/i.test(msg)) polVisionCooldownUntil = Date.now() + 30_000
 }
 
-// OCR.space breaker — a frame with no readable text should not cost another
+// OCR.space breaker - a frame with no readable text should not cost another
 // 10s on the next scan tick.
 let ocrCooldownUntil = 0
 export function ocrCooldownRemainingMs(): number {
@@ -186,7 +186,7 @@ async function withZai<T>(fn: (z: ZaiClient) => Promise<T>, timeoutMs: number): 
 // --- helpers -----------------------------------------------------------------
 // Hardened JSON extractor: handles ```json fences (open or closed), leading
 // prose, and TRUNCATED JSON (reasoning models sometimes burn the token budget
-// mid-object — we close dangling brackets and parse what we have).
+// mid-object - we close dangling brackets and parse what we have).
 export function parseLooseJson(text: string): Record<string, unknown> | null {
   if (!text) return null
   let candidate = text
@@ -234,7 +234,7 @@ function contentOf(res: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
-// IDENTIFY — vision chain
+// IDENTIFY - vision chain
 // ---------------------------------------------------------------------------
 
 // 1) User-configured OpenAI-compatible API (Vercel-reachable, reliable)
@@ -261,7 +261,7 @@ async function identifyViaZai(messages: unknown): Promise<VisionIdentify> {
   return out
 }
 
-// 3a) Pollinations vision — fast model + low detail (fewer tokens = cheaper
+// 3a) Pollinations vision - fast model + low detail (fewer tokens = cheaper
 // = the shared free budget lasts longer) + 12s fail-fast.
 async function identifyViaPollinations(imageDataUrl: string): Promise<VisionIdentify> {
   const messages = [{
@@ -283,7 +283,7 @@ async function identifyViaPollinations(imageDataUrl: string): Promise<VisionIden
   }
 }
 
-// 3b) OCR.space label extraction — keyless fallback that keeps scans working
+// 3b) OCR.space label extraction - keyless fallback that keeps scans working
 // even when EVERY text-vision model is quota-blocked. Reads the text printed
 // on the product/label/box and builds a search query from it.
 const OCR_API_KEY = process.env.OCR_API_KEY || 'helloworld' // free anonymous tier
@@ -303,7 +303,7 @@ async function identifyViaOcr(imageDataUrl: string): Promise<VisionIdentify> {
   }
 }
 
-// The free OCR tier occasionally answers a one-off 5xx — retry once so a
+// The free OCR tier occasionally answers a one-off 5xx - retry once so a
 // transient blip doesn't burn the whole scan.
 async function ocrParseWithRetry(b64: string, attempts = 2): Promise<{
   ParsedResults?: Array<{ ParsedText?: string }>
@@ -408,7 +408,7 @@ export async function identifyItem(imageDataUrl: string): Promise<VisionIdentify
     failures.push(`zai: circuit-open ${Math.ceil(zaiCooldownRemainingMs() / 1000)}s`)
   }
 
-  // 3) Keyless RACE — Pollinations vision ∥ OCR label extraction. First
+  // 3) Keyless RACE - Pollinations vision ∥ OCR label extraction. First
   // success wins; both failing loses fast (12s / 10s caps, breakers armed).
   const racers: Array<Promise<VisionIdentify>> = []
   if (Date.now() >= polVisionCooldownUntil) racers.push(identifyViaPollinations(imageDataUrl))
@@ -425,7 +425,7 @@ export async function identifyItem(imageDataUrl: string): Promise<VisionIdentify
     }
   }
 
-  throw new Error(`All AI providers failed — ${failures.join(' | ')}`)
+  throw new Error(`All AI providers failed - ${failures.join(' | ')}`)
 }
 
 function normalizeIdentify(parsed: Record<string, unknown> | null, rawContent: string): VisionIdentify | null {
@@ -438,7 +438,7 @@ function normalizeIdentify(parsed: Record<string, unknown> | null, rawContent: s
       searchQuery: parsed.searchQuery ? String(parsed.searchQuery).slice(0, 200) : String(parsed.name).slice(0, 120),
     }
   }
-  // Some models answer with plain text — use the first line as a weak guess.
+  // Some models answer with plain text - use the first line as a weak guess.
   const line = rawContent.trim().split('\n').find((l) => l.trim() && !/^```|^\s*\{|\"name\"/.test(l))?.slice(0, 120) ?? ''
   if (line && !/budget|API key|error/i.test(line)) {
     return { name: line, brand: null, category: null, description: rawContent.slice(0, 400), searchQuery: line }
@@ -447,7 +447,7 @@ function normalizeIdentify(parsed: Record<string, unknown> | null, rawContent: s
 }
 
 // ---------------------------------------------------------------------------
-// WEB SEARCH — chain (never throws; returns [] when everything fails)
+// WEB SEARCH - chain (never throws; returns [] when everything fails)
 // ---------------------------------------------------------------------------
 export async function webSearch(query: string, num = 3): Promise<SearchHit[]> {
   const failures: string[] = []
@@ -585,7 +585,7 @@ function hostOf(url: string | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// TEXT — chain for the price-estimation prompt
+// TEXT - chain for the price-estimation prompt
 // ---------------------------------------------------------------------------
 export async function llmText(prompt: string, timeoutMs = 20_000): Promise<string | null> {
   const failures: string[] = []

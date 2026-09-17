@@ -40,7 +40,7 @@ export interface User {
   guideIdDocType?: 'ID' | 'PASSPORT' | string | null
   hasIdDoc?: boolean
   idVerified?: boolean
-  // Account verification via ID/passport upload (badge + doc type only —
+  // Account verification via ID/passport upload (badge + doc type only -
   // the document image itself is never sent to the client through /me).
   userIdDocType?: 'ID' | 'PASSPORT' | string | null
   hasUserIdDoc?: boolean
@@ -216,7 +216,7 @@ export interface LocalPriceHistory {
 export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark' | 'profile'
 
 // =====================================================
-// PRICELENS SCAN — camera product identification + pricing
+// PRICELENS SCAN - camera product identification + pricing
 // =====================================================
 
 export interface ScanLocation {

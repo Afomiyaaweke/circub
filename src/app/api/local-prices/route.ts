@@ -6,7 +6,7 @@ import { caseInsensitiveWhere } from '@/lib/search'
 // Cache the public feed list for 30s on the CDN/edge, allow serving stale
 // for up to 60s while revalidating in the background. With 5,000 concurrent
 // users this collapses repeated identical queries into a single DB hit.
-// Per-user `myVote` is computed from the logged-in user — the CDN cache is
+// Per-user `myVote` is computed from the logged-in user - the CDN cache is
 // still safe because the response body is per-user, but the cache layer
 // (Vercel Edge) treats each cookie-distinct request as a separate entry.
 function cacheHeaders() {

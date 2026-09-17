@@ -2,7 +2,7 @@
 //
 // Images: downscales to fit within `maxDim` px and re-encodes as JPEG. Phone
 // photos land around 100-300 KB instead of 2-5 MB, keeping uploads fast and
-// DB payloads small. HEIC/HEIF (iPhone) is attempted too — Safari 17+ can
+// DB payloads small. HEIC/HEIF (iPhone) is attempted too - Safari 17+ can
 // decode it via createImageBitmap; on browsers that can't, the file simply
 // passes through unchanged.
 //
@@ -23,7 +23,7 @@ export async function compressImage(file: File, maxDim = 1280, quality = 0.78): 
     const bitmap = await createImageBitmap(file)
     const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
     if (scale >= 1 && file.size <= 400 * 1024) {
-      // Already small enough — pass through untouched.
+      // Already small enough - pass through untouched.
       bitmap.close?.()
       return file
     }
@@ -70,7 +70,7 @@ export async function compressVideo(file: File, maxBytes = MAX_MEDIA_BYTES): Pro
 
   const mime = pickRecorderMime()
   if (!mime) {
-    throw new Error('Video is too large to upload — please pick a clip under 3 MB.')
+    throw new Error('Video is too large to upload - please pick a clip under 3 MB.')
   }
 
   const video = document.createElement('video')
@@ -87,7 +87,7 @@ export async function compressVideo(file: File, maxBytes = MAX_MEDIA_BYTES): Pro
       video.onerror = () => { clearTimeout(timer); reject(new Error('decode')) }
     })
 
-    // Some webm sources report Infinity — force duration computation.
+    // Some webm sources report Infinity - force duration computation.
     if (!isFinite(video.duration)) {
       await new Promise<void>((resolve) => {
         video.currentTime = 1e7
@@ -163,21 +163,21 @@ export async function compressVideo(file: File, maxBytes = MAX_MEDIA_BYTES): Pro
     const blob = new Blob(chunks, { type: mime.split(';')[0] })
     if (!blob.size) throw new Error('empty')
     if (blob.size > maxBytes * 1.05) {
-      throw new Error('This video is still too long to upload — please pick a clip under a minute or trim it first.')
+      throw new Error('This video is still too long to upload - please pick a clip under a minute or trim it first.')
     }
     if (blob.size >= file.size) {
-      // Re-encoding didn't shrink it — the original can't fit the request
+      // Re-encoding didn't shrink it - the original can't fit the request
       // limits either, so failing loudly beats a silent oversized upload.
-      throw new Error('This video is too long to upload — please pick a clip under a minute or trim it first.')
+      throw new Error('This video is too long to upload - please pick a clip under a minute or trim it first.')
     }
     const name = file.name.replace(/\.[^.]+$/, '') + '.webm'
     return new File([blob], name, { type: mime.split(';')[0] })
   } catch (err) {
-    // Re-encode impossible/failed — surface an actionable message for clips
+    // Re-encode impossible/failed - surface an actionable message for clips
     // that can't fit; small-enough edge cases (rare here due to the size
     // guard above) still go through untouched.
     if (err instanceof Error && /too long|too large/.test(err.message)) throw err
-    throw new Error('This video could not be processed for upload — please pick a shorter clip (under 3 MB if possible).')
+    throw new Error('This video could not be processed for upload - please pick a shorter clip (under 3 MB if possible).')
   } finally {
     URL.revokeObjectURL(objectUrl)
   }

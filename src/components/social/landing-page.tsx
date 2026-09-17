@@ -135,7 +135,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
     <div className="min-h-screen bg-background">
       {/* ===== Hero ===== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-emerald-50">
-        {/* Top-right corner — Contact us + app install */}
+        {/* Top-right corner - Contact us + app install */}
         <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex items-center gap-2 sm:gap-3">
           <a
             href="/contact"
@@ -201,7 +201,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
                 </Button>
               </div>
 
-              {/* Continue as Guest — orange button, prominent */}
+              {/* Continue as Guest - orange button, prominent */}
               {onContinueAsGuest && (
                 <div className="pt-3">
                   <Button
@@ -626,7 +626,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               <a href="/contact" className="hover:text-primary">Contact us</a>
             </div>
           </div>
-          {/* ===== Contact info — matches the /contact page EXACTLY ===== */}
+          {/* ===== Contact info - matches the /contact page EXACTLY ===== */}
           <div className="mt-8 pt-6 border-t border-background/10">
             <p className="text-xs font-semibold uppercase tracking-wider text-background/60">Contact us</p>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm">
@@ -653,7 +653,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               </a>
               <div className="flex items-center gap-2.5 text-background/80">
                 <Clock className="h-4 w-4 shrink-0 text-primary" />
-                Mon-Fri: 8:30 AM – 5:30 PM EAT · Sat: 9:00 AM – 1:00 PM EAT
+                Mon-Fri: 8:30 AM - 5:30 PM EAT · Sat: 9:00 AM - 1:00 PM EAT
               </div>
               <div className="flex items-center gap-4 text-background/80 lg:col-span-2">
                 <a

@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 
 // ============================================================================
-// MEDIA UPLOAD — accepts FormData 'file', returns { url } for direct use in
+// MEDIA UPLOAD - accepts FormData 'file', returns { url } for direct use in
 // <img>/<video>. The URL is a base64 data URL persisted by the caller (post
 // imageUrl, avatar, product image, story, guide document), so it works on any
-// host — including serverless/read-only filesystems where writing to public/
+// host - including serverless/read-only filesystems where writing to public/
 // would be lost.
 //
 // Clients should compress before uploading (src/lib/image-compress.ts for
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES
     if (file.size > maxBytes) {
       return NextResponse.json(
-        { error: isVideo ? 'Video too large. Max 30 MB — trim the clip or pick a shorter one.' : 'Image too large. Max 4 MB.' },
+        { error: isVideo ? 'Video too large. Max 30 MB - trim the clip or pick a shorter one.' : 'Image too large. Max 4 MB.' },
         { status: 400 }
       )
     }

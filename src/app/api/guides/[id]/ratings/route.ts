@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 
-// GET /api/guides/[id]/ratings — list all ratings for a guide
+// GET /api/guides/[id]/ratings - list all ratings for a guide
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,7 +40,7 @@ export async function GET(
   }
 }
 
-// POST /api/guides/[id]/ratings — rate a guide (1-5 stars + optional comment)
+// POST /api/guides/[id]/ratings - rate a guide (1-5 stars + optional comment)
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

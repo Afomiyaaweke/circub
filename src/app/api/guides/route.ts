@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const where: any = { isGuide: true }
     if (availableOnly) where.guideAvailable = true
     if (country) where.location = { contains: country }
-    // Comma-separated search: "Addis, English, Hiking" — each term matches
+    // Comma-separated search: "Addis, English, Hiking" - each term matches
     // ANY field (name, bio, languages, specialties, location) and the terms
     // themselves are AND-ed together.
     const termOr = (t: string) => ([
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       ...g,
       guideLanguages: g.guideLanguages ? g.guideLanguages.split(',').filter(Boolean) : [],
       guideSpecialties: g.guideSpecialties ? g.guideSpecialties.split(',').filter(Boolean) : [],
-      // Privacy: the document itself (guideIdDocUrl) is NEVER exposed —
+      // Privacy: the document itself (guideIdDocUrl) is NEVER exposed -
       // other users only learn that a verifiable ID/passport is on file.
       idVerified: !!g.guideIdDocUrl || g.idVerified,
       guideIdDocUrl: undefined,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         guideCurrency: body.guideCurrency?.trim() || null,
         guideBio: body.guideBio?.trim() || null,
         guideAvailable: body.guideAvailable !== false,
-        // Document is only written when a new upload is provided — never cleared
+        // Document is only written when a new upload is provided - never cleared
         // by a plain profile save.
         ...(docUrl ? { guideIdDocUrl: docUrl, guideIdDocType: docType || null } : {}),
       },

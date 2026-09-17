@@ -1,5 +1,5 @@
 // Shared renderer for the legal documents (/privacy and /terms).
-// Server component — static content from src/lib/legal-content.ts.
+// Server component - static content from src/lib/legal-content.ts.
 import Link from 'next/link'
 import { ShieldCheck, ArrowLeft, FileText } from 'lucide-react'
 import type { LegalDoc } from '@/lib/legal-content'

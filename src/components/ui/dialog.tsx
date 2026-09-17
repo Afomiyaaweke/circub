@@ -60,7 +60,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          // Mobile: bottom sheet — pinned to the bottom edge, full width,
+          // Mobile: bottom sheet - pinned to the bottom edge, full width,
           // rounded top corners, slides up, scrollable + safe-area padding.
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed inset-x-0 bottom-0 z-50 grid w-full max-w-full gap-4 rounded-t-2xl border-t p-4 shadow-lg duration-200",
           "max-sm:pb-[calc(1rem+env(safe-area-inset-bottom))] max-sm:max-h-[92dvh] max-sm:overflow-y-auto max-sm:overscroll-contain",
@@ -82,7 +82,7 @@ function DialogContent({
               <XIcon />
               <span className="sr-only">Close</span>
             </DialogPrimitive.Close>
-            {/* Mobile · explicit Back pill — every feature returns to the app */}
+            {/* Mobile · explicit Back pill - every feature returns to the app */}
             <DialogPrimitive.Close
               data-slot="dialog-back"
               className="absolute top-3 right-3 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-card border border-border shadow-sm text-xs font-medium text-foreground hover:bg-accent transition-colors focus:ring-2 focus:ring-ring focus:outline-hidden sm:hidden"

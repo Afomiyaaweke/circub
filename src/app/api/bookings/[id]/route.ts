@@ -1,4 +1,4 @@
-// PATCH /api/bookings/[id] — status transitions.
+// PATCH /api/bookings/[id] - status transitions.
 //   guide:   PENDING -> ACCEPTED | DECLINED ; ACCEPTED -> COMPLETED (+reply)
 //   tourist: PENDING -> CANCELLED
 import { NextRequest, NextResponse } from 'next/server'

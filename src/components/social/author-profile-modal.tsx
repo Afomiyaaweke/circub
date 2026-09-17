@@ -1,9 +1,9 @@
 'use client'
 
-// AuthorProfileModal — opens when you tap a person's name or avatar on a
+// AuthorProfileModal - opens when you tap a person's name or avatar on a
 // feed post (or on one of the comments). Shows who they are at a glance and
 // links through to their full shareable profile at /u/<username> when they
-// have one. Public data only — same fields the public profile page shows.
+// have one. Public data only - same fields the public profile page shows.
 
 import { useEffect, useState } from 'react'
 import { X, MapPin, BadgeCheck, Briefcase, MessageCircle, Heart, MessageSquare, User2, ExternalLink, Sparkles } from 'lucide-react'
@@ -60,7 +60,7 @@ function timeAgo(dateStr: string) {
 
 function priceLabel(cur: string, min: number, max: number) {
   const fmt = (n: number) => (Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2))
-  return min !== max ? `${cur} ${fmt(min)} – ${fmt(max)}` : `${cur} ${fmt(min)}`
+  return min !== max ? `${cur} ${fmt(min)} - ${fmt(max)}` : `${cur} ${fmt(min)}`
 }
 
 export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }: AuthorProfileModalProps) {

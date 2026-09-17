@@ -55,7 +55,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
   }
 
   const handleSubmit = async () => {
-    // Guest users can't post — prompt them to register
+    // Guest users can't post - prompt them to register
     if (user.id === 'guest') {
       toast({
         title: 'Sign up to post',

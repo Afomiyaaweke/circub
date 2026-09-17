@@ -20,7 +20,7 @@ interface ResultsPanelProps {
   result: ScanResult | null
   loading: boolean
   error: string | null
-  /** While set, the AI was too busy to scan — the captured photo is held and
+  /** While set, the AI was too busy to scan - the captured photo is held and
    *  re-posted automatically. Shown as an amber "on hold, retrying" card. */
   retrying?: ScanRetryInfo | null
   onAskGuide?: (itemName: string, location?: { city?: string | null; country?: string | null }) => void
@@ -95,12 +95,12 @@ function RetryState({ info }: { info: ScanRetryInfo }) {
       <div className="flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1">
         <Hourglass className="h-3.5 w-3.5 animate-pulse text-amber-500" />
         <p className="text-xs font-semibold text-amber-700">
-          AI is busy — retrying in {info.secondsLeft}s ({info.attempt} of {info.max})
+          AI is busy - retrying in {info.secondsLeft}s ({info.attempt} of {info.max})
         </p>
       </div>
       <p className="flex max-w-xs items-start gap-1.5 text-xs leading-relaxed text-zinc-500">
         <Camera className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-        Your photo is captured and safe. The scan will send itself automatically — keep the camera pointed at the item.
+        Your photo is captured and safe. The scan will send itself automatically - keep the camera pointed at the item.
       </p>
     </motion.div>
   )
@@ -154,7 +154,7 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
         {price?.summary && <p className="mt-2 text-xs leading-relaxed text-zinc-500">{price.summary}</p>}
       </div>
 
-      {/* Ask a Guide button — for both guest and registered users */}
+      {/* Ask a Guide button - for both guest and registered users */}
       {onAskGuide && item.name && item.name !== 'Unknown item' && (
         <Button
           onClick={() => onAskGuide(item.name, { city: location?.city, country: location?.country })}
@@ -167,7 +167,7 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
 
       {sources.length > 0 && <SourcesList sources={sources} />}
 
-      {/* Local price posts from the circub DB — real prices from locals,
+      {/* Local price posts from the circub DB - real prices from locals,
           ranked by the scan location (city > country > elsewhere). Posts
           inside the user's location get a "Near you" badge so the location
           comparison is obvious at a glance. */}
@@ -190,7 +190,7 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium text-zinc-900 truncate">{post.productName}</span>
                     <span className="text-sm font-bold text-emerald-700 shrink-0">
-                      {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `–${post.priceMax}` : ''}
+                      {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `-${post.priceMax}` : ''}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">

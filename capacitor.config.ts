@@ -1,10 +1,10 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * circub — Android app wrapper.
+ * circub - Android app wrapper.
  *
  * The native shell loads the LIVE Vercel deployment, so every web fix
- * (prices, guides, bookings, AI) reaches Android instantly — no app
+ * (prices, guides, bookings, AI) reaches Android instantly - no app
  * update needed for content or UX changes.
  *
  * Build the APK: see ANDROID-APP.md
@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
   // Static fallback assets copied into the APK (the app itself loads server.url)
   webDir: 'public',
   server: {
-    // Live deployment — change here if the domain ever moves
+    // Live deployment - change here if the domain ever moves
     url: 'https://circub.vercel.app',
     androidScheme: 'https',
     // Keep navigations inside the app instead of opening the browser

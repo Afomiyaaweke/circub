@@ -83,7 +83,7 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
                 </h2>
                 {data.profile.verifiedLocal && <p className="text-xs text-primary font-medium">Verified Local</p>}
               </div>
-              {/* Message this poster straight from their profile — hidden on your own */}
+              {/* Message this poster straight from their profile - hidden on your own */}
               {onMessage && data.profile.id !== currentUserId && (
                 <Button
                   size="sm"

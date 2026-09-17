@@ -1,17 +1,17 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 
-// Shared NextAuth options — imported by BOTH:
+// Shared NextAuth options - imported by BOTH:
 //   1. the [...nextauth] route handler (encrypts the session JWT), and
 //   2. every getServerSession() call (decrypts it).
 //
 // getServerSession() called WITHOUT options (or with a different secret) can
 // never decode the session cookie: it falls back to NEXTAUTH_SECRET/AUTH_SECRET
-// only and would silently return null — Google users would complete the OAuth
+// only and would silently return null - Google users would complete the OAuth
 // dance and still appear signed out. Passing these exact options everywhere
 // keeps the secret and provider config identical on both sides.
 //
-// Dynamic NextAuth URL — works on Vercel production + preview + localhost.
+// Dynamic NextAuth URL - works on Vercel production + preview + localhost.
 //
 // CRITICAL for Google OAuth: the redirect_uri we send to Google MUST match
 // what's in Google Cloud Console → Authorized redirect URIs.
@@ -24,7 +24,7 @@ import GoogleProvider from 'next-auth/providers/google'
 //   3. NODE_ENV=development → http://localhost:3000 (local dev fallback)
 //   4. undefined (let NextAuth infer from the request host)
 //
-// IMPORTANT — the matching redirect URI must exist in Google Console:
+// IMPORTANT - the matching redirect URI must exist in Google Console:
 //   - For production: https://circub.vercel.app/api/auth/callback/google
 //   - For each preview URL you want to test: https://<preview>.vercel.app/api/auth/callback/google
 //   - For local dev: http://localhost:3000/api/auth/callback/google
@@ -35,11 +35,11 @@ function getAuthUrl(): string | undefined {
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
 
   if (process.env.NEXTAUTH_URL) {
-    // On Vercel production, ignore NEXTAUTH_URL=http://localhost:* — it's almost
+    // On Vercel production, ignore NEXTAUTH_URL=http://localhost:* - it's almost
     // always a leaked local-dev value that breaks OAuth.
     if (isProd && process.env.NEXTAUTH_URL.startsWith('http://localhost')) {
       console.warn(
-        `[nextauth] NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL} on production — ignoring and falling back to VERCEL_URL. To use a custom domain, set NEXTAUTH_URL=https://yourdomain.com (NOT localhost).`
+        `[nextauth] NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL} on production - ignoring and falling back to VERCEL_URL. To use a custom domain, set NEXTAUTH_URL=https://yourdomain.com (NOT localhost).`
       )
     } else {
       return process.env.NEXTAUTH_URL
@@ -52,7 +52,7 @@ function getAuthUrl(): string | undefined {
 }
 
 // `url` is consumed by NextAuth's core at runtime (base url for redirects)
-// but is missing from the published NextAuthOptions type — intersect it in.
+// but is missing from the published NextAuthOptions type - intersect it in.
 export const nextAuthOptions: NextAuthOptions & { url?: string } = {
   providers: [
     GoogleProvider({

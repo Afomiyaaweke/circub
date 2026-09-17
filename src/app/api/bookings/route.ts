@@ -1,4 +1,4 @@
-// GET /api/bookings — all bookings involving the logged-in user:
+// GET /api/bookings - all bookings involving the logged-in user:
 //   incoming (I am the guide) + outgoing (I am the tourist).
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'

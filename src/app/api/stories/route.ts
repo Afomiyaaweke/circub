@@ -1,17 +1,17 @@
-// Stories: 24-hour photo posts (Instagram-style) — list active + create
+// Stories: 24-hour photo posts (Instagram-style) - list active + create
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 
 const STORY_TTL_MS = 24 * 60 * 60 * 1000
 
-// GET /api/stories — every active (non-expired) story with its author,
+// GET /api/stories - every active (non-expired) story with its author,
 // oldest-first so the client can group per author chronologically.
 // Expired stories are swept opportunistically on every read.
 export async function GET() {
   try {
     const now = new Date()
-    // Opportunistic cleanup — keeps the table small without a cron job.
+    // Opportunistic cleanup - keeps the table small without a cron job.
     db.story.deleteMany({ where: { expiresAt: { lt: now } } }).catch(() => {})
     const stories = await db.story.findMany({
       where: { expiresAt: { gt: now } },
@@ -23,7 +23,7 @@ export async function GET() {
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }
 
-// POST /api/stories — create a story from an uploaded image (data URL).
+// POST /api/stories - create a story from an uploaded image (data URL).
 export async function POST(req: NextRequest) {
   try {
     const me = await getCurrentUser()

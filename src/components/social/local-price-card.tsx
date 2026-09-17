@@ -30,7 +30,7 @@ function formatPrice(value: number, currency: string) {
   return `${currency} ${value}`
 }
 
-// Compact template — the old card stacked a full-width photo (up to ~200px),
+// Compact template - the old card stacked a full-width photo (up to ~200px),
 // a big gradient price box, a separate tourist-price box, a tip, a contact
 // panel, a share row, an author row and a vote row: ~700px per card on a
 // phone. Everything kept, but tightened: photo is a side thumbnail, price is
@@ -62,8 +62,8 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   const handleShare = async () => {
     const url = `${window.location.origin}/?post=${post.id}`
     const shareData = {
-      title: `${post.productName} — circub`,
-      text: `Check this price on circub: ${post.productName} in ${post.country} — ${post.currency} ${post.priceMin}-${post.priceMax}`,
+      title: `${post.productName} - circub`,
+      text: `Check this price on circub: ${post.productName} in ${post.country} - ${post.currency} ${post.priceMin}-${post.priceMax}`,
       url,
     }
     try {
@@ -77,7 +77,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         window.prompt('Copy this link:', url)
       }
     } catch (e) {
-      // User cancelled share or clipboard failed — try fallback
+      // User cancelled share or clipboard failed - try fallback
       if (e instanceof Error && e.name !== 'AbortError') {
         try {
           await navigator.clipboard.writeText(url)
@@ -98,7 +98,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             {post.postType === 'SERVICE' ? 'Service' : 'Product'}
           </Badge>
           <span className="text-[10px] text-muted-foreground truncate">{post.category}</span>
-          {/* Freshness — how old this price is (amber warning once outside the history's Current window) */}
+          {/* Freshness - how old this price is (amber warning once outside the history's Current window) */}
           <span className={cn('ml-auto flex items-center gap-0.5 shrink-0 text-[10px] px-1 rounded', freshnessClasses[freshnessLevel(post.createdAt)])} title={freshnessTitle(post.createdAt)}>
             <Clock className="w-2.5 h-2.5" />
             {timeAgoLabel(post.createdAt)}
@@ -146,7 +146,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         )}
       </div>
 
-      {/* Row 3: one-line price strip — fair price and tourist price inline */}
+      {/* Row 3: one-line price strip - fair price and tourist price inline */}
       <div className="mt-2 px-2.5 py-2 rounded-lg bg-gradient-to-br from-primary/10 to-emerald-50 border border-primary/20">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Typical local price</span>
@@ -179,7 +179,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </div>
       )}
 
-      {/* Contact info — compact chip row */}
+      {/* Contact info - compact chip row */}
       {!compact && (post.contactPhone || post.contactEmail || post.contactWhatsApp) && (
         <div className="mt-2 p-2 rounded-md bg-blue-50 border border-blue-200">
           <p className="text-[10px] font-semibold text-blue-900 mb-1">Contact the local</p>
@@ -206,7 +206,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </div>
       )}
 
-      {/* Message the poster — full-width row under the post itself, always
+      {/* Message the poster - full-width row under the post itself, always
           labeled (the old footer button was an unlabeled icon on phones).
           Hidden on your own posts and in compact mode. */}
       {onMessage && !canEdit && !canDelete && !compact && (
@@ -221,7 +221,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </Button>
       )}
 
-      {/* Footer: author left — Details / Save / Share right (share was its own row before) */}
+      {/* Footer: author left - Details / Save / Share right (share was its own row before) */}
       <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between gap-2">
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
           <Avatar className="w-7 h-7 border border-accent shrink-0 overflow-hidden">

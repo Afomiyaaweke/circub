@@ -1,5 +1,5 @@
-// GET /api/users/[id] — public author profile for the "tap a name on a post"
-// profile modal. Public fields only — never email, never any document URL.
+// GET /api/users/[id] - public author profile for the "tap a name on a post"
+// profile modal. Public fields only - never email, never any document URL.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 

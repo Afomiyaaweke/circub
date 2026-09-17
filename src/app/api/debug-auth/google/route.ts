@@ -18,14 +18,14 @@ export async function GET(req: NextRequest) {
     session = { error: e.message }
   }
 
-  // Detect the runtime URL — same logic as NextAuth getAuthUrl()
+  // Detect the runtime URL - same logic as NextAuth getAuthUrl()
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
   let runtimeUrl: string | null = null
   let urlSource: string | null = null
 
   if (process.env.NEXTAUTH_URL) {
     if (isProd && process.env.NEXTAUTH_URL.startsWith('http://localhost')) {
-      urlSource = 'NEXTAUTH_URL (ignored in production — falls through to request host / VERCEL_URL)'
+      urlSource = 'NEXTAUTH_URL (ignored in production - falls through to request host / VERCEL_URL)'
     } else {
       runtimeUrl = process.env.NEXTAUTH_URL
       urlSource = 'NEXTAUTH_URL'
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
       // Things to verify when Google sign-in fails
       step1_redirectUriInGoogle: `Add ${redirectUri || '(unknown)'} to Google Cloud Console → Credentials → Authorized redirect URIs`,
       step2_clientSecretOnVercel: 'Set GOOGLE_CLIENT_SECRET in Vercel env vars (Production + Preview)',
-      step3_noLocalhostNextAuthUrl: 'Do NOT set NEXTAUTH_URL=http://localhost:3000 on Vercel — delete it or set it to your Vercel domain',
+      step3_noLocalhostNextAuthUrl: 'Do NOT set NEXTAUTH_URL=http://localhost:3000 on Vercel - delete it or set it to your Vercel domain',
       step4_sessionSecret: 'Set SESSION_SECRET and NEXTAUTH_SECRET to the same value on Vercel',
     },
   })

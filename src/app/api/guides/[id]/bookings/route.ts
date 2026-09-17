@@ -1,6 +1,6 @@
 // Bookings for one guide:
-//   POST /api/guides/[id]/bookings — tourist creates a booking request
-//   GET  /api/guides/[id]/bookings — bookings between the logged-in user and this guide
+//   POST /api/guides/[id]/bookings - tourist creates a booking request
+//   GET  /api/guides/[id]/bookings - bookings between the logged-in user and this guide
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'

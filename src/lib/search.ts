@@ -1,7 +1,7 @@
 // Case-insensitive `contains` matching that works on BOTH database connectors.
 //
 // WHY THIS EXISTS: production (Vercel) runs PostgreSQL, where Prisma's
-// `contains` is CASE-SENSITIVE — searching "dax" does NOT match a post
+// `contains` is CASE-SENSITIVE - searching "dax" does NOT match a post
 // named "DAX". Local development runs SQLite, where `contains` compiles to
 // SQLite's LIKE and IS case-insensitive. That asymmetry made every search
 // (camera search, name search, feed search) work in dev and then "not find"
@@ -17,7 +17,7 @@ export function isSqliteDatabase(): boolean {
 }
 
 // Deep-walks a Prisma `where` object and adds `mode: 'insensitive'` to every
-// string `contains` filter (Postgres only — SQLite is already case-insensitive
+// string `contains` filter (Postgres only - SQLite is already case-insensitive
 // and errors on `mode`). Call sites just wrap their existing where:
 //   db.localPricePost.findMany({ where: caseInsensitiveWhere(where), ... })
 export function caseInsensitiveWhere<T>(where: T): T {

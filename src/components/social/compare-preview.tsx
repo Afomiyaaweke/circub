@@ -52,7 +52,7 @@ export function ComparePreview({
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Couldn&apos;t identify this product confidently — no comparison found.
+              Couldn&apos;t identify this product confidently - no comparison found.
             </p>
           )}
           {/* Location compare strip */}
@@ -60,7 +60,7 @@ export function ComparePreview({
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
               <TrendingUp className="w-3.5 h-3.5 text-primary" />
               <span className="font-semibold text-foreground">
-                {lc.currency} {fmt(lc.min)}–{fmt(lc.max)}
+                {lc.currency} {fmt(lc.min)}-{fmt(lc.max)}
               </span>
               <span>
                 · {lc.count} price{lc.count !== 1 ? 's' : ''} posted in{' '}
@@ -92,7 +92,7 @@ export function ComparePreview({
                 </p>
               </div>
               <p className="text-sm font-semibold text-primary shrink-0">
-                {m.currency} {fmt(m.priceMin)}–{fmt(m.priceMax)}
+                {m.currency} {fmt(m.priceMin)}-{fmt(m.priceMax)}
               </p>
             </li>
           ))}
@@ -103,14 +103,14 @@ export function ComparePreview({
       {matches.length === 0 && result.aiPriceEstimate && (
         <p className="px-4 py-3 text-xs text-muted-foreground flex items-center gap-1.5">
           <TrendingUp className="w-3.5 h-3.5 text-primary" />
-          AI estimate: {result.aiPriceEstimate.currency} {fmt(result.aiPriceEstimate.min)}–
-          {fmt(result.aiPriceEstimate.max)} · no similar posts yet — yours will be the first
+          AI estimate: {result.aiPriceEstimate.currency} {fmt(result.aiPriceEstimate.min)}-
+          {fmt(result.aiPriceEstimate.max)} · no similar posts yet - yours will be the first
         </p>
       )}
       {matches.length === 0 && !result.aiPriceEstimate && result.identified && (
         <p className="px-4 py-3 text-xs text-muted-foreground flex items-center gap-1.5">
           <PackageSearch className="w-3.5 h-3.5" />
-          No similar posts found — your price will be the first reference for this product.
+          No similar posts found - your price will be the first reference for this product.
         </p>
       )}
     </div>

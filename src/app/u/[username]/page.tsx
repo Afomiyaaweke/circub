@@ -1,8 +1,8 @@
 // ============================================================================
-// /u/[username] — the shareable public profile.
+// /u/[username] - the shareable public profile.
 // This is where a profile's unique ID lands: circub.app/u/<username>.
 // Works logged-out (that is the point of sharing), queries the DB directly
-// server-side and exposes ONLY public fields — never email, never the
+// server-side and exposes ONLY public fields - never email, never the
 // verification document (that lives exclusively behind GET /api/verification
 // for its owner).
 // ============================================================================
@@ -24,7 +24,7 @@ const AVATAR_COLORS: Record<string, string> = {
 
 function priceLabel(cur: string, min?: number | null, max?: number | null) {
   const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
-  if (min != null && max != null && min !== max) return `${cur} ${fmt(min)} – ${fmt(max)}`
+  if (min != null && max != null && min !== max) return `${cur} ${fmt(min)} - ${fmt(max)}`
   if (min != null) return `${cur} ${fmt(min)}`
   if (max != null) return `${cur} ${fmt(max)}`
   return cur
@@ -100,7 +100,7 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
           </div>
           <h1 className="text-xl font-bold text-foreground">Profile not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            No one uses <span className="font-semibold">@{normalizeUsername(username)}</span> here yet — the link may be mistyped or the profile was removed.
+            No one uses <span className="font-semibold">@{normalizeUsername(username)}</span> here yet - the link may be mistyped or the profile was removed.
           </p>
           <Button asChild className="mt-5 rounded-full"><Link href="/">Open circub</Link></Button>
         </div>
@@ -197,7 +197,7 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{l.productName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{[l.city, l.country].filter(Boolean).join(', ') || '—'} · {l.postType === 'SERVICE' ? 'Service' : 'Product'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{[l.city, l.country].filter(Boolean).join(', ') || '-'} · {l.postType === 'SERVICE' ? 'Service' : 'Product'}</p>
                   </div>
                   <span className="text-sm font-bold text-primary shrink-0">{priceLabel(l.currency, l.priceMin, l.priceMax)}</span>
                 </li>
@@ -229,7 +229,7 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
 
         {/* footer CTA */}
         <div className="mt-10 text-center">
-          <p className="text-xs text-muted-foreground mb-3">Know what things actually cost — from the locals.</p>
+          <p className="text-xs text-muted-foreground mb-3">Know what things actually cost - from the locals.</p>
           <Button asChild className="rounded-full"><Link href="/">Open circub</Link></Button>
         </div>
       </div>

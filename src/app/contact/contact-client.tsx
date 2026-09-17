@@ -1,11 +1,11 @@
 'use client'
 
-// Contact Us — "Send Us a Message" form + "Get in Touch" info panel.
+// Contact Us - "Send Us a Message" form + "Get in Touch" info panel.
 // Contact information matches the approved design EXACTLY:
 //   PHONE: +251 956 140 291
 //   SUPPORT: support@tenetbid.com
 //   GENERAL INQUIRIES: contact@tenetbid.com
-//   BUSINESS HOURS: Mon-Fri: 8:30 AM – 5:30 PM EAT, Sat: 9:00 AM – 1:00 PM EAT
+//   BUSINESS HOURS: Mon-Fri: 8:30 AM - 5:30 PM EAT, Sat: 9:00 AM - 1:00 PM EAT
 
 import { useState } from 'react'
 import {
@@ -61,7 +61,7 @@ export function ContactClient() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* ===== Top bar — dark navy ===== */}
+      {/* ===== Top bar - dark navy ===== */}
       <header className="bg-slate-900 text-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
           <a
@@ -73,14 +73,14 @@ export function ContactClient() {
           </a>
           <h1 className="text-3xl sm:text-4xl font-bold">Contact Us</h1>
           <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
-            Questions, feedback or partnership ideas — we would love to hear from you.
+            Questions, feedback or partnership ideas - we would love to hear from you.
           </p>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-          {/* ===== Left — Send Us a Message ===== */}
+          {/* ===== Left - Send Us a Message ===== */}
           <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
             <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center mb-4">
               <MessagesSquare className="w-6 h-6 text-white" />
@@ -103,7 +103,7 @@ export function ContactClient() {
                 <CircleCheck className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
                 <p className="font-semibold text-slate-900">Message sent!</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  Thanks for reaching out — we will reply to <span className="font-medium">{email}</span> as
+                  Thanks for reaching out - we will reply to <span className="font-medium">{email}</span> as
                   soon as possible.
                 </p>
                 <button
@@ -201,7 +201,7 @@ export function ContactClient() {
             )}
           </section>
 
-          {/* ===== Right — Get in Touch ===== */}
+          {/* ===== Right - Get in Touch ===== */}
           <section className="space-y-5">
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
@@ -210,7 +210,7 @@ export function ContactClient() {
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Get in Touch</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Reach us directly through any of the channels below — we typically respond within one
+                  Reach us directly through any of the channels below - we typically respond within one
                   business day.
                 </p>
               </div>
@@ -275,8 +275,8 @@ export function ContactClient() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Business Hours
                 </p>
-                <p className="mt-0.5 font-semibold text-slate-900">Mon-Fri: 8:30 AM – 5:30 PM EAT</p>
-                <p className="text-sm text-slate-600">Sat: 9:00 AM – 1:00 PM EAT</p>
+                <p className="mt-0.5 font-semibold text-slate-900">Mon-Fri: 8:30 AM - 5:30 PM EAT</p>
+                <p className="text-sm text-slate-600">Sat: 9:00 AM - 1:00 PM EAT</p>
               </div>
             </div>
           </section>

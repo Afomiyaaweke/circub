@@ -21,7 +21,7 @@ interface HeaderProps {
   onDeactivateAccount: () => void
 }
 
-// Bookmark and Network live inside the Profile tab now (Instagram-style) —
+// Bookmark and Network live inside the Profile tab now (Instagram-style) -
 // the top nav keeps the four top-level destinations.
 const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
   { key: 'feed', label: 'Feed', icon: Sparkles },
@@ -76,7 +76,7 @@ export function Header({
           </div>
         </div>
 
-        {/* Nav tabs · desktop only — phones get the bottom tab bar below */}
+        {/* Nav tabs · desktop only - phones get the bottom tab bar below */}
         {user && (
           <nav className="hidden md:flex items-center gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-start">
             {TABS.map((tab) => {
@@ -250,7 +250,7 @@ export function Header({
       </div>
     </header>
 
-    {/* Mobile bottom tab bar — the same tabs, docked to the bottom on phones.
+    {/* Mobile bottom tab bar - the same tabs, docked to the bottom on phones.
         Fixed + safe-area padding so it clears the home indicator. */}
     {user && (
       <nav

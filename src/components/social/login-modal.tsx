@@ -107,7 +107,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
       })
       return
     }
-    // NextAuth v4 handshake — see src/lib/google-signin.ts for why a plain
+    // NextAuth v4 handshake - see src/lib/google-signin.ts for why a plain
     // GET redirect can never start the OAuth flow.
     setGoogleLoading(true)
     const ok = await startGoogleSignIn()
@@ -141,7 +141,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
         )}
 
         <div className="space-y-4">
-          {/* Google Sign In — only render if configured */}
+          {/* Google Sign In - only render if configured */}
           {googleConfigured !== false && (
             <Button
               onClick={handleGoogleSignIn}

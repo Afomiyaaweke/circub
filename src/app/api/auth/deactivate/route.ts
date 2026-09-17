@@ -1,4 +1,4 @@
-// POST /api/auth/deactivate — user-initiated account deactivation.
+// POST /api/auth/deactivate - user-initiated account deactivation.
 //
 // Flow (matches the "Deactivate account" button next to Sign out):
 //   1. Requires a live session.
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const reason = sanitizeInput(String(body.reason || ''), 2000)
     if (!reason || reason.length < 3) {
       return NextResponse.json(
-        { error: 'Please tell us why you are leaving (at least a few words) — it helps us improve circub.' },
+        { error: 'Please tell us why you are leaving (at least a few words) - it helps us improve circub.' },
         { status: 400 }
       )
     }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     })
 
     // 2) Put the reason into the contact-us email pipeline (same table the
-    //    /contact "Send Us a Message" form writes to — one inbox for the team).
+    //    /contact "Send Us a Message" form writes to - one inbox for the team).
     try {
       await db.contactMessage.create({
         data: {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         },
       })
     } catch (mailErr) {
-      // Deactivation itself must not fail if the inbox write fails — log it.
+      // Deactivation itself must not fail if the inbox write fails - log it.
       console.error('[deactivate] failed to forward reason to contact inbox:', mailErr)
     }
 
