@@ -15,6 +15,7 @@ export async function GET() {
             avatarColor: true,
             isLocal: true,
             verifiedLocal: true,
+            idVerified: true,
             rating: true,
             location: true,
           },

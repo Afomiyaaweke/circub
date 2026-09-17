@@ -811,6 +811,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     <div className="flex items-center gap-1">
                       <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
                       {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
+                      {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
                       {g.guideLicense && (
                         <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">
                           <Award className="w-2.5 h-2.5 mr-0.5" />

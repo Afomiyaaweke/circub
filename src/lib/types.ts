@@ -39,6 +39,11 @@ export interface User {
   guideIdDocType?: 'ID' | 'PASSPORT' | string | null
   hasIdDoc?: boolean
   idVerified?: boolean
+  // Account verification via ID/passport upload (badge + doc type only —
+  // the document image itself is never sent to the client through /me).
+  userIdDocType?: 'ID' | 'PASSPORT' | string | null
+  hasUserIdDoc?: boolean
+  verifiedAt?: string | null
   phone?: string | null
   whatsapp?: string | null
 }
@@ -75,6 +80,7 @@ export interface Post {
     avatarColor: string
     headline?: string | null
     location?: string | null
+    idVerified?: boolean
   }
   likes: { id: string; userId: string }[]
   comments: Comment[]
@@ -90,6 +96,7 @@ export interface Comment {
     name: string
     avatarColor: string
     headline?: string | null
+    idVerified?: boolean
   }
   createdAt: string
 }
@@ -161,6 +168,7 @@ export interface LocalPriceAuthor {
   avatarColor: string
   isLocal?: boolean
   verifiedLocal?: boolean
+  idVerified?: boolean
   rating?: number
   helpfulVotes?: number
   localPostCount?: number

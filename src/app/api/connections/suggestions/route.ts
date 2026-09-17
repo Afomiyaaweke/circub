@@ -35,6 +35,7 @@ export async function GET() {
         connectionsCount: true,
         isLocal: true,
         verifiedLocal: true,
+        idVerified: true,
         companyName: true,
         companyIndustry: true,
       },

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const where: any = { productName: { contains: productName }, country: { contains: country } }
     if (city) where.city = { contains: city }
     if (postId) where.id = { not: postId }
-    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy: { createdAt: 'desc' }, take: 50, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, rating: true } } } })
+    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy: { createdAt: 'desc' }, take: 50, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, idVerified: true, rating: true } } } })
     if (posts.length === 0) return NextResponse.json({ consensus: null })
     const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
     const priceMins = posts.map((p) => p.priceMin), priceMaxes = posts.map((p) => p.priceMax)
@@ -24,6 +24,6 @@ export async function GET(req: NextRequest) {
     const avgTouristPrice = touristPrices.length ? Math.round(touristPrices.reduce((a, b) => a + b, 0) / touristPrices.length) : null
     let verdict: 'fair' | 'expensive' | 'cheap' | 'unknown' = 'unknown'
     if (recommendedPrice && avgTouristPrice) { const ratio = avgTouristPrice / recommendedPrice; verdict = ratio > 1.5 ? 'expensive' : 'fair' }
-    return NextResponse.json({ consensus: { productName, country, city: city || null, currency: posts[0].currency, avgPriceMin, avgPriceMax, recommendedPrice, avgTouristPrice, reportCount: posts.length, verdict, contributingPosts: posts.map((p) => ({ id: p.id, productName: p.productName, priceMin: p.priceMin, priceMax: p.priceMax, recommendedPrice: p.recommendedPrice, helpfulCount: p.helpfulCount, createdAt: p.createdAt, author: { id: p.author.id, name: p.author.name, avatarColor: p.author.avatarColor, verifiedLocal: p.author.verifiedLocal, rating: p.author.rating } })) } })
+    return NextResponse.json({ consensus: { productName, country, city: city || null, currency: posts[0].currency, avgPriceMin, avgPriceMax, recommendedPrice, avgTouristPrice, reportCount: posts.length, verdict, contributingPosts: posts.map((p) => ({ id: p.id, productName: p.productName, priceMin: p.priceMin, priceMax: p.priceMax, recommendedPrice: p.recommendedPrice, helpfulCount: p.helpfulCount, createdAt: p.createdAt, author: { id: p.author.id, name: p.author.name, avatarColor: p.author.avatarColor, verifiedLocal: p.author.verifiedLocal, idVerified: p.author.idVerified, rating: p.author.rating } })) } })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

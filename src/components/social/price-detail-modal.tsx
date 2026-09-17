@@ -403,6 +403,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               {cp.author.verifiedLocal && (
                                 <BadgeCheck className="w-3 h-3 text-primary shrink-0" />
                               )}
+                              {cp.author.idVerified && (
+                                <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />
+                              )}
                             </div>
                             <span className="text-muted-foreground shrink-0">
                               {formatPrice(cp.priceMin, consensus.currency)} – {formatPrice(cp.priceMax, consensus.currency)}
@@ -485,6 +488,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {post.author.name}
                       {post.author.verifiedLocal && (
                         <BadgeCheck className="w-4 h-4 text-primary" />
+                      )}
+                      {post.author.idVerified && (
+                        <BadgeCheck className="w-4 h-4 text-blue-500" aria-label="Verified with ID or passport" />
                       )}
                     </p>
                     {post.author.verifiedLocal && (

@@ -16,7 +16,7 @@ export async function GET() {
     const stories = await db.story.findMany({
       where: { expiresAt: { gt: now } },
       orderBy: { createdAt: 'asc' },
-      include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, isLocal: true } } },
+      include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, isLocal: true, idVerified: true } } },
       take: 200,
     })
     return NextResponse.json({ stories })
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const now = new Date()
     const story = await db.story.create({
       data: { imageUrl, caption: caption || null, authorId: me.id, createdAt: now, expiresAt: new Date(now.getTime() + STORY_TTL_MS) },
-      include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, isLocal: true } } },
+      include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, isLocal: true, idVerified: true } } },
     })
     return NextResponse.json({ story }, { status: 201 })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }

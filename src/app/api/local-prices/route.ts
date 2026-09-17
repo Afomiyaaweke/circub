@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     if (sort === 'popular') orderBy = { helpfulCount: 'desc' }
     let me: any = null
     try { const s = await getCurrentUser(); if (s) me = await db.user.findUnique({ where: { id: s.id }, include: { localPriceVotes: true } }) } catch {}
-    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true }, take: 100 })
+    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true }, take: 100 })
     const result = posts.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote }
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         imageUrl: body.imageUrl || null,
         authorId: me.id,
       },
-      include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } } },
+      include: { author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } } },
     })
     await db.user.update({ where: { id: me.id }, data: updates })
     return NextResponse.json({ post }, { status: 201 })

@@ -66,6 +66,13 @@ export async function GET() {
       // NEVER the image itself (a multi-MB data URL would bloat every load).
       guideIdDocType: me.guideIdDocType,
       hasIdDoc: !!me.guideIdDocUrl,
+      // Account verification (ID/passport upload): the badge flag + document
+      // type only. The image is fetched separately by its owner via
+      // GET /api/verification — never shipped through /me.
+      idVerified: me.idVerified || !!me.guideIdDocUrl,
+      userIdDocType: me.userIdDocType,
+      hasUserIdDoc: !!me.userIdDocUrl,
+      verifiedAt: me.verifiedAt,
     })
   } catch (error) {
     console.error('Failed to fetch current user:', error)

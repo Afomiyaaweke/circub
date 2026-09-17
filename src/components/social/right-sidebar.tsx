@@ -313,6 +313,9 @@ export function RightSidebar({
                     {p.author.verifiedLocal && (
                       <BadgeCheck className="w-3 h-3 text-primary" />
                     )}
+                    {p.author.idVerified && (
+                      <BadgeCheck className="w-3 h-3 text-blue-500" aria-label="Verified with ID or passport" />
+                    )}
                   </div>
                 </div>
               </button>

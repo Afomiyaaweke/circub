@@ -235,6 +235,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             <p className="text-xs font-medium text-foreground truncate flex items-center gap-1">
               {post.author.name}
               {post.author.verifiedLocal && <BadgeCheck className="w-3 h-3 text-primary shrink-0" />}
+              {post.author.idVerified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
             </p>
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               {post.author.verifiedLocal && <span className="text-primary font-medium">Verified Local</span>}

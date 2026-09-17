@@ -20,7 +20,7 @@ interface ProfileData {
   profile: {
     id: string; name: string; avatarColor: string; profilePicture?: string | null
     bio?: string | null; headline?: string | null; location?: string | null
-    isLocal?: boolean; verifiedLocal?: boolean; rating?: number
+    isLocal?: boolean; verifiedLocal?: boolean; idVerified?: boolean; rating?: number
     expertiseTags?: string[]; helpfulVotes?: number; localPostCount?: number; createdAt?: string
   } | null
   posts: Array<{
@@ -79,6 +79,7 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
                 <h2 className="text-lg font-bold text-foreground flex items-center gap-1.5">
                   {data.profile.name}
                   {data.profile.verifiedLocal && <BadgeCheck className="w-5 h-5 text-primary" />}
+                  {data.profile.idVerified && <BadgeCheck className="w-5 h-5 text-blue-500" aria-label="Verified with ID or passport" />}
                 </h2>
                 {data.profile.verifiedLocal && <p className="text-xs text-primary font-medium">Verified Local</p>}
               </div>

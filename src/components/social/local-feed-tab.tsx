@@ -970,6 +970,7 @@ function LocalMatchCard({ post, onOpen }: { post: any; onOpen: (id: string) => v
         <MapPin className="w-3 h-3 shrink-0" />
         <span className="truncate">{[post.city, post.country].filter(Boolean).join(', ')}</span>
         {post.author?.verifiedLocal && <BadgeCheck className="w-3 h-3 text-emerald-500 shrink-0" />}
+        {post.author?.idVerified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
         <span className="truncate">{post.author?.name}</span>
       </div>
     </button>

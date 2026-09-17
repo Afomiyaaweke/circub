@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
         author: {
           select: {
             id: true, name: true, avatarColor: true, profilePicture: true,
-            headline: true, location: true,
+            headline: true, location: true, idVerified: true,
           },
         },
         likes: true,
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
             author: {
               select: {
                 id: true, name: true, avatarColor: true, profilePicture: true,
-                headline: true,
+                headline: true, idVerified: true,
               },
             },
           },
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         author: {
           select: {
             id: true, name: true, avatarColor: true, profilePicture: true,
-            headline: true, location: true,
+            headline: true, location: true, idVerified: true,
           },
         },
         likes: true,

@@ -10,8 +10,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Award, BadgeCheck, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, DollarSign, Image as ImageIcon, Languages, Loader2,
-  Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Sparkles, Star, Trash2, UserCircle, Users, X,
+  Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, Loader2,
+  Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, ShieldCheck, Sparkles, Star, Trash2, UserCircle, Users, X,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -142,6 +142,20 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const avatarFileRef = useRef<HTMLInputElement>(null)
   const isGuide = Boolean(me.isGuide)
 
+  // ---------------------------------------------- verification (ID/passport)
+  // The uploaded document is PRIVATE — it lives in the DB and is only ever
+  // returned to its owner via GET /api/verification. Everyone else just sees
+  // the idVerified boolean rendered as a blue badge next to the name.
+  const [verifying, setVerifying] = useState(false)
+  const [docType, setDocType] = useState<'ID' | 'PASSPORT'>('ID')
+  const [docPreview, setDocPreview] = useState<string | null>(null)
+  const [docOnFile, setDocOnFile] = useState<{ docType?: string | null; docUrl: string | null; verifiedAt?: string | null; guideDocOnFile?: boolean } | null>(null)
+  const [docBusy, setDocBusy] = useState(false)
+  const [submittingVerif, setSubmittingVerif] = useState(false)
+  const [confirmUnverify, setConfirmUnverify] = useState(false)
+  const docFileRef = useRef<HTMLInputElement>(null)
+  const isIdVerified = Boolean(me.idVerified) || Boolean((me as any).hasUserIdDoc)
+
   const fetchAll = useCallback(async () => {
     if (isGuest) return
     setLoading(true)
@@ -256,6 +270,77 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         .catch(() => {})
     }
   }, [me])
+
+  // ------------------------------------------------------- verification flow
+  const openVerification = useCallback(() => {
+    const t = (me as any).userIdDocType
+    setDocType(t === 'PASSPORT' ? 'PASSPORT' : 'ID')
+    setDocPreview(null)
+    setDocOnFile(null)
+    setVerifying(true)
+    // Fetch the owner-only document view (GET returns the image to its owner
+    // and nobody else — see src/app/api/verification/route.ts).
+    if (isIdVerified) {
+      fetch('/api/verification')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d) setDocOnFile({ docType: d.docType, docUrl: d.docUrl, verifiedAt: d.verifiedAt, guideDocOnFile: d.guideDocOnFile }) })
+        .catch(() => {})
+    }
+  }, [me, isIdVerified])
+
+  const handleDocPick = async (file: File) => {
+    if (!file) return
+    setDocBusy(true)
+    try {
+      // Higher maxDim + quality than avatars: document text must stay readable.
+      const compressed = await compressImage(file, 2000, 0.85)
+      const fd = new FormData()
+      fd.append('file', compressed)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      setDocPreview(data.url)
+    } catch (err) {
+      toast({ title: 'Upload failed', description: (err as Error).message, variant: 'destructive' })
+    } finally { setDocBusy(false) }
+  }
+
+  const submitVerification = async () => {
+    if (!docPreview) { toast({ title: 'Upload your document first', variant: 'destructive' }); return }
+    setSubmittingVerif(true)
+    try {
+      const res = await fetch('/api/verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docType, docUrl: docPreview }),
+      })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Verification failed')
+      toast({ title: 'You are verified', description: 'The blue badge now shows next to your name. Only you can see your document.' })
+      setDocPreview(null)
+      setVerifying(false)
+      onUserChanged()
+    } catch (err) {
+      toast({ title: 'Could not verify', description: (err as Error).message, variant: 'destructive' })
+    } finally { setSubmittingVerif(false) }
+  }
+
+  const removeVerification = async () => {
+    setSubmittingVerif(true)
+    try {
+      const res = await fetch('/api/verification', { method: 'DELETE' })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed') }
+      toast({ title: 'Document removed', description: 'Your verified badge has been turned off.' })
+      setConfirmUnverify(false)
+      setDocOnFile(null)
+      setVerifying(false)
+      onUserChanged()
+    } catch (err) {
+      toast({ title: 'Remove failed', description: (err as Error).message, variant: 'destructive' })
+    } finally { setSubmittingVerif(false) }
+  }
 
   const handleAvatarUpload = async (file: File) => {
     if (!file) return
@@ -575,6 +660,167 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     )
   }
 
+  // ---------------------------------------------- full-tab verification view
+  if (verifying && !isGuest) {
+    const verifiedNow = isIdVerified
+    return (
+      <div className="flex-1 min-w-0 pb-10">
+        <input ref={docFileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocPick(f); if (docFileRef.current) docFileRef.current.value = '' }} />
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4">
+          {/* IG-style toolbar: back · title · status */}
+          <div className="sticky top-[56px] md:top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border flex items-center gap-2">
+            <button onClick={() => setVerifying(false)} className="p-1.5 -ml-1.5 rounded-full hover:bg-accent text-foreground" aria-label="Back to profile">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h1 className="flex-1 text-lg font-bold text-foreground">Verification</h1>
+            {verifiedNow && <BadgeCheck className="w-5 h-5 text-blue-500" />}
+          </div>
+
+          <div className="mt-6 space-y-5">
+            {verifiedNow ? (
+              <>
+                {/* status card */}
+                <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <BadgeCheck className="w-7 h-7 text-blue-500 shrink-0" />
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-bold text-foreground">You are verified</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {docOnFile?.docType
+                          ? `Document on file: ${docOnFile.docType === 'PASSPORT' ? 'Passport' : 'ID card'}`
+                          : docOnFile?.guideDocOnFile
+                            ? 'Verified with the ID/passport from your guide registration.'
+                            : 'A verifiable document is on file.'}
+                        {docOnFile?.verifiedAt ? ` · Verified ${new Date(docOnFile.verifiedAt).toLocaleDateString()}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {docOnFile?.docUrl ? (
+                    <div className="mt-3">
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-blue-500" />Your document — visible only to you</p>
+                      <img src={docOnFile.docUrl} alt="Your verification document" className="max-h-64 w-auto rounded-lg border border-border" />
+                    </div>
+                  ) : docOnFile ? (
+                    <p className="mt-3 text-xs text-muted-foreground">Your guide registration document is on file — it is kept just as private.</p>
+                  ) : (
+                    <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" />Loading your document...</p>
+                  )}
+                </div>
+
+                {/* privacy note */}
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">Your ID/passport is private. Nobody else can open it — other people only see the blue verified badge next to your name.</p>
+                </div>
+
+                {/* actions */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => docFileRef.current?.click()} disabled={docBusy} className="flex-1 h-9 rounded-lg gap-1.5">
+                    {docBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}Replace document
+                  </Button>
+                  {docOnFile?.docUrl && (
+                    <Button variant="outline" onClick={() => setConfirmUnverify(true)} className="flex-1 h-9 rounded-lg gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30">
+                      <Trash2 className="w-4 h-4" />Remove document
+                    </Button>
+                  )}
+                </div>
+
+                {docPreview && (
+                  <div className="rounded-xl border border-border p-4 space-y-3">
+                    <p className="text-xs font-medium text-foreground">New document ready — submit to update your file.</p>
+                    <img src={docPreview} alt="New document preview" className="max-h-64 w-auto rounded-lg border border-border" />
+                    <Button onClick={submitVerification} disabled={submittingVerif} className="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
+                      {submittingVerif ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                      {submittingVerif ? 'Submitting...' : 'Submit new document'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* intro */}
+                <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 flex items-start gap-3">
+                  <ShieldCheck className="w-7 h-7 text-blue-500 shrink-0" />
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground">Get the verified badge</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Upload a photo of your ID card or passport. Once verified, a blue check shows next to your name across circub — trust at a glance.</p>
+                  </div>
+                </div>
+
+                {/* document type */}
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Document type</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {([['ID', 'ID card', 'National ID or residence card', CreditCard], ['PASSPORT', 'Passport', 'Photo page of your passport', BookUser]] as const).map(([val, label, hint, Icon]) => (
+                      <button key={val} onClick={() => setDocType(val)}
+                        className={cn('rounded-xl border p-4 text-left transition-colors', docType === val ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40')}
+                        aria-pressed={docType === val}>
+                        <Icon className={cn('w-5 h-5 mb-2', docType === val ? 'text-primary' : 'text-muted-foreground')} />
+                        <p className="text-sm font-semibold text-foreground">{label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* upload */}
+                {docPreview ? (
+                  <div className="rounded-xl border border-border p-4 space-y-3">
+                    <img src={docPreview} alt="Document preview" className="max-h-64 w-auto rounded-lg border border-border mx-auto" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setDocPreview(null)} className="flex-1 h-9 rounded-lg">Retake</Button>
+                      <Button onClick={submitVerification} disabled={submittingVerif} className="flex-1 h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
+                        {submittingVerif ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                        {submittingVerif ? 'Submitting...' : 'Submit for verification'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => docFileRef.current?.click()} disabled={docBusy}
+                    className="w-full rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-accent/30 p-8 flex flex-col items-center gap-2 transition-colors disabled:opacity-60"
+                    aria-label="Upload document photo">
+                    {docBusy ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : <Camera className="w-6 h-6 text-primary" />}
+                    <span className="text-sm font-semibold text-foreground">{docBusy ? 'Processing...' : 'Upload a photo'}</span>
+                    <span className="text-[11px] text-muted-foreground">Take a photo or choose from gallery — JPG or PNG</span>
+                  </button>
+                )}
+
+                {/* privacy */}
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="font-medium text-foreground text-xs mb-0.5">Private by default</p>
+                    Your document is stored securely and shown only to you. Nobody else can open it — when people view your profile, all they get is the blue verified badge.
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* remove-document confirmation */}
+        <AlertDialog open={confirmUnverify} onOpenChange={setConfirmUnverify}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove your document?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your ID/passport photo will be deleted and the verified badge turned off. You can verify again anytime.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={submittingVerif}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={(e) => { e.preventDefault(); removeVerification() }} disabled={submittingVerif}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {submittingVerif ? 'Removing...' : 'Remove'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    )
+  }
+
   const stats = [
     { value: posts.length, label: 'Posts' },
     { value: listings.length, label: 'Listings' },
@@ -621,6 +867,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <h1 className="text-base font-bold text-foreground flex items-center gap-1.5">
             {me.name}
             {me.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary" />}
+            {me.idVerified && <BadgeCheck className="w-4 h-4 text-blue-500" aria-label="Verified with ID or passport" />}
           </h1>
           {me.headline && <p className="text-sm text-muted-foreground">{me.headline}</p>}
           {me.bio && <p className="mt-1 text-sm text-foreground/90 whitespace-pre-line">{me.bio}</p>}
@@ -630,8 +877,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button onClick={openEdit} variant="outline" className="flex-1 h-9 rounded-lg text-sm">Edit profile</Button>
-          <Button onClick={pickStoryImage} className="flex-1 h-9 rounded-lg text-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
+          <Button onClick={openEdit} variant="outline" className="flex-1 h-9 rounded-lg text-xs sm:text-sm">Edit profile</Button>
+          <Button onClick={openVerification} variant="outline"
+            className={cn('flex-1 h-9 rounded-lg text-xs sm:text-sm gap-1', isIdVerified && 'border-blue-500/40 text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-400')}>
+            {isIdVerified ? <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /> : <ShieldCheck className="w-4 h-4 text-primary shrink-0" />}
+            {isIdVerified ? 'Verified' : 'Get verified'}
+          </Button>
+          <Button onClick={pickStoryImage} className="flex-1 h-9 rounded-lg text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
             <Camera className="w-4 h-4" /> New story
           </Button>
         </div>

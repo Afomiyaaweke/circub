@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
         isGuide: true, guideLicense: true, guideLanguages: true,
         guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
         guideBio: true, guideAvailable: true, verifiedLocal: true,
+        idVerified: true,
         guideIdDocType: true, guideIdDocUrl: true,
         helpfulVotes: true, localPostCount: true,
       },
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
       guideSpecialties: g.guideSpecialties ? g.guideSpecialties.split(',').filter(Boolean) : [],
       // Privacy: the document itself (guideIdDocUrl) is NEVER exposed —
       // other users only learn that a verifiable ID/passport is on file.
-      idVerified: !!g.guideIdDocUrl,
+      idVerified: !!g.guideIdDocUrl || g.idVerified,
       guideIdDocUrl: undefined,
     }))
 

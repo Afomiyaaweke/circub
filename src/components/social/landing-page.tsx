@@ -37,6 +37,7 @@ interface RecentPrice {
     avatarColor: string
     isLocal: boolean
     verifiedLocal: boolean
+    idVerified?: boolean
     location: string | null
   }
 }
@@ -284,6 +285,12 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
                           </p>
                           {p.author.verifiedLocal && (
                             <p className="text-[10px] text-emerald-700 flex items-center justify-end gap-0.5">
+                              <BadgeCheck className="w-3 h-3" />
+                              Verified
+                            </p>
+                          )}
+                          {!p.author.verifiedLocal && p.author.idVerified && (
+                            <p className="text-[10px] text-blue-600 flex items-center justify-end gap-0.5">
                               <BadgeCheck className="w-3 h-3" />
                               Verified
                             </p>

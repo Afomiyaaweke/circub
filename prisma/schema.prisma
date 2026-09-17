@@ -42,6 +42,15 @@ model User {
   isLocal        Boolean  @default(false)
   verifiedLocal  Boolean  @default(false)
 
+  // Account verification via ID / passport upload (any user, not just guides).
+  // PRIVACY: userIdDocUrl is the document image — it is ONLY ever returned to
+  // its owner (GET /api/verification). No public or social endpoint may ever
+  // select it; everyone else only sees the idVerified boolean (blue badge).
+  idVerified      Boolean   @default(false)
+  userIdDocType   String?   // 'ID' | 'PASSPORT'
+  userIdDocUrl    String?   // uploaded document (data URL) — owner-only, never exposed
+  verifiedAt      DateTime?
+
   // Company-specific fields
   companyName    String?
   companyWebsite String?
