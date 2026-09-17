@@ -158,6 +158,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [docBusy, setDocBusy] = useState(false)
   const [submittingVerif, setSubmittingVerif] = useState(false)
   const [confirmUnverify, setConfirmUnverify] = useState(false)
+  // Stop being a guide: confirm + request state (Edit profile guide section).
+  const [confirmStopGuide, setConfirmStopGuide] = useState(false)
+  const [stoppingGuide, setStoppingGuide] = useState(false)
   const docFileRef = useRef<HTMLInputElement>(null)
   const isIdVerified = Boolean(me.idVerified) || Boolean((me as any).hasUserIdDoc)
 
@@ -387,6 +390,23 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     } catch (err) {
       toast({ title: 'Upload failed', description: (err as Error).message, variant: 'destructive' })
     } finally { setUploading(false) }
+  }
+
+  // Stop being a guide — same contract as the guide modal's action: card
+  // leaves the Live Zone, details + document kept for a fast return.
+  const stopBeingGuide = async () => {
+    setStoppingGuide(true)
+    try {
+      const res = await fetch('/api/guides/me', { method: 'DELETE' })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed') }
+      toast({ title: 'You are no longer a guide', description: 'Your card was removed from the Live Zone. Your details are kept for when you come back.' })
+      setConfirmStopGuide(false)
+      setEditing(false)
+      onUserChanged()
+    } catch (err) {
+      toast({ title: 'Could not update your guide status', description: (err as Error).message, variant: 'destructive' })
+    } finally { setStoppingGuide(false) }
   }
 
   // Share this profile: copies /u/<username> (or opens the native share
@@ -734,11 +754,40 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   </select></div>
                 </div>
                 <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Award className="w-3.5 h-3.5" />License number (optional)</label><Input placeholder="e.g. ET-GUIDE-2024-0182" value={guideLicense} onChange={(e) => setGuideLicense(e.target.value)} className="bg-card" /></div>
+                {/* Leave the guide program — keeps details + document for rejoining */}
+                <button
+                  onClick={() => setConfirmStopGuide(true)}
+                  disabled={stoppingGuide}
+                  className="text-xs text-destructive hover:underline flex items-center gap-1.5 pt-1 disabled:opacity-60"
+                >
+                  <Compass className="w-3.5 h-3.5" />Stop being a guide
+                </button>
               </div>
             )}
           </div>
         </div>
-      </div>
+
+      {/* Confirm: stop being a guide (Edit profile) */}
+      <AlertDialog open={confirmStopGuide} onOpenChange={setConfirmStopGuide}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop being a guide?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept — registering again restores your card instantly.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={stoppingGuide}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); stopBeingGuide() }}
+              disabled={stoppingGuide}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {stoppingGuide ? <><Loader2 className="w-4 h-4 animate-spin" />Stopping...</> : 'Stop being a guide'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
     )
   }
 

@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -26,6 +31,9 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
   const [currency, setCurrency] = useState('USD')
   const [bio, setBio] = useState('')
   const [saving, setSaving] = useState(false)
+  // Stop being a guide: confirmation + request state (guides only).
+  const [confirmStop, setConfirmStop] = useState(false)
+  const [stopping, setStopping] = useState(false)
   // Verification document: type toggle + uploaded photo (data URL preview).
   // Existing guides already have a document on file server-side (hasIdDoc) —
   // they only see a confirmation chip and may re-upload a replacement.
@@ -67,6 +75,25 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
       toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' })
     } finally {
       setDocBusy(false)
+    }
+  }
+
+  // Stop being a guide — removes the guide card from the Live Zone but keeps
+  // every guide detail (and the verification document) for an instant return.
+  const stopBeingGuide = async () => {
+    setStopping(true)
+    try {
+      const res = await fetch('/api/guides/me', { method: 'DELETE' })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed') }
+      toast({ title: 'You are no longer a guide', description: 'Your card was removed from the Live Zone. Your details are kept for when you come back.' })
+      setConfirmStop(false)
+      onOpenChange(false)
+      onSaved()
+    } catch (e) {
+      toast({ title: 'Could not update your guide status', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setStopping(false)
     }
   }
 
@@ -280,12 +307,42 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 gap-1.5">
-            {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Registering...</> : <><Save className="w-4 h-4" />Register as guide</>}
-          </Button>
+        <div className="mt-6 flex items-center justify-between gap-3 pt-4 border-t border-border">
+          {/* Leave the guide program — existing guides only */}
+          {(user as any)?.isGuide ? (
+            <Button variant="ghost" onClick={() => setConfirmStop(true)} disabled={saving || stopping}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs gap-1.5">
+              <Compass className="w-3.5 h-3.5" />Stop being a guide
+            </Button>
+          ) : <span />}
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 gap-1.5">
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Registering...</> : <><Save className="w-4 h-4" />Register as guide</>}
+            </Button>
+          </div>
         </div>
+
+        {/* Confirmation before leaving the guide program */}
+        <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Stop being a guide?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept — registering again restores your card instantly.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={stopping}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); stopBeingGuide() }}
+                disabled={stopping}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {stopping ? <><Loader2 className="w-4 h-4 animate-spin" />Stopping...</> : 'Stop being a guide'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   )
