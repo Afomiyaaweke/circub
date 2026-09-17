@@ -1,7 +1,7 @@
 // ============================================================
 // DEMO CONTENT SEEDER — one URL to fill, one URL to wipe
 // ============================================================
-// GET|POST /api/seed?code=<SECRET>&mode=seed      -> create demo users + 100 posts
+// GET|POST /api/seed?code=<SECRET>&mode=seed      -> create demo users + ~100 posts
 // GET|POST /api/seed?code=<SECRET>&mode=cleanup   -> remove ALL demo content (cascades)
 // GET|POST /api/seed?code=<SECRET>&mode=status    -> how much demo content exists
 //
@@ -15,6 +15,14 @@
 //    local price posts, votes and connections in one deleteMany.
 //  - seed() is idempotent: if demo content already exists it does
 //    nothing unless &force=1 is passed (wipe + reseed).
+//
+// PERFORMANCE (learned the hard way on prod): Prisma interactive
+// transactions default to a 5s timeout, and per-row nested creates
+// mean ~650 round trips over the network to Postgres. So this
+// version: (1) raises the transaction timeout, (2) declares
+// maxDuration = 60 for Vercel, (3) bulk-inserts every like /
+// comment / vote / connection with createMany (~650 statements
+// collapse to ~125).
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -32,6 +40,7 @@ import { DEMO_LOCAL_POSTS } from '@/lib/demo-seed-local'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const SEED_CODE = 'circub-demo-x7k9f2'
 const SEED_DOMAIN = '@seed.circub.test'
@@ -67,170 +76,166 @@ async function wipeDemo() {
 async function seedDemo() {
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10)
 
-  // Per-author content counts so profile stats match reality
+  // Per-author content counts + connection degrees, computed up front so the
+  // denormalized profile stats are correct the moment the users are created
+  // (no follow-up updates needed).
   const feedCount = new Map<string, number>()
   for (const p of DEMO_POSTS) feedCount.set(p.u, (feedCount.get(p.u) || 0) + 1)
   const localCount = new Map<string, number>()
   for (const p of DEMO_LOCAL_POSTS) localCount.set(p.u, (localCount.get(p.u) || 0) + 1)
+  const connDegree = new Map<string, number>()
+  for (const [a, b] of DEMO_CONNECTION_PAIRS) {
+    connDegree.set(DEMO_USERS[a].username, (connDegree.get(DEMO_USERS[a].username) || 0) + 1)
+    connDegree.set(DEMO_USERS[b].username, (connDegree.get(DEMO_USERS[b].username) || 0) + 1)
+  }
 
-  return db.$transaction(async (tx) => {
-    // 1) Users
-    const users: User[] = []
-    for (const u of DEMO_USERS) {
-      const created = await tx.user.create({
-        data: {
-          email: u.username + SEED_DOMAIN,
-          password: passwordHash,
-          username: u.username,
-          name: u.name,
-          avatarColor: u.avatarColor,
-          headline: u.headline,
-          bio: u.bio,
-          location: u.location,
-          accountType: u.accountType,
-          companyName: u.companyName || null,
-          companyIndustry: u.companyIndustry || null,
-          isLocal: !!u.isLocal,
-          verifiedLocal: !!u.verifiedLocal,
-          idVerified: !!u.idVerified,
-          verifiedAt: u.idVerified ? daysAgo(15, 40) : null,
-          followersCount: u.followers,
-          likesCount: u.likes,
-          expertiseTags: u.expertiseTags || null,
-          postsCount: feedCount.get(u.username) || 0,
-          localPostCount: localCount.get(u.username) || 0,
-          createdAt: daysAgo(25, 60),
-        },
-      })
-      users.push(created)
-    }
-    const byUsername = new Map(users.map((u) => [u.username, u]))
-    const N = users.length
-
-    // 2) Feed posts with nested likes + comments (rotating engagement)
-    let createdPosts = 0
-    let createdLikes = 0
-    let createdComments = 0
-    for (let i = 0; i < DEMO_POSTS.length; i++) {
-      const p = DEMO_POSTS[i]
-      const author = byUsername.get(p.u)
-      if (!author) continue
-      const createdAt = daysAgo(0, 20)
-
-      // Likes: walk a rotating user list, skip the author -> unique per post
-      const k = LIKE_PATTERN[i % LIKE_PATTERN.length]
-      const likers: string[] = []
-      for (let s = 0; s < N * 2 && likers.length < k; s++) {
-        const cand = users[(i * 5 + s * 3) % N]
-        if (cand.id !== author.id && !likers.includes(cand.id)) likers.push(cand.id)
-      }
-      createdLikes += likers.length
-
-      // Comments: every 2nd post gets one, every 3rd gets a second
-      let want = 0
-      if (i % 2 === 0) want = 1
-      if (i % 3 === 0) want = 2
-      const commentAuthors: string[] = []
-      const comments: { authorId: string; content: string; createdAt: Date }[] = []
-      if (want > 0) {
-        for (let s = 0; s < N * 2 && commentAuthors.length < want; s++) {
-          const cand = users[(i * 11 + s * 7) % N]
-          if (cand.id !== author.id && !commentAuthors.includes(cand.id)) commentAuthors.push(cand.id)
-        }
-        commentAuthors.forEach((uid, ci) => {
-          const src = DEMO_COMMENTS[(i * 3 + ci * 7) % DEMO_COMMENTS.length]
-          comments.push({ authorId: uid, content: src.c, createdAt: hoursAfter(createdAt, 0.5, 9) })
+  return db.$transaction(
+    async (tx) => {
+      // 1) Users (18 creates)
+      const users: User[] = []
+      for (const u of DEMO_USERS) {
+        const created = await tx.user.create({
+          data: {
+            email: u.username + SEED_DOMAIN,
+            password: passwordHash,
+            username: u.username,
+            name: u.name,
+            avatarColor: u.avatarColor,
+            headline: u.headline,
+            bio: u.bio,
+            location: u.location,
+            accountType: u.accountType,
+            companyName: u.companyName || null,
+            companyIndustry: u.companyIndustry || null,
+            isLocal: !!u.isLocal,
+            verifiedLocal: !!u.verifiedLocal,
+            idVerified: !!u.idVerified,
+            verifiedAt: u.idVerified ? daysAgo(15, 40) : null,
+            followersCount: u.followers,
+            likesCount: u.likes,
+            expertiseTags: u.expertiseTags || null,
+            postsCount: feedCount.get(u.username) || 0,
+            localPostCount: localCount.get(u.username) || 0,
+            connectionsCount: connDegree.get(u.username) || 0,
+            createdAt: daysAgo(25, 60),
+          },
         })
-        createdComments += comments.length
+        users.push(created)
+      }
+      const byUsername = new Map(users.map((u) => [u.username, u]))
+      const N = users.length
+
+      // 2) Feed posts (55 creates) — engagement collected for bulk insert
+      const likeRows: { postId: string; userId: string; createdAt: Date }[] = []
+      const commentRows: { postId: string; authorId: string; content: string; createdAt: Date }[] = []
+      const postIds: string[] = []
+      for (let i = 0; i < DEMO_POSTS.length; i++) {
+        const p = DEMO_POSTS[i]
+        const author = byUsername.get(p.u)
+        if (!author) continue
+        const createdAt = daysAgo(0, 20)
+
+        const post = await tx.post.create({
+          data: { content: p.c, authorId: author.id, createdAt, updatedAt: createdAt },
+        })
+        postIds.push(post.id)
+
+        // Likes: walk a rotating user list, skip the author -> unique per post
+        const k = LIKE_PATTERN[i % LIKE_PATTERN.length]
+        const likers: string[] = []
+        for (let s = 0; s < N * 2 && likers.length < k; s++) {
+          const cand = users[(i * 5 + s * 3) % N]
+          if (cand.id !== author.id && !likers.includes(cand.id)) likers.push(cand.id)
+        }
+        likers.forEach((uid, li) => {
+          likeRows.push({ postId: post.id, userId: uid, createdAt: hoursAfter(createdAt, li * 0.4, 1 + li * 0.4) })
+        })
+
+        // Comments: every 2nd post gets one, every 3rd gets a second
+        let want = 0
+        if (i % 2 === 0) want = 1
+        if (i % 3 === 0) want = 2
+        if (want > 0) {
+          const commentAuthors: string[] = []
+          for (let s = 0; s < N * 2 && commentAuthors.length < want; s++) {
+            const cand = users[(i * 11 + s * 7) % N]
+            if (cand.id !== author.id && !commentAuthors.includes(cand.id)) commentAuthors.push(cand.id)
+          }
+          commentAuthors.forEach((uid, ci) => {
+            const src = DEMO_COMMENTS[(i * 3 + ci * 7) % DEMO_COMMENTS.length]
+            commentRows.push({ postId: post.id, authorId: uid, content: src.c, createdAt: hoursAfter(createdAt, 0.5, 9) })
+          })
+        }
       }
 
-      await tx.post.create({
-        data: {
-          content: p.c,
-          authorId: author.id,
-          createdAt,
-          updatedAt: createdAt,
-          likes: { create: likers.map((uid, li) => ({ userId: uid, createdAt: hoursAfter(createdAt, li * 0.4, 1 + li * 0.4) })) },
-          comments: { create: comments },
-        },
-      })
-      createdPosts++
-    }
+      // 3) Local price posts (46 creates) — votes collected for bulk insert
+      const voteRows: { postId: string; userId: string; voteType: string; createdAt: Date }[] = []
+      for (let j = 0; j < DEMO_LOCAL_POSTS.length; j++) {
+        const p = DEMO_LOCAL_POSTS[j]
+        const author = byUsername.get(p.u)
+        if (!author) continue
+        const createdAt = daysAgo(0, 25)
 
-    // 3) Local price posts with a few HELPFUL votes each
-    let createdLocal = 0
-    let createdVotes = 0
-    for (let j = 0; j < DEMO_LOCAL_POSTS.length; j++) {
-      const p = DEMO_LOCAL_POSTS[j]
-      const author = byUsername.get(p.u)
-      if (!author) continue
-      const createdAt = daysAgo(0, 25)
+        const lp = await tx.localPricePost.create({
+          data: {
+            postType: p.postType,
+            productName: p.productName,
+            description: p.description || null,
+            country: 'Ethiopia',
+            city: p.city || null,
+            neighborhood: p.neighborhood || null,
+            market: p.market || null,
+            currency: 'ETB',
+            priceMin: p.min,
+            priceMax: p.max,
+            recommendedPrice: p.rec || null,
+            localTip: p.tip || null,
+            category: p.category,
+            authorId: author.id,
+            helpfulCount: 2 + (j % 5) + ((j * 7) % 19),
+            notAccurateCount: j % 4 === 0 ? 1 : 0,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        })
 
-      const v = 2 + (j % 5)
-      const voters: string[] = []
-      for (let s = 0; s < N * 2 && voters.length < v; s++) {
-        const cand = users[(j * 7 + s * 5) % N]
-        if (cand.id !== author.id && !voters.includes(cand.id)) voters.push(cand.id)
+        const v = 2 + (j % 5)
+        const voters: string[] = []
+        for (let s = 0; s < N * 2 && voters.length < v; s++) {
+          const cand = users[(j * 7 + s * 5) % N]
+          if (cand.id !== author.id && !voters.includes(cand.id)) voters.push(cand.id)
+        }
+        voters.forEach((uid, vi) => {
+          voteRows.push({ postId: lp.id, userId: uid, voteType: 'HELPFUL', createdAt: hoursAfter(createdAt, vi * 0.5, 2 + vi * 0.5) })
+        })
       }
-      createdVotes += voters.length
 
-      await tx.localPricePost.create({
-        data: {
-          postType: p.postType,
-          productName: p.productName,
-          description: p.description || null,
-          country: 'Ethiopia',
-          city: p.city || null,
-          neighborhood: p.neighborhood || null,
-          market: p.market || null,
-          currency: 'ETB',
-          priceMin: p.min,
-          priceMax: p.max,
-          recommendedPrice: p.rec || null,
-          localTip: p.tip || null,
-          category: p.category,
-          authorId: author.id,
-          helpfulCount: voters.length + ((j * 7) % 19),
-          notAccurateCount: j % 4 === 0 ? 1 : 0,
-          createdAt,
-          updatedAt: createdAt,
-          votes: { create: voters.map((uid, vi) => ({ userId: uid, voteType: 'HELPFUL', createdAt: hoursAfter(createdAt, vi * 0.5, 2 + vi * 0.5) })) },
-        },
+      // 4) Bulk engagement inserts (4 statements instead of ~500)
+      await tx.postLike.createMany({ data: likeRows })
+      await tx.comment.createMany({ data: commentRows })
+      await tx.localPriceVote.createMany({ data: voteRows })
+      await tx.connection.createMany({
+        data: DEMO_CONNECTION_PAIRS.map(([a, b]) => ({
+          requesterId: users[a].id,
+          receiverId: users[b].id,
+          status: 'ACCEPTED',
+          createdAt: daysAgo(10, 50),
+        })),
       })
-      createdLocal++
-    }
 
-    // 4) Connections between demo accounts (+ degree counts)
-    const degree = new Map<string, number>()
-    for (const [a, b] of DEMO_CONNECTION_PAIRS) {
-      const ua = users[a]
-      const ub = users[b]
-      if (!ua || !ub) continue
-      const exists = await tx.connection.findFirst({
-        where: { requesterId: ua.id, receiverId: ub.id },
-        select: { id: true },
-      })
-      if (exists) continue
-      await tx.connection.create({
-        data: { requesterId: ua.id, receiverId: ub.id, status: 'ACCEPTED', createdAt: daysAgo(10, 50) },
-      })
-      degree.set(ua.id, (degree.get(ua.id) || 0) + 1)
-      degree.set(ub.id, (degree.get(ub.id) || 0) + 1)
-    }
-    for (const [uid, deg] of degree) {
-      await tx.user.update({ where: { id: uid }, data: { connectionsCount: deg } })
-    }
-
-    return {
-      users: users.length,
-      posts: createdPosts,
-      postLikes: createdLikes,
-      postComments: createdComments,
-      localPosts: createdLocal,
-      localVotes: createdVotes,
-      connections: DEMO_CONNECTION_PAIRS.length,
-    }
-  })
+      return {
+        users: users.length,
+        posts: postIds.length,
+        postLikes: likeRows.length,
+        postComments: commentRows.length,
+        localPosts: DEMO_LOCAL_POSTS.length,
+        localVotes: voteRows.length,
+        connections: DEMO_CONNECTION_PAIRS.length,
+      }
+    },
+    // Prod Postgres over the network needs far more than the 5s default
+    { timeout: 60_000, maxWait: 15_000 }
+  )
 }
 
 async function handle(req: NextRequest) {
