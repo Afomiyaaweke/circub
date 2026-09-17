@@ -64,6 +64,11 @@ export async function POST(req: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
     }
+    // Reserved domain: demo/seed accounts live on it so the demo-content
+    // cleanup can never touch a real user (see /api/seed).
+    if (body.email.trim().toLowerCase().endsWith('@seed.circub.test')) {
+      return NextResponse.json({ error: 'This email domain is reserved. Please use another email.' }, { status: 400 })
+    }
     // Validate password strength
     if (body.password.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
