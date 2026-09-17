@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PostComposer } from './post-composer'
 import { PostCard } from './post-card'
+import { AuthorProfileModal } from './author-profile-modal'
 import { useToast } from '@/hooks/use-toast'
 import type { User, Post, Comment } from '@/lib/types'
 
@@ -19,6 +20,8 @@ interface FeedTabProps {
 export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  // Tap a name/avatar on a post or comment -> author profile modal
+  const [authorProfileId, setAuthorProfileId] = useState<string | null>(null)
   // Load part by part: render a small batch first, append more on scroll
   const { visible: visiblePosts, hasMore: feedHasMore, sentinelRef: feedSentinelRef } = useProgressiveList(posts, 4, 4)
   const { toast } = useToast()
@@ -156,6 +159,7 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
               onDelete={handleDelete}
               onEdit={handleEdit}
               onMessage={onMessage}
+              onAuthorClick={setAuthorProfileId}
             />
           ))}
           <div ref={feedSentinelRef} />
@@ -167,6 +171,14 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
           )}
         </div>
       )}
+
+      {/* Tap a name or avatar on a post / comment -> author profile */}
+      <AuthorProfileModal
+        userId={authorProfileId}
+        onClose={() => setAuthorProfileId(null)}
+        onMessage={onMessage}
+        currentUserId={user.id}
+      />
     </div>
   )
 }

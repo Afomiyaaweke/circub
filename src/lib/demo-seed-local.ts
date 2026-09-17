@@ -1,9 +1,10 @@
 // ============================================================
 // DEMO LOCAL PRICE POSTS — community price intelligence seeds
 // ============================================================
-// 45 posts across PRODUCT + SERVICE, realistic Addis Ababa /
-// regional prices in ETB. Owned by the same @seed.circub.test
-// demo accounts, so the cleanup call removes every trace.
+// 46 Addis posts (ETB) + 13 international posts from the demo
+// visitors' home cities (EUR / GBP / AED / JPY / BRL) = 59, across
+// PRODUCT + SERVICE. Owned by the same @seed.circub.test demo
+// accounts, so the cleanup call removes every trace.
 // ============================================================
 
 export interface DemoLocalPost {
@@ -19,6 +20,8 @@ export interface DemoLocalPost {
   rec?: number
   tip?: string
   category: string
+  country?: string // default 'Ethiopia'
+  currency?: string // default 'ETB'
 }
 
 const A = 'Addis Ababa'
@@ -72,4 +75,18 @@ export const DEMO_LOCAL_POSTS: DemoLocalPost[] = [
   { u: 'hanna_girma', postType: 'SERVICE', productName: 'Hair salon (wash + style)', city: A, neighborhood: 'Piassa', min: 300, max: 900, rec: 450, category: 'Services' },
   { u: 'beti_alemu', postType: 'SERVICE', productName: 'Laundry service (per 5kg)', city: A, neighborhood: 'Sidist Kilo', min: 250, max: 500, rec: 350, category: 'Services' },
   { u: 'rahel_s', postType: 'SERVICE', productName: 'Private clinic consultation', description: 'General practitioner, walk-in.', city: A, neighborhood: 'Kirkos', min: 400, max: 1200, rec: 600, tip: 'Polyclinics in Kirkos are cheaper than the big hospitals for the same labs.', category: 'Services' },
+  // ---------- International price posts (visitors reporting home) ----------
+  { u: 'sarah_mitchell', postType: 'SERVICE', productName: 'Coworking day pass (reliable wifi)', description: 'Hot desk, coffee included, backup power.', country: 'USA', city: 'Portland', currency: 'USD', min: 20, max: 35, rec: 25, tip: 'Addis coworking day passes run 250-400 birr — a tenth of the US price.', category: 'Services' },
+  { u: 'james_carter', postType: 'SERVICE', productName: 'Zone 1-2 tube single (peak)', country: 'UK', city: 'London', currency: 'GBP', min: 3, max: 4, rec: 3, tip: 'Contactless caps the daily fare — a minibus taxi hop in Addis is about 12 birr.', category: 'Transportation' },
+  { u: 'james_carter', postType: 'PRODUCT', productName: 'Flat white (specialty cafe)', country: 'UK', city: 'London', currency: 'GBP', min: 3, max: 5, rec: 4, tip: 'In Addis the same barista-level buna is 40-80 birr. Enjoy it while you are there.', category: 'Coffee' },
+  { u: 'lena_fischer', postType: 'PRODUCT', productName: 'Specialty coffee beans (per kg, roasted)', description: 'Mid-range roastery, single origin.', country: 'Germany', city: 'Berlin', currency: 'EUR', min: 18, max: 32, rec: 24, tip: 'Ethiopian single origins cost 2-3x more in Berlin than buying in Addis — stock up before flying home.', category: 'Coffee' },
+  { u: 'lena_fischer', postType: 'PRODUCT', productName: 'Handwoven scarf (art fair price)', country: 'Germany', city: 'Berlin', currency: 'EUR', min: 35, max: 80, rec: 50, tip: 'A hand-fringed netela from Merkato is 1,000-1,400 birr — under 10 euros.', category: 'Textiles' },
+  { u: 'marco_rossi', postType: 'PRODUCT', productName: 'Trattoria pasta mains (dinner)', country: 'Italy', city: 'Bologna', currency: 'EUR', min: 10, max: 16, rec: 12, tip: 'A full gemuten plate in Addis is 200-350 birr — great food is cheap everywhere if you eat local.', category: 'Restaurants' },
+  { u: 'marco_rossi', postType: 'PRODUCT', productName: 'Espresso (standing at the bar)', country: 'Italy', city: 'Bologna', currency: 'EUR', min: 1, max: 2, rec: 1, category: 'Coffee' },
+  { u: 'aisha_khan', postType: 'SERVICE', productName: 'Metro ride (one zone)', country: 'UAE', city: 'Dubai', currency: 'AED', min: 3, max: 8, rec: 5, tip: 'Silver Nol card fares. Taxis across old Dubai run 15-30 AED.', category: 'Transportation' },
+  { u: 'aisha_khan', postType: 'PRODUCT', productName: 'Jebena-style coffee set (souq, brass)', country: 'UAE', city: 'Dubai', currency: 'AED', min: 120, max: 350, rec: 180, tip: 'The real jebena sets come from Ethiopian markets — export prices here carry a Gulf markup.', category: 'Handicrafts' },
+  { u: 'kenji_tanaka', postType: 'SERVICE', productName: 'Metro ticket (Tokyo, short ride)', country: 'Japan', city: 'Tokyo', currency: 'JPY', min: 180, max: 250, rec: 180, tip: 'Addis minibus taxis feel chaotic but cost about 12 birr — 1% of a Tokyo ride.', category: 'Transportation' },
+  { u: 'kenji_tanaka', postType: 'PRODUCT', productName: 'Bowl of ramen (decent shop)', country: 'Japan', city: 'Tokyo', currency: 'JPY', min: 900, max: 1400, rec: 1000, category: 'Restaurants' },
+  { u: 'carlos_mendes', postType: 'SERVICE', productName: 'Uber ride (10 km, city center)', country: 'Brazil', city: 'São Paulo', currency: 'BRL', min: 22, max: 40, rec: 28, tip: 'Ride-hailing Addis city center to Bole runs 250-500 birr.', category: 'Transportation' },
+  { u: 'chloe_dubois', postType: 'PRODUCT', productName: 'Baguette (traditional bakery)', country: 'France', city: 'Lyon', currency: 'EUR', min: 1, max: 2, rec: 1, tip: 'Addis honey bread loaves (180-280 birr) are bigger and sweeter — different bread worlds.', category: 'Food' },
 ]

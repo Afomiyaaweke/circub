@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       include: {
         author: {
           select: {
-            id: true, name: true, avatarColor: true, profilePicture: true,
+            id: true, name: true, username: true, avatarColor: true, profilePicture: true,
             headline: true, location: true, idVerified: true,
           },
         },
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
           include: {
             author: {
               select: {
-                id: true, name: true, avatarColor: true, profilePicture: true,
+                id: true, name: true, username: true, avatarColor: true, profilePicture: true,
                 headline: true, idVerified: true,
               },
             },
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       include: {
         author: {
           select: {
-            id: true, name: true, avatarColor: true, profilePicture: true,
+            id: true, name: true, username: true, avatarColor: true, profilePicture: true,
             headline: true, location: true, idVerified: true,
           },
         },
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
         comments: {
           include: {
             author: {
-              select: { id: true, name: true, avatarColor: true, profilePicture: true, headline: true },
+              select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, headline: true },
             },
           },
         },

@@ -78,6 +78,7 @@ export interface Post {
   author: {
     id: string
     name: string
+    username?: string | null
     avatarColor: string
     headline?: string | null
     location?: string | null
@@ -95,6 +96,7 @@ export interface Comment {
   author: {
     id: string
     name: string
+    username?: string | null
     avatarColor: string
     headline?: string | null
     idVerified?: boolean

@@ -18,6 +18,7 @@ interface PostCardProps {
   onDelete: (postId: string) => void
   onEdit?: (postId: string, updatedPost: Post) => void
   onMessage?: (userId: string) => void
+  onAuthorClick?: (userId: string) => void
 }
 
 function timeAgo(dateStr: string) {
@@ -39,6 +40,7 @@ export function PostCard({
   onDelete,
   onEdit,
   onMessage,
+  onAuthorClick,
 }: PostCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
@@ -142,21 +144,35 @@ export function PostCard({
 
   return (
     <article className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-      {/* Header: avatar, name, headline, time, menu */}
+      {/* Header: avatar, name, headline, time, menu — avatar + name open the author profile */}
       <div className="p-4 flex items-start gap-3">
-        <Avatar className="w-12 h-12 border-2 border-accent">
-          <AvatarFallback className="bg-primary/15 text-primary font-semibold">
-            {post.author.name.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <button
+          type="button"
+          onClick={() => onAuthorClick?.(post.author.id)}
+          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/50 transition-transform hover:scale-105 active:scale-95"
+          aria-label={`View ${post.author.name}'s profile`}
+        >
+          <Avatar className="w-12 h-12 border-2 border-accent">
+            <AvatarFallback className="bg-primary/15 text-primary font-semibold">
+              {post.author.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="font-semibold text-foreground truncate flex items-center gap-1">
-                {post.author.name}
-                {post.author.idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
-              </h3>
+              <button
+                type="button"
+                onClick={() => onAuthorClick?.(post.author.id)}
+                className="group max-w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded"
+                aria-label={`View ${post.author.name}'s profile`}
+              >
+                <h3 className="font-semibold text-foreground truncate flex items-center gap-1 group-hover:text-primary group-hover:underline transition-colors">
+                  {post.author.name}
+                  {post.author.idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
+                </h3>
+              </button>
               {post.author.headline && (
                 <p className="text-xs text-muted-foreground line-clamp-1">
                   {post.author.headline}
@@ -407,9 +423,16 @@ export function PostCard({
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="bg-card rounded-2xl px-3 py-2 inline-block">
-                      <p className="text-sm font-semibold text-foreground">
-                        {c.author.name}
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onAuthorClick?.(c.author.id)}
+                        className="text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded"
+                        aria-label={`View ${c.author.name}'s profile`}
+                      >
+                        <p className="text-sm font-semibold text-foreground hover:text-primary hover:underline transition-colors">
+                          {c.author.name}
+                        </p>
+                      </button>
                       <p className="text-sm text-foreground mt-0.5 whitespace-pre-wrap break-words">
                         {c.content}
                       </p>

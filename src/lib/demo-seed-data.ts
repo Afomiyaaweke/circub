@@ -8,8 +8,8 @@
 // have joined. Real accounts can never collide with it because
 // the register endpoint refuses that domain.
 //
-// 18 accounts · 55 feed posts · 45 local price posts (in
-// demo-seed-local.ts) = 100 content items.
+// 18 local accounts + 8 international accounts · 73 feed posts ·
+// 58 local price posts (in demo-seed-local.ts) ≈ 130+ content items.
 // ============================================================
 
 export interface DemoUser {
@@ -54,6 +54,15 @@ export const DEMO_USERS: DemoUser[] = [
   { username: 'nati_t', name: 'Nati Tsegaye', avatarColor: 'blue', headline: 'Streetwear & hooper', bio: 'Sneaker resell, game-day threads, and honest court reviews around the city.', location: 'Ayat, Addis Ababa', accountType: 'PERSONAL', followers: 520, likes: 210 },
   { username: 'kidist_fikru', name: 'Kidist Fikru', avatarColor: 'amber', headline: 'Baker at Honey & Dough', bio: 'Small batch cakes, cookies and honey bread. CMC pickup or delivery.', location: 'CMC, Addis Ababa', accountType: 'PERSONAL', isLocal: true, verifiedLocal: true, followers: 990, likes: 470, expertiseTags: 'Food,Restaurants' },
   { username: 'addis_fresh', name: 'Addis Fresh Market', avatarColor: 'green', headline: 'Fresh produce delivered to your door', bio: 'Fruits, vegetables and dairy from the cooperative to your kitchen. Same-day delivery.', location: 'Merkato, Addis Ababa', accountType: 'COMPANY', companyName: 'Addis Fresh Market', companyIndustry: 'Grocery & Delivery', followers: 1210, likes: 280 },
+  // ---------- International voices (visitors + remote pros) ----------
+  { username: 'sarah_mitchell', name: 'Sarah Mitchell', avatarColor: 'purple', headline: 'Digital nomad · product designer, currently Addis', bio: 'Working from a different city every few months. Currently obsessed with Ethiopian coffee and the wifi at Bole co-working spots.', location: 'Portland, USA · now Addis Ababa', accountType: 'PERSONAL', idVerified: true, followers: 2140, likes: 920, expertiseTags: 'Design,Remote Work' },
+  { username: 'james_carter', name: 'James Carter', avatarColor: 'blue', headline: 'Travel blogger · The Long Route', bio: '42 countries and counting. Writing honest guides for slow travelers. Ethiopia leg: 3 weeks in.', location: 'London, UK', accountType: 'PERSONAL', isLocal: true, idVerified: true, followers: 1890, likes: 780, expertiseTags: 'Travel,Transportation' },
+  { username: 'lena_fischer', name: 'Lena Fischer', avatarColor: 'teal', headline: 'Documentary photographer · Berlin', bio: 'Chasing light and stories. Currently shooting a series on Ethiopian craft markets.', location: 'Berlin, Germany', accountType: 'PERSONAL', followers: 1450, likes: 660, expertiseTags: 'Photography,Art' },
+  { username: 'marco_rossi', name: 'Marco Rossi', avatarColor: 'red', headline: 'Chef · exploring East African kitchens', bio: 'Ten years in Italian kitchens, now studying spice routes and injera. Food is the best passport.', location: 'Bologna, Italy', accountType: 'PERSONAL', followers: 1120, likes: 540, expertiseTags: 'Restaurants,Food' },
+  { username: 'aisha_khan', name: 'Aisha Khan', avatarColor: 'amber', headline: 'Commodity trader · Dubai ↔ Addis', bio: 'Moving coffee, spices and textiles between the Gulf and East Africa. Trade is about trust.', location: 'Dubai, UAE', accountType: 'PERSONAL', isLocal: true, idVerified: true, followers: 1670, likes: 610, expertiseTags: 'Business,Import & Export' },
+  { username: 'kenji_tanaka', name: 'Kenji Tanaka', avatarColor: 'green', headline: 'Backpacker · 6 months across Africa', bio: 'Overlanding Cairo to Cape Town with a 12kg bag. Ethiopia week 2: the highlands stole my heart.', location: 'Osaka, Japan', accountType: 'PERSONAL', followers: 860, likes: 390 },
+  { username: 'chloe_dubois', name: 'Chloe Dubois', avatarColor: 'pink', headline: 'NGO volunteer · education programs', bio: 'Volunteering with a girls education initiative. Learning Amharic one mispronounced word at a time.', location: 'Lyon, France', accountType: 'PERSONAL', followers: 640, likes: 280 },
+  { username: 'carlos_mendes', name: 'Carlos Mendes', avatarColor: 'orange', headline: 'Football coach · youth academies', bio: 'Coaching clinics around East Africa. The talent here is real — the passion is on another level.', location: 'São Paulo, Brazil', accountType: 'PERSONAL', followers: 980, likes: 420 },
 ]
 
 export const DEMO_POSTS: DemoPost[] = [
@@ -112,6 +121,25 @@ export const DEMO_POSTS: DemoPost[] = [
   { u: 'mahi_worku', c: 'Booking December weddings already. The good makeup artists will be gone by November — plan accordingly.' },
   { u: 'meron_tadesse', c: 'The local version of fast food is 1,000x better: a clean gemuten at 250 birr with homemade awaze beats any burger chain. Fight me.' },
   { u: 'dawit_tesfaye', c: 'Five years writing about this country and I still find new viewpoints. This week: the rock church nobody talks about outside Adadi Mariam. Go on a weekday and have it to yourself.' },
+  // ---------- International voices ----------
+  { u: 'sarah_mitchell', c: 'Week 3 working from Addis: morning buna ceremony with my landlord, then three hours of deep work from a cafe in Bole. The internet is better than Bali, the coffee is not even a competition.' },
+  { u: 'james_carter', c: 'Honest guide update: the Addis-Bahir Dar bus is genuinely one of the best value rides in Africa. 1,800 birr for 11 hours of Blue Nile gorge views. Read the full route guide on my blog tonight.' },
+  { u: 'lena_fischer', c: 'Spent the morning in Merkato weaving alley. Three generations at one loom, thread flying at a speed my camera could barely catch. The craft here deserves a museum — and better export prices.' },
+  { u: 'marco_rossi', c: 'Kitchen revelation: berbere and nduja have the same fermented-chili depth. Tonight I am folding mitmita into a ragù. Ethiopian-Italian fusion is not a trend, it is history on a plate.' },
+  { u: 'aisha_khan', c: 'Dubai buyers keep asking about Guji naturals. To my Ethiopian partners: the specialty premium is real this season, keep your lots separated by washing station. Details pay.' },
+  { u: 'kenji_tanaka', c: 'Overland day 38: crossed into Ethiopia from Kenya. Within one week I have seen geladas, eaten more injera than I can count, and been invited to two coffee ceremonies by strangers. Generosity level: maximum.' },
+  { u: 'chloe_dubois', c: 'The girls in my class taught me five new Amharic words today and laughed at all five pronunciations. Worth it. Also: if anyone has beginner teaching materials in Amharic, I need them!' },
+  { u: 'carlos_mendes', c: 'Ran a clinic in Addis this week — 40 kids, one ball, two hours of pure joy. If any local clubs want to partner on a youth tournament next month, my inbox is open.' },
+  { u: 'sarah_mitchell', c: 'Nomad cost breakdown for Addis (monthly): cozy apartment 25,000 birr, food 8,000, transport 2,000, coworking 6,000. Roughly a third of my Portland burn rate, double the hospitality.' },
+  { u: 'james_carter', c: 'Tourist trap check: the "castle tours" near Piassa quoted me 10x the local price. Walk two streets over and ask at the family-run guesthouse instead. Same castle, honest fare, better stories.' },
+  { u: 'kenji_tanaka', c: 'The minibus taxi system terrified me on day one. Today I hand exact change and yell my destination like a local. Small victories. Also learned the hard way: rush hour is a contact sport.' },
+  { u: 'lena_fischer', c: 'Photo dump coming this weekend: Entoto at dawn, the Merkato spice quarter, and a weaver named Almaz who posed like she had done this her whole life. Because she has.' },
+  { u: 'marco_rossi', c: 'Asked Meron where she eats and she said "somewhere you cannot pronounce." She was right and it was the best kitfo of my life. Follow the locals, not the reviews.' },
+  { u: 'aisha_khan', c: 'Shipping note for small exporters: consolidated air freight from ADD to DXB is 30% cheaper if you book before the 25th. Two pallet spaces left in my consignment — message me.' },
+  { u: 'chloe_dubois', c: 'Rainy season lesson from the volunteers who came before me: waterproof shoes, not cute shoes. The streets of Sidist Kilo do not care about your aesthetic.' },
+  { u: 'carlos_mendes', c: 'Watched the local premier league derby today. The noise, the drums, the passion — reminds me of Estádio do Maracanã in the 90s. Football language is universal.' },
+  { u: 'sarah_mitchell', c: 'Design critique nobody asked for: the new ride-hailing apps here are cleaner than most European ones. Ethiopia builds brilliant things quietly.' },
+  { u: 'james_carter', c: 'Three weeks into Ethiopia and my notes app has 47 drafts. Simien mountains booked for next week — any tips for the Sona ridge route, send them my way.' },
 ]
 
 // Short realistic replies cycled across seeded posts
@@ -140,12 +168,20 @@ export const DEMO_COMMENTS: { u: string; c: string }[] = [
   { u: 'yonas_ab', c: 'Legend behavior, as usual.' },
   { u: 'mahi_worku', c: 'Can confirm, worth every birr.' },
   { u: 'robel_a', c: 'Bring the whole crew next time.' },
+  { u: 'sarah_mitchell', c: 'As a visitor — this is exactly the kind of tip I needed, thank you!' },
+  { u: 'james_carter', c: 'Adding this to my route notes immediately.' },
+  { u: 'kenji_tanaka', c: 'Experienced this today. Can confirm it is true.' },
+  { u: 'marco_rossi', c: 'This is why I follow locals, not guidebooks.' },
+  { u: 'lena_fischer', c: 'Beautiful. Saving this one.' },
 ]
 
-// Accepted connections between demo accounts (indices into DEMO_USERS)
+// Accepted connections between demo accounts (indices into DEMO_USERS).
+// 0-17 are the local Addis accounts, 18-25 the international voices.
 export const DEMO_CONNECTION_PAIRS: [number, number][] = [
   [0, 4], [1, 9], [2, 17], [3, 10], [4, 17], [5, 12], [6, 15], [7, 13],
   [8, 9], [11, 16], [1, 5], [2, 13], [3, 7], [14, 16],
+  [1, 19], [0, 22], [4, 21], [5, 20], [10, 18], [2, 24], [7, 25],
+  [11, 23], [9, 22], [17, 25], [18, 19], [20, 23],
 ]
 
 // Likes per post (cycled): how many demo users liked post i
