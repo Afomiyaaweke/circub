@@ -32,6 +32,9 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
   const [invitations, setInvitations] = useState<any[]>([])
   const [pending, setPending] = useState<any[]>([])
   const [suggestions, setSuggestions] = useState<any[]>([])
+  const [suggHasMore, setSuggHasMore] = useState(false)
+  const [suggNextOffset, setSuggNextOffset] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [connecting, setConnecting] = useState<string | null>(null)
@@ -51,6 +54,8 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
       setInvitations(inv.invitations || [])
       setPending(pend.pending || [])
       setSuggestions(sugg.suggestions || [])
+      setSuggHasMore(!!sugg.hasMore)
+      setSuggNextOffset(Number(sugg.nextOffset) || 0)
     } catch {
       /* ignore */
     } finally {
@@ -61,6 +66,30 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
   useEffect(() => {
     fetchAll()
   }, [fetchAll])
+
+  // "Load more" for People you may know - appends the next page of suggestions
+  const loadMoreSuggestions = useCallback(async () => {
+    if (loadingMore) return
+    setLoadingMore(true)
+    try {
+      const res = await fetch(
+        `/api/connections/suggestions?offset=${suggNextOffset}`
+      ).then((r) => r.json())
+      const incoming: any[] = res.suggestions || []
+      setSuggestions((prev) => {
+        const seen = new Set(prev.map((p) => p.id))
+        return [...prev, ...incoming.filter((s) => !seen.has(s.id))]
+      })
+      setSuggHasMore(!!res.hasMore)
+      setSuggNextOffset(
+        Number(res.nextOffset) || suggNextOffset + incoming.length
+      )
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, suggNextOffset])
 
   const handleConnect = async (userId: string, name: string) => {
     setConnecting(userId)
@@ -404,6 +433,26 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Load more · paged "People you may know" */}
+        {!loading && suggestions.length > 0 && suggHasMore && (
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadMoreSuggestions}
+              disabled={loadingMore}
+              className="gap-1.5 px-6"
+            >
+              {loadingMore ? 'Loading...' : 'Load more'}
+            </Button>
+          </div>
+        )}
+        {!loading && suggestions.length > 0 && !suggHasMore && (
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            That&apos;s everyone for now
+          </p>
         )}
       </Card>
 

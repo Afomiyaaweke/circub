@@ -1,12 +1,21 @@
 // People you may know · exclude existing connections (ACCEPTED, PENDING) and myself
-import { NextResponse } from 'next/server'
+// Paginated: ?offset=0&limit=8 -> { suggestions, hasMore, nextOffset } so the
+// Network tab can "Load more" in pages instead of one hard take: 8.
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const me = await getCurrentUser()
-    if (!me) return NextResponse.json({ suggestions: [] })
+    if (!me) return NextResponse.json({ suggestions: [], hasMore: false, nextOffset: 0 })
+
+    const { searchParams } = new URL(req.url)
+    const offsetRaw = Number(searchParams.get('offset') || 0)
+    const limitRaw = Number(searchParams.get('limit') || 8)
+    const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.floor(offsetRaw) : 0
+    const limit =
+      Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(24, Math.floor(limitRaw)) : 8
 
     // Fetch my connections
     const myConns = await db.connection.findMany({
@@ -19,10 +28,12 @@ export async function GET() {
       else excludeIds.add(c.requesterId)
     }
 
-    const suggestions = await db.user.findMany({
+    // take one extra row so hasMore costs nothing extra
+    const found = await db.user.findMany({
       where: { id: { notIn: Array.from(excludeIds) } },
       orderBy: { followersCount: 'desc' },
-      take: 8,
+      skip: offset,
+      take: limit + 1,
       select: {
         id: true,
         name: true,
@@ -40,6 +51,9 @@ export async function GET() {
         companyIndustry: true,
       },
     })
+
+    const hasMore = found.length > limit
+    const suggestions = hasMore ? found.slice(0, limit) : found
 
     // For each suggestion, find mutual connections
     const allMyConns = await db.connection.findMany({
@@ -76,7 +90,11 @@ export async function GET() {
       })
     )
 
-    return NextResponse.json({ suggestions: suggestionsWithMutuals })
+    return NextResponse.json({
+      suggestions: suggestionsWithMutuals,
+      hasMore,
+      nextOffset: offset + suggestions.length,
+    })
   } catch (error) {
     console.error('Failed to fetch suggestions:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
