@@ -422,7 +422,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-0.5 w-4 h-4 shrink-0 accent-[hsl(var(--primary))] cursor-pointer"
+              className="mt-0.5 w-4 h-4 shrink-0 accent-primary cursor-pointer"
             />
             <span className="text-xs leading-relaxed text-foreground">
               I have read and agree to the{' '}

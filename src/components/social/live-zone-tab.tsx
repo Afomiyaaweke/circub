@@ -764,6 +764,68 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {visibleGuides.map((g) => {
             const isOwn = me?.id === g.id
+            // Shared action buttons — reused by the mobile grid and the desktop row
+            const bookMessageRateBtns = (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => openBooking(g)}
+                  className="bg-primary hover:bg-primary/90 text-xs gap-1.5"
+                >
+                  <CalendarCheck className="w-3.5 h-3.5" />
+                  Book
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onMessage(g.id)}
+                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Message
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })}
+                  className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1.5"
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  Rate
+                </Button>
+              </>
+            )
+            const shareGuideBtn = (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const url = `${window.location.origin}/?guide=${g.id}`
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
+                    } else if (navigator.clipboard) {
+                      await navigator.clipboard.writeText(url)
+                      toast({ title: 'Link copied!', description: 'Share it anywhere.' })
+                    } else {
+                      window.prompt('Copy this link:', url)
+                    }
+                  } catch (e) {
+                    if (e instanceof Error && e.name !== 'AbortError') {
+                      try {
+                        await navigator.clipboard.writeText(url)
+                        toast({ title: 'Link copied!' })
+                      } catch {
+                        window.prompt('Copy this link:', url)
+                      }
+                    }
+                  }
+                }}
+                className="border-muted text-muted-foreground hover:bg-accent text-xs gap-1.5"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </Button>
+            )
             return (
               <Card key={g.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
                 {/* Top row: availability + star rating (tap = reviews) */}
@@ -858,77 +920,34 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   </div>
                 )}
 
-                {/* Rate + message */}
-                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2">
-                  {g.guideHourlyRate != null && g.guideCurrency ? (
-                    <div className="flex items-center gap-1 text-sm">
-                      <DollarSign className="w-3.5 h-3.5 text-primary" />
-                      <span className="font-semibold text-foreground">{g.guideCurrency} {g.guideHourlyRate}</span>
-                      <span className="text-xs text-muted-foreground">/hr</span>
+                {/* Rate + actions — stacks to two rows on phones, single row on sm+ */}
+                <div className="mt-4 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    {g.guideHourlyRate != null && g.guideCurrency ? (
+                      <div className="flex items-center gap-1 text-sm min-w-0">
+                        <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="font-semibold text-foreground whitespace-nowrap">{g.guideCurrency} {g.guideHourlyRate}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">/hr</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Rate on request</span>
+                    )}
+                    {isOwn ? (
+                      <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] shrink-0">You</Badge>
+                    ) : (
+                      <div className="sm:hidden shrink-0">{shareGuideBtn}</div>
+                    )}
+                  </div>
+                  {!isOwn && (
+                    <div className="mt-2.5 grid grid-cols-3 gap-1.5 sm:hidden">
+                      {bookMessageRateBtns}
                     </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Rate on request</span>
                   )}
-                  {!isOwn ? (
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        size="sm"
-                        onClick={() => openBooking(g)}
-                        className="bg-primary hover:bg-primary/90 text-xs gap-1.5"
-                      >
-                        <CalendarCheck className="w-3.5 h-3.5" />
-                        Book
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onMessage(g.id)}
-                        className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        Message
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })}
-                        className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1.5"
-                      >
-                        <Star className="w-3.5 h-3.5" />
-                        Rate
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          const url = `${window.location.origin}/?guide=${g.id}`
-                          try {
-                            if (navigator.share) {
-                              await navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
-                            } else if (navigator.clipboard) {
-                              await navigator.clipboard.writeText(url)
-                              toast({ title: 'Link copied!', description: 'Share it anywhere.' })
-                            } else {
-                              window.prompt('Copy this link:', url)
-                            }
-                          } catch (e) {
-                            if (e instanceof Error && e.name !== 'AbortError') {
-                              try {
-                                await navigator.clipboard.writeText(url)
-                                toast({ title: 'Link copied!' })
-                              } catch {
-                                window.prompt('Copy this link:', url)
-                              }
-                            }
-                          }
-                        }}
-                        className="border-muted text-muted-foreground hover:bg-accent text-xs gap-1.5"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                      </Button>
+                  {!isOwn && (
+                    <div className="hidden sm:flex items-center gap-1.5">
+                      {bookMessageRateBtns}
+                      {shareGuideBtn}
                     </div>
-                  ) : (
-                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">You</Badge>
                   )}
                 </div>
               </Card>
