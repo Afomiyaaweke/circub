@@ -9,17 +9,14 @@ import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
 const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
-const NetworkTab = lazy(() => import('@/components/social/network-tab').then(m => ({ default: m.NetworkTab })))
 const LocalFeedTab = lazy(() => import('@/components/social/local-feed-tab').then(m => ({ default: m.LocalFeedTab })))
 const LiveZoneTab = lazy(() => import('@/components/social/live-zone-tab').then(m => ({ default: m.LiveZoneTab })))
-const MainContent = lazy(() => import('@/components/social/main-content').then(m => ({ default: m.MainContent })))
 const ProfileTab = lazy(() => import('@/components/social/profile-tab').then(m => ({ default: m.ProfileTab })))
 
 // Lazy-load modals (only loaded when opened)
 const PriceDetailModal = lazy(() => import('@/components/social/price-detail-modal').then(m => ({ default: m.PriceDetailModal })))
 const LocalProfileModal = lazy(() => import('@/components/social/local-profile-modal').then(m => ({ default: m.LocalProfileModal })))
 const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
-const EditProfileModal = lazy(() => import('@/components/social/edit-profile-modal').then(m => ({ default: m.EditProfileModal })))
 const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
 const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
 const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
@@ -41,7 +38,14 @@ export default function Home() {
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
-  const [editProfileOpen, setEditProfileOpen] = useState(false)
+  // Bumped every time an "Edit profile" entry point is used (header menu,
+  // right sidebar) — routes to the Profile tab in edit mode (full tab).
+  const [editSignal, setEditSignal] = useState(0)
+  // Bookmark and Network live INSIDE the Profile tab now (Instagram-style):
+  // profileSection is the section the Profile tab should open on, bumped
+  // by sectionBump so it also applies when the tab is already active.
+  const [profileSection, setProfileSection] = useState<'saved' | 'network' | null>(null)
+  const [sectionBump, setSectionBump] = useState(0)
   const [guideRegisterOpen, setGuideRegisterOpen] = useState(false)
   const { toast } = useToast()
 
@@ -185,8 +189,22 @@ export default function Home() {
     setMessagesOpen(true)
   }, [me, toast])
 
-  // Editing the profile requires a real account — guests were getting a dead
-  // "Save failed" toast when the modal's PATCH hit 401. Same gating as messaging.
+  // Plain nav clicks reset the deep-linked Profile section so the tab opens
+  // on Posts, while "My network" entry points still land on their section.
+  const handleTabChange = useCallback((tab: TabKey) => {
+    if (tab === 'profile') setProfileSection(null)
+    setActiveTab(tab)
+  }, [])
+
+  const openProfileSection = useCallback((section: 'saved' | 'network') => {
+    setProfileSection(section)
+    setSectionBump((b) => b + 1)
+    setActiveTab('profile')
+  }, [])
+
+  // Editing the profile requires a real account — guests get the sign-up
+  // dialog. Real users land on the Profile tab in edit mode (Instagram-style
+  // full tab, replacing the old modal).
   const handleEditProfile = useCallback(() => {
     if (!me) {
       setLoginOpen(true)
@@ -198,7 +216,9 @@ export default function Home() {
       toast({ title: 'Sign up to save a profile', description: 'Create a free account first — your profile saves with it. It takes 10 seconds.' })
       return
     }
-    setEditProfileOpen(true)
+    setActiveTab('profile')
+    setProfileSection(null)
+    setEditSignal((s) => s + 1)
   }, [me, toast])
 
   const handleOpenMessages = useCallback(() => {
@@ -324,7 +344,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-background pb-[46px] md:pb-0">
       <Header
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         onOpenMessages={handleOpenMessages}
         incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
         user={me}
@@ -332,6 +352,7 @@ export default function Home() {
         onLogin={() => setLoginOpen(true)}
         onLogout={handleLogout}
         onEditProfile={handleEditProfile}
+        onOpenNetwork={() => openProfileSection('network')}
       />
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
@@ -354,24 +375,15 @@ export default function Home() {
             </Suspense>
           )}
 
-          {activeTab === 'network' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <NetworkTab me={me} onMessage={handleMessageUser} onRefreshUser={fetchMe} />
-            </Suspense>
-          )}
-
-          {activeTab === 'bookmark' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <MainContent user={me} activeTab={activeTab} refreshSignal={refreshSignal} onUserChanged={fetchMe} onRefreshAll={handleRefreshAll} />
-            </Suspense>
-          )}
-
           {activeTab === 'profile' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <ProfileTab
                 me={me}
-                onEditProfile={handleEditProfile}
+                editSignal={editSignal}
+                initialSection={profileSection}
+                sectionBump={sectionBump}
                 onOpenListing={setLocalPriceId}
+                onMessage={handleMessageUser}
                 onUserChanged={fetchMe}
                 onSignUp={() => setRegisterOpen(true)}
               />
@@ -388,7 +400,7 @@ export default function Home() {
             onOpenLocalProfile={setLocalProfileUserId}
             onGoToFeed={() => setActiveTab('local')}
             onEditProfile={handleEditProfile}
-            onManageNetwork={() => setActiveTab('network')}
+            onManageNetwork={() => openProfileSection('network')}
           />
         </div>
       </div>
@@ -403,10 +415,6 @@ export default function Home() {
 
       <Suspense fallback={null}>
         <LocalProfileModal userId={localProfileUserId} onClose={() => setLocalProfileUserId(null)} onOpenPost={setLocalPriceId} onMessage={handleMessageUser} currentUserId={me?.id ?? null} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <EditProfileModal open={editProfileOpen} onOpenChange={setEditProfileOpen} user={me} onSaved={fetchMe} />
       </Suspense>
 
       <Suspense fallback={null}>

@@ -10,8 +10,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  BadgeCheck, Camera, ChevronLeft, ChevronRight, Image as ImageIcon, Loader2,
-  MapPin, Package, Plus, Sparkles, Trash2, X,
+  Award, BadgeCheck, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, DollarSign, Image as ImageIcon, Languages, Loader2,
+  Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Sparkles, Star, Trash2, UserCircle, Users, X,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -19,18 +19,29 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { compressImage } from '@/lib/image-compress'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
+import { getSavedItems, unsaveItem, type SavedItem } from '@/lib/saved-items'
+import { GuideStars } from './guide-reviews-modal'
+import { NetworkTab } from './network-tab'
+import { AddProductModal } from './add-product-modal'
 import type { User } from '@/lib/types'
 
 interface ProfileTabProps {
   me: User
-  onEditProfile: () => void
+  editSignal?: number
+  // Deep link into a section from outside (header menu "My network",
+  // right sidebar) — applied on mount and re-applied when sectionBump changes.
+  initialSection?: 'saved' | 'network' | null
+  sectionBump?: number
   onOpenListing: (postId: string) => void
+  onMessage: (userId: string) => void
   onUserChanged: () => void
   onSignUp: () => void
 }
@@ -50,7 +61,7 @@ interface MyStory {
   createdAt: string; expiresAt: string
 }
 
-type ContentType = 'posts' | 'listings' | 'products'
+type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network'
 type Deletable =
   | { kind: 'post'; id: string; label: string }
   | { kind: 'listing'; id: string; label: string }
@@ -75,9 +86,11 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   { key: 'posts', label: 'Posts', icon: ImageIcon },
   { key: 'listings', label: 'Listings', icon: MapPin },
   { key: 'products', label: 'Products', icon: Package },
+  { key: 'saved', label: 'Saved', icon: Bookmark },
+  { key: 'network', label: 'Network', icon: Users },
 ]
 
-export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, onSignUp }: ProfileTabProps) {
+export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onOpenListing, onMessage, onUserChanged, onSignUp }: ProfileTabProps) {
   const { toast } = useToast()
   const isGuest = me.id === 'guest'
 
@@ -87,7 +100,7 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
   const [stories, setStories] = useState<MyStory[]>([])
   const [loading, setLoading] = useState(!isGuest)
 
-  const [contentType, setContentType] = useState<ContentType>('posts')
+  const [contentType, setContentType] = useState<ContentType>(initialSection ?? 'posts')
 
   // Story creation
   const fileRef = useRef<HTMLInputElement>(null)
@@ -105,6 +118,29 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
   // Delete confirmation
   const [confirm, setConfirm] = useState<Deletable | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Full-tab Edit Profile view (Instagram-style) — replaces the old modal
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState('')
+  const [headline, setHeadline] = useState('')
+  const [location, setLocation] = useState('')
+  const [bio, setBio] = useState('')
+  const [phone, setPhone] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [expertiseTags, setExpertiseTags] = useState('')
+  const [guideBio, setGuideBio] = useState('')
+  const [guideSpecialties, setGuideSpecialties] = useState('')
+  const [guideLanguages, setGuideLanguages] = useState('')
+  const [guideRate, setGuideRate] = useState('')
+  const [guideCurrency, setGuideCurrency] = useState('USD')
+  const [guideLicense, setGuideLicense] = useState('')
+  const [guideAvg, setGuideAvg] = useState<number | null>(null)
+  const [guideCount, setGuideCount] = useState<number | null>(null)
+  const [profilePicture, setProfilePicture] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const avatarFileRef = useRef<HTMLInputElement>(null)
+  const isGuide = Boolean(me.isGuide)
 
   const fetchAll = useCallback(async () => {
     if (isGuest) return
@@ -126,6 +162,59 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  // Entry points outside this tab (header user menu, right sidebar) request
+  // edit mode by bumping editSignal while switching to the Profile tab.
+  useEffect(() => {
+    if (editSignal > 0 && !isGuest) openEdit()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editSignal])
+
+  // Same pattern for deep-linked sections: the header's "My network" and the
+  // right sidebar land here with initialSection set; a sectionBump change
+  // re-applies it when the Profile tab is already mounted.
+  const lastBump = useRef(sectionBump)
+  useEffect(() => {
+    if (sectionBump !== lastBump.current) {
+      lastBump.current = sectionBump
+      if (initialSection && !isGuest) {
+        setEditing(false)
+        setContentType(initialSection)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionBump, initialSection, isGuest])
+
+  // ------------------------------------------------------- saved (bookmark)
+  // Saved items live in localStorage (per device) — posts and price posts
+  // bookmarked from the feed and the Local prices tab via the bookmark icon.
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([])
+  const [savedView, setSavedView] = useState<SavedItem | null>(null)
+  const refreshSaved = useCallback(() => setSavedItems(getSavedItems()), [])
+  useEffect(() => {
+    refreshSaved()
+    window.addEventListener('circub:saved-changed', refreshSaved)
+    return () => window.removeEventListener('circub:saved-changed', refreshSaved)
+  }, [refreshSaved])
+
+  const handleUnsave = (item: SavedItem) => {
+    unsaveItem(item.id)
+    setSavedItems((list) => list.filter((s) => s.id !== item.id))
+    toast({ title: 'Removed from saved' })
+  }
+
+  const openSavedItem = (item: SavedItem) => {
+    // Price posts open in the full details modal; posts have no deep link,
+    // so they open in a lightweight view dialog instead.
+    if (item.type === 'localPrice') onOpenListing(item.id)
+    else setSavedView(item)
+  }
+
+  // Guests can keep saving on this device — the CTA branch reuses this list.
+  const [guestSaved, setGuestSaved] = useState(false)
+
+  // Marketplace: list a new product straight from the profile's Products section
+  const [addProductOpen, setAddProductOpen] = useState(false)
+
   // Auto-advance the story viewer every 6 seconds (Instagram-style)
   useEffect(() => {
     if (viewerIndex < 0) return
@@ -134,6 +223,80 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
     }, 6000)
     return () => clearTimeout(t)
   }, [viewerIndex, stories.length])
+
+  // ------------------------------------------------------------- edit mode
+  const openEdit = useCallback(() => {
+    setName(me.name || '')
+    setHeadline(me.headline || '')
+    setLocation(me.location || '')
+    setBio(me.bio || '')
+    setPhone((me as any).phone || '')
+    setWhatsapp((me as any).whatsapp || '')
+    setProfilePicture(me.profilePicture || null)
+    const tags = me.expertiseTags
+    setExpertiseTags(Array.isArray(tags) ? tags.join(', ') : (tags as string) || '')
+    setGuideBio(me.guideBio || '')
+    setGuideSpecialties(Array.isArray(me.guideSpecialties) ? me.guideSpecialties.join(', ') : (me.guideSpecialties as string) || '')
+    setGuideLanguages(Array.isArray(me.guideLanguages) ? me.guideLanguages.join(', ') : (me.guideLanguages as string) || '')
+    setGuideRate(me.guideHourlyRate != null ? String(me.guideHourlyRate) : '')
+    setGuideCurrency(me.guideCurrency || 'USD')
+    setGuideLicense(me.guideLicense || '')
+    setGuideAvg(typeof me.rating === 'number' && me.rating > 0 ? me.rating : null)
+    setGuideCount(null)
+    setEditing(true)
+    if (me.isGuide) {
+      fetch(`/api/guides/${me.id}/ratings`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d && typeof d.average === 'number') {
+            setGuideAvg(d.average > 0 ? d.average : null)
+            setGuideCount(d.count || 0)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [me])
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Upload failed') }
+      const data = await res.json()
+      setProfilePicture(data.url)
+      toast({ title: 'Profile picture updated' })
+    } catch (err) {
+      toast({ title: 'Upload failed', description: (err as Error).message, variant: 'destructive' })
+    } finally { setUploading(false) }
+  }
+
+  const saveProfile = async () => {
+    if (!name.trim()) { toast({ title: 'Name is required', variant: 'destructive' }); return }
+    setSaving(true)
+    try {
+      const payload: Record<string, unknown> = { name, headline, location, bio, profilePicture, expertiseTags, phone: phone.trim() || null, whatsapp: whatsapp.trim() || null }
+      if (isGuide) {
+        payload.guideBio = guideBio
+        payload.guideSpecialties = guideSpecialties
+        payload.guideLanguages = guideLanguages
+        payload.guideLicense = guideLicense
+        payload.guideCurrency = guideCurrency
+        payload.guideHourlyRate = guideRate.trim() ? Number(guideRate) : null
+      }
+      const res = await fetch('/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save')
+      toast({ title: 'Profile updated', description: isGuide ? 'Your guide profile is live with the changes.' : 'Your changes have been saved.' })
+      setEditing(false)
+      onUserChanged()
+    } catch (err) {
+      toast({ title: 'Save failed', description: (err as Error).message, variant: 'destructive' })
+    } finally { setSaving(false) }
+  }
 
   // ---------------------------------------------------------------- stories
   const pickStoryImage = () => {
@@ -221,6 +384,53 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
     }
   }
 
+  // ------------------------------------------------------- saved list markup
+  // One row per bookmarked item — shared by the Saved content section and
+  // the guest CTA's "saved on this device" list.
+  const renderSavedItems = () => (
+    savedItems.length === 0 ? (
+      <EmptyState icon={<Bookmark className="w-7 h-7 text-primary/50" />} title="Nothing saved yet"
+        text="Tap the bookmark icon on any post or price card — your saved collection lives here, like Instagram's Saved tab." />
+    ) : (
+      <div className="divide-y divide-border/60">
+        {savedItems.map((item) => (
+          <div key={item.id} className="flex items-center gap-3 py-2.5">
+            <div className="w-12 h-12 rounded-lg overflow-hidden bg-accent/50 shrink-0">
+              {item.imageUrl ? (
+                <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-emerald-500/10 to-teal-500/15 flex items-center justify-center">
+                  {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+              {item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
+              <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 mt-0.5">
+                <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide bg-accent text-muted-foreground">
+                  {item.type === 'post' ? 'Post' : 'Price'}
+                </Badge>
+                {item.priceLabel && <span className="font-semibold text-foreground/80">{item.priceLabel}</span>}
+                <span>Saved {timeAgo(new Date(item.savedAt).toISOString())}</span>
+              </p>
+            </div>
+            <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={() => openSavedItem(item)}>
+              {item.type === 'localPrice' ? 'Open' : 'View'}
+            </Button>
+            <button
+              onClick={() => handleUnsave(item)}
+              className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+              aria-label="Remove from saved"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    )
+  )
+
   // ------------------------------------------------------------------ guest
   if (isGuest) {
     return (
@@ -234,7 +444,132 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
             Posts, price listings, products and 24-hour stories — all in one place, like your favourite social app.
             Sign up free to make it yours.
           </p>
-          <Button onClick={onSignUp} className="bg-primary hover:bg-primary/90 text-primary-foreground">Join circub — it's free</Button>
+          <div className="flex flex-col gap-2">
+            <Button onClick={onSignUp} className="bg-primary hover:bg-primary/90 text-primary-foreground">Join circub — it's free</Button>
+            <Button variant="outline" onClick={() => setGuestSaved((v) => !v)} className="gap-1.5">
+              <Bookmark className="w-4 h-4" />{guestSaved ? 'Hide' : 'View'} your saved items
+            </Button>
+          </div>
+          {guestSaved && (
+            <div className="mt-6 text-left bg-card border border-border rounded-xl p-3">
+              <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-1.5"><Bookmark className="w-4 h-4 text-primary" />Saved on this device</h3>
+              <p className="text-[11px] text-muted-foreground mb-2">Bookmarked posts and prices are kept in this browser — sign up to keep them with your account.</p>
+              {renderSavedItems()}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ------------------------------------------------ full-tab edit profile
+  if (editing && !isGuest) {
+    return (
+      <div className="flex-1 min-w-0 pb-10">
+        <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); if (avatarFileRef.current) avatarFileRef.current.value = '' }} />
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4">
+          {/* IG-style toolbar: back · title · save */}
+          <div className="sticky top-[56px] md:top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border flex items-center gap-2">
+            <button onClick={() => setEditing(false)} className="p-1.5 -ml-1.5 rounded-full hover:bg-accent text-foreground" aria-label="Back to profile">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h1 className="flex-1 text-lg font-bold text-foreground">Edit profile</h1>
+            <Button onClick={saveProfile} disabled={saving || uploading || !name.trim()} className="h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <>Save</>}
+            </Button>
+          </div>
+
+          <div className="mt-6 space-y-5">
+            {/* Avatar */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                {profilePicture ? (
+                  <img src={profilePicture} alt={name} className="w-20 h-20 rounded-full object-cover border-2 border-accent" />
+                ) : (
+                  <Avatar className="w-20 h-20 border-2 border-accent"><AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{name.charAt(0).toUpperCase() || '?'}</AvatarFallback></Avatar>
+                )}
+                <button onClick={() => avatarFileRef.current?.click()} disabled={uploading} className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors disabled:opacity-60" aria-label="Change profile picture">
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground">Profile picture</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Tap the camera icon to upload (max 2 MB).</p>
+                {profilePicture && <button onClick={() => setProfilePicture(null)} className="mt-1 text-xs text-destructive hover:underline flex items-center gap-1"><X className="w-3 h-3" />Remove picture</button>}
+              </div>
+            </div>
+
+            <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><UserCircle className="w-3.5 h-3.5" />Full name *</label><Input placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
+            <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5" />Headline</label><Input placeholder="e.g. Verified Local · Traveler · Food enthusiast" value={headline} onChange={(e) => setHeadline(e.target.value)} /></div>
+            <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />Location</label><Input placeholder="e.g. Kuala Lumpur, Malaysia" value={location} onChange={(e) => setLocation(e.target.value)} /></div>
+            <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" />Expertise (comma-separated)</label><Input placeholder="e.g. Coffee, Markets, Handicrafts" value={expertiseTags} onChange={(e) => setExpertiseTags(e.target.value)} /></div>
+            <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5" />Bio</label><Textarea placeholder="Tell the community who you are and what you know..." value={bio} onChange={(e) => setBio(e.target.value)} className="min-h-[80px] resize-y" /></div>
+
+            {/* Contact information */}
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Contact information</h3>
+              </div>
+              <p className="text-[11px] text-muted-foreground -mt-1">Shown on your profile so travelers and locals can reach you. Same channels as local price posts.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />Phone</label>
+                  <Input type="tel" placeholder="+251 911 234 567" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />WhatsApp</label>
+                  <Input placeholder="+251 911 234 567 or wa.me/251911234567" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />Sign-in email</label>
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-accent/40 text-sm text-muted-foreground truncate">
+                  <Mail className="w-3.5 h-3.5 shrink-0" />
+                  {me.email || '—'}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Your sign-in email is used for contact — it can’t be changed here.</p>
+              </div>
+            </div>
+
+            {/* Guide profile (registered guides only) */}
+            {isGuide && (
+              <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Compass className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-bold text-foreground">Guide profile</h3>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px]">Live Zone</Badge>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    {guideAvg != null && guideAvg > 0 ? (
+                      <>
+                        <GuideStars value={guideAvg} />
+                        <span className="font-semibold text-foreground">{guideAvg.toFixed(1)}</span>
+                        <span className="text-muted-foreground">({guideCount ?? 0} review{guideCount !== 1 ? 's' : ''})</span>
+                      </>
+                    ) : (
+                      <span className="flex items-center gap-1 text-amber-600"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />No reviews yet</span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">These details are what tourists see on your Live Zone card — keep them sharp.</p>
+                <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5" />Guide bio</label><Textarea placeholder="What tours do you run? What makes exploring with you special..." value={guideBio} onChange={(e) => setGuideBio(e.target.value)} className="min-h-[64px] resize-y bg-card" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Compass className="w-3.5 h-3.5" />Specialties (comma-separated)</label><Input placeholder="e.g. Historical, Food, Hiking" value={guideSpecialties} onChange={(e) => setGuideSpecialties(e.target.value)} className="bg-card" /></div>
+                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Languages className="w-3.5 h-3.5" />Languages (comma-separated)</label><Input placeholder="e.g. Amharic, English" value={guideLanguages} onChange={(e) => setGuideLanguages(e.target.value)} className="bg-card" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" />Hourly rate</label><Input type="number" min={0} placeholder="e.g. 30" value={guideRate} onChange={(e) => setGuideRate(e.target.value)} className="bg-card" /></div>
+                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium">Currency</label><select value={guideCurrency} onChange={(e) => setGuideCurrency(e.target.value)} className="h-9 w-full px-3 rounded-md border border-border bg-card text-sm text-foreground">
+                    {['USD', 'ETB', 'EUR', 'GBP', 'KES', 'AED', 'TRY', 'ZAR'].map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select></div>
+                </div>
+                <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Award className="w-3.5 h-3.5" />License number (optional)</label><Input placeholder="e.g. ET-GUIDE-2024-0182" value={guideLicense} onChange={(e) => setGuideLicense(e.target.value)} className="bg-card" /></div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -295,7 +630,7 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button onClick={onEditProfile} variant="outline" className="flex-1 h-9 rounded-lg text-sm">Edit profile</Button>
+          <Button onClick={openEdit} variant="outline" className="flex-1 h-9 rounded-lg text-sm">Edit profile</Button>
           <Button onClick={pickStoryImage} className="flex-1 h-9 rounded-lg text-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
             <Camera className="w-4 h-4" /> New story
           </Button>
@@ -329,6 +664,7 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
       </div>
 
       {/* ----------------------------------------------- content tab strip */}
+      {/* 5 sections — labels hidden on phones (icon-only, like Instagram) */}
       <div className="max-w-2xl mx-auto mt-4 border-t border-border">
         <div className="flex">
           {CONTENT_TABS.map((t) => {
@@ -343,9 +679,10 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
                   active ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
                 )}
                 aria-current={active ? 'true' : undefined}
+                aria-label={t.label}
               >
                 <Icon className="w-4 h-4" />
-                {t.label}
+                <span className="hidden sm:inline">{t.label}</span>
               </button>
             )
           })}
@@ -353,7 +690,14 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
       </div>
 
       {/* ------------------------------------------------------ manage grid */}
-      <div className="max-w-2xl mx-auto px-1 sm:px-6 mt-1">
+      <div className={cn('max-w-2xl mx-auto mt-1', contentType === 'saved' || contentType === 'network' ? 'px-4 sm:px-6' : 'px-1 sm:px-6')}>
+        {contentType === 'products' && !loading && products.length > 0 && (
+          <div className="flex justify-end pt-2 pb-1">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => setAddProductOpen(true)}>
+              <Plus className="w-3.5 h-3.5" /> Add product
+            </Button>
+          </div>
+        )}
         {loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading your content...
@@ -387,9 +731,18 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
               ))}
             </div>
           )
+        ) : contentType === 'saved' ? (
+          renderSavedItems()
+        ) : contentType === 'network' ? (
+          <NetworkTab me={me} onMessage={onMessage} onRefreshUser={onUserChanged} />
         ) : products.length === 0 ? (
           <EmptyState icon={<Package className="w-7 h-7 text-primary/50" />} title="No products yet"
-            text="List an item for sale using the Add button on the Network tab — your marketplace items are managed here." />
+            text="List an item for sale and manage it here — travelers and locals browsing the marketplace will see it."
+            action={
+              <Button size="sm" onClick={() => setAddProductOpen(true)} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="w-3.5 h-3.5" /> Add product
+              </Button>
+            } />
         ) : (
           <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
             {products.map((pr) => (
@@ -525,6 +878,30 @@ export function ProfileTab({ me, onEditProfile, onOpenListing, onUserChanged, on
         </DialogContent>
       </Dialog>
 
+      {/* ---------------------------------------------- add product dialog */}
+      <AddProductModal open={addProductOpen} onOpenChange={setAddProductOpen} onCreated={() => { fetchAll(); onUserChanged() }} />
+
+      {/* -------------------------------------------------- saved post view */}
+      <Dialog open={!!savedView} onOpenChange={(o) => { if (!o) setSavedView(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogTitle className="sr-only">Saved post</DialogTitle>
+          {savedView && (
+            <div>
+              {savedView.imageUrl && <img src={savedView.imageUrl} alt="" className="w-full max-h-72 object-cover rounded-lg mb-3" loading="lazy" />}
+              <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{savedView.title}</p>
+              {savedView.subtitle && <p className="mt-1 text-xs text-muted-foreground">by {savedView.subtitle}</p>}
+              <p className="mt-2 text-xs text-muted-foreground">Saved {timeAgo(new Date(savedView.savedAt).toISOString())} · kept on this device</p>
+              <div className="mt-4 flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setSavedView(null)}>Close</Button>
+                <Button variant="destructive" className="flex-1 gap-1.5" onClick={() => { const v = savedView; setSavedView(null); if (v) handleUnsave(v) }}>
+                  <Trash2 className="w-4 h-4" /> Remove
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* ------------------------------------------------ delete confirmation */}
       <AlertDialog open={!!confirm} onOpenChange={(o) => { if (!o) setConfirm(null) }}>
         <AlertDialogContent>
@@ -579,12 +956,13 @@ function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel }: {
   )
 }
 
-function EmptyState({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+function EmptyState({ icon, title, text, action }: { icon: React.ReactNode; title: string; text: string; action?: React.ReactNode }) {
   return (
     <div className="py-14 px-6 text-center">
       <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-accent/50 flex items-center justify-center">{icon}</div>
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       <p className="mt-1 text-xs sm:text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">{text}</p>
+      {action}
     </div>
   )
 }
