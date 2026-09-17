@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
+import { compressImage } from '@/lib/image-compress'
 import type { Post, Comment } from '@/lib/types'
 
 interface PostCardProps {
@@ -102,7 +103,8 @@ export function PostCard({
     if (!file) return
     setUploadingImage(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
+      const compressed = await compressImage(file, 1600, 0.82)
+      const fd = new FormData(); fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Upload failed') }
       const data = await res.json()
@@ -273,7 +275,7 @@ export function PostCard({
             placeholder="Edit your post..."
           />
           {/* Image editing */}
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" ref={editFileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditImageUpload(f); if (editFileRef.current) editFileRef.current.value = '' }} className="hidden" />
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" ref={editFileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditImageUpload(f); if (editFileRef.current) editFileRef.current.value = '' }} className="hidden" />
           {(editImageUrl || (!imageRemoved && post.imageUrl)) ? (
             <div className="mt-2 relative rounded-lg overflow-hidden border border-border">
               {editImageUrl && editImageUrl.startsWith('data:video') ? (

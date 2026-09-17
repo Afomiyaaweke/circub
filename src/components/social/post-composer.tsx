@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
+import { compressImage, compressVideo } from '@/lib/image-compress'
 import type { User, Post } from '@/lib/types'
 
 interface PostComposerProps {
@@ -28,8 +29,12 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
     if (!file) return
     setUploading(true)
     try {
+      // Compress client-side first: photos downscale to ~200-400 KB, longer
+      // video clips get re-encoded so the stored data URL fits request limits.
+      const isVideo = file.type.startsWith('video/')
+      const ready = isVideo ? await compressVideo(file) : await compressImage(file, 1600, 0.82)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', ready)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) {
         const e = await res.json()
@@ -146,7 +151,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                 <div className="flex items-center gap-1 flex-wrap">
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                     ref={fileRef}
                     onChange={(e) => {
                       const f = e.target.files?.[0]
@@ -165,7 +170,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                   </button>
                   <input
                     type="file"
-                    accept="video/mp4,video/webm,video/quicktime"
+                    accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v"
                     ref={videoRef}
                     onChange={(e) => {
                       const f = e.target.files?.[0]
@@ -234,7 +239,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
             <div className="mt-3 flex items-center gap-1 flex-wrap">
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 ref={fileRef}
                 onChange={(e) => {
                   const f = e.target.files?.[0]

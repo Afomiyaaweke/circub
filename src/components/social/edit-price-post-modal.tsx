@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
+import { compressImage } from '@/lib/image-compress'
 import type { LocalPricePost } from '@/lib/types'
 
 interface EditPricePostModalProps {
@@ -76,7 +77,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
     if (!file) return
     setUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
+      const compressed = await compressImage(file, 1280, 0.8)
+      const fd = new FormData(); fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Upload failed') }
       const data = await res.json()
@@ -212,7 +214,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           {/* Image management */}
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Camera className="w-3.5 h-3.5" />Product photo</label>
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" ref={fileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); if (fileRef.current) fileRef.current.value = '' }} className="hidden" />
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" ref={fileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); if (fileRef.current) fileRef.current.value = '' }} className="hidden" />
             {(imageUrl || (!imageRemoved && post?.imageUrl)) ? (
               <div className="relative rounded-lg overflow-hidden border border-border">
                 <img src={imageUrl || post?.imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />

@@ -380,8 +380,11 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     if (!file) return
     setUploading(true)
     try {
+      // Avatars render small — compress hard so the profile update payload
+      // stays tiny (raw phone photos previously broke the upload entirely).
+      const compressed = await compressImage(file, 800, 0.85)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Upload failed') }
       const data = await res.json()
@@ -629,7 +632,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   if (editing && !isGuest) {
     return (
       <div className="flex-1 min-w-0 pb-10">
-        <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden"
+        <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); if (avatarFileRef.current) avatarFileRef.current.value = '' }} />
         <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4">
           {/* IG-style toolbar: back · title · save */}
@@ -796,7 +799,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     const verifiedNow = isIdVerified
     return (
       <div className="flex-1 min-w-0 pb-10">
-        <input ref={docFileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+        <input ref={docFileRef} type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocPick(f); if (docFileRef.current) docFileRef.current.value = '' }} />
         <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-4">
           {/* IG-style toolbar: back · title · status */}
