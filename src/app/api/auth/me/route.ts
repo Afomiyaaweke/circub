@@ -13,23 +13,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Fetch fresh user data with all stats
-    const me = await db.user.findUnique({
-      where: { id: user.id },
-      include: {
-        products: { select: { id: true } },
-        connRequested: true,
-        connReceived: true,
-      },
-    })
-
-    if (!me) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    const incomingPending = me.connReceived.filter(
-      (c) => c.status === 'PENDING'
-    ).length
+    // `getCurrentUser()` above already ran `db.user.findUnique({ where: {
+    // email } })` to resolve the session, so `user` IS the current user's
+    // full row - we reuse it below instead of re-fetching it by id.
+    //
+    // This route runs on EVERY page load (it's the "am I logged in" check
+    // that used to block first paint, and still runs in the background on
+    // every visit), so it needs to be as cheap as possible. The old version
+    // additionally did a *second* full `db.user.findUnique` plus
+    // `include: { products: true, connRequested: true, connReceived: true }`,
+    // which re-fetched the whole user row and pulled every one of the
+    // user's posts and BOTH full connection lists (every row, every
+    // column) into memory just to compute two counts. That's a duplicate
+    // query and a lot of unnecessary rows shipped out of the DB and
+    // serialized to JSON, on every single load.
+    //
+    // Two small, targeted `count()` queries (backed by existing indexes -
+    // `Product.authorId` and `@@index([receiverId, status])` on
+    // Connection) get the same two numbers via index-only lookups instead
+    // of full table/row scans, run in parallel with each other.
+    const me = user
+    const [postsCount, incomingPending] = await Promise.all([
+      db.product.count({ where: { authorId: me.id } }),
+      db.connection.count({
+        where: { receiverId: me.id, status: 'PENDING' },
+      }),
+    ])
 
     return NextResponse.json({
       id: me.id,
@@ -48,7 +57,7 @@ export async function GET() {
       companyWebsite: me.companyWebsite,
       companySize: me.companySize,
       companyIndustry: me.companyIndustry,
-      postsCount: me.products.length,
+      postsCount,
       followersCount: me.followersCount,
       likesCount: me.likesCount,
       connectionsCount: me.connectionsCount,
