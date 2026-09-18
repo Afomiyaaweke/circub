@@ -6,6 +6,7 @@ import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage } from '@/components/social/landing-page'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
+import { rememberPosition, recallPosition, type ProfileSection } from '@/lib/last-position'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
 const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
@@ -48,8 +49,12 @@ export default function Home() {
   // Bookmark and Network live INSIDE the Profile tab now (Instagram-style):
   // profileSection is the section the Profile tab should open on, bumped
   // by sectionBump so it also applies when the tab is already active.
-  const [profileSection, setProfileSection] = useState<'saved' | 'network' | null>(null)
+  const [profileSection, setProfileSection] = useState<ProfileSection | null>(null)
   const [sectionBump, setSectionBump] = useState(0)
+  // The section the Profile tab is ACTUALLY showing (reported by ProfileTab),
+  // so the position memory records the truth even when the user switches
+  // sections with the chips inside the tab.
+  const [profileLiveSection, setProfileLiveSection] = useState<ProfileSection | null>(null)
   const [guideRegisterOpen, setGuideRegisterOpen] = useState(false)
   const { toast } = useToast()
 
@@ -210,6 +215,29 @@ export default function Home() {
     setSectionBump((b) => b + 1)
     setActiveTab('profile')
   }, [])
+
+  // "Remember where the user is if the page is not refreshed": when the user
+  // comes back from another page (browser back, or a client-side nav) the tab
+  // - and the Profile sub-section - they were on is restored. Runs in a
+  // post-hydration effect so the SSR markup always matches the first client
+  // render; an explicit refresh or a fresh visit starts clean at the default.
+  useEffect(() => {
+    const pos = recallPosition()
+    if (!pos || pos.tab === 'local') return
+    setActiveTab(pos.tab)
+    if (pos.tab === 'profile' && pos.section) {
+      setProfileSection(pos.section)
+      setSectionBump((b) => b + 1)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    rememberPosition(
+      activeTab,
+      activeTab === 'profile' ? (profileLiveSection ?? profileSection) : null
+    )
+  }, [activeTab, profileSection, profileLiveSection])
 
   // Editing the profile requires a real account - guests get the sign-up
   // dialog. Real users land on the Profile tab in edit mode (Instagram-style
@@ -414,6 +442,7 @@ export default function Home() {
                 editSignal={editSignal}
                 initialSection={profileSection}
                 sectionBump={sectionBump}
+                onSectionChange={setProfileLiveSection}
                 onOpenListing={setLocalPriceId}
                 onMessage={handleMessageUser}
                 onUserChanged={fetchMe}

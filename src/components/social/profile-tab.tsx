@@ -39,8 +39,12 @@ interface ProfileTabProps {
   editSignal?: number
   // Deep link into a section from outside (header menu "My network",
   // right sidebar) - applied on mount and re-applied when sectionBump changes.
-  initialSection?: 'saved' | 'network' | null
+  // Accepts every section so the position-restore can land on any of them.
+  initialSection?: ContentType | null
   sectionBump?: number
+  // Reports the section the tab is actually showing so the shell can remember
+  // the user's position ("remember where the user is if not refreshed").
+  onSectionChange?: (section: ContentType) => void
   onOpenListing: (postId: string) => void
   onMessage: (userId: string) => void
   onUserChanged: () => void
@@ -91,7 +95,7 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   { key: 'network', label: 'Network', icon: Users },
 ]
 
-export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onOpenListing, onMessage, onUserChanged, onSignUp }: ProfileTabProps) {
+export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onSectionChange, onOpenListing, onMessage, onUserChanged, onSignUp }: ProfileTabProps) {
   const { toast } = useToast()
   const isGuest = me.id === 'guest'
 
@@ -205,6 +209,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionBump, initialSection, isGuest])
+
+  // Report the live section upward (position memory). Fires on mount too so
+  // even a plain Profile visit is recorded as 'posts'.
+  useEffect(() => {
+    onSectionChange?.(contentType)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentType])
 
   // ------------------------------------------------------- saved (bookmark)
   // Saved items live in localStorage (per device) - posts and price posts
