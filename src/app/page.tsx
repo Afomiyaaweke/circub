@@ -29,8 +29,31 @@ import type { User, TabKey } from '@/lib/types'
 // Guests are never cached: guest mode is intentionally per-visit only.
 const ME_CACHE_KEY = 'circub.me.v1'
 
+// Synchronously read the cached session user, if any, so the very first
+// render already knows whether to paint the dashboard shell or the landing
+// page - no flash of the wrong screen while the lazy initializer runs.
+// Guarded for SSR (localStorage doesn't exist on the server).
+function getCachedUser(): User | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const cached = localStorage.getItem(ME_CACHE_KEY)
+    if (cached) {
+      const u = JSON.parse(cached)
+      if (u && u.id && u.id !== 'guest') return u
+    }
+  } catch {}
+  return null
+}
+
 export default function Home() {
-  const [me, setMe] = useState<User | null>(null)
+  const [me, setMe] = useState<User | null>(getCachedUser)
+  // authChecked now only tracks whether the background /api/auth/me
+  // revalidation has completed - it no longer gates the first paint.
+  // Blocking every visit (most of which are anonymous) behind a network
+  // round-trip just to find out "you're not logged in" was the single
+  // biggest chunk of the "Loading circub..." delay, so we render
+  // optimistically from cache/guest state immediately and let the
+  // real auth check settle in the background.
   const [authChecked, setAuthChecked] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('local')
   const [refreshSignal, setRefreshSignal] = useState(0)
@@ -81,18 +104,10 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    // Instant paint from the cached session (repeat loads - mobile & web):
-    // render the dashboard/landing immediately, then revalidate in background.
-    try {
-      const cached = localStorage.getItem(ME_CACHE_KEY)
-      if (cached) {
-        const u = JSON.parse(cached)
-        if (u && u.id && u.id !== 'guest') {
-          setMe(u)
-          setAuthChecked(true)
-        }
-      }
-    } catch {}
+    // `me` is already painted synchronously from cache (or null/guest) by
+    // the lazy useState initializer above. All this effect needs to do is
+    // kick off the background revalidation against the server - it must
+    // NOT block or delay the first paint.
     fetchMe()
   }, [fetchMe])
 
@@ -310,21 +325,17 @@ export default function Home() {
     fetchMe()
   }, [fetchMe])
 
-  // While auth state is being checked, show a tiny loader
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <img
-            src="/logo.png"
-            alt="circub"
-            className="w-16 h-16 mx-auto mb-3 animate-pulse object-contain"
-          />
-          <p className="text-sm text-muted-foreground">Loading circub...</p>
-        </div>
-      </div>
-    )
-  }
+  // NOTE: we intentionally do NOT gate rendering on `authChecked` anymore.
+  // `me` already reflects the best information we have synchronously
+  // (cached user, or null/guest) and `fetchMe()` is revalidating in the
+  // background. Blocking first paint on that network round-trip meant
+  // every anonymous visitor - the majority of first-time traffic - sat on
+  // a spinner just to be told "you're logged out" and shown the landing
+  // page anyway. If a returning user opens the app on a device with no
+  // cache, they'll see the landing page for a moment and then flip to the
+  // dashboard once fetchMe() resolves - a brief, non-blocking flash beats
+  // a guaranteed multi-hundred-ms (or, on a cold serverless/DB start,
+  // multi-second) blank wait for everyone.
 
   // Logged-out → landing page
   if (!me) {
