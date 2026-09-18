@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation, Calculator, Minus } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation, Calculator, Minus, Store } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,10 +14,12 @@ import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
 import { PriceLensModal } from './pricelens-modal'
-import { BudgetResultView } from '@/components/scanner/budget-result'
+import { BudgetResultView, BUDGET_SOURCE_META } from '@/components/scanner/budget-result'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
+import { formatPrice } from '@/lib/location'
+import { CURRENCY_CHOICES } from '@/lib/currency-choices'
 import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
 import type { BudgetResponse, LocalPricePost } from '@/lib/types'
@@ -234,8 +236,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   // or fail, the budget should not depend on it). Uses the same /api/budget
   // endpoint as the scan-result planner.
   const [budgetOpen, setBudgetOpen] = useState(false)
-  const [budgetItem, setBudgetItem] = useState('')
-  const [budgetQty, setBudgetQty] = useState(1)
+  const [budgetItems, setBudgetItems] = useState<Array<{ name: string; qty: number }>>([{ name: '', qty: 1 }])
+  const [budgetCurrency, setBudgetCurrency] = useState('')
   const [budgetHave, setBudgetHave] = useState('')
   const [budgetCity, setBudgetCity] = useState('')
   const [budgetCountry, setBudgetCountry] = useState('')
@@ -340,8 +342,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   }
 
   const runBudgetCalc = async () => {
-    const item = budgetItem.trim()
-    if (!item) {
+    const items = budgetItems.map((it) => ({ name: it.name.trim(), quantity: it.qty })).filter((it) => it.name)
+    if (items.length === 0) {
       setBudgetError('Type what you want to buy first.')
       return
     }
@@ -358,9 +360,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemName: item,
+          items,
           location: budgetLocation(),
-          quantity: budgetQty,
+          currency: budgetCurrency || null,
           availableBudget: availableNum,
           aiHint: null,
         }),
@@ -710,22 +712,58 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
             </div>
             <form
               onSubmit={(e) => { e.preventDefault(); void runBudgetCalc() }}
-              className="flex items-center gap-2 flex-wrap"
+              className="space-y-2"
             >
-              <Input value={budgetItem} onChange={(e) => setBudgetItem(e.target.value)} placeholder="What do you want to buy? (e.g. coffee beans)..." className="flex-1 min-w-[180px] h-9 bg-card text-sm" data-testid="budget-panel-item" />
-              <div className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-card p-1 shrink-0">
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Decrease quantity" onClick={() => setBudgetQty((q) => Math.max(1, q - 1))} disabled={budgetQty <= 1 || budgetLoading}>
-                  <Minus className="h-3.5 w-3.5" />
+              {budgetItems.map((row, idx) => (
+                <div key={idx} className="flex items-center gap-2 flex-wrap">
+                  <Input
+                    value={row.name}
+                    onChange={(e) => setBudgetItems(budgetItems.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)))}
+                    placeholder={idx === 0 ? 'What do you want to buy? (e.g. coffee beans)...' : 'Another item to budget for...'}
+                    className="flex-1 min-w-[180px] h-9 bg-card text-sm"
+                    data-testid={idx === 0 ? 'budget-panel-item' : undefined}
+                  />
+                  <div className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-card p-1 shrink-0">
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Decrease quantity ${idx + 1}`} onClick={() => setBudgetItems(budgetItems.map((r, i) => (i === idx ? { ...r, qty: Math.max(1, r.qty - 1) } : r)))} disabled={row.qty <= 1 || budgetLoading}>
+                      <Minus className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="min-w-8 text-center text-sm font-semibold text-foreground" data-testid={idx === 0 ? 'budget-panel-qty' : undefined}>{row.qty}</span>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Increase quantity ${idx + 1}`} onClick={() => setBudgetItems(budgetItems.map((r, i) => (i === idx ? { ...r, qty: Math.min(99, r.qty + 1) } : r)))} disabled={row.qty >= 99 || budgetLoading}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {idx > 0 && (
+                    <button type="button" onClick={() => setBudgetItems(budgetItems.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-accent text-muted-foreground shrink-0" aria-label={`Remove ${row.name || 'item'}`}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setBudgetItems([...budgetItems, { name: '', qty: 1 }])}
+                  disabled={budgetItems.length >= 8 || budgetLoading}
+                  className="gap-1.5 h-9 shrink-0"
+                  data-testid="budget-panel-add"
+                  title="Add up to 8 items to one combined budget"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add another item
                 </Button>
-                <span className="min-w-8 text-center text-sm font-semibold text-foreground" data-testid="budget-panel-qty">{budgetQty}</span>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Increase quantity" onClick={() => setBudgetQty((q) => Math.min(99, q + 1))} disabled={budgetQty >= 99 || budgetLoading}>
-                  <Plus className="h-3.5 w-3.5" />
+                <Select value={budgetCurrency || 'auto'} onValueChange={(v) => setBudgetCurrency(v === 'auto' ? '' : v)}>
+                  <SelectTrigger className="w-[190px] bg-card h-9 text-sm" data-testid="budget-panel-currency"><SelectValue placeholder="Currency" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto - local currency</SelectItem>
+                    {CURRENCY_CHOICES.map((c) => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input value={budgetHave} onChange={(e) => setBudgetHave(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder={budgetResult ? `Money I have (${budgetResult.currency})` : 'Money I have (optional)'} className="h-9 w-44 bg-card text-sm shrink-0" data-testid="budget-panel-have" />
+                <Button type="submit" size="sm" disabled={budgetLoading || budgetItems.every((it) => !it.name.trim())} className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-9 shrink-0" data-testid="budget-panel-calc" title="Work out the budget for the whole list in the chosen location and currency">
+                  {budgetLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />} Calculate budget
                 </Button>
               </div>
-              <Input value={budgetHave} onChange={(e) => setBudgetHave(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder={budgetResult ? `Money I have (${budgetResult.currency})` : 'Money I have (optional)'} className="h-9 w-44 bg-card text-sm shrink-0" data-testid="budget-panel-have" />
-              <Button type="submit" size="sm" disabled={budgetLoading || !budgetItem.trim()} className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-9 shrink-0" data-testid="budget-panel-calc" title="Work out the budget for this item in the chosen location">
-                {budgetLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />} Calculate budget
-              </Button>
             </form>
             <div className="flex items-center gap-2 flex-wrap">
               <Button
@@ -762,7 +800,49 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
 
             {budgetResult && <BudgetResultView result={budgetResult} />}
 
-            <p className="text-xs text-muted-foreground">The budget mixes real local price posts on circub with AI estimates for the chosen location - use the safe number and you will not come up short.</p>
+            {budgetResult?.lineItems && budgetResult.lineItems.length > 0 && (
+              <div className="space-y-1.5" data-testid="budget-line-items">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">Per item</p>
+                {budgetResult.lineItems.map((li, i) => {
+                  const sm = BUDGET_SOURCE_META[li.source]
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-2 text-xs" data-testid="budget-line-item">
+                      <span className="min-w-0 flex-1 truncate text-zinc-600">
+                        {li.quantity === 1 ? li.name : `${li.quantity} × ${li.name}`}
+                        {li.error && <span className="text-rose-600"> - {li.error}</span>}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500 shrink-0">{sm.label}</span>
+                      <span className="shrink-0 font-semibold text-zinc-900">{li.error ? '-' : formatPrice(li.total.recommended, budgetResult.currency)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {budgetResult?.places && budgetResult.places.length > 0 && (
+              <div className="space-y-2" data-testid="budget-places">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">Where to find these near {budgetPlaceLabel()}</p>
+                {budgetResult.places.map((pl, i) => {
+                  const Icon = pl.source === 'circub' ? MapPin : pl.source === 'ai' ? Sparkles : Store
+                  return (
+                    <div key={i} className="flex items-start gap-2 text-xs" data-testid="budget-place-item">
+                      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-zinc-700">
+                          {pl.name}
+                          <span className="ml-1.5 inline-flex items-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500">
+                            {pl.source === 'circub' ? 'on circub' : pl.source === 'ai' ? 'local guide' : 'tip'}
+                          </span>
+                        </p>
+                        <p className="text-zinc-500 leading-relaxed">{pl.detail}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">The budget mixes real local price posts on circub with AI estimates for the chosen location and currency - use the safe number and you will not come up short.</p>
           </Card>
         )}
 

@@ -179,11 +179,22 @@ const ROUGH_USD_RANGES: Array<[RegExp, number, number]> = [
   [/bike|bicycle|scooter|motorcycle|helmet/i, 50, 3000],
   [/tire|tyre|battery|engine|car ?part/i, 30, 800],
 ]
-const ROUGH_FX_PER_USD: Record<string, number> = {
+export const ROUGH_FX_PER_USD: Record<string, number> = {
   USD: 1, ETB: 125, KES: 129, NGN: 1500, UGX: 3700, TZS: 2600, GHS: 12, ZAR: 18,
   EUR: 0.9, GBP: 0.78, INR: 88, CNY: 7.1, AED: 3.67, SAR: 3.75, TRY: 41, BRL: 5.4,
   EGP: 48, JPY: 150, CAD: 1.37, AUD: 1.5, SGD: 1.28, MYR: 4.2, THB: 32, IDR: 16000,
   PHP: 58, VND: 25500, RWF: 1400, MXN: 18,
+}
+
+// Convert an amount between supported currencies through USD at the rough
+// table rates. Returns null when either side is unsupported (callers keep
+// the natural currency instead of guessing).
+export function convertMoney(amount: number, from: string, to: string): number | null {
+  if (from === to) return amount
+  const fxFrom = ROUGH_FX_PER_USD[from]
+  const fxTo = ROUGH_FX_PER_USD[to]
+  if (!fxFrom || !fxTo || !Number.isFinite(amount)) return null
+  return (amount / fxFrom) * fxTo
 }
 
 export function roughEstimate(searchQuery: string, currency: string): PriceEstimate {

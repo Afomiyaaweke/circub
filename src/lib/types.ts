@@ -297,4 +297,25 @@ export interface BudgetResponse {
   } | null
   source: 'local' | 'ai' | 'rough'
   note: string
+  // Multi-item budget (shopping list). Present when the request carried
+  // items[] - each entry mirrors the single-item math for one line.
+  lineItems?: Array<{
+    name: string
+    quantity: number
+    perUnit: { low: number; typical: number; high: number }
+    total: { low: number; typical: number; high: number; recommended: number }
+    source: 'local' | 'ai' | 'rough'
+    cheapest: BudgetResponse['cheapest']
+    error?: string
+  }>
+  // Where to find the items near the requested location - real circub
+  // price-post clusters first, then AI-suggested markets/areas/shop types.
+  places?: Array<{
+    name: string
+    detail: string
+    source: 'circub' | 'ai' | 'generic'
+    forItems?: string[]
+  }>
+  // Echo of the currency the user picked (null/absent = auto local currency).
+  requestedCurrency?: string | null
 }
