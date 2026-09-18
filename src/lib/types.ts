@@ -270,3 +270,31 @@ export interface ScanHistoryEntry {
   thumbnail?: string | null
   result: ScanResult
 }
+
+// =====================================================
+// BUDGET PLANNER - camera search + "what will it cost me here"
+// =====================================================
+
+export interface BudgetResponse {
+  currency: string
+  quantity: number
+  perUnit: { low: number; typical: number; high: number }
+  total: { low: number; typical: number; high: number; recommended: number }
+  cheapest: {
+    productName: string
+    priceMin: number
+    priceMax: number
+    city: string | null
+    country: string
+    currency: string
+  } | null
+  breakdown: Array<{ label: string; amount: number }>
+  verdict: {
+    state: 'ok' | 'tight' | 'short'
+    spare: number | null
+    shortBy: number | null
+    message: string
+  } | null
+  source: 'local' | 'ai' | 'rough'
+  note: string
+}

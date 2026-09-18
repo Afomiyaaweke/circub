@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ScanResult } from '@/lib/types'
 import { formatPriceRange } from '@/lib/location'
+import { BudgetPlanner } from './budget-planner'
 import { useState } from 'react'
 
 export interface ScanRetryInfo {
@@ -28,7 +29,7 @@ interface ResultsPanelProps {
 
 export function ResultsPanel({ result, loading, error, retrying, onAskGuide }: ResultsPanelProps) {
   return (
-    <Card className="border-emerald-500/20 bg-white shadow-sm">
+    <Card className="border-emerald-500/20 bg-card shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base text-zinc-900">
           <Sparkles className="h-4 w-4 text-emerald-500" />
@@ -153,6 +154,18 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
         <p className={`mt-1 text-2xl font-bold tracking-tight ${hasPrice ? 'text-zinc-900' : 'text-zinc-400'}`}>{priceRange}</p>
         {price?.summary && <p className="mt-2 text-xs leading-relaxed text-zinc-500">{price.summary}</p>}
       </div>
+
+      {/* Budget planner - what to set aside to buy this item here, based on
+          the scan's price estimate + matching local price posts. Hidden for
+          unidentified items where a budget would be meaningless. */}
+      {item.name && item.name !== 'Unknown item' && (
+        <BudgetPlanner
+          itemName={item.name}
+          location={location}
+          price={price}
+          localPrices={result.localPrices ?? []}
+        />
+      )}
 
       {/* Ask a Guide button - for both guest and registered users */}
       {onAskGuide && item.name && item.name !== 'Unknown item' && (

@@ -203,7 +203,7 @@ export function formatPriceRange(
   const fHigh = formatPrice(high, currency)
   if (fLow && fHigh) {
     if (fLow === fHigh) return fLow
-    return `${fLow} \u2013 ${fHigh}`
+    return `${fLow} - ${fHigh}`
   }
   if (fLow) return `from ${fLow}`
   if (fHigh) return `up to ${fHigh}`
