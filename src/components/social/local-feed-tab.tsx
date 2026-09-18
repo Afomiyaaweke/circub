@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation, Calculator, Minus } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,12 +14,13 @@ import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
 import { PriceLensModal } from './pricelens-modal'
+import { BudgetResultView } from '@/components/scanner/budget-result'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
 import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
-import type { LocalPricePost } from '@/lib/types'
+import type { BudgetResponse, LocalPricePost } from '@/lib/types'
 
 // Camera scan + camera search are LIVE - clicking either entry point opens the
 // camera/search flow (AI identifies the item, then compares the AI price
@@ -227,6 +228,21 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   // first" section).
   const [compareProduct, setCompareProduct] = useState('')
 
+  // "Plan my budget" panel - a DIRECT budget entry point on the camera
+  // search: type what you want to buy and get the set-aside answer for your
+  // location WITHOUT needing a successful scan first (the scan can be slow
+  // or fail, the budget should not depend on it). Uses the same /api/budget
+  // endpoint as the scan-result planner.
+  const [budgetOpen, setBudgetOpen] = useState(false)
+  const [budgetItem, setBudgetItem] = useState('')
+  const [budgetQty, setBudgetQty] = useState(1)
+  const [budgetHave, setBudgetHave] = useState('')
+  const [budgetCity, setBudgetCity] = useState('')
+  const [budgetCountry, setBudgetCountry] = useState('')
+  const [budgetLoading, setBudgetLoading] = useState(false)
+  const [budgetResult, setBudgetResult] = useState<BudgetResponse | null>(null)
+  const [budgetError, setBudgetError] = useState<string | null>(null)
+
   // Text mode price comparison - same location-ranked compare as the camera
   // search, but the product name is TYPED (compare panel) instead of
   // photographed. Used by the "Add product to compare" action.
@@ -295,6 +311,69 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   // compact phone icon inside the search bar) - opens the compare panel.
   const openComparePanel = () => {
     setLocPickOpen(true)
+  }
+
+  // Camera-search menu action - opens the budget panel and starts resolving
+  // the location so the default "My location" pick is ready.
+  const openBudgetPanel = () => {
+    setBudgetOpen(true)
+    kickLocation()
+  }
+
+  // Where the budget is calculated for: typed place wins, then the resolved
+  // user location, then null (the API falls back to a sensible default).
+  const budgetLocation = (): { city: string | null; country: string | null; countryCode: string | null; region?: string | null } | null => {
+    const c = budgetCity.trim()
+    if (c || budgetCountry) {
+      return { city: c || null, country: budgetCountry || c || null, countryCode: null }
+    }
+    if (userLocation) {
+      return { city: userLocation.city, country: userLocation.country, countryCode: userLocation.countryCode, region: userLocation.region }
+    }
+    return null
+  }
+
+  const budgetPlaceLabel = (): string => {
+    const loc = budgetLocation()
+    if (!loc) return 'your area'
+    return loc.city ? `${loc.city}${loc.country ? ', ' + loc.country : ''}` : loc.country || 'your area'
+  }
+
+  const runBudgetCalc = async () => {
+    const item = budgetItem.trim()
+    if (!item) {
+      setBudgetError('Type what you want to buy first.')
+      return
+    }
+    setBudgetError(null)
+    const trimmed = budgetHave.trim()
+    const availableNum = trimmed === '' ? null : Number(trimmed)
+    if (availableNum !== null && (!Number.isFinite(availableNum) || availableNum < 0)) {
+      setBudgetError('Enter the money you have as a plain number, or leave it empty.')
+      return
+    }
+    setBudgetLoading(true)
+    try {
+      const res = await fetch('/api/budget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemName: item,
+          location: budgetLocation(),
+          quantity: budgetQty,
+          availableBudget: availableNum,
+          aiHint: null,
+        }),
+        signal: AbortSignal.timeout(55_000),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || `Budget failed (${res.status})`)
+      setBudgetResult(data as BudgetResponse)
+    } catch (e) {
+      setBudgetError(e instanceof Error ? e.message : 'Could not calculate the budget. Try again.')
+    } finally {
+      setBudgetLoading(false)
+    }
   }
 
   // PriceLens scan (shared by the desktop labeled button and the compact
@@ -421,7 +500,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
             {/* Phone: Camera search + Scan collapse into compact icon buttons
                 INSIDE the search bar - saves a whole row, and the camera menu
                 drops from the pill's right edge so it always fits the screen. */}
-            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onOpenCompare={openComparePanel} />
+            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onOpenCompare={openComparePanel} onOpenBudget={openBudgetPanel} />
             <Button type="button" variant="ghost" size="icon" onClick={openScan} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Scan with camera - PriceLens">
               <ScanLine className="w-4 h-4 text-emerald-600" />
             </Button>
@@ -469,6 +548,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           loading={searchingByImage}
           onInitiate={kickLocation}
           onOpenCompare={openComparePanel}
+          onOpenBudget={openBudgetPanel}
         />
         <Button
           type="button"
@@ -614,6 +694,75 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               )
             })()}
             <p className="text-xs text-muted-foreground">Type the product, add one or more places, then use Add product to compare - the first place ranks the matches and every place gets its own price line in the results.</p>
+          </Card>
+        )}
+
+        {/* "Plan my budget" - the direct budget entry point on the camera
+            search. Type what you want to buy, optionally how many and the
+            money you have, and get the set-aside answer for your location
+            (typed place wins, else the auto-detected location) - no scan
+            needed. Same result layout as the scan-result planner. */}
+        {budgetOpen && (
+          <Card className="w-full p-3 shadow-sm border-emerald-500/40 space-y-2.5" data-testid="budget-panel">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Calculator className="w-4 h-4 text-emerald-600" /> Plan my budget</p>
+              <button onClick={() => setBudgetOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close budget planner"><X className="w-4 h-4" /></button>
+            </div>
+            <form
+              onSubmit={(e) => { e.preventDefault(); void runBudgetCalc() }}
+              className="flex items-center gap-2 flex-wrap"
+            >
+              <Input value={budgetItem} onChange={(e) => setBudgetItem(e.target.value)} placeholder="What do you want to buy? (e.g. coffee beans)..." className="flex-1 min-w-[180px] h-9 bg-card text-sm" data-testid="budget-panel-item" />
+              <div className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-card p-1 shrink-0">
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Decrease quantity" onClick={() => setBudgetQty((q) => Math.max(1, q - 1))} disabled={budgetQty <= 1 || budgetLoading}>
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+                <span className="min-w-8 text-center text-sm font-semibold text-foreground" data-testid="budget-panel-qty">{budgetQty}</span>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Increase quantity" onClick={() => setBudgetQty((q) => Math.min(99, q + 1))} disabled={budgetQty >= 99 || budgetLoading}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <Input value={budgetHave} onChange={(e) => setBudgetHave(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder={budgetResult ? `Money I have (${budgetResult.currency})` : 'Money I have (optional)'} className="h-9 w-44 bg-card text-sm shrink-0" data-testid="budget-panel-have" />
+              <Button type="submit" size="sm" disabled={budgetLoading || !budgetItem.trim()} className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-9 shrink-0" data-testid="budget-panel-calc" title="Work out the budget for this item in the chosen location">
+                {budgetLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />} Calculate budget
+              </Button>
+            </form>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => { setBudgetCity(''); setBudgetCountry(''); kickLocation() }}
+                className="gap-1.5 h-9 shrink-0"
+                title="Use the auto-detected current location for the budget"
+              >
+                <Navigation className="w-3.5 h-3.5" /> My location
+              </Button>
+              <Select value={budgetCountry || 'any'} onValueChange={(v) => setBudgetCountry(v === 'any' ? '' : v)}>
+                <SelectTrigger className="w-[160px] bg-card h-9 text-sm"><SelectValue placeholder="Any country" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any country</SelectItem>
+                  {filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input value={budgetCity} onChange={(e) => setBudgetCity(e.target.value)} placeholder="City (optional)" className="w-[150px] h-9 bg-card text-sm" data-testid="budget-panel-city" />
+              <span className="text-xs text-muted-foreground">Budget for: <span className="font-medium text-emerald-700" data-testid="budget-panel-place">{budgetPlaceLabel()}</span></span>
+            </div>
+
+            {budgetError && (
+              <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{budgetError}</p>
+            )}
+
+            {budgetLoading && !budgetResult && (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="budget-panel-loading">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                Working out your budget for {budgetPlaceLabel()}…
+              </p>
+            )}
+
+            {budgetResult && <BudgetResultView result={budgetResult} />}
+
+            <p className="text-xs text-muted-foreground">The budget mixes real local price posts on circub with AI estimates for the chosen location - use the safe number and you will not come up short.</p>
           </Card>
         )}
 
@@ -893,7 +1042,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   )
 }
 
-function PhotoSearchButton({ onImage, loading, onInitiate, onOpenCompare, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onOpenCompare?: () => void; compact?: boolean; className?: string }) {
+function PhotoSearchButton({ onImage, loading, onInitiate, onOpenCompare, onOpenBudget, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onOpenCompare?: () => void; onOpenBudget?: () => void; compact?: boolean; className?: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -947,6 +1096,14 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onOpenCompare, compac
               >
                 <p className="text-sm font-medium text-foreground flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600 shrink-0" />Compare by location</p>
                 <p className="text-[11px] text-muted-foreground">Pick the product and the places to compare prices in</p>
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); onOpenBudget?.() }}
+                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
+                data-testid="menu-plan-budget"
+              >
+                <p className="text-sm font-medium text-foreground flex items-center gap-2"><Calculator className="w-4 h-4 text-emerald-600 shrink-0" />Plan my budget</p>
+                <p className="text-[11px] text-muted-foreground">Work out what to set aside to buy something near you</p>
               </button>
             </div>
           </>
