@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Calculator, Loader2, MapPin, Minus, Plus, Sparkles, TriangleAlert, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,10 @@ const SOURCE_META: Record<BudgetResponse['source'], { label: string; icon: typeo
 }
 
 export function BudgetPlanner({ itemName, location, price, localPrices }: BudgetPlannerProps) {
-  const [open, setOpen] = useState(false)
+  // The budget is part of the answer, not an extra step: the planner starts
+  // open and works out the qty=1 budget on its own the moment a scan result
+  // appears. 'Hide' still collapses it for people who only want the price.
+  const [open, setOpen] = useState(true)
   const [qty, setQty] = useState(1)
   const [have, setHave] = useState('')
   const [loading, setLoading] = useState(false)
@@ -40,6 +43,13 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
   const place = location?.city
     ? `${location.city}${location.country ? ', ' + location.country : ''}`
     : location?.country || 'your area'
+
+  useEffect(() => {
+    if (autoRanRef.current || result || loading) return
+    autoRanRef.current = true
+    void calculate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function calculate() {
     setError(null)
@@ -184,9 +194,16 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>
           )}
 
+          {loading && !result && (
+            <p className="flex items-center gap-2 text-xs text-zinc-500" data-testid="budget-loading">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+              Working out your budget for {place}…
+            </p>
+          )}
+
           {result && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3" data-testid="budget-result">
-              <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3">
+              <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-card p-3">
                 <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">
                   Safe budget · {result.quantity === 1 ? '1 item' : `${result.quantity} items`}
                 </p>
