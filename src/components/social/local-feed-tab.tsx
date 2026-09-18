@@ -55,13 +55,11 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   // (device GPS with IP fallback) and reused for every subsequent search.
   const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null)
   const locationPromiseRef = useRef<Promise<ResolvedLocation | null> | null>(null)
-  // Camera-search option panels + custom compare location. "Search by name
-  // first" lets the user search prices WITHOUT a photo; "Compare by
-  // location" lets them pick WHERE to compare prices (defaults to the
-  // auto-detected current location).
-  const [camMenuOpen, setCamMenuOpen] = useState(false)
-  const [nameSearchOpen, setNameSearchOpen] = useState(false)
-  const [nameQuery, setNameQuery] = useState('')
+  // Camera-search option panel + custom compare location. "Compare by
+  // location" lets the user pick WHERE to compare prices (defaults to the
+  // auto-detected current location) and WHICH product to compare - typed
+  // straight into the panel (the old separate "Search by name first"
+  // section was folded into this panel).
   const [locPickOpen, setLocPickOpen] = useState(false)
   const [pickCountry, setPickCountry] = useState('')
   const [pickCity, setPickCity] = useState('')
@@ -224,8 +222,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
     } finally { setSearchingByImage(false) }
   }
 
-  // "Search by name first" - same location-ranked price comparison as the
-  // camera search, but the product name is TYPED instead of photographed.
+  // "Compare prices by location" panel - the product the user wants to
+  // compare, typed into the panel (absorbs the removed "Search by name
+  // first" section).
+  const [compareProduct, setCompareProduct] = useState('')
+
+  // Text mode price comparison - same location-ranked compare as the camera
+  // search, but the product name is TYPED (compare panel) instead of
+  // photographed. Used by the "Add product to compare" action.
   const handleTextSearch = async (query: string) => {
     const q = query.trim()
     if (!q) return
@@ -288,10 +292,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   }
 
   // Camera-search menu action (shared by the desktop labeled button and the
-  // compact phone icon inside the search bar).
-  const openSearchMenu = (action: 'name' | 'location') => {
-    if (action === 'name') { setNameSearchOpen(true); setLocPickOpen(false) }
-    else if (action === 'location') { setLocPickOpen(true); setNameSearchOpen(false) }
+  // compact phone icon inside the search bar) - opens the compare panel.
+  const openComparePanel = () => {
+    setLocPickOpen(true)
   }
 
   // PriceLens scan (shared by the desktop labeled button and the compact
@@ -418,7 +421,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
             {/* Phone: Camera search + Scan collapse into compact icon buttons
                 INSIDE the search bar - saves a whole row, and the camera menu
                 drops from the pill's right edge so it always fits the screen. */}
-            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onMenuAction={openSearchMenu} />
+            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onOpenCompare={openComparePanel} />
             <Button type="button" variant="ghost" size="icon" onClick={openScan} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Scan with camera - PriceLens">
               <ScanLine className="w-4 h-4 text-emerald-600" />
             </Button>
@@ -465,7 +468,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           onImage={handleImageSearch}
           loading={searchingByImage}
           onInitiate={kickLocation}
-          onMenuAction={openSearchMenu}
+          onOpenCompare={openComparePanel}
         />
         <Button
           type="button"
@@ -498,36 +501,30 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
           </div>
         )}
 
-        {/* "Search by name first" - type the product name instead of
-            uploading a product pic; same location-ranked price compare. */}
-        {nameSearchOpen && (
-          <Card className="w-full p-3 shadow-sm border-primary/30 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><PenLine className="w-4 h-4 text-primary" /> Search by name first</p>
-              <button onClick={() => setNameSearchOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close name search"><X className="w-4 h-4" /></button>
-            </div>
-            <p className="text-xs text-muted-foreground">No photo needed - type the product name (e.g. "coffee beans", "power bank"). Can&apos;t find it? Use the camera instead.</p>
-            <form
-              onSubmit={(e) => { e.preventDefault(); handleTextSearch(nameQuery) }}
-              className="flex items-center gap-2"
-            >
-              <Input value={nameQuery} onChange={(e) => setNameQuery(e.target.value)} placeholder="Product name..." className="flex-1 h-9 bg-card text-sm" />
-              <Button type="submit" size="sm" disabled={searchingByImage || !nameQuery.trim()} className="bg-primary hover:bg-primary/90 gap-1.5 h-9 shrink-0">
-                {searchingByImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />} Search
-              </Button>
-            </form>
-          </Card>
-        )}
-
         {/* "Compare by location" - pick WHERE to compare prices (defaults
-            to the auto-detected current location). Applies to the next
-            camera search or name search. */}
+            to the auto-detected current location) and WHICH product to
+            compare, then show the result right in the panel. Applies to
+            the compare action below. */}
         {locPickOpen && (
           <Card className="w-full p-3 shadow-sm border-emerald-500/40 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-emerald-600" /> Compare prices by location</p>
               <button onClick={() => setLocPickOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close location picker"><X className="w-4 h-4" /></button>
             </div>
+            {/* The product to compare - typed here and added to the
+                comparison with the button below. Adding a product here
+                means ADD IT TO THE COMPARE - it never opens the post
+                form; posting stays with "Post Price" and the results
+                panel's "Post this product". */}
+            <form
+              onSubmit={(e) => { e.preventDefault(); void handleTextSearch(compareProduct) }}
+              className="flex items-center gap-2"
+            >
+              <Input value={compareProduct} onChange={(e) => setCompareProduct(e.target.value)} placeholder="Product to compare (e.g. coffee beans)..." className="flex-1 h-9 bg-card text-sm" />
+              <Button type="submit" size="sm" disabled={searchingByImage || !compareProduct.trim()} className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-9 shrink-0" title="Add this product to the comparison - shows its prices in the picked places">
+                {searchingByImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Add product to compare
+              </Button>
+            </form>
             <div className="flex items-center gap-2 flex-wrap">
               <Button
                 type="button"
@@ -566,31 +563,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                   Done
                 </Button>
               )}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={searchingByImage || (!pickCountry && !pickCity.trim())}
-                onClick={() => {
-                  const city = pickCity.trim() || null
-                  const country = pickCountry || city
-                  const place = [city, pickCountry].filter(Boolean).join(', ')
-                  // Keep the place for later compares too - without duping it.
-                  if (place) {
-                    setCustomLocations((prev) => prev.some((p) => p.place.toLowerCase() === place.toLowerCase()) ? prev : [...prev, { city, country, countryCode: null, place }])
-                  }
-                  setLocPickOpen(false)
-                  // Jump straight to adding a product in the picked place -
-                  // location pre-filled (country only from a real country
-                  // pick, never the city fallback), the user types the rest.
-                  setPostPrefill({ country: pickCountry || undefined, city: city || undefined })
-                  setModalOpen(true)
-                }}
-                className="gap-1.5 h-9 shrink-0 border-emerald-500/50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-                title="Add a product price in the picked place - opens the post form with the location pre-filled"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add product
-              </Button>
             </div>
             {customLocations.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -603,7 +575,45 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                 ))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Add two or more places to compare them side by side - the first place ranks the matches, and every place gets its own price line in the results. Or skip the search and add a product directly.</p>
+            {/* Live per-place results - shown right in the panel so the
+                user sees the comparison WHILE comparing, not only after
+                closing the panel and hunting for the results card. Every
+                picked place gets its own price line. */}
+            {searchResults && customLocations.length > 0 && (() => {
+              const groups = groupMatchesByLocation(searchResults.localMatches)
+              const lines = customLocations.slice(0, 5).map((p) => {
+                const ms = groups.filter((g) => groupMatchesPick(g, p))
+                if (ms.length === 0) return { place: p.place, empty: true as const, currency: '', min: 0, max: 0, count: 0 }
+                return {
+                  place: p.place, empty: false as const,
+                  currency: ms[0].currency,
+                  min: Math.min(...ms.map((g) => g.min)),
+                  max: Math.max(...ms.map((g) => g.max)),
+                  count: ms.reduce((s, g) => s + g.count, 0),
+                }
+              })
+              return (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-1">
+                  <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                    <Search className="w-3 h-3 shrink-0" />
+                    {searchResults.keywords || compareProduct || 'Compare results'}
+                  </p>
+                  {lines.map((l) => (
+                    <p key={l.place} className="text-xs text-emerald-900 flex items-center gap-1.5 flex-wrap">
+                      <MapPin className="w-3 h-3 shrink-0 text-emerald-600" />
+                      <span className="font-semibold">{l.place}:</span>
+                      {l.empty
+                        ? <span className="text-muted-foreground">no local prices yet</span>
+                        : <span><span className="font-bold">{l.currency} {l.min}-{l.max}</span> · {l.count} price{l.count !== 1 ? 's' : ''}</span>}
+                    </p>
+                  ))}
+                  {searchResults.aiPriceEstimate && (
+                    <p className="text-[11px] text-amber-700">AI estimate: {searchResults.aiPriceEstimate.currency} {searchResults.aiPriceEstimate.min}-{searchResults.aiPriceEstimate.max}</p>
+                  )}
+                </div>
+              )
+            })()}
+            <p className="text-xs text-muted-foreground">Type the product, add one or more places, then use Add product to compare - the first place ranks the matches and every place gets its own price line in the results.</p>
           </Card>
         )}
 
@@ -612,7 +622,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
             user's local currency) + matching local posts ranked by location,
             so the user can compare AI vs real local prices near them. */}
         {searchResults && (
-          <Card className="p-4 shadow-sm border-primary/20 space-y-3">
+          <Card className="w-full p-4 shadow-sm border-primary/20 space-y-3">
             <div className="flex items-start gap-3">
               {searchResults.imageUrl ? (
                 <img src={searchResults.imageUrl} alt="Captured" className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border" />
@@ -883,7 +893,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   )
 }
 
-function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onMenuAction?: (action: 'name' | 'location') => void; compact?: boolean; className?: string }) {
+function PhotoSearchButton({ onImage, loading, onInitiate, onOpenCompare, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onOpenCompare?: () => void; compact?: boolean; className?: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -910,16 +920,16 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact
           className={compact
             ? 'bg-card border-primary/30 h-9 w-9 px-0 justify-center'
             : 'bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs'}
-          title="Search by photo, by name, or compare prices in another location"
+          title="Search by photo or compare prices in another location"
         >
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
           {!compact && <><span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span></>}
           {!compact && SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
         </Button>
-        {/* Options menu - take a photo, search by name first (no photo
-            needed), or compare prices in a chosen location. Anchored to the
-            trigger's right edge with a viewport guard so it never clips off
-            screen on phones. */}
+        {/* Options menu - take a photo, or compare prices in a chosen
+            location (the typed-product compare lives inside that panel).
+            Anchored to the trigger's right edge with a viewport guard so it
+            never clips off screen on phones. */}
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
@@ -932,18 +942,11 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onMenuAction, compact
                 <p className="text-[11px] text-muted-foreground">AI identifies the product from a picture</p>
               </button>
               <button
-                onClick={() => { setMenuOpen(false); onMenuAction?.('name') }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
-              >
-                <p className="text-sm font-medium text-foreground flex items-center gap-2"><PenLine className="w-4 h-4 text-primary shrink-0" />Search by name first</p>
-                <p className="text-[11px] text-muted-foreground">Type the product name - no photo needed</p>
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); onMenuAction?.('location') }}
+                onClick={() => { setMenuOpen(false); onOpenCompare?.() }}
                 className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
               >
                 <p className="text-sm font-medium text-foreground flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600 shrink-0" />Compare by location</p>
-                <p className="text-[11px] text-muted-foreground">Pick the city or country to compare prices in</p>
+                <p className="text-[11px] text-muted-foreground">Pick the product and the places to compare prices in</p>
               </button>
             </div>
           </>
