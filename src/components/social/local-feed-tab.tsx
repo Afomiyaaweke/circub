@@ -707,7 +707,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                 </span>
                 <button
                   onClick={() => void handlePostProduct()}
-                  className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                  className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-card px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
                   title="Add this product as a price post - pre-filled with the searched location"
                 >
                   <Plus className="w-3 h-3" /> Add it
@@ -752,7 +752,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
                             <span className="text-muted-foreground">{g.count} price{g.count !== 1 ? 's' : ''}</span>
                             <button
                               onClick={(e) => { e.stopPropagation(); void handlePostProduct(g) }}
-                              className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
+                              className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-card px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:border-emerald-600 hover:bg-emerald-600 hover:text-white"
                               title={`Add this product as a price post in ${g.place} - pre-filled with the ${g.currency} ${g.min}-${g.max} range posted there`}
                             >
                               <Plus className="w-3 h-3" /> Add here

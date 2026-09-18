@@ -133,11 +133,11 @@ export function RightSidebar({
             aria-label={profileExpanded ? 'Collapse profile info' : 'Expand profile info'}
           >
             {user?.profilePicture ? (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white shadow-md overflow-hidden">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md overflow-hidden">
                 <img src={user.profilePicture} alt={user?.name || 'Profile'} className="w-full h-full object-cover" />
               </div>
             ) : (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-primary font-bold text-xl sm:text-2xl">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md flex items-center justify-center text-primary font-bold text-xl sm:text-2xl">
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'C'}
               </div>
             )}

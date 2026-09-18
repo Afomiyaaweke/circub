@@ -293,10 +293,10 @@ export function PostCard({
                 <img loading="lazy" decoding="async" src={post.imageUrl || ''} alt="Post image" className="w-full max-h-64 object-cover" />
               )}
               <div className="absolute top-2 right-2 flex gap-1.5">
-                <button onClick={() => editFileRef.current?.click()} disabled={uploadingImage} className="p-1.5 rounded-md bg-white/90 hover:bg-white text-muted-foreground" title="Replace image">
+                <button onClick={() => editFileRef.current?.click()} disabled={uploadingImage} className="p-1.5 rounded-md bg-card/90 hover:bg-card text-muted-foreground" title="Replace image">
                   {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                 </button>
-                <button onClick={() => { setEditImageUrl(''); setImageRemoved(true) }} className="p-1.5 rounded-md bg-white/90 hover:bg-white text-destructive" title="Remove image">
+                <button onClick={() => { setEditImageUrl(''); setImageRemoved(true) }} className="p-1.5 rounded-md bg-card/90 hover:bg-card text-destructive" title="Remove image">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>

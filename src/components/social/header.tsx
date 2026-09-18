@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 import type { TabKey, User } from '@/lib/types'
 
@@ -60,7 +61,7 @@ export function Header({
 
   return (
     <>
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-border">
+    <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="mx-auto max-w-[1400px] px-2 sm:px-6 py-0.5 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4">
         {/* Logo */}
         <div className="flex items-center gap-2 shrink-0 min-w-0">
@@ -120,7 +121,8 @@ export function Header({
 
         {/* Auth actions */}
         {!user ? (
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-0.5 sm:gap-1.5">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
@@ -138,7 +140,9 @@ export function Header({
             </Button>
           </div>
         ) : (
-          <div className="relative" ref={menuRef}>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <ThemeToggle />
+            <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               className="flex items-center gap-1.5 px-1.5 py-0.5 sm:gap-2 sm:px-2 sm:py-1.5 rounded-full hover:bg-accent transition-colors"
@@ -246,6 +250,7 @@ export function Header({
               </div>
             )}
           </div>
+          </div>
         )}
       </div>
     </header>
@@ -254,7 +259,7 @@ export function Header({
         Fixed + safe-area padding so it clears the home indicator. */}
     {user && (
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
         <div className="grid grid-cols-5">

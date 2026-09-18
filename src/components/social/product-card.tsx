@@ -38,7 +38,7 @@ export function ProductCard({
               {product.name.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 text-[10px] font-medium text-foreground shadow-sm">
+          <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-card/95 text-[10px] font-medium text-foreground shadow-sm">
             <Tag className="w-3 h-3 text-primary" />
             {product.category}
           </span>

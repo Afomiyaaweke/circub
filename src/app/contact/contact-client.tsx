@@ -60,19 +60,19 @@ export function ContactClient() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* ===== Top bar - dark navy ===== */}
-      <header className="bg-slate-900 text-white">
+    <div className="min-h-screen bg-background">
+      {/* ===== Top bar - fixed dark navy (theme-independent) ===== */}
+      <header className="bg-[oklch(0.21_0.02_255)] text-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
           <a
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-white transition-colors mb-4"
+            className="inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to circub
           </a>
           <h1 className="text-3xl sm:text-4xl font-bold">Contact Us</h1>
-          <p className="mt-2 text-slate-300 text-sm sm:text-base max-w-2xl">
+          <p className="mt-2 text-white/70 text-sm sm:text-base max-w-2xl">
             Questions, feedback or partnership ideas - we would love to hear from you.
           </p>
         </div>
@@ -81,7 +81,7 @@ export function ContactClient() {
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
           {/* ===== Left - Send Us a Message ===== */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+          <section className="bg-card rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
             <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center mb-4">
               <MessagesSquare className="w-6 h-6 text-white" />
             </div>
@@ -132,7 +132,7 @@ export function ContactClient() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      className="bg-white"
+                      className="bg-card"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -146,7 +146,7 @@ export function ContactClient() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="bg-white"
+                      className="bg-card"
                     />
                   </div>
                 </div>
@@ -159,7 +159,7 @@ export function ContactClient() {
                     placeholder="How can we help?"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="bg-white"
+                    className="bg-card"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -172,7 +172,7 @@ export function ContactClient() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     required
-                    className="min-h-[130px] resize-y bg-white"
+                    className="min-h-[130px] resize-y bg-card"
                   />
                 </div>
                 {error && (
@@ -217,7 +217,7 @@ export function ContactClient() {
             </div>
 
             {/* PHONE */}
-            <div className="flex items-start gap-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="flex items-start gap-4 bg-card rounded-2xl shadow-sm border border-slate-200 p-5">
               <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">
                 <Phone className="w-5 h-5 text-white" />
               </div>
@@ -233,7 +233,7 @@ export function ContactClient() {
             </div>
 
             {/* SUPPORT */}
-            <div className="flex items-start gap-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="flex items-start gap-4 bg-card rounded-2xl shadow-sm border border-slate-200 p-5">
               <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">
                 <Mail className="w-5 h-5 text-white" />
               </div>
@@ -249,7 +249,7 @@ export function ContactClient() {
             </div>
 
             {/* GENERAL INQUIRIES */}
-            <div className="flex items-start gap-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="flex items-start gap-4 bg-card rounded-2xl shadow-sm border border-slate-200 p-5">
               <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">
                 <MessagesSquare className="w-5 h-5 text-white" />
               </div>
@@ -267,7 +267,7 @@ export function ContactClient() {
             </div>
 
             {/* BUSINESS HOURS */}
-            <div className="flex items-start gap-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="flex items-start gap-4 bg-card rounded-2xl shadow-sm border border-slate-200 p-5">
               <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">
                 <Clock className="w-5 h-5 text-white" />
               </div>

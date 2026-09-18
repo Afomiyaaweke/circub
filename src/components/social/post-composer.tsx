@@ -138,7 +138,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 right-2 h-7 w-7 p-0 bg-white/90 hover:bg-white"
+                    className="absolute top-2 right-2 h-7 w-7 p-0 bg-card/90 hover:bg-card"
                     onClick={() => setImageUrl('')}
                     aria-label="Remove"
                   >

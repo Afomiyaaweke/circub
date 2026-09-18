@@ -1209,13 +1209,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 onClick={() => setViewerIndex((i) => (i + 1 >= stories.length ? -1 : i + 1))} />
               {viewerIndex > 0 && (
                 <button onClick={() => setViewerIndex((i) => Math.max(0, i - 1))} aria-label="Previous story"
-                  className="hidden sm:flex absolute left-[-56px] top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-md items-center justify-center text-foreground">
+                  className="hidden sm:flex absolute left-[-56px] top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-card shadow-md items-center justify-center text-foreground">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               )}
               {viewerIndex < stories.length - 1 && (
                 <button onClick={() => setViewerIndex((i) => i + 1)} aria-label="Next story"
-                  className="hidden sm:flex absolute right-[-56px] top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-md items-center justify-center text-foreground">
+                  className="hidden sm:flex absolute right-[-56px] top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-card shadow-md items-center justify-center text-foreground">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               )}

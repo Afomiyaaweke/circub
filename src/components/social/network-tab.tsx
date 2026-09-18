@@ -389,7 +389,7 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
               >
                 <div className="h-12 bg-gradient-to-br from-primary/40 to-emerald-400/40" />
                 <div className="px-3 pb-3 -mt-6 flex flex-col items-center text-center">
-                  <Avatar className="w-12 h-12 border-2 border-white bg-white">
+                  <Avatar className="w-12 h-12 border-2 border-card bg-card">
                     <AvatarFallback className="bg-primary/15 text-primary font-semibold">
                       {s.name.charAt(0).toUpperCase()}
                     </AvatarFallback>

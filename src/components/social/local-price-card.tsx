@@ -185,19 +185,19 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           <p className="text-[10px] font-semibold text-blue-900 mb-1">Contact the local</p>
           <div className="flex flex-wrap gap-1.5">
             {post.contactPhone && (
-              <a href={`tel:${post.contactPhone}`} className="flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
+              <a href={`tel:${post.contactPhone}`} className="flex items-center gap-1 px-2 py-1 rounded-md bg-card border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
                 <Phone className="w-3 h-3 text-blue-600" />
                 {post.contactPhone}
               </a>
             )}
             {post.contactEmail && (
-              <a href={`mailto:${post.contactEmail}`} className="flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
+              <a href={`mailto:${post.contactEmail}`} className="flex items-center gap-1 px-2 py-1 rounded-md bg-card border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
                 <Mail className="w-3 h-3 text-blue-600" />
                 {post.contactEmail}
               </a>
             )}
             {post.contactWhatsApp && (
-              <a href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
+              <a href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-2 py-1 rounded-md bg-card border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
                 <MessageCircle className="w-3 h-3 text-green-600" />
                 WhatsApp
               </a>

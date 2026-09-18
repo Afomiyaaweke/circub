@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PwaInstallButton } from '@/components/pwa-install-button'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { APP_VERSION } from '@/lib/app-version'
 import { cn } from '@/lib/utils'
 
@@ -135,11 +136,12 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
     <div className="min-h-screen bg-background">
       {/* ===== Hero ===== */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-emerald-50">
-        {/* Top-right corner - Contact us + app install */}
+        {/* Top-right corner - theme toggle + Contact us + app install */}
         <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex items-center gap-2 sm:gap-3">
+          <ThemeToggle className="bg-card/80 backdrop-blur-sm border border-border shadow-sm" />
           <a
             href="/contact"
-            className="flex items-center gap-1.5 text-sm font-medium text-foreground/80 hover:text-primary bg-white/80 backdrop-blur-sm border border-border rounded-full px-3 h-9 shadow-sm transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium text-foreground/80 hover:text-primary bg-card/80 backdrop-blur-sm border border-border rounded-full px-3 h-9 shadow-sm transition-colors"
             aria-label="Contact us"
           >
             <Mail className="w-4 h-4 text-primary shrink-0" />

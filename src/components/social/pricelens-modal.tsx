@@ -426,11 +426,11 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0 bg-white text-zinc-900 border-zinc-200">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0 bg-card text-card-foreground border-border">
         <DialogTitle className="sr-only">PriceLens - scan a product with your camera</DialogTitle>
 
         {/* Header with Go Back button */}
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-100 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => onOpenChange(false)}

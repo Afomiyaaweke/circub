@@ -288,7 +288,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
               {/* Price block */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-lg bg-white border border-primary/20 p-3">
+                <div className="rounded-lg bg-card border border-primary/20 p-3">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
                     Typical local price
                   </p>
@@ -297,7 +297,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   </p>
                 </div>
                 {post.recommendedPrice != null && (
-                  <div className="rounded-lg bg-white border border-emerald-300 p-3">
+                  <div className="rounded-lg bg-card border border-emerald-300 p-3">
                     <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-medium flex items-center gap-1">
                       <BadgeCheck className="w-3 h-3" />
                       Recommended fair price
@@ -391,7 +391,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         {consensus.contributingPosts.slice(0, 5).map((cp) => (
                           <div
                             key={cp.id}
-                            className="flex items-center justify-between gap-2 text-xs bg-white border border-border/50 rounded-md px-3 py-1.5"
+                            className="flex items-center justify-between gap-2 text-xs bg-card border border-border/50 rounded-md px-3 py-1.5"
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <Avatar className="w-5 h-5">
@@ -580,7 +580,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     Report this post
                   </h4>
                   <Select value={reportType} onValueChange={setReportType}>
-                    <SelectTrigger className="w-full mb-2 bg-white">
+                    <SelectTrigger className="w-full mb-2 bg-card">
                       <SelectValue placeholder="Select a reason" />
                     </SelectTrigger>
                     <SelectContent>
@@ -595,7 +595,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     placeholder="Add details (optional)..."
                     value={reportNote}
                     onChange={(e) => setReportNote(e.target.value)}
-                    className="bg-white min-h-[60px] resize-y text-sm"
+                    className="bg-card min-h-[60px] resize-y text-sm"
                   />
                   <div className="mt-2 flex items-center justify-end gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setShowReport(false)}>

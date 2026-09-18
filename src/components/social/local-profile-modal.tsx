@@ -65,10 +65,10 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
         ) : (
           <div>
             <div className="h-20 bg-gradient-to-br from-primary to-emerald-400 relative">
-              <button onClick={onClose} className="absolute top-2 right-2 p-1.5 rounded-md bg-white/80 hover:bg-white text-muted-foreground" aria-label="Close"><X className="w-4 h-4" /></button>
+              <button onClick={onClose} className="absolute top-2 right-2 p-1.5 rounded-md bg-card/80 hover:bg-card text-muted-foreground" aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <div className="px-5 sm:px-6 -mt-9 flex items-end gap-4">
-              <Avatar className="w-20 h-20 border-4 border-white bg-white shadow-md shrink-0 overflow-hidden">
+              <Avatar className="w-20 h-20 border-4 border-card bg-card shadow-md shrink-0 overflow-hidden">
                 {data.profile.profilePicture ? (
                   <img src={data.profile.profilePicture} alt={data.profile.name} className="w-full h-full object-cover" />
                 ) : (

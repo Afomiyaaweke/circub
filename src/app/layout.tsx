@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Analytics } from "@vercel/analytics/next";
 import { PwaRegister } from "@/components/pwa-register";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,10 +63,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} antialiased bg-background text-foreground`}
       >
-        {children}
-        <Toaster />
-        <Analytics />
-        <PwaRegister />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+          <Analytics />
+          <PwaRegister />
+        </ThemeProvider>
       </body>
     </html>
   );

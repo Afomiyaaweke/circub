@@ -219,10 +219,10 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
               <div className="relative rounded-lg overflow-hidden border border-border">
                 <img src={imageUrl || post?.imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
                 <div className="absolute top-2 right-2 flex gap-1.5">
-                  <Button size="sm" variant="ghost" className="h-7 px-2 bg-white/90 hover:bg-white" onClick={() => fileRef.current?.click()} disabled={uploading} title="Replace image">
+                  <Button size="sm" variant="ghost" className="h-7 px-2 bg-card/90 hover:bg-card" onClick={() => fileRef.current?.click()} disabled={uploading} title="Replace image">
                     {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7 px-2 bg-white/90 hover:bg-white" onClick={() => { setImageUrl(''); setImageRemoved(true) }} title="Remove image">
+                  <Button size="sm" variant="ghost" className="h-7 px-2 bg-card/90 hover:bg-card" onClick={() => { setImageUrl(''); setImageRemoved(true) }} title="Remove image">
                     <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
