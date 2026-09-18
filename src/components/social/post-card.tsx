@@ -15,6 +15,7 @@ interface PostCardProps {
   post: Post
   currentUserId?: string
   onLike: (postId: string) => void
+  onRepost: (postId: string) => void
   onComment: (postId: string, comment: Comment) => void
   onDelete: (postId: string) => void
   onEdit?: (postId: string, updatedPost: Post) => void
@@ -37,6 +38,7 @@ export function PostCard({
   post,
   currentUserId,
   onLike,
+  onRepost,
   onComment,
   onDelete,
   onEdit,
@@ -77,6 +79,9 @@ export function PostCard({
 
   const isLiked = post.likes.some((l) => l.userId === currentUserId)
   const isOwn = post.authorId === currentUserId
+  const postReposts = post.reposts ?? []
+  const isReposted = postReposts.some((r) => r.userId === currentUserId)
+  const repostsCount = postReposts.length
 
   const handleEditSave = async () => {
     if (!editContent.trim()) { toast({ title: 'Post cannot be empty', variant: 'destructive' }); return }
@@ -332,19 +337,27 @@ export function PostCard({
         </>
       )}
 
-      {/* Likes + comments count summary */}
-      {(post.likes.length > 0 || post.comments.length > 0) && (
+      {/* Likes + reposts + comments count summary */}
+      {(post.likes.length > 0 || repostsCount > 0 || post.comments.length > 0) && (
         <div className="px-4 py-2.5 flex items-center justify-between text-xs text-muted-foreground border-b border-border">
-          {post.likes.length > 0 ? (
-            <span className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary">
-                <Heart className="w-2.5 h-2.5 text-white fill-white" />
+          <span className="flex items-center gap-3">
+            {post.likes.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary">
+                  <Heart className="w-2.5 h-2.5 text-white fill-white" />
+                </span>
+                {post.likes.length}
               </span>
-              {post.likes.length}
-            </span>
-          ) : (
-            <span />
-          )}
+            )}
+            {repostsCount > 0 && (
+              <span className="flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary">
+                  <Repeat2 className="w-3 h-3 text-white" />
+                </span>
+                {repostsCount} repost{repostsCount !== 1 && 's'}
+              </span>
+            )}
+          </span>
           {post.comments.length > 0 && (
             <button
               onClick={() => setShowComments(!showComments)}
@@ -378,16 +391,15 @@ export function PostCard({
         </button>
 
         <button
-          onClick={() =>
-            toast({
-              title: 'Reposted!',
-              description: `"${post.content.slice(0, 50)}..." shared to your network.`,
-            })
-          }
-          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          onClick={() => onRepost(post.id)}
+          aria-pressed={isReposted}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-md text-sm font-medium hover:bg-accent transition-colors',
+            isReposted ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:text-primary'
+          )}
         >
-          <Repeat2 className="w-4 h-4" />
-          <span className="hidden sm:inline">Repost</span>
+          <Repeat2 className={cn('w-4 h-4', isReposted && 'text-primary')} />
+          <span className="hidden sm:inline">Repost{repostsCount > 0 ? ` ${repostsCount}` : ''}</span>
         </button>
 
         <button

@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     const updated = await db.post.update({
       where: { id }, data: updates,
-      include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, headline: true, location: true } }, likes: true, comments: { include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, headline: true } } }, orderBy: { createdAt: 'asc' } } },
+      include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, headline: true, location: true } }, likes: true, reposts: true, comments: { include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, headline: true } } }, orderBy: { createdAt: 'asc' } } },
     })
     return NextResponse.json({ post: updated })
   } catch (error) { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }

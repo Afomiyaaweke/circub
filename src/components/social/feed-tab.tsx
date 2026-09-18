@@ -65,6 +65,33 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
     }
   }
 
+  const handleRepost = async (postId: string) => {
+    try {
+      const res = await fetch(`/api/posts/${postId}/repost`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== postId) return p
+          const reposts = p.reposts ?? []
+          const hasMine = reposts.some((r) => r.userId === user.id)
+          if (data.reposted && !hasMine) {
+            return { ...p, reposts: [...reposts, { id: 'temp', userId: user.id }] }
+          }
+          if (!data.reposted && hasMine) {
+            return { ...p, reposts: reposts.filter((r) => r.userId !== user.id) }
+          }
+          return p
+        })
+      )
+      if (data.reposted) {
+        toast({ title: 'Reposted!', description: 'Shared with your network.' })
+      }
+    } catch {
+      // Silent fail, same as Like
+    }
+  }
+
   const handleComment = (postId: string, comment: Comment) => {
     setPosts((prev) =>
       prev.map((p) =>
@@ -155,6 +182,7 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
               post={p}
               currentUserId={user.id}
               onLike={handleLike}
+              onRepost={handleRepost}
               onComment={handleComment}
               onDelete={handleDelete}
               onEdit={handleEdit}

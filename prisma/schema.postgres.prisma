@@ -100,6 +100,7 @@ model User {
   products       Product[]
   posts          Post[]
   postLikes      PostLike[]
+  postReposts    PostRepost[]
   comments       Comment[]
   productLikes   Like[]
   localPricePosts LocalPricePost[]
@@ -184,6 +185,7 @@ model Post {
   authorId    String
   author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes       PostLike[]
+  reposts     PostRepost[]
   comments    Comment[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -193,6 +195,19 @@ model Post {
 }
 
 model PostLike {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+// Repost (share to network) on a social post, one per user per post
+model PostRepost {
   id        String   @id @default(cuid())
   userId    String
   postId    String

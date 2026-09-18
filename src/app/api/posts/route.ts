@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
           },
         },
         likes: true,
+        reposts: true,
         comments: {
           include: {
             author: {
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
           },
         },
         likes: true,
+        reposts: true,
         comments: {
           include: {
             author: {

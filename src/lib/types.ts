@@ -85,6 +85,7 @@ export interface Post {
     idVerified?: boolean
   }
   likes: { id: string; userId: string }[]
+  reposts: { id: string; userId: string }[]
   comments: Comment[]
   createdAt: string
 }
