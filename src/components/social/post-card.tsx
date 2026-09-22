@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2, Bookmark, BadgeCheck } from 'lucide-react'
+import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2, Bookmark, BadgeCheck, Share2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { compressImage } from '@/lib/image-compress'
+import { SharePosterModal } from './share-poster-modal'
 import type { Post, Comment } from '@/lib/types'
 
 interface PostCardProps {
@@ -58,6 +59,10 @@ export function PostCard({
   const editFileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [postSaved, setPostSaved] = useState(false)
+  // Share-to-social poster (Task 77) - opens the green futuristic poster modal.
+  const [shareOpen, setShareOpen] = useState(false)
+  const shareLink = typeof window === 'undefined' ? 'https://circub.vercel.app' : window.location.origin
+  const shareDate = new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   // Load saved state on mount
   useEffect(() => {
@@ -403,6 +408,15 @@ export function PostCard({
         </button>
 
         <button
+          onClick={() => setShareOpen(true)}
+          data-testid="post-share"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        >
+          <Share2 className="w-4 h-4" />
+          <span className="hidden sm:inline">Share</span>
+        </button>
+
+        <button
           onClick={() => onMessage?.(post.author.id)}
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
@@ -492,6 +506,14 @@ export function PostCard({
           </div>
         </div>
       )}
+
+      {/* Share poster modal (Task 77) */}
+      <SharePosterModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        target={{ kind: 'post', authorName: post.author.name, content: post.content, date: shareDate }}
+        linkUrl={shareLink}
+      />
     </article>
   )
 }

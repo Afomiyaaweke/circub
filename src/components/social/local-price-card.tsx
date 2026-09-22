@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
+import { SharePosterModal } from './share-poster-modal'
 import type { LocalPricePost } from '@/lib/types'
 
 interface LocalPriceCardProps {
@@ -38,6 +39,9 @@ function formatPrice(value: number, currency: string) {
 export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
+  // Share-to-social poster (Task 77) - the Share2 button opens the poster modal.
+  const [shareOpen, setShareOpen] = useState(false)
+  const shareLink = typeof window === 'undefined' ? 'https://circub.vercel.app' : `${window.location.origin}/?post=${post.id}`
   const { toast } = useToast()
 
   useEffect(() => {
@@ -59,34 +63,9 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   }
   const detailedLocation = [post.market, post.neighborhood, post.city, post.country].filter(Boolean).join(' · ')
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/?post=${post.id}`
-    const shareData = {
-      title: `${post.productName} - circub`,
-      text: `Check this price on circub: ${post.productName} in ${post.country} - ${post.currency} ${post.priceMin}-${post.priceMax}`,
-      url,
-    }
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData)
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url)
-        toast({ title: 'Link copied!', description: 'Share it anywhere.' })
-      } else {
-        // Fallback: open in a text prompt
-        window.prompt('Copy this link:', url)
-      }
-    } catch (e) {
-      // User cancelled share or clipboard failed - try fallback
-      if (e instanceof Error && e.name !== 'AbortError') {
-        try {
-          await navigator.clipboard.writeText(url)
-          toast({ title: 'Link copied!', description: 'Share it anywhere.' })
-        } catch {
-          window.prompt('Copy this link:', url)
-        }
-      }
-    }
+  // Opens the share poster modal (native share / copy link live inside it).
+  const handleShare = () => {
+    setShareOpen(true)
   }
 
   return (
@@ -254,7 +233,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             <Button size="sm" variant="outline" onClick={handleToggleSave} className={cn('shrink-0 h-7 w-7 p-0', saved ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')} title={saved ? 'Remove from bookmarks' : 'Save to bookmarks'}>
               <Bookmark className={cn('w-3.5 h-3.5', saved && 'fill-current')} />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => void handleShare()} className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-primary" title="Share this price">
+            <Button size="sm" variant="ghost" onClick={handleShare} data-testid="price-share" className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-primary" title="Share this price">
               <Share2 className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -271,6 +250,25 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           </Button>
         </div>
       )}
+
+      {/* Share poster modal (Task 77) */}
+      <SharePosterModal
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        target={{
+          kind: 'price',
+          productName: post.productName,
+          category: post.category,
+          currency: post.currency,
+          priceMin: post.priceMin,
+          priceMax: post.priceMax,
+          city: post.city,
+          country: post.country,
+          authorName: post.author?.name ?? null,
+          date: new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        }}
+        linkUrl={shareLink}
+      />
     </Card>
   )
 }
