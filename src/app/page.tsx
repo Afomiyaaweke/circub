@@ -436,7 +436,7 @@ export default function Home() {
 
           {activeTab === 'local' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} />
+              <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} />
             </Suspense>
           )}
 

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { authFetch } from '@/lib/auth-fetch'
+import { authFetch, dispatchAuthExpired } from '@/lib/auth-fetch'
 import { compressImage, compressVideo } from '@/lib/image-compress'
 import type { User, Post } from '@/lib/types'
 
@@ -99,6 +99,35 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
     } finally {
       setPosting(false)
     }
+  }
+
+  // Guests cannot post at all (Task 76): instead of a usable composer with a
+  // submit-time wall, they see a locked card with a sign-up call to action.
+  // The CTA dispatches the auth-expired event, which page.tsx turns into the
+  // Register modal for guests ("Sign up to continue"). Placed after all hooks
+  // so their order stays stable between guest and non-guest renders.
+  if (user.id === 'guest') {
+    return (
+      <div data-testid="composer-locked" className="bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="flex items-center gap-3">
+          <Avatar className="w-11 h-11 border-2 border-accent">
+            <AvatarFallback className="bg-primary/15 text-primary font-semibold">G</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">Sign up to post</p>
+            <p className="text-xs text-muted-foreground">Guests can browse everything · posting needs a free account. It takes 10 seconds.</p>
+          </div>
+          <Button
+            size="sm"
+            data-testid="composer-locked-cta"
+            className="shrink-0"
+            onClick={() => dispatchAuthExpired('guest-post')}
+          >
+            Sign up free
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -33,10 +33,13 @@ const SCAN_COMING_SOON = false
 interface LocalFeedTabProps {
   onRefreshUser: () => void
   onMessage?: (userId: string) => void
+  // Called when a guest tries to open the price composer - bubbles up to
+  // page.tsx so the Register modal opens. Guests can browse everything but
+  // must NOT be able to post (Task 76).
+  onRequireSignUp?: () => void
 }
 
-
-export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
+export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: LocalFeedTabProps) {
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
   // Load part by part: render a small batch first, append more on scroll
@@ -52,6 +55,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   const [editPost, setEditPost] = useState<LocalPricePost | null>(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  // Tracks whether the /api/auth/me probe finished - distinguishes a real
+  // guest (probe done, no user id) from a logged-in user during the first
+  // paint, so the composer gate never misfires on slow connections.
+  const [meLoaded, setMeLoaded] = useState(false)
   const [searchImage, setSearchImage] = useState<string | null>(null)
   const [searchingByImage, setSearchingByImage] = useState(false)
   // User location for the camera-search price comparison - resolved once
@@ -97,7 +104,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.id) setCurrentUserId(d.id) }).catch(() => {})
+    fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.id) setCurrentUserId(d.id) }).catch(() => {}).finally(() => setMeLoaded(true))
   }, [])
 
   useEffect(() => {
@@ -125,6 +132,20 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
   }, [fetchPosts])
 
   const handleCreated = () => { fetchPosts(); onRefreshUser() }
+
+  // Guests can browse everything but cannot post: opening the price
+  // composer as a guest bounces to the Register modal instead. Logged-in
+  // users get the composer exactly as before.
+  const isGuest = meLoaded && !currentUserId
+  const openComposer = (prefill: CreatePricePostPrefill | null) => {
+    if (isGuest) {
+      if (onRequireSignUp) onRequireSignUp()
+      toast({ title: 'Sign up to post', description: 'Create a free account to post local prices. It takes 10 seconds.' })
+      return
+    }
+    setPostPrefill(prefill)
+    setModalOpen(true)
+  }
 
   const handleEditPost = (post: LocalPricePost) => {
     setEditPost(post)
@@ -436,7 +457,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
     const place = group ?? activeGroup
     const [gCity, gCountry] = place ? place.key.split('|') : ['', '']
     const priceSrc = place ?? r.locationCompare ?? r.aiPriceEstimate
-    setPostPrefill({
+    openComposer({
       productName: firstName || search || undefined,
       description: r.aiDescription || undefined,
       category,
@@ -447,7 +468,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
       city: gCity || r.location?.city || undefined,
       imageUrl: imageUrl || undefined,
     })
-    setModalOpen(true)
   }
 
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
@@ -482,7 +502,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
             </div>
             <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
           </div>
-          <Button onClick={() => { setPostPrefill(null); setModalOpen(true) }} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
+          <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
             <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
           </Button>
         </div>
@@ -1088,7 +1108,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage }: LocalFeedTabProps) {
               ? `The camera search found ${searchResults.localMatches.length} matching price${searchResults.localMatches.length !== 1 ? 's' : ''} - see the results panel above. Or adjust your filters below.`
               : 'No posts match your filters. Try adjusting search or filters · or be the first to post a local price!'}
           </p>
-          <Button onClick={() => { setPostPrefill(null); setModalOpen(true) }} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
+          <Button onClick={() => openComposer(null)} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
         </Card>
       ) : (
         <>
