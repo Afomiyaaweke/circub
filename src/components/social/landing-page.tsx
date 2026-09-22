@@ -2,6 +2,7 @@
 
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
+import { PwaInstallButton } from '@/components/pwa-install-button'
 import { APP_VERSION } from '@/lib/app-version'
 
 interface LandingPageProps {
@@ -16,9 +17,15 @@ interface LandingPageProps {
  * Replaces the old full landing page (hero + features + how-it-works +
  * audiences + sample post + CTA + footer, ~700 lines). What stays is the
  * bare entry point: the brand, one line of context, and the way in -
- * Sign in (primary), Sign up free, Continue as guest. Everything fits in
- * a single viewport on mobile with no scrolling, and the theme toggle
- * plus the legal/version footer round out the corners.
+ * Sign in (primary), Sign up free, Get the mobile app, Continue as guest.
+ * Everything fits in a single viewport on mobile with no scrolling, and
+ * the theme toggle plus the legal/version footer round out the corners.
+ *
+ * "Get the mobile app" is the PWA install entry: Android/Chrome gets the
+ * native one-tap install dialog, iOS/other browsers get step-by-step
+ * "Add to Home Screen" instructions, and it hides itself when the app is
+ * already running installed (standalone) - so the user's own phone never
+ * sees it again after installing.
  */
 export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
   return (
@@ -72,6 +79,9 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
           >
             Sign up free
           </Button>
+          <div data-testid="landing-install" className="mt-0.5">
+            <PwaInstallButton className="h-10 w-full text-sm" />
+          </div>
           {onContinueAsGuest && (
             <button
               data-testid="landing-guest"
