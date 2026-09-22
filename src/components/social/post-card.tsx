@@ -59,9 +59,15 @@ export function PostCard({
   const editFileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [postSaved, setPostSaved] = useState(false)
-  // Share-to-social poster (Task 77) - opens the green futuristic poster modal.
+  // Share-to-social poster - opens the green futuristic poster modal.
+  // The poster's QR and every share route land on the AUTHOR'S SHOP PROFILE
+  // (/u/<username>) when they have one, so scanning showcases their shop to
+  // travelers; otherwise it falls back to the app itself.
   const [shareOpen, setShareOpen] = useState(false)
-  const shareLink = typeof window === 'undefined' ? 'https://circub.vercel.app' : window.location.origin
+  const profilePath = post.author.username ? `/u/${post.author.username}` : ''
+  const shareLink = typeof window === 'undefined'
+    ? `https://circub.vercel.app${profilePath}`
+    : `${window.location.origin}${profilePath}`
   const shareDate = new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   // Load saved state on mount
@@ -511,7 +517,7 @@ export function PostCard({
       <SharePosterModal
         open={shareOpen}
         onOpenChange={setShareOpen}
-        target={{ kind: 'post', authorName: post.author.name, content: post.content, date: shareDate }}
+        target={{ kind: 'post', authorName: post.author.name, authorUsername: post.author.username ?? null, content: post.content, date: shareDate }}
         linkUrl={shareLink}
       />
     </article>

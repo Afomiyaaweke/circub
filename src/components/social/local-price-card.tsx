@@ -39,9 +39,16 @@ function formatPrice(value: number, currency: string) {
 export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
-  // Share-to-social poster (Task 77) - the Share2 button opens the poster modal.
+  // Share-to-social poster - the Share2 button opens the poster modal.
+  // The poster's QR and every share route land on the AUTHOR'S SHOP PROFILE
+  // (/u/<username>) when they have one, so scanning showcases their shop to
+  // travelers; otherwise it falls back to the post deep link.
   const [shareOpen, setShareOpen] = useState(false)
-  const shareLink = typeof window === 'undefined' ? 'https://circub.vercel.app' : `${window.location.origin}/?post=${post.id}`
+  const shareLink = typeof window === 'undefined'
+    ? 'https://circub.vercel.app'
+    : post.author?.username
+      ? `${window.location.origin}/u/${post.author.username}`
+      : `${window.location.origin}/?post=${post.id}`
   const { toast } = useToast()
 
   useEffect(() => {
@@ -265,6 +272,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           city: post.city,
           country: post.country,
           authorName: post.author?.name ?? null,
+          authorUsername: post.author?.username ?? null,
           date: new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         }}
         linkUrl={shareLink}

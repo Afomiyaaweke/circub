@@ -169,6 +169,7 @@ export interface LocalPricePost {
 export interface LocalPriceAuthor {
   id: string
   name: string
+  username?: string | null
   avatarColor: string
   isLocal?: boolean
   verifiedLocal?: boolean

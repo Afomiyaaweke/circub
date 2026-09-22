@@ -19,6 +19,7 @@ export type SharePosterTarget =
   | {
       kind: 'post'
       authorName: string
+      authorUsername?: string | null
       content: string
       date: string
     }
@@ -32,18 +33,34 @@ export type SharePosterTarget =
       city?: string | null
       country?: string | null
       authorName?: string | null
+      authorUsername?: string | null
       date: string
     }
 
+/**
+ * The author's public shop profile URL (/u/<username>) - the QR code and
+ * every share route point HERE when the author has a username, so anyone
+ * scanning the poster lands on the poster's shop (their listings, products
+ * and posts) instead of the generic home page. Falls back to null when the
+ * author has no username; callers then keep their previous deep links.
+ */
+export function posterProfileUrl(target: SharePosterTarget, origin: string): string | null {
+  const username = target.authorUsername?.trim()
+  if (!username) return null
+  return `${origin.replace(/\/$/, '')}/u/${encodeURIComponent(username)}`
+}
+
 export function posterShareText(target: SharePosterTarget, url: string): string {
+  const handle = target.authorUsername?.trim() ? ` @${target.authorUsername.trim()}` : ''
   if (target.kind === 'price') {
     const place = [target.city, target.country].filter(Boolean).join(', ')
     const range = target.priceMin === target.priceMax
       ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
       : `${target.currency} ${target.priceMin.toLocaleString('en-US')}-${target.priceMax.toLocaleString('en-US')}`
-    return `Check this price on circub: ${target.productName}${place ? ` in ${place}` : ''} - ${range}`
+    return `Check this price on circub: ${target.productName}${place ? ` in ${place}` : ''} - ${range}${handle ? ` by${handle}` : ''}`
   }
   const trimmed = target.content.length > 140 ? target.content.slice(0, 140) + '…' : target.content
+  if (handle) return `${trimmed} —${handle} on circub`
   return `${trimmed} — ${target.authorName} on circub`
 }
 
@@ -326,9 +343,27 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     ctx.fillStyle = 'rgba(187,247,208,0.85)'
     ctx.fillText('typical local price range', contentX, Math.max(y + 120, 780) + 56)
     if (target.authorName) {
-      ctx.font = FONT(30, '600')
+      // Shop identity rows - who posted this, their @handle and the date.
+      // The @handle is the poster's shop link (same /u/<username> the QR
+      // points to), so the poster doubles as a showcase for their shop.
+      const priceY = Math.max(y + 120, 780)
+      const uname = target.authorUsername?.trim()
+      const byLine = `by ${target.authorName}`
+      const handleText = uname ? ` · @${uname}` : ''
+      ctx.font = FONT(34)
+      const combined = byLine + handleText
+      const idSize = fitText(ctx, combined, contentW, 34, 24)
+      ctx.font = FONT(idSize)
+      ctx.fillStyle = '#f0fdf4'
+      ctx.fillText(byLine, contentX, priceY + 108)
+      if (uname) {
+        ctx.font = FONT(idSize, '600')
+        ctx.fillStyle = '#4ade80'
+        ctx.fillText(handleText, contentX + ctx.measureText(byLine).width, priceY + 108)
+      }
+      ctx.font = FONT(28, '600')
       ctx.fillStyle = 'rgba(187,247,208,0.7)'
-      ctx.fillText(`posted by a local · ${target.date}`, contentX, Math.max(y + 120, 780) + 108)
+      ctx.fillText(target.date, contentX, priceY + 156)
     }
   } else {
     ctx.font = FONT(34, '600')
@@ -353,7 +388,8 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     ctx.fillText(target.authorName, contentX + 92, 418)
     ctx.font = FONT(28, '600')
     ctx.fillStyle = 'rgba(187,247,208,0.7)'
-    ctx.fillText(target.date, contentX + 92, 456)
+    const postHandle = target.authorUsername?.trim()
+    ctx.fillText(postHandle ? `@${postHandle} · ${target.date}` : target.date, contentX + 92, 456)
 
     // Content
     ctx.font = FONT(46)
@@ -366,17 +402,26 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     }
   }
 
-  // Footer: QR + call to action + link
+  // Footer: QR + call to action + link. When the author has a shop profile
+  // the QR lands on /u/<username> - spell that out so scanners know what
+  // they get: the poster's full shop (listings, products, posts).
   await drawQr(ctx, linkUrl, W - contentX - 190, footerTop, 190)
-  ctx.font = FONT(44, '600')
+  const qrTextW = contentW - 220
+  const footerHandle = target.authorUsername?.trim()
+  const cta = footerHandle ? `Scan to see @${footerHandle}'s shop` : 'Scan for real local prices'
+  const ctaSize = fitText(ctx, cta, qrTextW, 44, 28, '600')
+  ctx.font = FONT(ctaSize, '600')
   ctx.fillStyle = '#f0fdf4'
-  ctx.fillText('Scan for real local prices', contentX, footerTop + 66)
-  ctx.font = FONT(32, '600')
-  ctx.fillStyle = '#4ade80'
+  ctx.fillText(cta, contentX, footerTop + 66)
   try {
-    const host = new URL(linkUrl, window.location.origin).host || 'circub.app'
-    ctx.fillText(host, contentX, footerTop + 120)
+    const u = new URL(linkUrl, window.location.origin)
+    const linkText = `${u.host}${u.pathname !== '/' ? u.pathname : ''}` || 'circub.app'
+    ctx.font = FONT(fitText(ctx, linkText, qrTextW, 32, 20, '600'), '600')
+    ctx.fillStyle = '#4ade80'
+    ctx.fillText(linkText, contentX, footerTop + 120)
   } catch {
+    ctx.font = FONT(32, '600')
+    ctx.fillStyle = '#4ade80'
     ctx.fillText('circub.app', contentX, footerTop + 120)
   }
   ctx.font = FONT(26, '600')
