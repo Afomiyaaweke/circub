@@ -4,4 +4,4 @@
  *
  * ⚠️ Keep in sync with VERSION in public/sw.js (bump both on every deploy).
  */
-export const APP_VERSION = 'v67';
+export const APP_VERSION = 'v68';

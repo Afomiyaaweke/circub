@@ -78,8 +78,8 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
           className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base"
         >
           Tired of guessing what things actually cost? Circub shows you real prices —
-          posted by locals, not ads or influencers. Post a price, find a shop, or ask a
-          local directly. No sponsored content, just the truth, pinned to the map.
+          posted by locals. Post a price, find a shop, or ask a local directly. Just
+          the truth, pinned to the map.
         </p>
 
         <div className="mt-7 flex w-full max-w-[300px] flex-col gap-2.5">
