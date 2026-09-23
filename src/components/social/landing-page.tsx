@@ -12,20 +12,25 @@ interface LandingPageProps {
 }
 
 /**
- * Minimal landing - one small screen, no marketing sections.
+ * Single-page landing: the pitch + every way in, all on one screen.
  *
- * Replaces the old full landing page (hero + features + how-it-works +
- * audiences + sample post + CTA + footer, ~700 lines). What stays is the
- * bare entry point: the brand, one line of context, and the way in -
- * Sign in (primary), Sign up free, Get the mobile app, Continue as guest.
- * Everything fits in a single viewport on mobile with no scrolling, and
- * the theme toggle plus the legal/version footer round out the corners.
+ * The user's brief: "only one page for all the button and this information".
+ * The headline and body are the product pitch - "Real prices, from real
+ * locals." - and every entry point lives on this same single page, no
+ * separate marketing sections or extra routes:
  *
- * "Get the mobile app" is the PWA install entry: Android/Chrome gets the
- * native one-tap install dialog, iOS/other browsers get step-by-step
- * "Add to Home Screen" instructions, and it hides itself when the app is
- * already running installed (standalone) - so the user's own phone never
- * sees it again after installing.
+ *   Post a real price →   the pitch's own CTA (posting needs an account,
+ *                         so it opens sign-up - the fastest path to posting)
+ *   Sign up free          explicit account creation
+ *   Sign in               returning users
+ *   Get the mobile app    PWA install (Android/Chrome one-tap dialog,
+ *                         iOS step-by-step Add-to-Home-Screen; hides itself
+ *                         once the app already runs installed/standalone)
+ *   Continue as guest     browse everything, post/vote prompts sign-up
+ *
+ * Everything fits a single viewport on modern phones (brand row is inline
+ * to keep vertical budget for the longer pitch copy) and the theme toggle
+ * plus the legal/version footer round out the corners.
  */
 export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
   return (
@@ -43,45 +48,76 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
         <div className="absolute left-1/2 top-[28%] h-64 w-64 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
       </div>
 
-      {/* The small thing: brand + one-liner + way in */}
+      {/* One page: pitch copy + all the buttons */}
       <main className="relative flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-        <img
-          src="/logo.png"
-          alt="circub"
-          width={96}
-          height={96}
-          fetchPriority="high"
-          decoding="async"
-          className="h-16 w-16 object-contain sm:h-20 sm:w-20"
-        />
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-          circub
+        {/* Brand row - inline to save vertical space for the pitch */}
+        <div className="flex items-center justify-center gap-2.5">
+          <img
+            src="/logo.png"
+            alt="circub"
+            width={40}
+            height={40}
+            fetchPriority="high"
+            decoding="async"
+            className="h-9 w-9 object-contain sm:h-10 sm:w-10"
+          />
+          <span className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            circub
+          </span>
+        </div>
+
+        <h1
+          data-testid="landing-headline"
+          className="mt-6 max-w-md text-3xl font-bold tracking-tight text-foreground sm:text-4xl sm:leading-[1.15]"
+        >
+          Real prices, from real locals.
         </h1>
-        <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-muted-foreground">
-          Real local prices · know what things cost before you travel.
+
+        <p
+          data-testid="landing-copy"
+          className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base"
+        >
+          Tired of guessing what things actually cost? Circub shows you real prices —
+          posted by locals, not ads or influencers. Post a price, find a shop, or ask a
+          local directly. No sponsored content, just the truth, pinned to the map.
         </p>
 
-        <div className="mt-6 flex w-full max-w-[280px] flex-col gap-2.5">
+        <div className="mt-7 flex w-full max-w-[300px] flex-col gap-2.5">
+          {/* The pitch's own CTA - posting needs an account, so this opens sign-up */}
           <Button
-            data-testid="landing-signin"
-            onClick={onLogin}
-            size="lg"
-            className="h-11 w-full"
-          >
-            Sign in
-          </Button>
-          <Button
-            data-testid="landing-signup"
+            data-testid="landing-cta"
             onClick={onSignUp}
             size="lg"
-            variant="outline"
-            className="h-11 w-full"
+            className="h-12 w-full text-base"
           >
-            Sign up free
+            Post a real price <span aria-hidden="true">&rarr;</span>
           </Button>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button
+              data-testid="landing-signup"
+              onClick={onSignUp}
+              size="lg"
+              variant="outline"
+              className="h-11 w-full"
+            >
+              Sign up free
+            </Button>
+            <Button
+              data-testid="landing-signin"
+              onClick={onLogin}
+              size="lg"
+              variant="outline"
+              className="h-11 w-full"
+            >
+              Sign in
+            </Button>
+          </div>
+
           <div data-testid="landing-install" className="mt-0.5">
             <PwaInstallButton className="h-10 w-full text-sm" />
           </div>
+
           {onContinueAsGuest && (
             <button
               data-testid="landing-guest"
