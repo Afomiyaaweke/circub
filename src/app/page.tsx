@@ -344,6 +344,41 @@ export default function Home() {
         <LandingPage
           onSignUp={() => setRegisterOpen(true)}
           onLogin={() => setLoginOpen(true)}
+          onContinueAsGuest={() => {
+            // Set a guest user object so the full dashboard renders.
+            // Guest users can see ALL tabs and browse everything, but
+            // posting prices, voting, messaging, and editing profile
+            // will prompt them to register.
+            try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
+            setMe({
+              id: 'guest',
+              name: 'Guest',
+              email: '',
+              avatarColor: 'teal',
+              profilePicture: null,
+              bio: null,
+              headline: 'Guest user - sign up to post',
+              location: null,
+              accountType: 'PERSONAL',
+              companyName: null,
+              companyWebsite: null,
+              companySize: null,
+              companyIndustry: null,
+              postsCount: 0,
+              followersCount: 0,
+              likesCount: 0,
+              connectionsCount: 0,
+              incomingInvitationsCount: 0,
+              isLocal: false,
+              verifiedLocal: false,
+              isGuide: false,
+              guideAvailable: false,
+            } as any)
+            toast({
+              title: 'Browsing as guest',
+              description: 'Explore prices, scan products, and browse the feed. Sign up free to post prices or vote.',
+            })
+          }}
         />
         <Suspense fallback={null}>
           <RegisterModal

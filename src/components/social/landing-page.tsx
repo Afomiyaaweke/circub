@@ -8,6 +8,7 @@ import { APP_VERSION } from '@/lib/app-version'
 interface LandingPageProps {
   onSignUp: () => void
   onLogin: () => void
+  onContinueAsGuest?: () => void
 }
 
 /**
@@ -16,9 +17,9 @@ interface LandingPageProps {
  * Replaces the old full landing page (hero + features + how-it-works +
  * audiences + sample post + CTA + footer, ~700 lines). What stays is the
  * bare entry point: the brand, one line of context, and the way in -
- * Sign in (primary), Sign up free, Get the mobile app. Everything fits in
- * a single viewport on mobile with no scrolling, and the theme toggle
- * plus the legal/version footer round out the corners.
+ * Sign in (primary), Sign up free, Get the mobile app, Continue as guest.
+ * Everything fits in a single viewport on mobile with no scrolling, and
+ * the theme toggle plus the legal/version footer round out the corners.
  *
  * "Get the mobile app" is the PWA install entry: Android/Chrome gets the
  * native one-tap install dialog, iOS/other browsers get step-by-step
@@ -26,7 +27,7 @@ interface LandingPageProps {
  * already running installed (standalone) - so the user's own phone never
  * sees it again after installing.
  */
-export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
   return (
     <div
       data-testid="landing-root"
@@ -81,6 +82,15 @@ export function LandingPage({ onSignUp, onLogin }: LandingPageProps) {
           <div data-testid="landing-install" className="mt-0.5">
             <PwaInstallButton className="h-10 w-full text-sm" />
           </div>
+          {onContinueAsGuest && (
+            <button
+              data-testid="landing-guest"
+              onClick={onContinueAsGuest}
+              className="mt-1 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+            >
+              Continue as guest
+            </button>
+          )}
         </div>
       </main>
 
