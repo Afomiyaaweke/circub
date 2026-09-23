@@ -77,9 +77,9 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
           data-testid="landing-copy"
           className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base"
         >
-          Tired of guessing what things actually cost? Circub shows you real prices —
-          posted by locals. Post a price, find a shop, or ask a local directly. Just
-          the truth, pinned to the map.
+          Tired of guessing what things actually cost? Circub shows you real
+          prices posted by locals. Post a price, find a shop, or ask a local
+          directly. Just the truth, pinned to the map.
         </p>
 
         <div className="mt-7 flex w-full max-w-[300px] flex-col gap-2.5">
