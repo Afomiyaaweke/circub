@@ -118,7 +118,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         )}
       </div>
 
-      {/* Row 2: name + location, with the photo as a small side thumbnail */}
+      {/* Row 2: name + location; in compact lists the photo stays a small side thumbnail */}
       <div className="mt-1.5 flex items-start gap-2.5">
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug">{post.productName}</h3>
@@ -127,10 +127,17 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             <span className="truncate">{detailedLocation}</span>
           </p>
         </div>
-        {post.imageUrl && !compact && (
+        {post.imageUrl && compact && (
           <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover border border-border bg-accent/30 shrink-0" />
         )}
       </div>
+
+      {/* Row 2.5: photo banner - price posts that carry a photo show it big */}
+      {post.imageUrl && !compact && (
+        <div className="mt-2 rounded-xl overflow-hidden border border-border bg-accent/30">
+          <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-full h-40 sm:h-48 object-cover" />
+        </div>
+      )}
 
       {/* Row 3: one-line price strip - fair price and tourist price inline */}
       <div className="mt-2 px-2.5 py-2 rounded-lg bg-gradient-to-br from-primary/10 to-emerald-50 border border-primary/20">

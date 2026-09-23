@@ -137,7 +137,7 @@ async function seedDemo() {
         const createdAt = daysAgo(0, 20)
 
         const post = await tx.post.create({
-          data: { content: p.c, authorId: author.id, createdAt, updatedAt: createdAt },
+          data: { content: p.c, imageUrl: p.img || null, authorId: author.id, createdAt, updatedAt: createdAt },
         })
         postIds.push(post.id)
 
@@ -192,6 +192,7 @@ async function seedDemo() {
             recommendedPrice: p.rec || null,
             localTip: p.tip || null,
             category: p.category,
+            imageUrl: p.img || null,
             authorId: author.id,
             helpfulCount: 2 + (j % 5) + ((j * 7) % 19),
             notAccurateCount: j % 4 === 0 ? 1 : 0,
