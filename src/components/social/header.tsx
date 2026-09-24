@@ -27,7 +27,7 @@ interface HeaderProps {
 const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
   { key: 'feed', label: 'Feed', icon: Sparkles },
   { key: 'local', label: 'Local', icon: MapPin },
-  { key: 'guides', label: 'Guides', icon: Compass },
+  { key: 'guides', label: 'Link', icon: Compass },
   { key: 'profile', label: 'Profile', icon: UserCircle },
 ]
 
