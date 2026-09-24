@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Sparkles, TrendingUp, Newspaper } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Sparkles, TrendingUp, Newspaper, MapPin } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
+import { resolveIpLocation } from '@/lib/location'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PostComposer } from './post-composer'
@@ -20,6 +21,11 @@ interface FeedTabProps {
 export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  // Location-aware feed: resolve the viewer's location silently (IP-based,
+  // no GPS prompt) and ask the API to surface people near the viewer first.
+  const [sortedNear, setSortedNear] = useState(false)
+  const [nearLabel, setNearLabel] = useState('')
+  const viewerCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
   // Tap a name/avatar on a post or comment -> author profile modal
   const [authorProfileId, setAuthorProfileId] = useState<string | null>(null)
   // Load part by part: render a small batch first, append more on scroll
@@ -29,9 +35,21 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   const fetchPosts = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/posts')
+      // One silent IP lookup per session; falls back to plain newest-first
+      // when it fails (offline, blocked, etc.) - the feed never blocks on it.
+      if (!viewerCoordsRef.current) {
+        const loc = await resolveIpLocation()
+        if (loc) viewerCoordsRef.current = { lat: loc.lat, lng: loc.lng }
+      }
+      const coords = viewerCoordsRef.current
+      const qs = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : ''
+      const res = await fetch(`/api/posts${qs}`)
       const data = await res.json()
       setPosts(data.posts || [])
+      if (data.sortedBy === 'near') {
+        setSortedNear(true)
+        setNearLabel('People near you first')
+      }
     } catch {
       setPosts([])
     } finally {
@@ -141,8 +159,15 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
             Your feed
           </h2>
         </div>
-        <div className="text-xs text-muted-foreground">
-          Sort by: <span className="font-medium text-foreground">Top</span>
+        <div className="text-xs text-muted-foreground flex items-center gap-1">
+          {sortedNear ? (
+            <>
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <span data-testid="feed-near-label" className="font-medium text-emerald-700">{nearLabel || 'Near you first'}</span>
+            </>
+          ) : (
+            <>Sort by: <span className="font-medium text-foreground">Top</span></>
+          )}
         </div>
       </div>
 

@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2, Bookmark, BadgeCheck, Share2 } from 'lucide-react'
+import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2, Bookmark, BadgeCheck, Share2, MapPin, Link2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { compressImage } from '@/lib/image-compress'
+import { parseVideoUrl } from '@/lib/video'
+import { VideoEmbed } from './video-embed'
 import { SharePosterModal } from './share-poster-modal'
 import type { Post, Comment } from '@/lib/types'
 
@@ -53,6 +56,7 @@ export function PostCard({
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(post.content)
   const [editImageUrl, setEditImageUrl] = useState(post.imageUrl || '')
+  const [editVideoUrl, setEditVideoUrl] = useState(post.videoUrl || '')
   const [imageRemoved, setImageRemoved] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -96,12 +100,19 @@ export function PostCard({
 
   const handleEditSave = async () => {
     if (!editContent.trim()) { toast({ title: 'Post cannot be empty', variant: 'destructive' }); return }
+    if (editVideoUrl.trim() && !parseVideoUrl(editVideoUrl.trim())) {
+      toast({ title: 'Video link must be a YouTube or Instagram link', variant: 'destructive' }); return
+    }
     setSavingEdit(true)
     try {
       const res = await fetch(`/api/posts/${post.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent, imageUrl: imageRemoved ? null : (editImageUrl || post.imageUrl) }),
+        body: JSON.stringify({
+          content: editContent,
+          imageUrl: imageRemoved ? null : (editImageUrl || post.imageUrl),
+          videoUrl: editVideoUrl.trim(),
+        }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
       const data = await res.json()
@@ -200,6 +211,17 @@ export function PostCard({
                 {timeAgo(post.createdAt)} • <Globe className="w-3 h-3" />
               </p>
             </div>
+            {/* Location-aware feed: authors near the viewer surface first */}
+            {post.nearYou && (
+              <span
+                data-testid="post-near-you"
+                title={post.distanceKm != null ? `About ${post.distanceKm} km away` : 'This person is near you'}
+                className="shrink-0 self-start inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5"
+              >
+                <MapPin className="w-2.5 h-2.5" />
+                Near you
+              </span>
+            )}
 
             <div className="relative shrink-0">
               <button
@@ -222,6 +244,7 @@ export function PostCard({
                           onClick={() => {
                             setShowMenu(false)
                             setEditContent(post.content)
+                            setEditVideoUrl(post.videoUrl || '')
                             setIsEditing(true)
                           }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
@@ -292,6 +315,16 @@ export function PostCard({
           />
           {/* Image editing */}
           <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" ref={editFileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditImageUpload(f); if (editFileRef.current) editFileRef.current.value = '' }} className="hidden" />
+          {/* Video link editing (YouTube / Instagram) */}
+          <div className="mt-2 flex items-center gap-2">
+            <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <Input
+              value={editVideoUrl}
+              onChange={(e) => setEditVideoUrl(e.target.value)}
+              placeholder="Video link - YouTube or Instagram (optional)"
+              className="h-9 text-sm"
+            />
+          </div>
           {(editImageUrl || (!imageRemoved && post.imageUrl)) ? (
             <div className="mt-2 relative rounded-lg overflow-hidden border border-border">
               {editImageUrl && editImageUrl.startsWith('data:video') ? (
@@ -319,7 +352,7 @@ export function PostCard({
             </button>
           )}
           <div className="mt-3 flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setEditContent(post.content); setEditImageUrl(''); setImageRemoved(false) }} disabled={savingEdit}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setEditContent(post.content); setEditImageUrl(''); setEditVideoUrl(post.videoUrl || ''); setImageRemoved(false) }} disabled={savingEdit}>
               <X className="w-4 h-4 mr-1" />Cancel
             </Button>
             <Button size="sm" onClick={handleEditSave} disabled={savingEdit || !editContent.trim()} className="bg-primary hover:bg-primary/90 gap-1.5">
@@ -343,6 +376,13 @@ export function PostCard({
               ) : (
                 <img loading="lazy" decoding="async" src={post.imageUrl} alt="Post image" className="w-full max-h-[480px] object-cover" />
               )}
+            </div>
+          )}
+
+          {/* Attached video (YouTube / Instagram link) - in-app player */}
+          {post.videoUrl && parseVideoUrl(post.videoUrl) && (
+            <div className="border-t border-border bg-accent/20 p-3" data-testid="post-video-embed">
+              <VideoEmbed url={post.videoUrl} title="Post video" />
             </div>
           )}
         </>

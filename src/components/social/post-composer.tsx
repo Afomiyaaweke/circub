@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Image as ImageIcon, Smile, Calendar, FileText, X, Send, Video, Camera } from 'lucide-react'
+import { Image as ImageIcon, Smile, Calendar, FileText, X, Send, Video, Camera, Link2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch, dispatchAuthExpired } from '@/lib/auth-fetch'
 import { compressImage, compressVideo } from '@/lib/image-compress'
+import { parseVideoUrl } from '@/lib/video'
+import { VideoEmbed } from './video-embed'
 import type { User, Post } from '@/lib/types'
 
 interface PostComposerProps {
@@ -23,6 +26,10 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
   const [open, setOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
+  // Video via link (YouTube / Instagram): toggle input, parse on attach.
+  const [videoUrl, setVideoUrl] = useState('')
+  const [videoInput, setVideoInput] = useState('')
+  const [showVideoInput, setShowVideoInput] = useState(false)
   const { toast } = useToast()
 
   const handleUpload = async (file: File) => {
@@ -54,6 +61,21 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
     }
   }
 
+  // Attach a pasted YouTube / Instagram link: validate before accepting so
+  // the user learns immediately (the API would 400 otherwise).
+  const attachVideoLink = () => {
+    const raw = videoInput.trim()
+    if (!raw) return
+    const parsed = parseVideoUrl(raw)
+    if (!parsed) {
+      toast({ title: 'Video link must be a YouTube or Instagram link', variant: 'destructive' })
+      return
+    }
+    setVideoUrl(parsed.canonicalUrl)
+    setVideoInput('')
+    setShowVideoInput(false)
+  }
+
   const handleSubmit = async () => {
     // Guest users can't post - prompt them to register
     if (user.id === 'guest') {
@@ -65,7 +87,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
       window.dispatchEvent(new CustomEvent('circub:auth-expired'))
       return
     }
-    if (!content.trim() && !imageUrl) {
+    if (!content.trim() && !imageUrl && !videoUrl) {
       toast({
         title: 'Empty post',
         description: 'Write something or attach an image.',
@@ -73,12 +95,17 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
       })
       return
     }
+    // Client-side guard mirroring the API: only YouTube / Instagram links.
+    if (videoUrl && !parseVideoUrl(videoUrl)) {
+      toast({ title: 'Video link must be a YouTube or Instagram link', variant: 'destructive' })
+      return
+    }
     setPosting(true)
     try {
       const res = await authFetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, imageUrl }),
+        body: JSON.stringify({ content, imageUrl, videoUrl: videoUrl || undefined }),
       })
       if (!res.ok) {
         const e = await res.json()
@@ -88,6 +115,9 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
       toast({ title: 'Posted to your feed' })
       setContent('')
       setImageUrl('')
+      setVideoUrl('')
+      setVideoInput('')
+      setShowVideoInput(false)
       setOpen(false)
       onPosted(data.post)
     } catch (e) {
@@ -176,6 +206,44 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                 </div>
               )}
 
+              {/* Attached video link (YouTube / Instagram) with inline preview */}
+              {videoUrl && parseVideoUrl(videoUrl) && (
+                <div className="relative mt-2" data-testid="composer-video-preview">
+                  <VideoEmbed url={videoUrl} title="Attached video" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-7 w-7 p-0 bg-card/90 hover:bg-card"
+                    onClick={() => { setVideoUrl(''); setVideoInput(''); setShowVideoInput(false) }}
+                    aria-label="Remove video"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
+
+              {showVideoInput && !videoUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    data-testid="composer-video-input"
+                    autoFocus
+                    placeholder="Paste a YouTube or Instagram link..."
+                    value={videoInput}
+                    onChange={(e) => setVideoInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        attachVideoLink()
+                      }
+                    }}
+                    className="h-9 text-sm"
+                  />
+                  <Button size="sm" variant="outline" onClick={attachVideoLink} className="shrink-0 gap-1.5">
+                    <Link2 className="w-3.5 h-3.5" />Attach
+                  </Button>
+                </div>
+              )}
+
               <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-1 flex-wrap">
                   <input
@@ -219,6 +287,15 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                   </button>
                   <button
                     type="button"
+                    data-testid="composer-video-link-btn"
+                    onClick={() => setShowVideoInput((v) => !v)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Link2 className="w-4 h-4 text-sky-500" />
+                    <span className="hidden sm:inline">Video link</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setContent((c) => c + ' 😊')}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -246,6 +323,9 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                       setOpen(false)
                       setContent('')
                       setImageUrl('')
+                      setVideoUrl('')
+                      setVideoInput('')
+                      setShowVideoInput(false)
                     }}
                     disabled={posting}
                   >
@@ -253,7 +333,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                   </Button>
                   <Button
                     onClick={handleSubmit}
-                    disabled={posting || uploading || (!content.trim() && !imageUrl)}
+                    disabled={posting || uploading || (!content.trim() && !imageUrl && !videoUrl)}
                     className="bg-primary hover:bg-primary/90 gap-1.5"
                   >
                     <Send className="w-3.5 h-3.5" />

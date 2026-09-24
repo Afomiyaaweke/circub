@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2 } from 'lucide-react'
+import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2, Video, Plus } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { TagInput } from '@/components/ui/tag-input'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
+import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
 import type { User } from '@/lib/types'
 
 interface GuideRegisterModalProps {
@@ -30,6 +31,8 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
   const [hourlyRate, setHourlyRate] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [bio, setBio] = useState('')
+  // Tour videos: up to MAX_GUIDE_VIDEOS pasted links (YouTube / Instagram).
+  const [videoLinks, setVideoLinks] = useState<string[]>([''])
   const [saving, setSaving] = useState(false)
   // Stop being a guide: confirmation + request state (guides only).
   const [confirmStop, setConfirmStop] = useState(false)
@@ -51,6 +54,10 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
       setLanguages(Array.isArray(langs) ? langs : langs ? langs.split(',') : [])
       setSpecialties(Array.isArray(specs) ? specs : specs ? specs.split(',') : [])
       setBio((user as any).guideBio || '')
+      // Prefill saved tour videos (stored as raw urls); keep one empty row
+      // so adding the first video is one tap.
+      const savedVideos = splitVideoUrls((user as any).guideVideoUrls)
+      setVideoLinks(savedVideos.length > 0 ? [...savedVideos] : [''])
       const t = (user as any).guideIdDocType
       if (t === 'ID' || t === 'PASSPORT') setDocType(t)
       setHasIdDoc(!!(user as any).hasIdDoc)
@@ -103,6 +110,24 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     const currencyClean = currency.trim().toUpperCase()
     if (!currencyClean) { toast({ title: 'Type your currency code (e.g. USD, ETB)', variant: 'destructive' }); return }
     if (!docUrl && !hasIdDoc) { toast({ title: 'Upload your ID or passport', description: 'A photo of your ID or passport is required to register as a guide.', variant: 'destructive' }); return }
+
+    // Video links: drop empty rows, validate every pasted link (YouTube or
+    // Instagram only - mirrors the API so users get instant feedback).
+    const videos = videoLinks.map((v) => v.trim()).filter(Boolean)
+    if (videos.length > MAX_GUIDE_VIDEOS) {
+      toast({ title: `Up to ${MAX_GUIDE_VIDEOS} videos`, description: 'Remove the extra links and try again.', variant: 'destructive' })
+      return
+    }
+    const badVideo = videos.find((v) => !parseVideoUrl(v))
+    if (badVideo) {
+      toast({
+        title: 'Video link not supported',
+        description: 'Use the YouTube or Instagram link of the video (e.g. youtube.com/watch?v=... or instagram.com/reel/...).',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setSaving(true)
     try {
       const res = await fetch('/api/guides', {
@@ -117,6 +142,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
           guideBio: bio,
           guideAvailable: true,
           guideIdDocType: docType,
+          guideVideoUrls: videos,
           ...(docUrl ? { guideIdDocUrl: docUrl } : {}),
         }),
       })
@@ -304,6 +330,64 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
               onChange={(e) => setBio(e.target.value)}
               className="min-h-[80px] resize-y"
             />
+          </div>
+
+          {/* Tour videos (YouTube / Instagram links) */}
+          <div className="space-y-2" data-testid="guide-videos-section">
+            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+              <Video className="w-3.5 h-3.5 text-primary" />
+              Tour videos (YouTube or Instagram links)
+            </label>
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              Paste up to {MAX_GUIDE_VIDEOS} links - travelers watch them right on your guide card and page.
+            </p>
+            {videoLinks.map((link, i) => {
+              const parsed = parseVideoUrl(link)
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      data-testid={`guide-video-input-${i}`}
+                      placeholder={i === 0 ? 'e.g. https://www.youtube.com/watch?v=...' : 'Another video link (optional)'}
+                      value={link}
+                      onChange={(e) => {
+                        setVideoLinks((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
+                      }}
+                      className="h-9 text-sm flex-1"
+                    />
+                    {videoLinks.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoLinks((prev) => prev.filter((_, j) => j !== i))}
+                        className="p-1.5 rounded-full hover:bg-accent text-muted-foreground shrink-0"
+                        aria-label="Remove video link"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {link.trim() && (
+                    <p className={`text-[10px] flex items-center gap-1 ${parsed ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {parsed ? (
+                        <><CheckCircle2 className="w-3 h-3 shrink-0" />{parsed.label} - looks good</>
+                      ) : (
+                        <>Not a YouTube or Instagram link yet</>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+            {videoLinks.length < MAX_GUIDE_VIDEOS && (
+              <button
+                type="button"
+                data-testid="guide-video-add"
+                onClick={() => setVideoLinks((prev) => [...prev, ''])}
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <Plus className="w-3.5 h-3.5" />Add another video
+              </button>
+            )}
           </div>
         </div>
 

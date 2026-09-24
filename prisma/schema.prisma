@@ -84,6 +84,9 @@ model User {
   guideCurrency  String?
   guideBio       String?
   guideAvailable Boolean  @default(true)
+  // Tour videos as links (YouTube / Instagram), comma-separated, max 3.
+  // Stored as the original URLs; embeds are derived client-side.
+  guideVideoUrls String?
   guideIdDocType String?   // Verification document type: 'ID' | 'PASSPORT'
   guideIdDocUrl  String?   // Uploaded ID/passport photo (data URL) — verification only, never shown publicly
   profilePicture String?
@@ -172,11 +175,14 @@ model Connection {
   @@index([requesterId, status])
 }
 
-// LinkedIn-style social posts (text + image)
+// LinkedIn-style social posts (text + image + optional video link)
 model Post {
   id          String     @id @default(cuid())
   content     String
   imageUrl    String?
+  // Attached video via link (YouTube / Instagram). Stores the ORIGINAL url;
+  // the embed player URL is derived client-side (src/lib/video.ts).
+  videoUrl    String?
   authorId    String
   author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes       PostLike[]

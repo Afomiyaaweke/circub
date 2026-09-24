@@ -36,6 +36,8 @@ export interface User {
   guideCurrency?: string | null
   guideBio?: string | null
   guideAvailable?: boolean
+  // Tour videos as raw links (YouTube / Instagram), max 3 - array or CSV
+  guideVideoUrls?: string[] | string | null
   // Verification document (own profile: type + presence only; guide lists: idVerified)
   guideIdDocType?: 'ID' | 'PASSPORT' | string | null
   hasIdDoc?: boolean
@@ -74,6 +76,11 @@ export interface Post {
   id: string
   content: string
   imageUrl?: string | null
+  // Attached video link (YouTube / Instagram) - embed derived client-side
+  videoUrl?: string | null
+  // Location-aware feed enrichment (present when fetched with viewer coords)
+  distanceKm?: number | null
+  nearYou?: boolean
   authorId: string
   author: {
     id: string

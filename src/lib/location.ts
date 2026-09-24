@@ -141,6 +141,17 @@ async function locateByIpInfo(): Promise<ResolvedLocation | null> {
   }
 }
 
+/**
+ * Silent, prompt-free location: IP-based only.
+ * Used for passive personalization (e.g. the feed showing people near you
+ * first) where a GPS permission dialog would be intrusive. Never prompts.
+ */
+export async function resolveIpLocation(): Promise<ResolvedLocation | null> {
+  const ip = await locateByIpInfo()
+  if (ip && (ip.lat !== 0 || ip.lng !== 0)) return ip
+  return null
+}
+
 /** Resolve a full location object.
  *  1. Try device GPS (enableHighAccuracy: true, 15s timeout)
  *  2. If denied/unavailable, fall back to IP-based geolocation (ipinfo.io)

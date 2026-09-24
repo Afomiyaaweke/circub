@@ -12,6 +12,7 @@ import {
   Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, CalendarDays, ShieldCheck,
+  Play, Video,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
+import { splitVideoUrls } from '@/lib/video'
+import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
 import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
@@ -115,6 +118,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingsOpen, setBookingsOpen] = useState(false)
   const [pendingBookings, setPendingBookings] = useState(0)
+  // Per-card collapsible "Tour videos" strip (guide videos from links)
+  const [openVideoCards, setOpenVideoCards] = useState<Record<string, boolean>>({})
   const { toast } = useToast()
 
   const fetchGuides = useCallback(async () => {
@@ -799,24 +804,30 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <Button
                 size="sm"
                 variant="outline"
+                data-testid="guide-share-btn"
                 onClick={async () => {
-                  const url = `${window.location.origin}/?guide=${g.id}`
+                  // The guide link: a real shareable page that works logged
+                  // out - /g/<username>. Guides without a username keep the
+                  // legacy in-app deep link.
+                  const url = g.username
+                    ? `${window.location.origin}/g/${g.username}`
+                    : `${window.location.origin}/?guide=${g.id}`
                   try {
                     if (navigator.share) {
                       await navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
                     } else if (navigator.clipboard) {
                       await navigator.clipboard.writeText(url)
-                      toast({ title: 'Link copied!', description: 'Share it anywhere.' })
+                      toast({ title: 'Guide link copied!', description: url.replace(/^https?:\/\//, '') })
                     } else {
-                      window.prompt('Copy this link:', url)
+                      window.prompt('Copy this guide link:', url)
                     }
                   } catch (e) {
                     if (e instanceof Error && e.name !== 'AbortError') {
                       try {
                         await navigator.clipboard.writeText(url)
-                        toast({ title: 'Link copied!' })
+                        toast({ title: 'Guide link copied!' })
                       } catch {
-                        window.prompt('Copy this link:', url)
+                        window.prompt('Copy this guide link:', url)
                       }
                     }
                   }
@@ -919,6 +930,33 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     ))}
                   </div>
                 )}
+
+                {/* Tour videos (YouTube / Instagram links) - collapsible strip */}
+                {(() => {
+                  const raw = (g as any).guideVideoUrls
+                  const vids: string[] = Array.isArray(raw) ? raw.filter(Boolean) : splitVideoUrls(raw)
+                  if (vids.length === 0) return null
+                  const open = !!openVideoCards[g.id]
+                  return (
+                    <div className="mt-3" data-testid="guide-card-videos">
+                      <button
+                        type="button"
+                        onClick={() => setOpenVideoCards((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      >
+                        {open ? <Video className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                        {open ? 'Hide tour videos' : `Watch tour videos (${vids.length})`}
+                      </button>
+                      {open && (
+                        <div className="mt-2 space-y-2">
+                          {vids.map((v, i) => (
+                            <VideoEmbed key={i} url={v} title={`${g.name} tour video ${i + 1}`} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Rate + actions - stacks to two rows on phones, single row on sm+ */}
                 <div className="mt-4 pt-3 border-t border-border">

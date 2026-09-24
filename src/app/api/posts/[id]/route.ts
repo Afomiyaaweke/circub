@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { parseVideoUrl } from '@/lib/video'
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,6 +29,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updates: any = {}
     if (typeof body.content === 'string') updates.content = body.content.trim()
     if (typeof body.imageUrl === 'string') updates.imageUrl = body.imageUrl || null
+    // Video link edit: a string replaces (empty string clears), validated.
+    if (typeof body.videoUrl === 'string') {
+      const raw = body.videoUrl.trim()
+      if (raw && !parseVideoUrl(raw)) {
+        return NextResponse.json({ error: 'Video link must be a YouTube or Instagram link' }, { status: 400 })
+      }
+      updates.videoUrl = raw || null
+    }
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     const updated = await db.post.update({
       where: { id }, data: updates,
