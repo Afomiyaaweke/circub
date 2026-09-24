@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { BarChart3, Loader2, MapPin, Navigation, Search, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,11 +11,14 @@ import type { ResolvedLocation } from '@/lib/location'
 
 // ============================================================================
 // MARKET GRAPH PANEL - the scan experience, completely graph-based.
-// Two charts, both built ONLY from real price posts on circub:
+// Three charts, all built ONLY from real price posts on circub:
 //   1. Prices by item   - what things cost at the picked place (typical price
 //                         per product, labeled with its currency)
 //   2. Places view      - with an item typed: what that item costs in each
 //                         place; without one: where the market is busiest
+//   3. Before vs now    - the item over time (weeks/months adapt to the data
+//                         span): at the shown market and across all markets,
+//                         so you see how the price moved - was X, now Y
 // Location comes from the auto-detected GPS/IP location by default and can
 // be overridden with the country/city controls, so a tourist can look at
 // any market before they go.
@@ -42,11 +45,33 @@ interface MarketPlace {
   topItem?: string
 }
 
+interface MarketTimePoint {
+  period: string
+  label: string
+  count: number
+  min: number
+  typical: number
+  max: number
+}
+
+interface MarketTimeSeries {
+  currency: string
+  points: MarketTimePoint[]
+}
+
+interface MarketTime {
+  item: string
+  bucket: 'week' | 'month' | 'year'
+  here: MarketTimeSeries | null
+  all: MarketTimeSeries | null
+}
+
 interface MarketGraphData {
   place: { city: string | null; country: string; label: string } | null
   query: string | null
   items: MarketItem[]
   places: MarketPlace[]
+  time: MarketTime | null
 }
 
 interface MarketGraphPanelProps {
@@ -169,6 +194,57 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
   const places = data?.places ?? []
   const hasQuery = !!data?.query
   const placeLabel = data?.place ? data.place.label : 'the worldwide market'
+
+  // --- time series (chart 3): was X -> now Y -------------------------------
+  // The line that carries the before-vs-now sentence prefers the SHOWN
+  // market (that is the market the panel is looking at) and falls back to
+  // all markets. The second line only joins when it speaks the same
+  // currency - one axis can never mix ETB with HKD.
+  const time = data?.time ?? null
+  const hereSeries = time?.here ?? null
+  const allSeries = time?.all ?? null
+  const primaryTime = hereSeries && hereSeries.points.length >= 2
+    ? { scope: 'here' as const, currency: hereSeries.currency, points: hereSeries.points }
+    : allSeries && allSeries.points.length >= 2
+      ? { scope: 'all' as const, currency: allSeries.currency, points: allSeries.points }
+      : null
+  const secondaryTime = primaryTime
+    ? primaryTime.scope === 'here'
+      ? allSeries && allSeries.points.length > 0 && allSeries.currency === primaryTime.currency
+        ? { scope: 'all' as const, currency: allSeries.currency, points: allSeries.points }
+        : null
+      : hereSeries && hereSeries.points.length > 0 && hereSeries.currency === primaryTime.currency
+        ? { scope: 'here' as const, currency: hereSeries.currency, points: hereSeries.points }
+        : null
+    : null
+  const primaryName = primaryTime?.scope === 'all' ? 'All markets' : `At ${placeLabel}`
+  const secondaryName = secondaryTime?.scope === 'all' ? 'All markets' : `At ${placeLabel}`
+
+  const timeRows = (() => {
+    if (!primaryTime) return []
+    const labels = new Map<string, string>()
+    for (const p of primaryTime.points) labels.set(p.period, p.label)
+    if (secondaryTime) for (const p of secondaryTime.points) labels.set(p.period, p.label)
+    return [...labels.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, label]) => ({
+        period,
+        label,
+        primary: primaryTime.points.find((p) => p.period === period)?.typical ?? null,
+        secondary: secondaryTime?.points.find((p) => p.period === period)?.typical ?? null,
+      }))
+  })()
+
+  const timeSummary = (() => {
+    if (!primaryTime || !time) return null
+    const pts = primaryTime.points
+    const first = pts[0]
+    const last = pts[pts.length - 1]
+    if (first.period === last.period) return null
+    const pct = ((last.typical - first.typical) / first.typical) * 100
+    const dir = pct > 0 ? `up ${Math.round(pct)}%` : pct < 0 ? `down ${Math.abs(Math.round(pct))}%` : 'flat'
+    return `${time.item} was ${primaryTime.currency} ${fmtNum(first.typical)} (${first.label}) \u2192 now ${primaryTime.currency} ${fmtNum(last.typical)} (${last.label}) - ${dir}`
+  })()
 
   // Cheapest highlight: with an item query the best place wins; without one
   // the best-priced item at this place does.
@@ -370,6 +446,50 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
             )}
           </div>
 
+          {/* Chart 3 - the item over time: "it was like this before, now
+              it's like this" - at the shown market and across all markets */}
+          <div className="space-y-1" data-testid="market-chart-time">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">
+              {hasQuery ? `${data?.query} over time \u00b7 before vs now` : `${time?.item ?? 'The market'} over time \u00b7 before vs now`}
+            </p>
+            {primaryTime ? (
+              <>
+                {timeSummary && (
+                  <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" data-testid="market-time-summary">
+                    Before vs now: <span className="font-semibold">{timeSummary}</span>
+                  </p>
+                )}
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={timeRows} margin={{ top: 6, right: 14, bottom: 0, left: -14 }}>
+                    <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                    <YAxis width={52} tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      formatter={(value: unknown, name: unknown) => {
+                        const v = Number(value)
+                        if (!Number.isFinite(v)) return ['', '']
+                        const cur = name === primaryName ? primaryTime.currency : secondaryTime?.currency ?? ''
+                        return [`${cur} ${fmtNum(v)}`, String(name)]
+                      }}
+                      labelFormatter={(_label: unknown, payload: Array<{ payload?: { period: string } }>) =>
+                        payload?.[0]?.payload?.period ?? ''
+                      }
+                    />
+                    <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
+                    <Line type="monotone" dataKey="primary" name={primaryName} stroke="#059669" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    {secondaryTime && (
+                      <Line type="monotone" dataKey="secondary" name={secondaryName} stroke="#0d9488" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3 }} connectNulls />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground py-3">
+                No price history yet{hasQuery ? ' for this item' : ''} - the before-vs-now line builds as the market posts.
+              </p>
+            )}
+          </div>
+
           {/* Cheapest highlight - the actionable line the graphs build to */}
           {(cheapestPlace || cheapestItem) && (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" data-testid="market-cheapest">
@@ -381,7 +501,7 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
             </p>
           )}
 
-          <p className="text-[11px] text-muted-foreground">Every bar is real price posts on circub, typical = the middle price posted. The lower chart spans all markets on purpose - that is how you know before you go. Post a price and the graph grows.</p>
+          <p className="text-[11px] text-muted-foreground">Every bar and the before-vs-now line are real price posts on circub, typical = the middle price posted. The lower charts span all markets on purpose - that is how you know before you go. Post a price and the graph grows.</p>
         </>
       )}
     </Card>

@@ -6,7 +6,7 @@ export const runtime = 'nodejs'
 // ============================================================================
 // MARKET GRAPH API - the data behind the market graph panel.
 // Given a location (country + optional city) and an optional item query it
-// aggregates REAL local price posts on circub into two chart-ready series:
+// aggregates REAL local price posts on circub into three chart-ready series:
 //
 //   items[]  - "what things cost here": top products at the picked place,
 //              each with post count + min/typical/max in that item's
@@ -15,6 +15,11 @@ export const runtime = 'nodejs'
 //              prices per city/country, same dominant-currency rule. Without
 //              q it degrades to a place overview (post counts + top item) so
 //              the graph still shows the market shape before typing anything.
+//   time     - "it was like this before, now it's like this": the queried
+//              item (or the shown market's most-posted product) bucketed over
+//              time as two lines - at the picked place and across all markets
+//              - each in its own dominant currency. Buckets adapt to the data
+//              span: <=120 days -> weeks, <=730 days -> months, else years.
 //
 // "typical" is the median of per-post price midpoints, so one wild post
 // (a cafe cup vs 1kg beans) cannot drag the number - same robust math as
@@ -57,6 +62,82 @@ function placeLabel(city: string | null, country: string): string {
   return city ? `${city}, ${country}` : country
 }
 
+interface TimePoint {
+  period: string
+  label: string
+  count: number
+  min: number
+  typical: number
+  max: number
+}
+
+// The mode currency of a set of posts - the single currency a whole time
+// line is drawn in, so an axis can never mix ETB with HKD.
+function dominantCurrency(rows: Array<{ currency: string }>): string | null {
+  if (rows.length === 0) return null
+  const byCurrency = new Map<string, number>()
+  for (const p of rows) byCurrency.set(p.currency, (byCurrency.get(p.currency) || 0) + 1)
+  return [...byCurrency.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
+}
+
+// Bucket key + human label for one post timestamp (UTC, week starts Monday).
+function bucketOf(value: Date | number, bucket: 'week' | 'month' | 'year'): { period: string; label: string } {
+  const d = value instanceof Date ? value : new Date(value)
+  if (bucket === 'year') {
+    const y = String(d.getUTCFullYear())
+    return { period: y, label: y }
+  }
+  if (bucket === 'month') {
+    const period = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    const label = `${d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })} ${d.getUTCFullYear()}`
+    return { period, label }
+  }
+  const monday = new Date(d)
+  monday.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  monday.setUTCHours(0, 0, 0, 0)
+  const period = monday.toISOString().slice(0, 10)
+  const label = `Wk of ${monday.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`
+  return { period, label }
+}
+
+// One full time line: keep only the dominant currency's posts, bucket them,
+// median of midpoints per bucket (same robust math as everywhere else).
+function timeSeries(
+  rows: Array<{ createdAt: Date | number; currency: string; priceMin: number; priceMax: number }>,
+  bucket: 'week' | 'month' | 'year',
+): { currency: string; points: TimePoint[] } | null {
+  const currency = dominantCurrency(rows)
+  if (!currency) return null
+  const buckets = new Map<string, { label: string; mids: number[]; min: number; max: number; count: number }>()
+  for (const p of rows) {
+    if (p.currency !== currency) continue
+    const mid = (p.priceMin + p.priceMax) / 2
+    if (!Number.isFinite(mid) || mid <= 0) continue
+    const { period, label } = bucketOf(p.createdAt, bucket)
+    const b = buckets.get(period) ?? { label, mids: [], min: Infinity, max: -Infinity, count: 0 }
+    b.mids.push(mid)
+    b.min = Math.min(b.min, p.priceMin)
+    b.max = Math.max(b.max, p.priceMax)
+    b.count += 1
+    buckets.set(period, b)
+  }
+  const points = [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, b]) => {
+      const mids = b.mids.sort((x, y) => x - y)
+      const median = mids.length % 2 === 1 ? mids[(mids.length - 1) / 2] : (mids[mids.length / 2 - 1] + mids[mids.length / 2]) / 2
+      return {
+        period,
+        label: b.label,
+        count: b.count,
+        min: Math.round(b.min * 100) / 100,
+        typical: Math.round(median * 100) / 100,
+        max: Math.round(b.max * 100) / 100,
+      }
+    })
+  return points.length > 0 ? { currency, points } : null
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const country = (searchParams.get('country') || '').trim().slice(0, 80)
@@ -85,6 +166,7 @@ export async function GET(req: NextRequest) {
         currency: true,
         priceMin: true,
         priceMax: true,
+        createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 600,
@@ -104,6 +186,7 @@ export async function GET(req: NextRequest) {
         currency: true,
         priceMin: true,
         priceMax: true,
+        createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 600,
@@ -185,11 +268,52 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 8) as PlaceRow[]
 
+    // --- time: the item over time - the "before vs now" line ----------------
+    // No query: graph the shown market's most-posted product (or worldwide
+    // most-posted when no place is shown) so the time line has a subject.
+    let refItem: string | null = null
+    if (!q) {
+      refItem = items[0]?.name ?? null
+      if (!refItem) {
+        const counts = new Map<string, number>()
+        for (const p of postsForPlaces) {
+          const name = p.productName.trim()
+          if (!name) continue
+          counts.set(name, (counts.get(name) || 0) + 1)
+        }
+        refItem = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+      }
+    }
+
+    const timeHereRows = q ? posts : posts.filter((p) => p.productName.trim() === refItem)
+    const timeAllRows = q ? postsForPlaces : postsForPlaces.filter((p) => p.productName.trim() === refItem)
+
+    let time: {
+      item: string
+      bucket: 'week' | 'month' | 'year'
+      here: { currency: string; points: TimePoint[] } | null
+      all: { currency: string; points: TimePoint[] } | null
+    } | null = null
+    if (q || refItem) {
+      const spans = [...timeHereRows, ...timeAllRows]
+        .map((p) => (p.createdAt instanceof Date ? p.createdAt.getTime() : p.createdAt))
+        .filter((n) => Number.isFinite(n))
+      const spanDays = spans.length > 0 ? (Math.max(...spans) - Math.min(...spans)) / 86_400_000 : 0
+      const bucket = spanDays <= 120 ? 'week' : spanDays <= 730 ? 'month' : 'year'
+      time = {
+        item: q || refItem || '',
+        bucket,
+        here: timeSeries(timeHereRows, bucket),
+        all: timeSeries(timeAllRows, bucket),
+      }
+    }
+
     return NextResponse.json({
       place: country ? { city: city || null, country, label: placeLabel(city || null, country) } : null,
       query: q || null,
       items,
       places,
+      time,
       placesScope: 'all-markets',
     })
   } catch (e) {
