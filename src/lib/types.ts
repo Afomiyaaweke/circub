@@ -146,6 +146,8 @@ export interface LocalPricePost {
   city?: string | null
   neighborhood?: string | null
   market?: string | null
+  latitude?: number | null
+  longitude?: number | null
   currency: string
   priceMin: number
   priceMax: number

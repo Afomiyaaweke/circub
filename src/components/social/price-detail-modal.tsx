@@ -19,7 +19,9 @@ import {
   Eye,
   MessageCircle,
   Clock,
+  Navigation,
 } from 'lucide-react'
+import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import {
   Dialog,
   DialogContent,
@@ -265,6 +267,19 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     <MapPin className="w-4 h-4 text-primary" />
                     {detailedLocation}
                   </p>
+                  {/* GPS pin: one-tap turn-by-turn directions for tourists */}
+                  {post.latitude != null && post.longitude != null && (
+                    <a
+                      data-testid="detail-directions"
+                      href={mapsDirectionsUrl(post.latitude, post.longitude)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                    >
+                      <Navigation className="w-3.5 h-3.5" aria-hidden="true" />
+                      Get directions · GPS {formatGps(post.latitude, post.longitude)}
+                    </a>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">
                     Posted on{' '}
                     {new Date(post.createdAt).toLocaleDateString(undefined, {

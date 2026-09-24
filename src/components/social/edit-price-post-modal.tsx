@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import type { LocalPricePost } from '@/lib/types'
+import { GpsCapture } from './gps-capture'
 
 interface EditPricePostModalProps {
   open: boolean
@@ -33,6 +34,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [city, setCity] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [market, setMarket] = useState('')
+  const [gpsLat, setGpsLat] = useState<number | null>(null)
+  const [gpsLng, setGpsLng] = useState<number | null>(null)
   const [currency, setCurrency] = useState('USD')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
@@ -58,6 +61,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setCity(post.city || '')
       setNeighborhood(post.neighborhood || '')
       setMarket(post.market || '')
+      setGpsLat(post.latitude ?? null)
+      setGpsLng(post.longitude ?? null)
       setCurrency(post.currency || 'USD')
       setPriceMin(String(post.priceMin || ''))
       setPriceMax(String(post.priceMax || ''))
@@ -108,6 +113,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           city: city.trim() || null,
           neighborhood: neighborhood.trim() || null,
           market: market.trim() || null,
+          latitude: gpsLat,
+          longitude: gpsLng,
           currency: currency.trim(),
           priceMin: Number(priceMin),
           priceMax: Number(priceMax),
@@ -167,6 +174,11 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Neighborhood</label><Input placeholder="Mercato" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Market</label><Input placeholder="Mercato Market" value={market} onChange={(e) => setMarket(e.target.value)} /></div>
             </div>
+            <GpsCapture
+              lat={gpsLat}
+              lng={gpsLng}
+              onChange={(lat, lng) => { setGpsLat(lat); setGpsLng(lng) }}
+            />
           </div>
 
           {/* Prices */}

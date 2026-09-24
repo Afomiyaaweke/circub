@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
+import { isValidGps } from '@/lib/location'
 
 // Cache the public feed list for 30s on the CDN/edge, allow serving stale
 // for up to 60s while revalidating in the background. With 5,000 concurrent
@@ -51,6 +52,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     const me = await getCurrentUser()
     if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    // Optional GPS pin - validated + rounded to 6 decimals (~0.1 m precision).
+    const gpsLat = body.latitude != null ? Number(body.latitude) : null
+    const gpsLng = body.longitude != null ? Number(body.longitude) : null
+    const hasGps = gpsLat != null && gpsLng != null
+    if (hasGps && !isValidGps(gpsLat, gpsLng))
+      return NextResponse.json({ error: 'Invalid GPS coordinates' }, { status: 400 })
     const updates: any = { localPostCount: { increment: 1 } }
     if (!me.isLocal) updates.isLocal = true
     const post = await db.localPricePost.create({
@@ -62,6 +69,8 @@ export async function POST(req: NextRequest) {
         city: sanitizeInput(body.city || '', 100) || null,
         neighborhood: sanitizeInput(body.neighborhood || '', 100) || null,
         market: sanitizeInput(body.market || '', 100) || null,
+        latitude: hasGps ? Math.round(gpsLat * 1e6) / 1e6 : null,
+        longitude: hasGps ? Math.round(gpsLng * 1e6) / 1e6 : null,
         currency: sanitizeInput(body.currency, 10),
         priceMin: Number(body.priceMin),
         priceMax: Number(body.priceMax),

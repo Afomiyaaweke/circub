@@ -270,6 +270,10 @@ model LocalPricePost {
   neighborhood      String?
   market            String?
 
+  // GPS pin (optional, tourists get one-tap directions to the exact spot)
+  latitude          Float?
+  longitude         Float?
+
   // Price information
   currency          String
   priceMin          Float

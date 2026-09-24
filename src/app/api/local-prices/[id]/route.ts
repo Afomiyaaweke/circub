@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { isValidGps } from '@/lib/location'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -30,6 +31,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.city === 'string') updates.city = body.city.trim() || null
     if (typeof body.neighborhood === 'string') updates.neighborhood = body.neighborhood.trim() || null
     if (typeof body.market === 'string') updates.market = body.market.trim() || null
+    // Optional GPS pin (explicit null clears it, valid pair sets it, invalid is ignored)
+    if (body.latitude !== undefined || body.longitude !== undefined) {
+      const lat = body.latitude != null ? Number(body.latitude) : null
+      const lng = body.longitude != null ? Number(body.longitude) : null
+      if (lat != null && lng != null && isValidGps(lat, lng)) {
+        updates.latitude = Math.round(lat * 1e6) / 1e6
+        updates.longitude = Math.round(lng * 1e6) / 1e6
+      } else {
+        updates.latitude = null
+        updates.longitude = null
+      }
+    }
     if (typeof body.currency === 'string') updates.currency = body.currency.trim()
     if (body.priceMin != null) updates.priceMin = Number(body.priceMin)
     if (body.priceMax != null) updates.priceMax = Number(body.priceMax)

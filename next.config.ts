@@ -23,10 +23,10 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-XSS-Protection", value: "1; mode=block" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // Permissions-Policy: allow camera + microphone for this origin
-          // (needed for the live camera scan feature).
-          // geolocation is still blocked - we don't use it.
-          { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
+          // Permissions-Policy: allow camera + microphone + geolocation for
+          // this origin (camera/mic for the live scan feature, geolocation
+          // for the GPS pins that let tourists get directions to a shop).
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(self)" },
           {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains; preload",

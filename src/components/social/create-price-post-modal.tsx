@@ -24,6 +24,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, matchCategory, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { ComparePreview } from './compare-preview'
+import { GpsCapture } from './gps-capture'
 
 // Optional values carried over from the camera-search results panel - when
 // the AI identifies a product from a picture, "Post this product" opens this
@@ -71,6 +72,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [city, setCity] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [market, setMarket] = useState('')
+  const [gpsLat, setGpsLat] = useState<number | null>(null)
+  const [gpsLng, setGpsLng] = useState<number | null>(null)
   const [currency, setCurrency] = useState('USD')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
@@ -113,6 +116,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setCity('')
     setNeighborhood('')
     setMarket('')
+    setGpsLat(null)
+    setGpsLng(null)
     setCurrency('USD')
     setPriceMin('')
     setPriceMax('')
@@ -222,6 +227,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           city,
           neighborhood,
           market,
+          latitude: gpsLat,
+          longitude: gpsLng,
           currency,
           priceMin: Number(priceMin),
           priceMax: Number(priceMax),
@@ -370,9 +377,17 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                 />
               </div>
             </div>
+
+            {/* GPS pin - one tap reads the device GPS; tourists get directions */}
+            <GpsCapture
+              lat={gpsLat}
+              lng={gpsLng}
+              onChange={(lat, lng) => { setGpsLat(lat); setGpsLng(lng) }}
+            />
+
             <p className="text-[11px] text-muted-foreground/80 flex items-center gap-1">
               <MapPin className="w-3 h-3" />
-              Tip: More specific location helps travelers find your post.
+              Tip: Add a GPS pin - tourists find the exact shop with one tap on Directions.
             </p>
           </div>
 

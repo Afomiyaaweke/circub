@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation } from 'lucide-react'
+import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -126,6 +127,20 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             <MapPin className="w-3 h-3 text-primary shrink-0" />
             <span className="truncate">{detailedLocation}</span>
           </p>
+          {/* GPS pin: one-tap turn-by-turn directions for tourists */}
+          {post.latitude != null && post.longitude != null && (
+            <a
+              data-testid="card-directions"
+              href={mapsDirectionsUrl(post.latitude, post.longitude)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              <Navigation className="w-3 h-3" aria-hidden="true" />
+              Directions · GPS {formatGps(post.latitude, post.longitude)}
+            </a>
+          )}
         </div>
         {post.imageUrl && compact && (
           <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover border border-border bg-accent/30 shrink-0" />

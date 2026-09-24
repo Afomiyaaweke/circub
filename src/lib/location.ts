@@ -18,6 +18,28 @@ export interface Coordinates {
   lng: number
 }
 
+/** Google Maps turn-by-turn directions URL to an exact GPS spot.
+ *  Tourists tap it and their maps app navigates them straight to the shop. */
+export function mapsDirectionsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+}
+
+/** Compact GPS readout - 5 decimals is ~1.1 m precision on the ground. */
+export function formatGps(lat: number, lng: number): string {
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+}
+
+/** Validate a client-supplied GPS pair before persisting it. */
+export function isValidGps(lat: unknown, lng: unknown): boolean {
+  return (
+    typeof lat === 'number' && typeof lng === 'number' &&
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 &&
+    // 0,0 is almost certainly a failed GPS read (Null Island), reject it
+    !(lat === 0 && lng === 0)
+  )
+}
+
 /** Get lat/lng from the device's GPS / Geolocation API.
  *  Uses enableHighAccuracy: true to request GPS-level precision on mobile.
  *  Tries getCurrentPosition first, then falls back to watchPosition if
