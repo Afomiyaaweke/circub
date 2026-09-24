@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 // Live Zone - registered tour guides.
 // New in this version:
 //  - AI Guide Match: ask any travel question (or pick one straight from the
@@ -44,6 +45,7 @@ interface LiveZoneTabProps {
 interface AiGuideResult {
   id: string
   name: string
+  username?: string | null
   location?: string | null
   profilePicture?: string | null
   avatarColor?: string
@@ -671,7 +673,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-sm font-semibold text-foreground truncate">{g.name}</span>
+                          {g.username ? (
+                            <Link href={`/g/${g.username}`} data-testid="guide-recommend-name-link" className="text-sm font-semibold text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors" title={`Open ${g.name}'s guide page`}>{g.name}</Link>
+                          ) : (
+                            <span className="text-sm font-semibold text-foreground truncate">{g.name}</span>
+                          )}
                           {g.verifiedLocal && <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
                           {(g as any).idVerified && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 bg-emerald-100 rounded px-1 py-0.5 shrink-0" title="ID or passport verified">
@@ -891,7 +897,12 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
-                      <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
+                      {/* The guide name IS the guide link - tap it to open /g/<username> */}
+                      {g.username ? (
+                        <Link href={`/g/${g.username}`} data-testid="guide-name-link" className="font-semibold text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors" title={`Open ${g.name}'s guide page`}>{g.name}</Link>
+                      ) : (
+                        <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
+                      )}
                       {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
                       {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
                       {/* Live Zone roles: Guide / Vlogger / Local / Volunteer */}

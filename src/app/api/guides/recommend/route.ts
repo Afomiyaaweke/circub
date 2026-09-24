@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
       orderBy: { rating: 'desc' },
       take: 40,
       select: {
-        id: true, name: true, location: true, rating: true,
+        id: true, name: true, username: true, location: true, rating: true,
         guideLanguages: true, guideSpecialties: true, guideBio: true,
         guideLicense: true, guideAvailable: true, verifiedLocal: true,
         guideHourlyRate: true, guideCurrency: true, profilePicture: true,
