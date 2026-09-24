@@ -50,18 +50,9 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
 
       {/* One page: pitch copy + all the buttons */}
       <main className="relative flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-        {/* Brand row - inline to save vertical space for the pitch */}
-        <div className="flex items-center justify-center gap-2.5">
-          <img
-            src="/logo.png"
-            alt="circub"
-            width={40}
-            height={40}
-            fetchPriority="high"
-            decoding="async"
-            className="h-9 w-9 object-contain sm:h-10 sm:w-10"
-          />
-          <span className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+        {/* Brand row - wordmark only (logo image removed per user request) */}
+        <div className="flex items-center justify-center">
+          <span className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             circub
           </span>
         </div>
