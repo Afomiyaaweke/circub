@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { normalizeUsername } from '@/lib/username'
 import { splitVideoUrls } from '@/lib/video'
+import { guideRolesOrLegacy, roleListLabel, ROLE_META } from '@/lib/roles'
 import {
   BadgeCheck as VerifiedIcon, Award, CalendarCheck, Compass, Languages,
   Link2, MapPin, ShieldCheck, Star,
@@ -40,6 +41,7 @@ async function getGuide(usernameRaw: string) {
       idVerified: true, guideLicense: true, guideLanguages: true,
       guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
       guideBio: true, guideAvailable: true, guideVideoUrls: true,
+      guideRoles: true,
       rating: true, localPostCount: true, postsCount: true,
     },
   })
@@ -53,14 +55,15 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   const { username } = await params
   try {
     const data = await getGuide(username)
-    if (!data) return { title: 'Guide not found · circub' }
+    if (!data) return { title: 'Not found · circub' }
     const { user, ratingCount } = data
-    const title = `${user.name} · Tour guide${user.location ? ` in ${user.location}` : ''} · circub`
+    const roles = guideRolesOrLegacy(user.guideRoles)
+    const title = `${user.name} · ${roleListLabel(roles)}${user.location ? ` in ${user.location}` : ''} · circub`
     const description = user.guideBio || user.headline || user.bio ||
-      `Book ${user.name} as a local tour guide on circub.${ratingCount > 0 ? ` Rated ${user.rating?.toFixed(1)} by ${ratingCount} traveler${ratingCount !== 1 ? 's' : ''}.` : ''}`
+      `Meet ${user.name}, a ${ROLE_META[roles[0]].label.toLowerCase()} on circub.${ratingCount > 0 ? ` Rated ${user.rating?.toFixed(1)} by ${ratingCount} traveler${ratingCount !== 1 ? 's' : ''}.` : ''}`
     return { title, description }
   } catch {
-    return { title: 'Tour guide · circub' }
+    return { title: 'Local on circub' }
   }
 }
 
@@ -80,9 +83,9 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
           <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <Compass className="w-6 h-6 text-muted-foreground" />
           </div>
-          <h1 className="text-xl font-bold text-foreground">Guide not found</h1>
+          <h1 className="text-xl font-bold text-foreground">Not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            No registered tour guide uses <span className="font-semibold">@{normalizeUsername(username)}</span> - the link may be mistyped or the guide stepped away from the program.
+            No registered local uses <span className="font-semibold">@{normalizeUsername(username)}</span> - the link may be mistyped or they stepped away from the program.
           </p>
           <Button asChild className="mt-5 rounded-full"><Link href="/">Open circub</Link></Button>
         </div>
@@ -93,6 +96,9 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
   const { user, ratingCount } = data
   const colorCls = AVATAR_COLORS[user.avatarColor] || AVATAR_COLORS.teal
   const idVerified = Boolean(user.idVerified) || Boolean(user.verifiedLocal)
+  // Roles drive the badges, eyebrow and CTA. Legacy members (no stored
+  // roles) read as ['guide'] so existing links never change.
+  const roles = guideRolesOrLegacy(user.guideRoles)
   const languages = user.guideLanguages ? user.guideLanguages.split(',').filter(Boolean) : []
   const specialties = user.guideSpecialties ? user.guideSpecialties.split(',').filter(Boolean) : []
   const videos = splitVideoUrls(user.guideVideoUrls)
@@ -113,7 +119,7 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Compass className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Tour guide on circub</span>
+              <span data-testid="guide-page-eyebrow" className="text-[11px] font-semibold uppercase tracking-wider text-primary">{roleListLabel(roles)} on circub</span>
               {user.guideAvailable && (
                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Available now</Badge>
               )}
@@ -126,7 +132,9 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
                   <Award className="w-2.5 h-2.5 mr-0.5" />Licensed
                 </Badge>
               )}
-              <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">Guide</Badge>
+              {roles.map((r) => (
+                <Badge key={r} variant="secondary" data-testid={`guide-page-role-${r}`} className="bg-primary/10 text-primary text-[10px]">{ROLE_META[r].label}</Badge>
+              ))}
             </h1>
             {user.username && <p className="text-sm text-muted-foreground">@{user.username}</p>}
             {user.location && (
@@ -191,24 +199,29 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
         {/* CTA row: book + share the guide link itself */}
         <div className="mt-5 flex items-center gap-2.5 flex-wrap">
           <Button asChild className="rounded-full gap-2" data-testid="guide-page-book">
-            <Link href="/"><CalendarCheck className="w-4 h-4" />Book this guide on circub</Link>
+            <Link href="/">
+              {roles.includes('guide')
+                ? <><CalendarCheck className="w-4 h-4" />Book this guide on circub</>
+                : <><CalendarCheck className="w-4 h-4" />Meet {user.name.split(' ')[0]} on circub</>
+              }
+            </Link>
           </Button>
           <CopyLinkButton
             url={shareUrl}
-            title={`${user.name} · Tour guide on circub`}
-            text={`Check out ${user.name}, a tour guide on circub`}
+            title={`${user.name} · ${roleListLabel(roles)} on circub`}
+            text={`Check out ${user.name}, a ${ROLE_META[roles[0]].label.toLowerCase()} on circub`}
           />
         </div>
 
         {/* tour videos (YouTube / Instagram embeds) */}
         <section className="mt-8">
           <h2 data-testid="guide-page-videos" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3">
-            Tour videos ({videos.length})
+            {roles.length === 1 && roles[0] === 'vlogger' ? 'Videos' : 'Tour videos'} ({videos.length})
           </h2>
           {videos.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
               <div className="flex justify-center mb-1.5 opacity-60"><Link2 className="w-5 h-5" /></div>
-              <p className="text-xs">This guide has not added tour videos yet.</p>
+              <p className="text-xs">No videos added yet.</p>
             </div>
           ) : (
             <div className="space-y-4">

@@ -1,9 +1,11 @@
-// Guides API: list registered tour guides with filters
+// Guides API: list registered community members (guides, vloggers, locals,
+// volunteers) with filters
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { guideDistanceKm } from '@/lib/geo'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
+import { guideRolesOrLegacy, CIRCUB_ROLES } from '@/lib/roles'
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,6 +32,7 @@ export async function GET(req: NextRequest) {
       { guideBio: { contains: t } },
       { guideSpecialties: { contains: t } },
       { guideLanguages: { contains: t } },
+      { guideRoles: { contains: t } },
       { location: { contains: t } },
     ])
     const terms = search.split(',').map((t) => t.trim()).filter(Boolean)
@@ -47,6 +50,7 @@ export async function GET(req: NextRequest) {
         isGuide: true, guideLicense: true, guideLanguages: true,
         guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
         guideBio: true, guideAvailable: true, verifiedLocal: true,
+        guideRoles: true,
         idVerified: true,
         guideIdDocType: true, guideIdDocUrl: true,
         guideVideoUrls: true,
@@ -57,6 +61,9 @@ export async function GET(req: NextRequest) {
 
     const result = guides.map((g) => ({
       ...g,
+      // Roles: parsed array; legacy members (null) read as ['guide'] so every
+      // existing card keeps its Guide badge.
+      guideRoles: guideRolesOrLegacy(g.guideRoles),
       guideLanguages: g.guideLanguages ? g.guideLanguages.split(',').filter(Boolean) : [],
       guideSpecialties: g.guideSpecialties ? g.guideSpecialties.split(',').filter(Boolean) : [],
       // Tour videos: stored comma-separated, returned as an array of raw urls
@@ -122,13 +129,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Upload your ID or passport to register as a guide' }, { status: 400 })
     }
 
+    // Live Zone roles: at least one of guide / vlogger / local / volunteer.
+    // Stored lowercase comma-separated; defaults to ['guide'] when missing so
+    // a bare legacy save still lands as a guide.
+    let roleInput: string[] = []
+    if (Array.isArray(body.guideRoles)) {
+      roleInput = body.guideRoles.map((r: unknown) => String(r || '').trim().toLowerCase()).filter(Boolean)
+    } else if (typeof body.guideRoles === 'string') {
+      roleInput = body.guideRoles.split(',').map((r) => r.trim().toLowerCase()).filter(Boolean)
+    }
+    const roles = [...new Set(roleInput)].filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
+    if (roles.length === 0) {
+      return NextResponse.json({ error: 'Pick at least one role: guide, vlogger, local or volunteer' }, { status: 400 })
+    }
+
     // Tour videos: array (or comma string) of YouTube / Instagram links.
     // Max 3, each must parse; stored comma-separated as the original urls.
+    // ABSENT field = keep what's stored: a partial save (roles-only flip,
+    // availability toggle from another surface) must never wipe links.
+    // Present (even empty array) = replace, so removing every link still works.
+    let videosProvided = false
     let videoUrls: string[] = []
     if (Array.isArray(body.guideVideoUrls)) {
       videoUrls = body.guideVideoUrls.map((v: unknown) => String(v || '').trim()).filter(Boolean)
+      videosProvided = true
     } else if (typeof body.guideVideoUrls === 'string') {
       videoUrls = splitVideoUrls(body.guideVideoUrls)
+      videosProvided = true
     }
     if (videoUrls.length > MAX_GUIDE_VIDEOS) {
       return NextResponse.json({ error: `Up to ${MAX_GUIDE_VIDEOS} videos allowed` }, { status: 400 })
@@ -146,6 +173,7 @@ export async function POST(req: NextRequest) {
       where: { id: me.id },
       data: {
         isGuide: true,
+        guideRoles: roles.join(','),
         guideLicense: body.guideLicense?.trim() || null,
         guideLanguages: body.guideLanguages?.trim() || null,
         guideSpecialties: body.guideSpecialties?.trim() || null,
@@ -153,7 +181,9 @@ export async function POST(req: NextRequest) {
         guideCurrency: body.guideCurrency?.trim() || null,
         guideBio: body.guideBio?.trim() || null,
         guideAvailable: body.guideAvailable !== false,
-        guideVideoUrls: videoUrls.length > 0 ? videoUrls.join(',') : null,
+        guideVideoUrls: videosProvided
+          ? (videoUrls.length > 0 ? videoUrls.join(',') : null)
+          : (me.guideVideoUrls ?? undefined),
         // Document is only written when a new upload is provided - never cleared
         // by a plain profile save.
         ...(docUrl ? { guideIdDocUrl: docUrl, guideIdDocType: docType || null } : {}),
@@ -164,10 +194,11 @@ export async function POST(req: NextRequest) {
         guideCurrency: true, guideBio: true, guideAvailable: true,
         guideVideoUrls: true,
         guideIdDocType: true,
+        guideRoles: true,
       },
     })
 
-    return NextResponse.json({ guide: updated }, { status: 201 })
+    return NextResponse.json({ guide: { ...updated, guideRoles: guideRolesOrLegacy(updated.guideRoles) } }, { status: 201 })
   } catch (error) {
     console.error('Failed to register as guide:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2, Video, Plus } from 'lucide-react'
+import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2, Video, Plus, Users, Heart } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -15,7 +15,16 @@ import { TagInput } from '@/components/ui/tag-input'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
 import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
+import { CIRCUB_ROLES, ROLE_META, guideRolesOrLegacy, roleListLabel, type CircubRole } from '@/lib/roles'
 import type { User } from '@/lib/types'
+
+// Chip icons per role (Video/Compass double as section icons elsewhere).
+const ROLE_ICONS: Record<CircubRole, React.ComponentType<{ className?: string }>> = {
+  vlogger: Video,
+  guide: Compass,
+  local: Users,
+  volunteer: Heart,
+}
 
 interface GuideRegisterModalProps {
   open: boolean
@@ -25,20 +34,23 @@ interface GuideRegisterModalProps {
 }
 
 export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideRegisterModalProps) {
+  // Live Zone roles: vlogger / guide / local / volunteer (multi-select).
+  // Legacy members (no stored roles) read as ['guide'].
+  const [roles, setRoles] = useState<CircubRole[]>(['guide'])
   const [license, setLicense] = useState('')
   const [languages, setLanguages] = useState<string[]>([])
   const [specialties, setSpecialties] = useState<string[]>([])
   const [hourlyRate, setHourlyRate] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [bio, setBio] = useState('')
-  // Tour videos: up to MAX_GUIDE_VIDEOS pasted links (YouTube / Instagram).
+  // Videos: up to MAX_GUIDE_VIDEOS pasted links (YouTube / Instagram).
   const [videoLinks, setVideoLinks] = useState<string[]>([''])
   const [saving, setSaving] = useState(false)
-  // Stop being a guide: confirmation + request state (guides only).
+  // Leave the program: confirmation + request state (members only).
   const [confirmStop, setConfirmStop] = useState(false)
   const [stopping, setStopping] = useState(false)
   // Verification document: type toggle + uploaded photo (data URL preview).
-  // Existing guides already have a document on file server-side (hasIdDoc) -
+  // Existing members already have a document on file server-side (hasIdDoc) -
   // they only see a confirmation chip and may re-upload a replacement.
   const [docType, setDocType] = useState<'ID' | 'PASSPORT'>('ID')
   const [docUrl, setDocUrl] = useState<string | null>(null)
@@ -49,12 +61,13 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
 
   useEffect(() => {
     if (open && user) {
+      setRoles(guideRolesOrLegacy((user as any).guideRoles))
       const langs = (user as any).guideLanguages
       const specs = (user as any).guideSpecialties
       setLanguages(Array.isArray(langs) ? langs : langs ? langs.split(',') : [])
       setSpecialties(Array.isArray(specs) ? specs : specs ? specs.split(',') : [])
       setBio((user as any).guideBio || '')
-      // Prefill saved tour videos (stored as raw urls); keep one empty row
+      // Prefill saved videos (stored as raw urls); keep one empty row
       // so adding the first video is one tap.
       const savedVideos = splitVideoUrls((user as any).guideVideoUrls)
       setVideoLinks(savedVideos.length > 0 ? [...savedVideos] : [''])
@@ -64,6 +77,18 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
       setDocUrl(null)
     }
   }, [open, user])
+
+  const toggleRole = (role: CircubRole) => {
+    setRoles((prev) => {
+      if (prev.includes(role)) {
+        // Never allow zero roles - the program needs at least one.
+        if (prev.length === 1) return prev
+        return prev.filter((r) => r !== role)
+      }
+      // Stable chip order follows CIRCUB_ROLES.
+      return CIRCUB_ROLES.filter((r) => prev.includes(r) || r === role)
+    })
+  }
 
   const handleDocPick = async (file: File) => {
     if (!file) return
@@ -85,31 +110,32 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     }
   }
 
-  // Stop being a guide - removes the guide card from the Live Zone but keeps
-  // every guide detail (and the verification document) for an instant return.
+  // Leave the program - removes the card from the Live Zone but keeps every
+  // detail (and the verification document) for an instant return.
   const stopBeingGuide = async () => {
     setStopping(true)
     try {
       const res = await fetch('/api/guides/me', { method: 'DELETE' })
       if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed') }
-      toast({ title: 'You are no longer a guide', description: 'Your card was removed from the Live Zone. Your details are kept for when you come back.' })
+      toast({ title: 'You left the program', description: 'Your card was removed from the Live Zone. Your details are kept for when you come back.' })
       setConfirmStop(false)
       onOpenChange(false)
       onSaved()
     } catch (e) {
-      toast({ title: 'Could not update your guide status', description: (e as Error).message, variant: 'destructive' })
+      toast({ title: 'Could not update your status', description: (e as Error).message, variant: 'destructive' })
     } finally {
       setStopping(false)
     }
   }
 
   const handleSave = async () => {
+    if (roles.length === 0) { toast({ title: 'Pick at least one role', variant: 'destructive' }); return }
     if (languages.length === 0) { toast({ title: 'Add at least one language', variant: 'destructive' }); return }
     if (specialties.length === 0) { toast({ title: 'Add at least one specialty', variant: 'destructive' }); return }
     const currencyClean = currency.trim().toUpperCase()
     if (!currencyClean) { toast({ title: 'Type your currency code (e.g. USD, ETB)', variant: 'destructive' }); return }
-    if (!docUrl && !hasIdDoc) { toast({ title: 'Upload your ID or passport', description: 'A photo of your ID or passport is required to register as a guide.', variant: 'destructive' }); return }
+    if (!docUrl && !hasIdDoc) { toast({ title: 'Upload your ID or passport', description: 'A photo of your ID or passport is required to register.', variant: 'destructive' }); return }
 
     // Video links: drop empty rows, validate every pasted link (YouTube or
     // Instagram only - mirrors the API so users get instant feedback).
@@ -134,6 +160,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          guideRoles: roles,
           guideLicense: license,
           guideLanguages: languages.join(','),
           guideSpecialties: specialties.join(','),
@@ -148,7 +175,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
-      toast({ title: 'You are now a registered guide!', description: 'Travelers can find you in the Live Zone.' })
+      toast({ title: 'You are in!', description: `Travelers can find you in the Live Zone as ${roleListLabel(roles)}.` })
       onOpenChange(false)
       onSaved()
     } catch (e) {
@@ -156,27 +183,79 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     } finally { setSaving(false) }
   }
 
+  // Role-adaptive form: license is a guide thing, the hourly rate makes sense
+  // for guides and locals, and the specialties label speaks the selected
+  // roles' language so a vlogger is never asked for "tour specialties".
+  const showLicense = roles.includes('guide')
+  const showRate = roles.includes('guide') || roles.includes('local')
+  const specLabel =
+    roles.length > 1 ? 'Your specialties'
+    : roles[0] === 'vlogger' ? 'What you film'
+    : roles[0] === 'local' ? 'What you can help with'
+    : roles[0] === 'volunteer' ? 'How you want to help'
+    : 'Tour specialties'
+  const videoLabel = roles.length === 1 && roles[0] === 'vlogger' ? 'Your videos (YouTube or Instagram links)' : 'Tour videos (YouTube or Instagram links)'
+  const saveLabel = saving ? 'Registering...' : roles.length === 1 ? `Register as ${ROLE_META[roles[0]].label.toLowerCase()}` : 'Register'
+  const inProgram = !!(user as any)?.isGuide
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin p-6 sm:p-8 gap-0">
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Compass className="w-5 h-5 text-primary" />
-            Become a tour guide
+            Join as a local
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Register as a local tour guide. Travelers will find you in the Live Zone and can message you directly.
+            Register as a vlogger, guide, local or volunteer - or any mix. Travelers find you in the Live Zone and can message you directly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* License (optional) */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5" />Guide license number (optional)
-            </label>
-            <Input placeholder="e.g. GT-2024-00123" value={license} onChange={(e) => setLicense(e.target.value)} />
+          {/* Role picker - pick one or combine (e.g. guide + vlogger) */}
+          <div className="space-y-2" data-testid="guide-roles-section">
+            <label className="text-xs text-muted-foreground font-medium">I am joining as *</label>
+            <div className="grid grid-cols-2 gap-2">
+              {CIRCUB_ROLES.map((role) => {
+                const Icon = ROLE_ICONS[role]
+                const active = roles.includes(role)
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    data-testid={`role-chip-${role}`}
+                    aria-pressed={active}
+                    onClick={() => toggleRole(role)}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                      active
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:bg-accent'
+                    }`}
+                  >
+                    <span className={`flex items-center gap-1.5 text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      {ROLE_META[role].label}
+                      {active && <CheckCircle2 className="w-3 h-3 ml-auto shrink-0" />}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">{ROLE_META[role].blurb}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              Pick one or combine - e.g. guide + vlogger. You can change this any time.
+            </p>
           </div>
+
+          {/* License (optional, guides only) */}
+          {showLicense && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5" />Guide license number (optional)
+              </label>
+              <Input placeholder="e.g. GT-2024-00123" value={license} onChange={(e) => setLicense(e.target.value)} />
+            </div>
+          )}
 
           {/* ID / passport verification (required) */}
           <div className="space-y-2">
@@ -284,10 +363,10 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
             />
           </div>
 
-          {/* Specialties */}
+          {/* Specialties - label speaks the selected roles' language */}
           <div className="space-y-1.5">
             <label htmlFor="guide-specialties-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5" />Tour specialties *
+              <Briefcase className="w-3.5 h-3.5" />{specLabel} *
             </label>
             <TagInput
               inputId="guide-specialties-input"
@@ -298,48 +377,50 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
             />
           </div>
 
-          {/* Hourly rate + currency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5" />Hourly rate
-              </label>
-              <Input type="number" placeholder="e.g. 25" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} min="0" />
+          {/* Hourly rate + currency (guides and locals) */}
+          {showRate && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5" />Hourly rate
+                </label>
+                <Input type="number" placeholder="e.g. 25" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="guide-currency-input" className="text-xs text-muted-foreground font-medium">Currency</label>
+                <Input
+                  id="guide-currency-input"
+                  type="text"
+                  placeholder="e.g. USD"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                  maxLength={5}
+                  autoCapitalize="characters"
+                  className="uppercase"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="guide-currency-input" className="text-xs text-muted-foreground font-medium">Currency</label>
-              <Input
-                id="guide-currency-input"
-                type="text"
-                placeholder="e.g. USD"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                maxLength={5}
-                autoCapitalize="characters"
-                className="uppercase"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Bio */}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">Guide bio</label>
+            <label className="text-xs text-muted-foreground font-medium">Bio</label>
             <Textarea
-              placeholder="Tell travelers about your experience, what makes your tours special, and what they can expect..."
+              placeholder="Tell travelers about your experience, what makes your city special, and what they can expect..."
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               className="min-h-[80px] resize-y"
             />
           </div>
 
-          {/* Tour videos (YouTube / Instagram links) */}
+          {/* Videos (YouTube / Instagram links) */}
           <div className="space-y-2" data-testid="guide-videos-section">
             <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
               <Video className="w-3.5 h-3.5 text-primary" />
-              Tour videos (YouTube or Instagram links)
+              {videoLabel}
             </label>
             <p className="text-[11px] text-muted-foreground -mt-1">
-              Paste up to {MAX_GUIDE_VIDEOS} links - travelers watch them right on your guide card and page.
+              Paste up to {MAX_GUIDE_VIDEOS} links - travelers watch them right on your card and page.
             </p>
             {videoLinks.map((link, i) => {
               const parsed = parseVideoUrl(link)
@@ -392,28 +473,28 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-3 pt-4 border-t border-border">
-          {/* Leave the guide program - existing guides only */}
-          {(user as any)?.isGuide ? (
+          {/* Leave the program - existing members only */}
+          {inProgram ? (
             <Button variant="ghost" onClick={() => setConfirmStop(true)} disabled={saving || stopping}
               className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs gap-1.5">
-              <Compass className="w-3.5 h-3.5" />Stop being a guide
+              <Compass className="w-3.5 h-3.5" />Leave the program
             </Button>
           ) : <span />}
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 gap-1.5">
-              {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Registering...</> : <><Save className="w-4 h-4" />Register as guide</>}
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Registering...</> : <><Save className="w-4 h-4" />{saveLabel}</>}
             </Button>
           </div>
         </div>
 
-        {/* Confirmation before leaving the guide program */}
+        {/* Confirmation before leaving the program */}
         <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Stop being a guide?</AlertDialogTitle>
+              <AlertDialogTitle>Leave the local program?</AlertDialogTitle>
               <AlertDialogDescription>
-                Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept - registering again restores your card instantly.
+                Your card is removed from the Live Zone and travelers can&apos;t reach you there. Your details, reviews and document are kept - registering again restores your card instantly.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -422,7 +503,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
                 onClick={(e) => { e.preventDefault(); stopBeingGuide() }}
                 disabled={stopping}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                {stopping ? <><Loader2 className="w-4 h-4 animate-spin" />Stopping...</> : 'Stop being a guide'}
+                {stopping ? <><Loader2 className="w-4 h-4 animate-spin" />Leaving...</> : 'Leave the program'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

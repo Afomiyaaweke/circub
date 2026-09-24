@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
+import { guideRolesOrLegacy, ROLE_META, roleListLabel } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -122,6 +123,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [openVideoCards, setOpenVideoCards] = useState<Record<string, boolean>>({})
   const { toast } = useToast()
 
+  // Refetch when the member's own registration changes (isGuide / roles) so
+  // a just-saved registration shows its new role badges instantly - no
+  // manual refresh, no tab flit required.
+  const meRolesKey = `${me?.isGuide ? 1 : 0}:${JSON.stringify((me as any)?.guideRoles ?? null)}`
+
   const fetchGuides = useCallback(async () => {
     setLoading(true)
     try {
@@ -138,7 +144,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const data = await res.json()
       setGuides(data.guides || [])
     } catch { setGuides([]) } finally { setLoading(false) }
-  }, [search, language, specialty, availableOnly, nearMe, myCoords])
+  }, [search, language, specialty, availableOnly, nearMe, myCoords, meRolesKey])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
@@ -256,18 +262,18 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <h2 className="text-lg font-bold text-foreground truncate">Live Zone</h2>
               {guides.length > 0 && (
                 <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
-                  {guides.length} guide{guides.length !== 1 && 's'}
+                  {guides.length} member{guides.length !== 1 && 's'}
                 </Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Find registered tour guides from the local community. Message them directly to book a tour.
+              Find registered guides, vloggers, locals and volunteers from the community. Message them directly.
             </p>
           </div>
           {!isGuide ? (
             <Button onClick={onBecomeGuide} className="bg-primary hover:bg-primary/90 gap-1.5 shrink-0">
               <Compass className="w-4 h-4" />
-              Become a guide
+              Join as a local
             </Button>
           ) : (
             <div className="flex items-center gap-2 shrink-0">
@@ -754,14 +760,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
             <Compass className="w-6 h-6 text-primary" />
           </div>
-          <h3 className="font-semibold text-foreground">No guides found</h3>
+          <h3 className="font-semibold text-foreground">No locals found</h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            No guides match your filters. Try adjusting search, or be the first to register as a guide!
+            No one matches your filters. Try adjusting search, or be the first to join as a guide, vlogger, local or volunteer!
           </p>
           {!isGuide && (
             <Button onClick={onBecomeGuide} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
               <Compass className="w-4 h-4" />
-              Become a guide
+              Join as a local
             </Button>
           )}
         </Card>
@@ -807,14 +813,17 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                 data-testid="guide-share-btn"
                 onClick={async () => {
                   // The guide link: a real shareable page that works logged
-                  // out - /g/<username>. Guides without a username keep the
-                  // legacy in-app deep link.
+                  // out - /g/<username>. Members without a username keep the
+                  // legacy in-app deep link. Share copy reads their roles.
                   const url = g.username
                     ? `${window.location.origin}/g/${g.username}`
                     : `${window.location.origin}/?guide=${g.id}`
+                  const rls = guideRolesOrLegacy((g as any).guideRoles)
+                  const shareTitle = `${g.name} - ${roleListLabel(rls)} on circub`
+                  const shareText = `Check out ${g.name}, a ${ROLE_META[rls[0]].label.toLowerCase()} on circub`
                   try {
                     if (navigator.share) {
-                      await navigator.share({ title: `${g.name} - Tour Guide on circub`, text: `Check out ${g.name}, a tour guide on circub`, url })
+                      await navigator.share({ title: shareTitle, text: shareText, url })
                     } else if (navigator.clipboard) {
                       await navigator.clipboard.writeText(url)
                       toast({ title: 'Guide link copied!', description: url.replace(/^https?:\/\//, '') })
@@ -885,6 +894,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
                       {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
                       {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
+                      {/* Live Zone roles: Guide / Vlogger / Local / Volunteer */}
+                      {guideRolesOrLegacy((g as any).guideRoles).map((r) => (
+                        <Badge key={r} variant="secondary" data-testid={`guide-role-${r}`}
+                          className="bg-primary/10 text-primary text-[9px] shrink-0">
+                          {ROLE_META[r].label}
+                        </Badge>
+                      ))}
                       {g.guideLicense && (
                         <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">
                           <Award className="w-2.5 h-2.5 mr-0.5" />
@@ -945,7 +961,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
                       >
                         {open ? <Video className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                        {open ? 'Hide tour videos' : `Watch tour videos (${vids.length})`}
+                        {open ? 'Hide videos' : `Watch videos (${vids.length})`}
                       </button>
                       {open && (
                         <div className="mt-2 space-y-2">

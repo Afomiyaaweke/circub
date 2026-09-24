@@ -66,6 +66,9 @@ export async function GET() {
       verifiedLocal: me.verifiedLocal,
       isGuide: me.isGuide,
       rating: me.rating,
+      // Live Zone roles: parsed array (legacy null -> ['guide'] client-side).
+      guideRoles: me.guideRoles,
+      guideVideoUrls: me.guideVideoUrls,
       guideLicense: me.guideLicense,
       guideLanguages: me.guideLanguages ? me.guideLanguages.split(',').filter(Boolean) : [],
       guideSpecialties: me.guideSpecialties ? me.guideSpecialties.split(',').filter(Boolean) : [],

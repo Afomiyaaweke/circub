@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { guideRolesOrLegacy } from '@/lib/roles'
 
 export async function GET(
   _req: NextRequest,
@@ -17,6 +18,7 @@ export async function GET(
         isGuide: true, guideLicense: true, guideLanguages: true,
         guideSpecialties: true, guideHourlyRate: true, guideCurrency: true,
         guideBio: true, guideAvailable: true, verifiedLocal: true,
+        guideRoles: true,
         helpfulVotes: true, localPostCount: true,
       },
     })
@@ -25,6 +27,7 @@ export async function GET(
     return NextResponse.json({
       guide: {
         ...guide,
+        guideRoles: guideRolesOrLegacy(guide.guideRoles),
         guideLanguages: guide.guideLanguages ? guide.guideLanguages.split(',').filter(Boolean) : [],
         guideSpecialties: guide.guideSpecialties ? guide.guideSpecialties.split(',').filter(Boolean) : [],
       },
