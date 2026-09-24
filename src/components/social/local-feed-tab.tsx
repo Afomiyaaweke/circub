@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, ScanLine, PenLine, Navigation, Calculator, Minus, Store } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, BarChart3, PenLine, Navigation, Calculator, Minus, Store } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,8 +13,8 @@ import { CreatePricePostModal, CATEGORIES } from './create-price-post-modal'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
-import { PriceLensModal } from './pricelens-modal'
 import { BudgetResultView, BUDGET_SOURCE_META } from '@/components/scanner/budget-result'
+import { MarketGraphPanel } from '@/components/scanner/market-graph'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
@@ -49,7 +49,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const [city, setCity] = useState('All cities')
   const [category, setCategory] = useState('All categories')
   const [modalOpen, setModalOpen] = useState(false)
-  const [pricelensOpen, setPricelensOpen] = useState(false)
+  const [marketOpen, setMarketOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [editPost, setEditPost] = useState<LocalPricePost | null>(null)
@@ -399,14 +399,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     }
   }
 
-  // PriceLens scan (shared by the desktop labeled button and the compact
-  // phone icon inside the search bar).
-  const openScan = () => {
-    if (SCAN_COMING_SOON) {
-      toast({ title: 'Scan is coming soon', description: 'Camera scanning will be available in a future update.' })
-      return
-    }
-    setPricelensOpen(true)
+  // Market graph (shared by the desktop labeled button and the compact
+  // phone icon inside the search bar) - the scan experience is COMPLETELY
+  // graph-based now: prices by item at a place, prices by place for an
+  // item, all from real posts. Starts resolving the location on open so
+  // the first graph is already the user's own market.
+  const openMarket = () => {
+    setMarketOpen(true)
+    kickLocation()
   }
 
   // Add the currently typed place to the multi-location compare list.
@@ -523,8 +523,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
                 INSIDE the search bar - saves a whole row, and the camera menu
                 drops from the pill's right edge so it always fits the screen. */}
             <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onOpenCompare={openComparePanel} onOpenBudget={openBudgetPanel} />
-            <Button type="button" variant="ghost" size="icon" onClick={openScan} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Scan with camera - PriceLens">
-              <ScanLine className="w-4 h-4 text-emerald-600" />
+            <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Market graph - prices by item and location" data-testid="market-open-compact">
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
             </Button>
           </div>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
@@ -576,15 +576,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           type="button"
           variant="outline"
           size="sm"
-          onClick={openScan}
+          onClick={openMarket}
           disabled={searchingByImage}
           className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
-          title="Open PriceLens - point your camera at a product, AI identifies it and finds live local prices"
+          title="Open the market graph - what things cost by item and place, from real price posts"
+          data-testid="market-open"
         >
-          <ScanLine className="w-3.5 h-3.5 text-emerald-600" />
-          <span className="hidden sm:inline">Scan with camera</span>
-          <span className="sm:hidden">Scan</span>
-          {SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
+          <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Market graph</span>
         </Button>
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
@@ -866,6 +865,20 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           </Card>
         )}
 
+        {/* Market graph - the scan entry point, completely graph-based:
+            prices by item at the picked place, and any item's prices across
+            places, aggregated from real local price posts. The scan camera
+            modal was removed from this entry (pricelens-modal.tsx stays in
+            the repo - one commit reverts if the camera flow is wanted). */}
+        {marketOpen && (
+          <MarketGraphPanel
+            userLocation={userLocation}
+            countries={filterValues.countries}
+            onKickLocation={kickLocation}
+            onClose={() => setMarketOpen(false)}
+          />
+        )}
+
         {/* AI search results panel - shows after a camera capture or image
             upload. Contains the AI identification + price estimate (in the
             user's local currency) + matching local posts ranked by location,
@@ -1129,15 +1142,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} onMessage={onMessage} currentUserId={currentUserId} />
-      <PriceLensModal
-        open={pricelensOpen}
-        onOpenChange={setPricelensOpen}
-        onPickItem={(label) => {
-          setSearch(label)
-          setSearchResults(null)
-          setSearchImage(null)
-        }}
-      />
     </div>
   )
 }

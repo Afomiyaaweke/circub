@@ -14,10 +14,11 @@ interface LandingPageProps {
 /**
  * Single-page landing: the pitch + every way in, all on one screen.
  *
- * The user's brief: "only one page for all the button and this information".
- * The headline and body are the product pitch - "Real prices, from real
- * locals." - and every entry point lives on this same single page, no
- * separate marketing sections or extra routes:
+ * The user's brief: "make the landing page messege like this" - the message
+ * is "Know before you go." + "Prices. Places. Products. People." - four
+ * words that name exactly what the app graph shows, and every entry point
+ * lives on this same single page, no separate marketing sections or extra
+ * routes:
  *
  *   Post a real price →   the pitch's own CTA (posting needs an account,
  *                         so it opens sign-up - the fastest path to posting)
@@ -29,8 +30,8 @@ interface LandingPageProps {
  *   Continue as guest     browse everything, post/vote prompts sign-up
  *
  * Everything fits a single viewport on modern phones (brand row is inline
- * to keep vertical budget for the longer pitch copy) and the theme toggle
- * plus the legal/version footer round out the corners.
+ * to keep vertical budget tight) and the theme toggle plus the legal/version
+ * footer round out the corners.
  */
 export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
   return (
@@ -61,16 +62,14 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
           data-testid="landing-headline"
           className="mt-6 max-w-md text-3xl font-bold tracking-tight text-foreground sm:text-4xl sm:leading-[1.15]"
         >
-          Real prices, from real locals.
+          Know before you go.
         </h1>
 
         <p
           data-testid="landing-copy"
-          className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base"
+          className="mt-3 max-w-md text-sm font-medium tracking-wide text-muted-foreground sm:text-base"
         >
-          Tired of guessing what things actually cost? Circub shows you real
-          prices posted by locals. Post a price, find a shop, or ask a local
-          directly. Just the truth, pinned to the map.
+          Prices. Places. Products. People.
         </p>
 
         <div className="mt-7 flex w-full max-w-[300px] flex-col gap-2.5">
