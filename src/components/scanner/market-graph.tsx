@@ -196,26 +196,30 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
   const placeLabel = data?.place ? data.place.label : 'the worldwide market'
 
   // --- time series (chart 3): was X -> now Y -------------------------------
-  // The line that carries the before-vs-now sentence prefers the SHOWN
-  // market (that is the market the panel is looking at) and falls back to
-  // all markets. The second line only joins when it speaks the same
-  // currency - one axis can never mix ETB with HKD.
+  // The before-vs-now story (summary + main line) prefers the SHOWN market
+  // when it has >= 2 periods, else all markets. With no 2-period series the
+  // chart still draws whatever single point exists - one dot is the price
+  // NOW, with a pending note instead of a was->now sentence. The second line
+  // only joins when it speaks the same currency - one axis can never mix
+  // ETB with HKD.
   const time = data?.time ?? null
   const hereSeries = time?.here ?? null
   const allSeries = time?.all ?? null
-  const primaryTime = hereSeries && hereSeries.points.length >= 2
+  const summaryTime = hereSeries && hereSeries.points.length >= 2
     ? { scope: 'here' as const, currency: hereSeries.currency, points: hereSeries.points }
     : allSeries && allSeries.points.length >= 2
       ? { scope: 'all' as const, currency: allSeries.currency, points: allSeries.points }
       : null
-  const secondaryTime = primaryTime
-    ? primaryTime.scope === 'here'
-      ? allSeries && allSeries.points.length > 0 && allSeries.currency === primaryTime.currency
-        ? { scope: 'all' as const, currency: allSeries.currency, points: allSeries.points }
-        : null
-      : hereSeries && hereSeries.points.length > 0 && hereSeries.currency === primaryTime.currency
-        ? { scope: 'here' as const, currency: hereSeries.currency, points: hereSeries.points }
-        : null
+  const primaryTime = summaryTime
+    ?? (hereSeries && hereSeries.points.length >= 1
+      ? { scope: 'here' as const, currency: hereSeries.currency, points: hereSeries.points }
+      : null)
+    ?? (allSeries && allSeries.points.length >= 1
+      ? { scope: 'all' as const, currency: allSeries.currency, points: allSeries.points }
+      : null)
+  const otherSeries = primaryTime?.scope === 'here' ? allSeries : hereSeries
+  const secondaryTime = primaryTime && otherSeries && otherSeries.points.length > 0 && otherSeries.currency === primaryTime.currency
+    ? { scope: primaryTime.scope === 'here' ? ('all' as const) : ('here' as const), currency: otherSeries.currency, points: otherSeries.points }
     : null
   const primaryName = primaryTime?.scope === 'all' ? 'All markets' : `At ${placeLabel}`
   const secondaryName = secondaryTime?.scope === 'all' ? 'All markets' : `At ${placeLabel}`
@@ -236,14 +240,14 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
   })()
 
   const timeSummary = (() => {
-    if (!primaryTime || !time) return null
-    const pts = primaryTime.points
+    if (!summaryTime || !time) return null
+    const pts = summaryTime.points
     const first = pts[0]
     const last = pts[pts.length - 1]
     if (first.period === last.period) return null
     const pct = ((last.typical - first.typical) / first.typical) * 100
     const dir = pct > 0 ? `up ${Math.round(pct)}%` : pct < 0 ? `down ${Math.abs(Math.round(pct))}%` : 'flat'
-    return `${time.item} was ${primaryTime.currency} ${fmtNum(first.typical)} (${first.label}) \u2192 now ${primaryTime.currency} ${fmtNum(last.typical)} (${last.label}) - ${dir}`
+    return `${time.item} was ${summaryTime.currency} ${fmtNum(first.typical)} (${first.label}) \u2192 now ${summaryTime.currency} ${fmtNum(last.typical)} (${last.label}) - ${dir}`
   })()
 
   // Cheapest highlight: with an item query the best place wins; without one
@@ -457,6 +461,11 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                 {timeSummary && (
                   <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" data-testid="market-time-summary">
                     Before vs now: <span className="font-semibold">{timeSummary}</span>
+                  </p>
+                )}
+                {!timeSummary && (
+                  <p className="text-xs text-muted-foreground" data-testid="market-time-pending">
+                    Only one period posted so far - the before-vs-now arrow builds as the market grows.
                   </p>
                 )}
                 <ResponsiveContainer width="100%" height={180}>
