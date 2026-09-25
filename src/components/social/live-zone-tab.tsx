@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, ROLE_META, roleListLabel } from '@/lib/roles'
+import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -269,7 +269,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Find registered guides, vloggers, locals and volunteers from the community. Message them directly.
+              Find registered guides, vloggers, locals, volunteers and sellers from the community. Message them directly.
             </p>
           </div>
           {!isGuide ? (
@@ -768,7 +768,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           </div>
           <h3 className="font-semibold text-foreground">No locals found</h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            No one matches your filters. Try adjusting search, or be the first to join as a guide, vlogger, local or volunteer!
+            No one matches your filters. Try adjusting search, or be the first to join as a guide, vlogger, local, volunteer or seller!
           </p>
           {!isGuide && (
             <Button onClick={onBecomeGuide} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
@@ -826,7 +826,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     : `${window.location.origin}/?guide=${g.id}`
                   const rls = guideRolesOrLegacy((g as any).guideRoles)
                   const shareTitle = `${g.name} - ${roleListLabel(rls)} on circub`
-                  const shareText = `Check out ${g.name}, a ${ROLE_META[rls[0]].label.toLowerCase()} on circub`
+                  const shareText = `Check out ${g.name}, a ${roleNoun(rls[0])} on circub`
                   try {
                     if (navigator.share) {
                       await navigator.share({ title: shareTitle, text: shareText, url })

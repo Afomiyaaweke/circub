@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { normalizeUsername } from '@/lib/username'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, roleListLabel, ROLE_META } from '@/lib/roles'
+import { guideRolesOrLegacy, roleListLabel, roleNoun, ROLE_META } from '@/lib/roles'
 import {
   BadgeCheck as VerifiedIcon, Award, CalendarCheck, Compass, Languages,
   Link2, MapPin, ShieldCheck, Star,
@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
     const roles = guideRolesOrLegacy(user.guideRoles)
     const title = `${user.name} · ${roleListLabel(roles)}${user.location ? ` in ${user.location}` : ''} · circub`
     const description = user.guideBio || user.headline || user.bio ||
-      `Meet ${user.name}, a ${ROLE_META[roles[0]].label.toLowerCase()} on circub.${ratingCount > 0 ? ` Rated ${user.rating?.toFixed(1)} by ${ratingCount} traveler${ratingCount !== 1 ? 's' : ''}.` : ''}`
+      `Meet ${user.name}, a ${roleNoun(roles[0])} on circub.${ratingCount > 0 ? ` Rated ${user.rating?.toFixed(1)} by ${ratingCount} traveler${ratingCount !== 1 ? 's' : ''}.` : ''}`
     return { title, description }
   } catch {
     return { title: 'Local on circub' }
@@ -209,7 +209,7 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
           <CopyLinkButton
             url={shareUrl}
             title={`${user.name} · ${roleListLabel(roles)} on circub`}
-            text={`Check out ${user.name}, a ${ROLE_META[roles[0]].label.toLowerCase()} on circub`}
+            text={`Check out ${user.name}, a ${roleNoun(roles[0])} on circub`}
           />
         </div>
 

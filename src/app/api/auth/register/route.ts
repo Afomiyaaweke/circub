@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
 import { validateUsername } from '@/lib/username'
+import { CIRCUB_ROLES } from '@/lib/roles'
 
 interface RegisterBody {
   accountType: 'PERSONAL' | 'COMPANY'
@@ -31,6 +32,10 @@ interface RegisterBody {
   // Terms of Service + Privacy Policy box); Google OAuth registration has no
   // body, so only an explicit false is rejected.
   acceptedTerms?: boolean
+  // "I am joining as *" - Live Zone roles picked at sign-up (guide / vlogger /
+  // local / volunteer / sales). Stored comma-separated on User.guideRoles so
+  // the Live Zone join modal later opens prefilled with the same picks.
+  guideRoles?: string[]
 }
 
 export async function POST(req: NextRequest) {
@@ -130,12 +135,27 @@ export async function POST(req: NextRequest) {
 
     const hashed = await bcrypt.hash(body.password, 10)
 
+    // Live Zone roles picked at sign-up: keep only valid slugs, dedupe, store
+    // comma-separated. Absent / empty / invalid-only -> left null, which the
+    // rest of the app already reads as the legacy 'guide' default (Google
+    // OAuth registrations have no body and land here too).
+    let guideRoles: string | null = null
+    if (Array.isArray(body.guideRoles)) {
+      const picked = [...new Set(
+        body.guideRoles
+          .map((r) => String(r || '').trim().toLowerCase())
+          .filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
+      )]
+      if (picked.length > 0) guideRoles = picked.join(',')
+    }
+
     // Build user record
     const userData: any = {
       email: body.email.trim().toLowerCase(),
       password: hashed,
       accountType: body.accountType,
       username: uCheck.username,
+      guideRoles,
     }
 
     if (body.accountType === 'PERSONAL') {
@@ -171,6 +191,7 @@ export async function POST(req: NextRequest) {
           companyName: user.companyName,
           headline: user.headline,
           location: user.location,
+          guideRoles: guideRoles ? pickedRolesOf(guideRoles) : [],
         },
       },
       { status: 201 }
@@ -182,4 +203,9 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// Convenience for the 201 response: "local,sales" -> ['local', 'sales'].
+function pickedRolesOf(raw: string): string[] {
+  return raw.split(',').filter(Boolean)
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2, Video, Plus, Users, Heart } from 'lucide-react'
+import { Languages, Award, DollarSign, Briefcase, Save, Loader2, Compass, ShieldCheck, Camera, X, CheckCircle2, Video, Plus } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -15,16 +15,9 @@ import { TagInput } from '@/components/ui/tag-input'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
 import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
-import { CIRCUB_ROLES, ROLE_META, guideRolesOrLegacy, roleListLabel, type CircubRole } from '@/lib/roles'
+import { guideRolesOrLegacy, roleListLabel, roleNoun, toggleCircubRole, type CircubRole } from '@/lib/roles'
+import { RolePicker } from '@/components/social/role-picker'
 import type { User } from '@/lib/types'
-
-// Chip icons per role (Video/Compass double as section icons elsewhere).
-const ROLE_ICONS: Record<CircubRole, React.ComponentType<{ className?: string }>> = {
-  vlogger: Video,
-  guide: Compass,
-  local: Users,
-  volunteer: Heart,
-}
 
 interface GuideRegisterModalProps {
   open: boolean
@@ -34,8 +27,9 @@ interface GuideRegisterModalProps {
 }
 
 export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideRegisterModalProps) {
-  // Live Zone roles: vlogger / guide / local / volunteer (multi-select).
-  // Legacy members (no stored roles) read as ['guide'].
+  // Live Zone roles: vlogger / guide / local / volunteer / sales (multi-select).
+  // Legacy members (no stored roles) read as ['guide']; members who answered
+  // the role question at sign-up arrive with their picks prefilled.
   const [roles, setRoles] = useState<CircubRole[]>(['guide'])
   const [license, setLicense] = useState('')
   const [languages, setLanguages] = useState<string[]>([])
@@ -79,15 +73,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
   }, [open, user])
 
   const toggleRole = (role: CircubRole) => {
-    setRoles((prev) => {
-      if (prev.includes(role)) {
-        // Never allow zero roles - the program needs at least one.
-        if (prev.length === 1) return prev
-        return prev.filter((r) => r !== role)
-      }
-      // Stable chip order follows CIRCUB_ROLES.
-      return CIRCUB_ROLES.filter((r) => prev.includes(r) || r === role)
-    })
+    setRoles((prev) => toggleCircubRole(prev, role))
   }
 
   const handleDocPick = async (file: File) => {
@@ -193,9 +179,10 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     : roles[0] === 'vlogger' ? 'What you film'
     : roles[0] === 'local' ? 'What you can help with'
     : roles[0] === 'volunteer' ? 'How you want to help'
+    : roles[0] === 'sales' ? 'What you sell'
     : 'Tour specialties'
   const videoLabel = roles.length === 1 && roles[0] === 'vlogger' ? 'Your videos (YouTube or Instagram links)' : 'Tour videos (YouTube or Instagram links)'
-  const saveLabel = saving ? 'Registering...' : roles.length === 1 ? `Register as ${ROLE_META[roles[0]].label.toLowerCase()}` : 'Register'
+  const saveLabel = saving ? 'Registering...' : roles.length === 1 ? `Register as ${roleNoun(roles[0])}` : 'Register'
   const inProgram = !!(user as any)?.isGuide
 
   return (
@@ -207,45 +194,14 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
             Join as a local
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Register as a vlogger, guide, local or volunteer - or any mix. Travelers find you in the Live Zone and can message you directly.
+            Register as a vlogger, guide, local, volunteer or sales - or any mix. Travelers find you in the Live Zone and can message you directly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Role picker - pick one or combine (e.g. guide + vlogger) */}
-          <div className="space-y-2" data-testid="guide-roles-section">
-            <label className="text-xs text-muted-foreground font-medium">I am joining as *</label>
-            <div className="grid grid-cols-2 gap-2">
-              {CIRCUB_ROLES.map((role) => {
-                const Icon = ROLE_ICONS[role]
-                const active = roles.includes(role)
-                return (
-                  <button
-                    key={role}
-                    type="button"
-                    data-testid={`role-chip-${role}`}
-                    aria-pressed={active}
-                    onClick={() => toggleRole(role)}
-                    className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                      active
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:bg-accent'
-                    }`}
-                  >
-                    <span className={`flex items-center gap-1.5 text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      {ROLE_META[role].label}
-                      {active && <CheckCircle2 className="w-3 h-3 ml-auto shrink-0" />}
-                    </span>
-                    <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">{ROLE_META[role].blurb}</span>
-                  </button>
-                )
-              })}
-            </div>
-            <p className="text-[11px] text-muted-foreground -mt-1">
-              Pick one or combine - e.g. guide + vlogger. You can change this any time.
-            </p>
-          </div>
+          {/* Role picker - the SAME question the sign-up form asks; the
+              answer picked at registration arrives prefilled here */}
+          <RolePicker roles={roles} onToggle={toggleRole} />
 
           {/* License (optional, guides only) */}
           {showLicense && (

@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Upload your ID or passport to register as a guide' }, { status: 400 })
     }
 
-    // Live Zone roles: at least one of guide / vlogger / local / volunteer.
+    // Live Zone roles: at least one of guide / vlogger / local / volunteer / sales.
     // Stored lowercase comma-separated; defaults to ['guide'] when missing so
     // a bare legacy save still lands as a guide.
     let roleInput: string[] = []
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
     const roles = [...new Set(roleInput)].filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
     if (roles.length === 0) {
-      return NextResponse.json({ error: 'Pick at least one role: guide, vlogger, local or volunteer' }, { status: 400 })
+      return NextResponse.json({ error: 'Pick at least one role: guide, vlogger, local, volunteer or sales' }, { status: 400 })
     }
 
     // Tour videos: array (or comma string) of YouTube / Instagram links.

@@ -23,6 +23,8 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { startGoogleSignIn } from '@/lib/google-signin'
 import { normalizeUsername, validateUsername } from '@/lib/username'
+import { toggleCircubRole, type CircubRole } from '@/lib/roles'
+import { RolePicker } from '@/components/social/role-picker'
 import { AtSign, Check, Loader2 } from 'lucide-react'
 
 interface RegisterModalProps {
@@ -33,6 +35,13 @@ interface RegisterModalProps {
 }
 
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+']
+
+// The Live Zone role question is asked right here at sign-up. Sensible
+// starting picks per account kind - locals for personal accounts, sellers for
+// company pages - changeable with one tap, stored on User.guideRoles and
+// prefilled later in the Live Zone join modal.
+const defaultRoles = (tab: 'PERSONAL' | 'COMPANY'): CircubRole[] =>
+  tab === 'COMPANY' ? ['sales'] : ['local']
 
 export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }: RegisterModalProps) {
   const [tab, setTab] = useState<'PERSONAL' | 'COMPANY'>('PERSONAL')
@@ -62,6 +71,8 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   // Legal gate: the Terms of Service + Privacy Policy must be confirmed
   // before an account can be created.
   const [agreed, setAgreed] = useState(false)
+  // "I am joining as *" - the Live Zone roles picked at sign-up.
+  const [roles, setRoles] = useState<CircubRole[]>(() => defaultRoles('PERSONAL'))
   const [submitting, setSubmitting] = useState(false)
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -119,6 +130,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
     setUsernameTouched(false)
     setUStatus('idle')
     setUMsg('')
+    setRoles(defaultRoles(tab))
   }
 
   const handleSubmit = async () => {
@@ -172,6 +184,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         password,
         acceptedTerms: true,
         username: uCheck.username,
+        guideRoles: roles,
       }
       if (tab === 'PERSONAL') {
         body.name = name
@@ -231,7 +244,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         {/* Tab toggle */}
         <div className="grid grid-cols-2 gap-2 mb-5">
           <button
-            onClick={() => setTab('PERSONAL')}
+            onClick={() => { setTab('PERSONAL'); setRoles(defaultRoles('PERSONAL')) }}
             className={cn(
               'flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all',
               tab === 'PERSONAL'
@@ -251,7 +264,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
             </div>
           </button>
           <button
-            onClick={() => setTab('COMPANY')}
+            onClick={() => { setTab('COMPANY'); setRoles(defaultRoles('COMPANY')) }}
             className={cn(
               'flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all',
               tab === 'COMPANY'
@@ -270,6 +283,18 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               <p className="text-[11px] text-muted-foreground">Businesses & brands</p>
             </div>
           </button>
+        </div>
+
+        {/* "I am joining as *" - the same Live Zone role question every
+            member answers; the picks ride along with the account and prefill
+            the Live Zone join modal later. */}
+        <div className="mb-5">
+          <RolePicker
+            roles={roles}
+            onToggle={(role) => setRoles((prev) => toggleCircubRole(prev, role))}
+            sectionTestId="register-roles-section"
+            chipPrefix="register-role-chip"
+          />
         </div>
 
         {/* Form fields */}
