@@ -423,11 +423,11 @@ export function RightSidebar({
             posters.map((p, idx) => {
               const medal =
                 idx === 0
-                  ? 'text-amber-500'
+                  ? 'text-amber-700'
                   : idx === 1
-                  ? 'text-slate-400'
+                  ? 'text-slate-500'
                   : idx === 2
-                  ? 'text-orange-400'
+                  ? 'text-orange-700'
                   : 'text-muted-foreground'
               return (
                 <div
