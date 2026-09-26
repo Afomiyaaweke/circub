@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
+import { useLanguage } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { startGoogleSignIn } from '@/lib/google-signin'
 
@@ -35,6 +36,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null)
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   // Fetch Google OAuth availability once on mount so we can hide the
   // "Continue with Google" button when it isn't actually configured.
@@ -127,10 +129,10 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
-            Welcome back
+            {t('login.welcomeBack')}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Sign in to your circub account.
+            {t('login.signInTo')}
           </DialogDescription>
         </DialogHeader>
 
@@ -155,7 +157,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              {googleLoading ? 'Connecting to Google…' : 'Continue with Google'}
+              {googleLoading ? 'Connecting to Google…' : t('reg.continueGoogle')}
             </Button>
           )}
           {googleConfigured === false && (
@@ -169,13 +171,13 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">or</span>
+            <span className="text-xs text-muted-foreground">{t("common.or")}</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
           {/* Email + Password */}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">Email</label>
+            <label className="text-xs text-muted-foreground font-medium">{t("login.email")}</label>
             <div className="relative">
               <Mail className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none', fieldErrors.email ? 'text-red-500' : 'text-muted-foreground')} />
               <Input
@@ -190,7 +192,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
             {fieldErrors.email && <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">Password</label>
+            <label className="text-xs text-muted-foreground font-medium">{t("login.password")}</label>
             <div className="relative">
               <Lock className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none', fieldErrors.password ? 'text-red-500' : 'text-muted-foreground')} />
               <Input
@@ -233,7 +235,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
             disabled={submitting || !agreed}
             className="w-full bg-primary hover:bg-primary/90 gap-2 h-11"
           >
-            {submitting ? 'Signing in...' : <>Sign in <ArrowRight className="w-4 h-4" /></>}
+            {submitting ? t('login.signingIn') : <>{t('login.signInBtn')} <ArrowRight className="w-4 h-4" /></>}
           </Button>
 
           <p className="text-xs text-center text-muted-foreground pt-2">
@@ -242,7 +244,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
               onClick={() => { setEmail(''); setPassword(''); setFormError(null); onOpenChange(false); onSwitchToRegister() }}
               className="text-primary font-medium hover:underline"
             >
-              Sign up free
+              {t('login.signUpFree')}
             </button>
           </p>
         </div>

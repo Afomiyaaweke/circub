@@ -6,6 +6,7 @@
 // arrives prefilled here when the member later joins the Live Zone program.
 import { CheckCircle2, Video, Compass, Users, Heart, ShoppingBag } from 'lucide-react'
 import { CIRCUB_ROLES, ROLE_META, type CircubRole } from '@/lib/roles'
+import { useLanguage } from '@/lib/i18n'
 
 // Chip icons per role (Video/Compass double as section icons elsewhere).
 export const ROLE_ICONS: Record<CircubRole, React.ComponentType<{ className?: string }>> = {
@@ -31,9 +32,14 @@ export function RolePicker({
   sectionTestId = 'guide-roles-section',
   chipPrefix = 'role-chip',
 }: RolePickerProps) {
+  // Role labels/blurbs translate through i18n with the English ROLE_META copy
+  // as fallback, so the question reads natively in every app language.
+  const { t } = useLanguage()
+  const roleLabel = (role: CircubRole) => t(`roles.${role}` as never) || ROLE_META[role].label
+  const roleBlurb = (role: CircubRole) => t(`roles.${role}Blurb` as never) || ROLE_META[role].blurb
   return (
     <div className="space-y-2" data-testid={sectionTestId}>
-      <label className="text-xs text-muted-foreground font-medium">I am joining as *</label>
+      <label className="text-xs text-muted-foreground font-medium">{t("roles.question")}</label>
       <div className="grid grid-cols-2 gap-2">
         {CIRCUB_ROLES.map((role) => {
           const Icon = ROLE_ICONS[role]
@@ -53,16 +59,16 @@ export function RolePicker({
             >
               <span className={`flex items-center gap-1.5 text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
                 <Icon className="w-3.5 h-3.5 shrink-0" />
-                {ROLE_META[role].label}
+                {roleLabel(role)}
                 {active && <CheckCircle2 className="w-3 h-3 ml-auto shrink-0" />}
               </span>
-              <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">{ROLE_META[role].blurb}</span>
+              <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">{roleBlurb(role)}</span>
             </button>
           )
         })}
       </div>
       <p className="text-[11px] text-muted-foreground -mt-1">
-        Pick one or combine - e.g. guide + vlogger. You can change this any time.
+        {t('roles.hint')}
       </p>
     </div>
   )

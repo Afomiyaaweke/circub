@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
+import { CATEGORIES } from '@/lib/categories'
 import { compressImage } from '@/lib/image-compress'
 import type { LocalPricePost } from '@/lib/types'
 import { GpsCapture } from './gps-capture'
@@ -25,7 +26,7 @@ interface EditPricePostModalProps {
 }
 
 const CURRENCIES = ['USD', 'ETB', 'EUR', 'KES', 'UGX', 'MYR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS']
-const CATEGORIES = ['Coffee', 'Food', 'Handicrafts', 'Markets', 'Textiles', 'Clothing', 'Transportation', 'Restaurants', 'Services', 'Electronics', 'Accommodation', 'Other']
+// CATEGORIES comes from @/lib/categories - the full flat alphabetical list.
 
 export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPricePostModalProps) {
   const [productName, setProductName] = useState('')

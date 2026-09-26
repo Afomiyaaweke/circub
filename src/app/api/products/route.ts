@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
+import { CATEGORY_ALIASES } from '@/lib/categories'
 
 // GET /api/products?search=...&category=...&authorId=...
 export async function GET(req: NextRequest) {
@@ -21,7 +22,9 @@ export async function GET(req: NextRequest) {
       ]
     }
     if (category && category !== 'All categories') {
-      where.category = category
+      // New umbrella categories also match legacy short names still in old posts
+      const aliases = CATEGORY_ALIASES[category]
+      where.category = aliases?.length ? { in: [category, ...aliases] } : category
     }
     if (authorId) {
       where.authorId = authorId

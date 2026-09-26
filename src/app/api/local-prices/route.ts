@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { CATEGORY_ALIASES } from '@/lib/categories'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
@@ -30,7 +31,11 @@ export async function GET(req: NextRequest) {
     if (authorId) where.authorId = authorId
     if (country) where.country = { contains: country }
     if (city) where.city = { contains: city }
-    if (category && category !== 'All categories') where.category = category
+    if (category && category !== 'All categories') {
+      // New umbrella categories also match legacy short names still in old posts
+      const aliases = CATEGORY_ALIASES[category]
+      where.category = aliases?.length ? { in: [category, ...aliases] } : category
+    }
     if (search) where.OR = [{ productName: { contains: search } }, { description: { contains: search } }, { localTip: { contains: search } }, { market: { contains: search } }, { neighborhood: { contains: search } }]
     let orderBy: any = { createdAt: 'desc' }
     if (sort === 'popular') orderBy = { helpfulCount: 'desc' }

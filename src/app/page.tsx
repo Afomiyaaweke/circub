@@ -7,6 +7,7 @@ import { LandingPage } from '@/components/social/landing-page'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 import { rememberPosition, recallPosition, type ProfileSection } from '@/lib/last-position'
+import { LanguageProvider } from '@/lib/i18n'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
 const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
@@ -46,6 +47,16 @@ function getCachedUser(): User | null {
 }
 
 export default function Home() {
+  // LanguageProvider wraps the whole shell - landing AND dashboard - so the
+  // chosen language applies to the entire app and persists across visits.
+  return (
+    <LanguageProvider>
+      <HomeInner />
+    </LanguageProvider>
+  )
+}
+
+function HomeInner() {
   const [me, setMe] = useState<User | null>(getCachedUser)
   // authChecked now only tracks whether the background /api/auth/me
   // revalidation has completed - it no longer gates the first paint.

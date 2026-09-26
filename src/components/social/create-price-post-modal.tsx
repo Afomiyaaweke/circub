@@ -22,7 +22,8 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
-import { identifyPhoto, matchCategory, type IdentifyCompareResult } from '@/lib/photo-identify'
+import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
+import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
 import { ComparePreview } from './compare-preview'
 import { GpsCapture } from './gps-capture'
 
@@ -49,20 +50,8 @@ interface CreatePricePostModalProps {
 }
 
 const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS', 'HKD', 'AED', 'ZAR', 'CAD', 'SGD', 'THB', 'EGP', 'MAD']
-export const CATEGORIES = [
-  'Coffee',
-  'Food',
-  'Handicrafts',
-  'Markets',
-  'Textiles',
-  'Clothing',
-  'Transportation',
-  'Restaurants',
-  'Services',
-  'Electronics',
-  'Accommodation',
-  'Other',
-]
+// CATEGORIES (full flat alphabetical list) now lives in @/lib/categories -
+// the single source shared by every picker and filter.
 
 export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }: CreatePricePostModalProps) {
   const [postType, setPostType] = useState<'PRODUCT' | 'SERVICE'>('PRODUCT')
@@ -170,7 +159,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       if (!productName.trim() && result.searchTerm) setProductName(result.searchTerm)
       if (!description.trim() && result.aiDescription) setDescription(result.aiDescription)
       if (!category || category === 'Other') {
-        const hit = matchCategory(result.searchTerm, CATEGORIES)
+        const hit = matchCategoryLoose(result.searchTerm)
         if (hit) setCategory(hit)
       }
       if (!priceMin && !priceMax) {
@@ -470,7 +459,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground font-medium">Category</label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full" data-testid="category-select">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>

@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
-import { identifyPhoto, matchCategory, type IdentifyCompareResult } from '@/lib/photo-identify'
+import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
+import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
 import { ComparePreview } from './compare-preview'
 
 interface AddProductModalProps {
@@ -31,16 +32,7 @@ interface AddProductModalProps {
 }
 
 const CURRENCIES = ['USD', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD']
-const CATEGORIES = [
-  'Beverages',
-  'Spices',
-  'Seafood',
-  'Textiles',
-  'Electronics',
-  'Handicrafts',
-  'Agriculture',
-  'Other',
-]
+// CATEGORIES comes from @/lib/categories - the full flat alphabetical list.
 const GENDERS = ['Any', 'Male', 'Female', 'Unisex']
 
 export function AddProductModal({ open, onOpenChange, onCreated }: AddProductModalProps) {
@@ -52,7 +44,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
   const [unit, setUnit] = useState('')
   const [gender, setGender] = useState('Any')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('Beverages')
+  const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -114,7 +106,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
       // Pre-fill only EMPTY fields - never override what the user typed.
       if (!name.trim() && result.searchTerm) setName(result.searchTerm)
       if (!description.trim() && result.aiDescription) setDescription(result.aiDescription)
-      const hit = matchCategory(result.searchTerm, CATEGORIES)
+      const hit = matchCategoryLoose(result.searchTerm)
       if (hit) setCategory(hit)
       if (!price) {
         // Prefill ONLY from real posted prices (locationCompare) - the AI

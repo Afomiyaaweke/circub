@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { CATEGORIES, ALL_CATEGORIES } from '@/lib/categories'
+import { useLanguage } from '@/lib/i18n'
 import { AddProductModal } from './add-product-modal'
 import { ProductCard } from './product-card'
 import type { Product, User, TabKey } from '@/lib/types'
@@ -39,10 +41,11 @@ export function MainContent({
   onUserChanged,
   onRefreshAll,
 }: MainContentProps) {
+  const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('All categories')
+  const [category, setCategory] = useState(ALL_CATEGORIES)
   const [personFilter, setPersonFilter] = useState('All people')
   const [people, setPeople] = useState<{ id: string; name: string }[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -96,7 +99,7 @@ export function MainContent({
     try {
       const params = new URLSearchParams()
       if (search.trim()) params.set('search', search.trim())
-      if (category && category !== 'All categories') params.set('category', category)
+      if (category && category !== ALL_CATEGORIES) params.set('category', category)
 
       // For "Network" tab: show my own products
       // For "Feed" / "Discover": show all
@@ -203,20 +206,13 @@ export function MainContent({
           />
         </div>
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-[150px] sm:w-[170px] bg-card">
+          <SelectTrigger data-testid="category-filter-discover" className="w-[150px] sm:w-[170px] bg-card">
             <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All categories">All categories</SelectItem>
-            <SelectItem value="Beverages">Beverages</SelectItem>
-            <SelectItem value="Spices">Spices</SelectItem>
-            <SelectItem value="Seafood">Seafood</SelectItem>
-            <SelectItem value="Textiles">Textiles</SelectItem>
-            <SelectItem value="Electronics">Electronics</SelectItem>
-            <SelectItem value="Handicrafts">Handicrafts</SelectItem>
-            <SelectItem value="Agriculture">Agriculture</SelectItem>
-            <SelectItem value="Other">Other</SelectItem>
+            <SelectItem value={ALL_CATEGORIES}>{t('filter.allCategories')}</SelectItem>
+            {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         {activeTab === 'feed' && (
@@ -225,7 +221,7 @@ export function MainContent({
               <SelectValue placeholder="By Person" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="All people">All people</SelectItem>
+              <SelectItem value="All people">{t('filter.allPeople')}</SelectItem>
               {people.map((p) => (
                 <SelectItem key={p.id} value={p.name}>
                   {p.name}

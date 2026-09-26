@@ -9,13 +9,15 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
-import { CreatePricePostModal, CATEGORIES } from './create-price-post-modal'
+import { CreatePricePostModal } from './create-price-post-modal'
+import { CATEGORIES, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
 import { BudgetResultView, BUDGET_SOURCE_META } from '@/components/scanner/budget-result'
 import { MarketGraphPanel } from '@/components/scanner/market-graph'
 import { useToast } from '@/hooks/use-toast'
+import { useLanguage } from '@/lib/i18n'
 import { authFetch } from '@/lib/auth-fetch'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
 import { formatPrice } from '@/lib/location'
@@ -40,6 +42,7 @@ interface LocalFeedTabProps {
 }
 
 export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: LocalFeedTabProps) {
+  const { t } = useLanguage()
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
   // Load part by part: render a small batch first, append more on scroll
@@ -47,7 +50,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const [search, setSearch] = useState('')
   const [country, setCountry] = useState('All countries')
   const [city, setCity] = useState('All cities')
-  const [category, setCategory] = useState('All categories')
+  const [category, setCategory] = useState(ALL_CATEGORIES)
   const [modalOpen, setModalOpen] = useState(false)
   const [marketOpen, setMarketOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
@@ -118,7 +121,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       if (search) params.set('search', search)
       if (country && country !== 'All countries') params.set('country', country)
       if (city && city !== 'All cities') params.set('city', city)
-      if (category && category !== 'All categories') params.set('category', category)
+      if (category && category !== ALL_CATEGORIES) params.set('category', category)
       // Posts default to most recent (API default) - no sort dropdown in the UI.
       const res = await fetch(`/api/local-prices?${params.toString()}`)
       const data = await res.json()
@@ -450,7 +453,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     // Match the AI keywords against the post categories ("Coffee Beans, Coffee"
     // -> Coffee). Falls back to Other - the user can always change it.
     const kw = keywords.toLowerCase()
-    const category = CATEGORIES.find((c) => kw.includes(c.toLowerCase())) || 'Other'
+    const category = matchCategoryLoose(kw)
     // The place being added: an explicit location-group pick wins, then the
     // active "Compare by location" filter, then the searched location.
     const activeGroup = locFilter ? groupMatchesByLocation(r.localMatches).find((g) => g.key === locFilter) : undefined
@@ -537,7 +540,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             >
               <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All countries" />
             </SelectTrigger>
-            <SelectContent><SelectItem value="All countries">All countries</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value="All countries">{t('filter.allCountries')}</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           <Select value={city} onValueChange={setCity}>
@@ -549,19 +552,20 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             >
               <SelectValue placeholder="All cities" />
             </SelectTrigger>
-            <SelectContent><SelectItem value="All cities">All cities</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value="All cities">{t('filter.allCities')}</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger
+              data-testid="category-filter"
               className={
                 'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[132px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (category !== 'All categories' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+                (category !== ALL_CATEGORIES ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
               }
             >
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
-            <SelectContent><SelectItem value="All categories">All categories</SelectItem>{filterValues.categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{categoryFilterOptions(filterValues.categories).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <PhotoSearchButton

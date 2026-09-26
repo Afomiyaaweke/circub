@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX } from 'lucide-react'
+import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
+import { LANGUAGES, useLanguage } from '@/lib/i18n'
 import type { TabKey, User } from '@/lib/types'
 
 interface HeaderProps {
@@ -24,12 +25,72 @@ interface HeaderProps {
 
 // Bookmark and Network live inside the Profile tab now (Instagram-style) -
 // the top nav keeps the four top-level destinations.
-const TABS: { key: TabKey; label: string; icon: typeof MapPin }[] = [
-  { key: 'feed', label: 'Feed', icon: Sparkles },
-  { key: 'local', label: 'Local', icon: MapPin },
-  { key: 'guides', label: 'Link', icon: Compass },
-  { key: 'profile', label: 'Profile', icon: UserCircle },
+// labelKey - the i18n dictionary key for the tab label (translated at render).
+const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile'; icon: typeof MapPin }[] = [
+  { key: 'feed', labelKey: 'nav.feed', icon: Sparkles },
+  { key: 'local', labelKey: 'nav.local', icon: MapPin },
+  { key: 'guides', labelKey: 'nav.link', icon: Compass },
+  { key: 'profile', labelKey: 'nav.profile', icon: UserCircle },
 ]
+
+// The app-wide language option - a compact globe menu. Rendered in the
+// header on every screen (landing + dashboard, guest + signed-in) so the
+// language is always one tap away. The choice persists via the provider.
+export function LanguageMenu() {
+  const { t, lang, setLang } = useLanguage()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const current = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0]
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        data-testid="lang-switcher"
+        onClick={() => setOpen(!open)}
+        aria-label={t('header.language')}
+        aria-expanded={open}
+        className="flex items-center gap-1 px-1.5 sm:px-2 h-9 rounded-full text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+      >
+        <Globe className="w-4 h-4 shrink-0" />
+        <span className="hidden sm:inline max-w-[64px] truncate">{current.label}</span>
+        <ChevronDown className="hidden sm:block w-3 h-3" />
+      </button>
+      {open && (
+        <div
+          data-testid="lang-menu"
+          className="absolute right-0 top-10 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]"
+          role="listbox"
+          aria-label={t('header.language')}
+        >
+          {LANGUAGES.map((l) => (
+            <button
+              key={l.code}
+              data-testid={`lang-option-${l.code}`}
+              role="option"
+              aria-selected={l.code === lang}
+              onClick={() => { setLang(l.code); setOpen(false) }}
+              className={`w-full text-left px-4 py-2 text-sm hover:bg-accent flex items-center justify-between gap-3 ${
+                l.code === lang ? 'text-primary font-semibold' : 'text-foreground'
+              }`}
+            >
+              <span>{l.label}</span>
+              {l.code === lang && <span className="text-xs">●</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Header({
   activeTab,
@@ -46,11 +107,24 @@ export function Header({
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { t, lang, setLang } = useLanguage()
+  const [langOpen, setLangOpen] = useState(false)
+  const langRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -94,10 +168,10 @@ export function Header({
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                   aria-current={isActive ? 'page' : undefined}
-                  aria-label={tab.label}
+                  aria-label={t(tab.labelKey)}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden md:inline">{tab.label}</span>
+                  <span className="hidden md:inline">{t(tab.labelKey)}</span>
                 </button>
               )
             })}
@@ -106,10 +180,10 @@ export function Header({
             <button
               onClick={onOpenMessages}
               className="relative flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors shrink-0"
-              aria-label="Messages"
+              aria-label={t('nav.messages')}
             >
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden md:inline">Messages</span>
+              <span className="hidden md:inline">{t('nav.messages')}</span>
               {incomingInvitationsCount > 0 && (
                 <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
                   {incomingInvitationsCount}
@@ -122,6 +196,7 @@ export function Header({
         {/* Auth actions */}
         {!user ? (
           <div className="flex items-center gap-0.5 sm:gap-1.5">
+            <LanguageMenu />
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -129,18 +204,19 @@ export function Header({
               onClick={onLogin}
               className="text-muted-foreground hover:text-foreground"
             >
-              Sign in
+              {t('header.signIn')}
             </Button>
             <Button
               onClick={onSignUp}
               size="sm"
               className="bg-primary hover:bg-primary/90"
             >
-              Sign up free
+              {t('header.signUpFree')}
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-1 sm:gap-2">
+            <LanguageMenu />
             <ThemeToggle />
             <div className="relative" ref={menuRef}>
             <button
@@ -180,7 +256,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
                 >
                   <UserCircle className="w-4 h-4 text-muted-foreground" />
-                  Edit profile
+                  {t('header.editProfile')}
                 </button>
                 <button
                   onClick={() => {
@@ -190,7 +266,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
                 >
                   <Users className="w-4 h-4 text-muted-foreground" />
-                  My network
+                  {t('header.myNetwork')}
                 </button>
                 <button
                   onClick={() => {
@@ -200,7 +276,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
                 >
                   <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                  Messages
+                  {t('nav.messages')}
                 </button>
                 <a
                   href="/contact"
@@ -208,7 +284,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
                 >
                   <Mail className="w-4 h-4 text-muted-foreground" />
-                  Contact us
+                  {t('header.contactUs')}
                 </a>
                 <a
                   href="/privacy"
@@ -216,7 +292,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
                 >
                   <Shield className="w-4 h-4 text-muted-foreground" />
-                  Privacy
+                  {t('header.privacy')}
                 </a>
                 <a
                   href="/terms"
@@ -224,7 +300,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4 text-muted-foreground" />
-                  Terms
+                  {t('header.terms')}
                 </a>
                 <div className="border-t border-border my-1" />
                 <button
@@ -235,7 +311,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
                 >
                   <UserX className="w-4 h-4" />
-                  Deactivate account
+                  {t('header.deactivate')}
                 </button>
                 <button
                   onClick={() => {
@@ -245,7 +321,7 @@ export function Header({
                   className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
                 >
                   <LogOut className="w-4 h-4" />
-                  Sign out
+                  {t('header.signOut')}
                 </button>
               </div>
             )}
@@ -275,11 +351,11 @@ export function Header({
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
                 aria-current={isActive ? 'page' : undefined}
-                aria-label={tab.label}
+                aria-label={t(tab.labelKey)}
               >
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
                 <Icon className="w-[18px] h-[18px]" />
-                <span>{tab.label}</span>
+                <span>{t(tab.labelKey)}</span>
               </button>
             )
           })}

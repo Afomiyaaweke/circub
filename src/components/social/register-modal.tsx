@@ -25,6 +25,7 @@ import { startGoogleSignIn } from '@/lib/google-signin'
 import { normalizeUsername, validateUsername } from '@/lib/username'
 import { toggleCircubRole, type CircubRole } from '@/lib/roles'
 import { RolePicker } from '@/components/social/role-picker'
+import { useLanguage } from '@/lib/i18n'
 import { AtSign, Check, Loader2 } from 'lucide-react'
 
 interface RegisterModalProps {
@@ -77,6 +78,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   // Fetch Google OAuth availability once on mount.
   useEffect(() => {
@@ -237,7 +239,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
             Join circub
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Create your free account in seconds. Choose between a personal profile or a company page.
+            {t("reg.joinSubtitle")}
           </DialogDescription>
         </DialogHeader>
 
@@ -259,7 +261,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               <User className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-semibold text-foreground">Personal</p>
+              <p className="text-sm font-semibold text-foreground">{t("reg.personal")}</p>
               <p className="text-[11px] text-muted-foreground">Travelers & locals</p>
             </div>
           </button>
@@ -279,7 +281,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               <Building2 className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <p className="text-sm font-semibold text-foreground">Company</p>
+              <p className="text-sm font-semibold text-foreground">{t("reg.company")}</p>
               <p className="text-[11px] text-muted-foreground">Businesses & brands</p>
             </div>
           </button>
@@ -302,21 +304,21 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
           {tab === 'PERSONAL' ? (
             <>
               <Field
-                label="Full name *"
+                label={t("reg.fullName")}
                 icon={UserCircle}
                 placeholder="e.g. MA Rahman"
                 value={name}
                 onChange={setName}
               />
               <Field
-                label="Headline (optional)"
+                label={t("reg.headlineLabel")}
                 icon={Briefcase}
                 placeholder="e.g. Verified Local • Traveler • Food enthusiast"
                 value={headline}
                 onChange={setHeadline}
               />
               <Field
-                label="Location (optional)"
+                label={t("reg.location")}
                 icon={MapPin}
                 placeholder="e.g. Kuala Lumpur, Malaysia"
                 value={location}
@@ -324,21 +326,21 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               />
               {/* Contact channels - same as local price posts (phone / email / WhatsApp) */}
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
-                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-primary" />Contact information <span className="font-normal text-muted-foreground">(optional)</span></p>
+                <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-primary" />{t("reg.contactInfo")}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />Phone</label>
+                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{t("reg.phone")}</label>
                     <Input type="tel" placeholder="+251 911 234 567" value={phone} onChange={(e) => setPhone(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />WhatsApp</label>
+                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><MessageCircle className="w-3.5 h-3.5" />{t("reg.whatsapp")}</label>
                     <Input placeholder="wa.me/251911234567" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Shown on your profile so others can reach you. You can change it later in Edit profile.</p>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Bio (optional)</label>
+                <label className="text-xs text-muted-foreground font-medium">{t("reg.bio")}</label>
                 <Textarea
                   placeholder="Tell the community who you are and what you know..."
                   value={bio}
@@ -350,21 +352,21 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
           ) : (
             <>
               <Field
-                label="Company name *"
+                label={t("reg.companyName")}
                 icon={Building2}
                 placeholder="e.g. Yirgacheffe Coffee Co-op"
                 value={companyName}
                 onChange={setCompanyName}
               />
               <Field
-                label="Contact person (optional)"
+                label={t("reg.contactPerson")}
                 icon={User}
                 placeholder="e.g. Operations Manager"
                 value={contactName}
                 onChange={setContactName}
               />
               <Field
-                label="Website (optional)"
+                label={t("reg.website")}
                 icon={Globe}
                 placeholder="https://example.com"
                 value={companyWebsite}
@@ -372,7 +374,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground font-medium">Industry</label>
+                  <label className="text-xs text-muted-foreground font-medium">{t("reg.industry")}</label>
                   <Input
                     placeholder="Coffee Export"
                     value={companyIndustry}
@@ -380,7 +382,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground font-medium">Company size</label>
+                  <label className="text-xs text-muted-foreground font-medium">{t("reg.companySize")}</label>
                   <Select value={companySize} onValueChange={setCompanySize}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select" />
@@ -400,7 +402,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
           <div className="pt-4 border-t border-border space-y-4">
             {/* Username: the unique ID that makes the profile shareable */}
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><AtSign className="w-3.5 h-3.5" />Username *</label>
+              <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><AtSign className="w-3.5 h-3.5" />{t("reg.username")}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">@</span>
                 <Input
@@ -423,7 +425,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               )}
             </div>
             <Field
-              label="Email *"
+              label={t("reg.email")}
               icon={Mail}
               placeholder="you@example.com"
               type="email"
@@ -431,7 +433,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               onChange={setEmail}
             />
             <Field
-              label="Password *"
+              label={t("reg.password")}
               icon={Lock}
               placeholder="At least 6 characters"
               type="password"
@@ -463,9 +465,9 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
             disabled={submitting || !agreed}
             className="w-full bg-primary hover:bg-primary/90 gap-2 h-11"
           >
-            {submitting ? 'Creating account...' : (
+            {submitting ? t('common.creatingAccount') : (
               <>
-                Create {tab === 'PERSONAL' ? 'Personal' : 'Company'} Account
+                {tab === 'PERSONAL' ? t("reg.createPersonal") : t("reg.createCompany")}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -476,7 +478,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
             <>
               <div className="flex items-center gap-3 pt-2">
                 <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">or</span>
+                <span className="text-xs text-muted-foreground">{t("common.or")}</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
               <Button
@@ -520,7 +522,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                {googleLoading ? 'Connecting to Google…' : 'Continue with Google'}
+                {googleLoading ? 'Connecting to Google…' : t('reg.continueGoogle')}
               </Button>
             </>
           )}
@@ -531,7 +533,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
           )}
 
           <p className="text-xs text-center text-muted-foreground">
-            Already have an account?{' '}
+            {t("reg.alreadyAccount")}{''}
             <button
               onClick={() => {
                 reset()
@@ -540,7 +542,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               }}
               className="text-primary font-medium hover:underline"
             >
-              Sign in
+              {t("reg.signInLink")}
             </button>
           </p>
         </div>

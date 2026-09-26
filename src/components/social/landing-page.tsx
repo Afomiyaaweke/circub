@@ -1,9 +1,11 @@
 'use client'
 
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageMenu } from '@/components/social/header'
 import { Button } from '@/components/ui/button'
 import { PwaInstallButton } from '@/components/pwa-install-button'
 import { APP_VERSION } from '@/lib/app-version'
+import { useLanguage } from '@/lib/i18n'
 
 interface LandingPageProps {
   onSignUp: () => void
@@ -34,13 +36,15 @@ interface LandingPageProps {
  * footer round out the corners.
  */
 export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
+  const { t } = useLanguage()
   return (
     <div
       data-testid="landing-root"
       className="relative flex min-h-[100dvh] flex-col bg-background"
     >
-      {/* Top-right corner - theme toggle only */}
-      <div className="absolute right-4 top-4 z-10">
+      {/* Top-right corner - language switcher + theme toggle */}
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-1">
+        <LanguageMenu />
         <ThemeToggle className="bg-card/80 backdrop-blur-sm border border-border shadow-sm" />
       </div>
 
@@ -62,14 +66,14 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
           data-testid="landing-headline"
           className="mt-6 max-w-md text-3xl font-bold tracking-tight text-foreground sm:text-4xl sm:leading-[1.15]"
         >
-          Know before you go.
+          {t('landing.headline')}
         </h1>
 
         <p
           data-testid="landing-copy"
           className="mt-3 max-w-md text-sm font-medium tracking-wide text-muted-foreground sm:text-base"
         >
-          Prices. Places. Products. People.
+          {t('landing.copy')}
         </p>
 
         <div className="mt-7 flex w-full max-w-[300px] flex-col gap-2.5">
@@ -80,7 +84,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
             size="lg"
             className="h-12 w-full text-base"
           >
-            Post a real price <span aria-hidden="true">&rarr;</span>
+            {t('landing.cta')} <span aria-hidden="true">&rarr;</span>
           </Button>
 
           <div className="grid grid-cols-2 gap-2.5">
@@ -91,7 +95,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               variant="outline"
               className="h-11 w-full"
             >
-              Sign up free
+              {t('landing.signUpFree')}
             </Button>
             <Button
               data-testid="landing-signin"
@@ -100,7 +104,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               variant="outline"
               className="h-11 w-full"
             >
-              Sign in
+              {t('landing.signIn')}
             </Button>
           </div>
 
@@ -114,7 +118,7 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
               onClick={onContinueAsGuest}
               className="mt-1 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
             >
-              Continue as guest
+              {t('landing.guest')}
             </button>
           )}
         </div>
