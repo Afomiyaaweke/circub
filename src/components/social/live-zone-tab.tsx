@@ -33,6 +33,7 @@ import { GuideRatingModal } from './guide-rating-modal'
 import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
 import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
 import { GuideBookingsModal } from './guide-bookings-modal'
+import { CompassPriceTools } from './compass-price-tools'
 import type { User } from '@/lib/types'
 
 interface LiveZoneTabProps {
@@ -318,6 +319,12 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           </Button>
         </div>
       </Card>
+
+      {/* Circub Compass price tools - research / compare by location / plan
+          my budget, all computed from the REAL community price posts. Sits
+          right under the tab hero so the price intelligence is the first
+          thing the Compass tab offers. */}
+      <CompassPriceTools />
 
       {/* Search bar - one unified pill (mirrors the Local Price feed). The
           search accepts comma-separated terms ("Addis, English, Hiking"):
