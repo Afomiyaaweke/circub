@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles } from 'lucide-react'
+import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles, Store } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -73,6 +73,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [contactPhone, setContactPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactWhatsApp, setContactWhatsApp] = useState('')
+  // Does the poster OWN the shop/business this price belongs to? Owners get
+  // a "Shop owner" badge on the published post - travelers know the price
+  // comes first-hand from the business itself.
+  const [ownsShop, setOwnsShop] = useState(false)
   const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -114,6 +118,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setTouristPrice('')
     setPersonalPrice('')
     setLocalTip('')
+    setOwnsShop(false)
     setCategory('Other')
     setImageUrl('')
     setCompareResult(null)
@@ -228,6 +233,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           contactPhone,
           contactEmail,
           contactWhatsApp,
+          ownsShop,
           category,
           imageUrl,
         }),
@@ -377,6 +383,49 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             <p className="text-[11px] text-muted-foreground/80 flex items-center gap-1">
               <MapPin className="w-3 h-3" />
               Tip: Add a GPS pin - tourists find the exact shop with one tap on Directions.
+            </p>
+          </div>
+
+          {/* Shop ownership - the poster declares whether this is their own
+              shop/business. Owners get a "Shop owner" badge on the card so
+              travelers know the price is first-hand. */}
+          <div className="space-y-3 p-4 rounded-xl bg-amber-50 border border-amber-200" data-testid="owns-shop-section">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Store className="w-4 h-4 text-amber-600" />
+              Do you own this shop or business?
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="owns-shop-yes"
+                aria-pressed={ownsShop}
+                onClick={() => setOwnsShop(true)}
+                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+                  ownsShop
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-card text-muted-foreground border-border hover:bg-accent'
+                }`}
+              >
+                Yes, I own this shop
+              </button>
+              <button
+                type="button"
+                data-testid="owns-shop-no"
+                aria-pressed={!ownsShop}
+                onClick={() => setOwnsShop(false)}
+                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+                  !ownsShop
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card text-muted-foreground border-border hover:bg-accent'
+                }`}
+              >
+                No, just sharing a price
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {ownsShop
+                ? 'Travelers will see a Shop owner badge on your post - add your contact info below so they can reach you directly.'
+                : 'Shop owners get a badge on the post and travelers trust first-hand prices more.'}
             </p>
           </div>
 

@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
         contactPhone: sanitizeInput(body.contactPhone || '', 50) || null,
         contactEmail: sanitizeInput(body.contactEmail || '', 200) || null,
         contactWhatsApp: sanitizeInput(body.contactWhatsApp || '', 200) || null,
+        // Shop ownership declaration - strict boolean, no string leakage
+        ownsShop: body.ownsShop === true || body.ownsShop === 'true',
         category: body.category || 'Other',
         imageUrl: body.imageUrl || null,
         authorId: me.id,

@@ -123,7 +123,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       if (city && city !== 'All cities') params.set('city', city)
       if (category && category !== ALL_CATEGORIES) params.set('category', category)
       // Posts default to most recent (API default) - no sort dropdown in the UI.
-      const res = await fetch(`/api/local-prices?${params.toString()}`)
+      // cache:'no-store' -> the browser always revalidates so a just-published
+      // post shows up immediately; the CDN edge cache (s-maxage=30) is unaffected.
+      const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
       const data = await res.json()
       setPosts(data.posts || [])
     } catch { setPosts([]) } finally { setLoading(false) }

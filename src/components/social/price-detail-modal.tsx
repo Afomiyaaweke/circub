@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Clock,
   Navigation,
+  Store,
 } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import {
@@ -92,7 +93,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     const loadData = async () => {
       setLoading(true)
       try {
-        const postDataRes = await fetch(`/api/local-prices/${postId}`)
+        const postDataRes = await fetch(`/api/local-prices/${postId}`, { cache: 'no-store' })
         const postData = await postDataRes.json()
         const p = postData.post
         if (!p || cancelled) return
@@ -245,6 +246,13 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     >
                       {post.postType === 'SERVICE' ? 'Service' : 'Product'}
                     </Badge>
+                    {/* First-party price: poster owns this shop/business */}
+                    {post.ownsShop && (
+                      <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wide gap-1 bg-amber-100 text-amber-700" data-testid="detail-shop-owner-badge" title="Posted by the shop owner - first-hand price">
+                        <Store className="w-3 h-3" />
+                        Shop owner
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="text-[10px]">
                       {post.category}
                     </Badge>

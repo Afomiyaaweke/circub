@@ -165,6 +165,7 @@ export interface LocalPricePost {
   contactPhone?: string | null
   contactEmail?: string | null
   contactWhatsApp?: string | null
+  ownsShop?: boolean
   category: string
   imageUrl?: string | null
   authorId: string

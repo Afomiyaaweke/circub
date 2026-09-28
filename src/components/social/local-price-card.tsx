@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,15 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           <Badge variant="secondary" className={cn('text-[9px] font-medium uppercase tracking-wide px-1.5 shrink-0', post.postType === 'SERVICE' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700')}>
             {post.postType === 'SERVICE' ? 'Service' : 'Product'}
           </Badge>
+          {/* First-party price: the poster declared they own this shop/business.
+              amber-100/amber-700 is retint-safe in both themes (dark bg gets a
+              dark amber surface + light amber text via globals.css). */}
+          {post.ownsShop && (
+            <Badge variant="secondary" className="text-[9px] font-medium uppercase tracking-wide px-1.5 shrink-0 gap-0.5 bg-amber-100 text-amber-700" data-testid="shop-owner-badge" title="Posted by the shop owner - first-hand price">
+              <Store className="w-2.5 h-2.5" />
+              Shop owner
+            </Badge>
+          )}
           <span className="text-[10px] text-muted-foreground truncate">{post.category}</span>
           {/* Freshness - how old this price is (amber warning once outside the history's Current window) */}
           <span className={cn('ml-auto flex items-center gap-0.5 shrink-0 text-[10px] px-1 rounded', freshnessClasses[freshnessLevel(post.createdAt)])} title={freshnessTitle(post.createdAt)}>

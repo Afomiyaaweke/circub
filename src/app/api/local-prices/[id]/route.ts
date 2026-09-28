@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.contactPhone === 'string') updates.contactPhone = body.contactPhone.trim() || null
     if (typeof body.contactEmail === 'string') updates.contactEmail = body.contactEmail.trim() || null
     if (typeof body.contactWhatsApp === 'string') updates.contactWhatsApp = body.contactWhatsApp.trim() || null
+    if (body.ownsShop !== undefined) updates.ownsShop = body.ownsShop === true || body.ownsShop === 'true'
     if (typeof body.category === 'string') updates.category = body.category
     if (typeof body.imageUrl === 'string') updates.imageUrl = body.imageUrl || null
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

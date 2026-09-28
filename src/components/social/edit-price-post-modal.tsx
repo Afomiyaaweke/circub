@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles, Save, Loader2 } from 'lucide-react'
+import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles, Save, Loader2, Store } from 'lucide-react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
@@ -46,6 +46,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [contactPhone, setContactPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactWhatsApp, setContactWhatsApp] = useState('')
+  // Shop ownership declaration - prefilled from the existing post, editable.
+  const [ownsShop, setOwnsShop] = useState(false)
   const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [imageRemoved, setImageRemoved] = useState(false)
@@ -73,6 +75,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setContactPhone(post.contactPhone || '')
       setContactEmail(post.contactEmail || '')
       setContactWhatsApp(post.contactWhatsApp || '')
+      setOwnsShop(post.ownsShop === true)
       setCategory(post.category || 'Other')
       setImageUrl(post.imageUrl || '')
       setImageRemoved(false)
@@ -125,6 +128,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           contactPhone: contactPhone.trim() || null,
           contactEmail: contactEmail.trim() || null,
           contactWhatsApp: contactWhatsApp.trim() || null,
+          ownsShop,
           category: category,
           imageUrl: imageRemoved ? null : (imageUrl || null),
         }),
@@ -180,6 +184,36 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
               lng={gpsLng}
               onChange={(lat, lng) => { setGpsLat(lat); setGpsLng(lng) }}
             />
+          </div>
+
+          {/* Shop ownership - poster declares whether this is their own
+              shop/business (drives the "Shop owner" badge on the card). */}
+          <div className="space-y-2 p-3 rounded-xl bg-amber-50 border border-amber-200" data-testid="owns-shop-section">
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Store className="w-3.5 h-3.5 text-amber-600" />Do you own this shop or business?</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="owns-shop-yes"
+                aria-pressed={ownsShop}
+                onClick={() => setOwnsShop(true)}
+                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+                  ownsShop ? 'bg-amber-600 text-white border-amber-600' : 'bg-card text-muted-foreground border-border hover:bg-accent'
+                }`}
+              >
+                Yes, I own this shop
+              </button>
+              <button
+                type="button"
+                data-testid="owns-shop-no"
+                aria-pressed={!ownsShop}
+                onClick={() => setOwnsShop(false)}
+                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+                  !ownsShop ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:bg-accent'
+                }`}
+              >
+                No, just sharing a price
+              </button>
+            </div>
           </div>
 
           {/* Prices */}

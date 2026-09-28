@@ -299,6 +299,10 @@ model LocalPricePost {
   contactEmail      String?
   contactWhatsApp   String?
 
+  // Poster declares they own the shop/business this price belongs to
+  // (shop owner posts are badged differently and are first-party prices)
+  ownsShop          Boolean  @default(false)
+
   // Categorization
   category          String   @default("Other")
   imageUrl          String?
