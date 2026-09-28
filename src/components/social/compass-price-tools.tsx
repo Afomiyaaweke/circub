@@ -16,7 +16,11 @@
  *   Plan my budget      - set quantities, see best / typical / worst totals,
  *                         the safe amount to set aside, a verdict on a budget
  *                         written by hand (text input + currency dropdown next
- *                         to it) and cheaper alternatives elsewhere.
+ *                         to it) and cheaper alternatives elsewhere. The
+ *                         shopping location is WRITTEN into a text input or
+ *                         taken from the device (geolocation + reverse
+ *                         geocode) - a place without community posts stays
+ *                         honest and empty, never invented.
  *
  *   The shopping list is not limited to what the feed knows: anything can
  *   be typed in (Enter or the Add button). Typed items ride along honestly
@@ -151,6 +155,11 @@ export function CompassPriceTools() {
   const [itemFilter, setItemFilter] = useState('all')
   const [showAll, setShowAll] = useState(false)
   const [budget, setBudget] = useState('')
+  // Location input: null = the input shows the applied place; a string =
+  // the user is typing. Committed on Enter, the Set button, or blur.
+  const [placeDraft, setPlaceDraft] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [locError, setLocError] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -355,6 +364,62 @@ export function CompassPriceTools() {
 
   const toggleCmp = (key: string) => {
     setCmpPlaces((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // Apply the typed location. A case-insensitive match with a place the
+  // community has posted snaps onto that canonical key so its stats light
+  // up; anything else is kept as typed and the tools stay honest (no
+  // prices there -> "no prices posted yet", never invented numbers).
+  const applyPlace = () => {
+    if (placeDraft == null) return
+    const raw = placeDraft.trim().replace(/\s+/g, ' ').slice(0, 80)
+    setPlaceDraft(null)
+    setLocError('')
+    if (!raw) return
+    const known = model?.places.find((p) => p.key.toLowerCase() === raw.toLowerCase())
+    setMyPlace(known ? known.key : raw)
+  }
+
+  // Device location -> reverse geocode to "City, Country" via Nominatim
+  // (free OpenStreetMap service; CSP connect-src already allows https:).
+  // Every failure path stays honest and points back to typing the place.
+  const useDeviceLocation = () => {
+    if (locating) return
+    setLocError('')
+    if (!navigator.geolocation) {
+      setLocError("This browser can't share your location - type the location instead.")
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
+          { headers: { Accept: 'application/json' } },
+        )
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+          .then((d) => {
+            const a = (d && d.address) || {}
+            const city = a.city || a.town || a.village || a.county || a.state || ''
+            const country = a.country || ''
+            const name = [city, country].filter(Boolean).join(', ')
+            if (!name) throw new Error('no place name')
+            const known = model?.places.find((p) => p.key.toLowerCase() === name.toLowerCase())
+            setMyPlace(known ? known.key : name)
+            setPlaceDraft(null)
+          })
+          .catch(() => {
+            setLocError("Couldn't read a place name from your device location - type it instead.")
+          })
+          .finally(() => setLocating(false))
+      },
+      () => {
+        setLocating(false)
+        setLocError('Location permission was denied - type the location instead.')
+      },
+      { timeout: 10000, maximumAge: 600000 },
+    )
   }
 
   const chosenKey = model
@@ -958,23 +1023,74 @@ export function CompassPriceTools() {
           {/* ========================== PLAN MY BUDGET ========================= */}
           {tab === 'budget' && !emptyList && (
             <div className="mt-4">
-              <label className="block">
+              <div>
                 <span className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Where will you buy?
                 </span>
-                <select
-                  value={myPlace}
-                  onChange={(e) => setMyPlace(e.target.value)}
-                  data-testid="compass-place-select"
-                  className="h-9 w-full sm:w-80 rounded-lg border border-input bg-card px-3 text-sm text-foreground"
-                >
-                  {model!.places.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.key}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="flex items-stretch gap-2 flex-wrap">
+                  <Input
+                    type="text"
+                    maxLength={80}
+                    placeholder="Type a location (e.g. Bole, Addis Ababa)"
+                    value={placeDraft ?? myPlace}
+                    data-testid="compass-place-input"
+                    aria-label="Your shopping location"
+                    onChange={(e) => {
+                      setPlaceDraft(e.target.value)
+                      setLocError('')
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        applyPlace()
+                      }
+                    }}
+                    onBlur={applyPlace}
+                    className="h-10 flex-1 min-w-[10rem]"
+                  />
+                  <button
+                    type="button"
+                    data-testid="compass-place-set"
+                    onClick={applyPlace}
+                    disabled={placeDraft == null || !placeDraft.trim()}
+                    className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Set
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="compass-use-device"
+                    onClick={useDeviceLocation}
+                    disabled={locating}
+                    className="h-10 shrink-0 rounded-lg border border-input bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:border-primary/40 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                  >
+                    {locating ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <MapPin className="w-3.5 h-3.5" />
+                    )}
+                    {locating ? 'Locating…' : 'Use my location'}
+                  </button>
+                </div>
+                {locError && (
+                  <p
+                    className="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
+                    data-testid="compass-loc-error"
+                  >
+                    {locError}
+                  </p>
+                )}
+                {model && myPlace && !model.places.some((p) => p.key === myPlace) && (
+                  <p
+                    className="mt-1.5 text-xs text-muted-foreground"
+                    data-testid="compass-place-unknown"
+                  >
+                    No community prices for {myShort} yet - the tools stay honest (no invented
+                    numbers) until someone posts there. Known places snap in automatically when
+                    the name matches.
+                  </p>
+                )}
+              </div>
 
               <div className="mt-3 divide-y divide-border rounded-xl border border-border">
                 {chosenNames.map((name) => {
@@ -1082,7 +1198,7 @@ export function CompassPriceTools() {
                 </>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  None of your list items have prices at {myShort} yet - pick another place above.
+                  None of your list items have prices at {myShort} yet - type another location above.
                 </p>
               )}
 
