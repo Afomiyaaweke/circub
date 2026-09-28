@@ -18,6 +18,11 @@
  *                         written by hand (text input + currency dropdown next
  *                         to it) and cheaper alternatives elsewhere.
  *
+ *   The shopping list is not limited to what the feed knows: anything can
+ *   be typed in (Enter or the Add button). Typed items ride along honestly
+ *   - they show "no prices posted yet" rows / blank compare cells until a
+ *   real post prices them, and they never invent numbers.
+ *
  * Data honesty rules (same as the market graph panel):
  *   - a post's price = recommendedPrice when set, else the midpoint of its
  *     priceMin..priceMax range
@@ -34,7 +39,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightLeft, CalendarDays, Coins, Compass, Lightbulb, Loader2, MapPin, Scale,
-  SearchCheck, TrendingDown, TrendingUp, Wallet,
+  SearchCheck, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -80,6 +85,7 @@ const TABS: { key: TabKey; label: string; icon: typeof SearchCheck }[] = [
 ]
 
 const LIST_CHIP_LIMIT = 8 // shopping-list choices (most-posted products)
+const MAX_CUSTOM_ITEMS = 12 // typed items cap - keeps the tables walkable
 const RESEARCH_ROWS = 6 // post rows before "Show all"
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
 const TRUSTED_POSTS = 15 // authors with more posts than this show "Trusted"
@@ -137,6 +143,8 @@ export function CompassPriceTools() {
   const [visitFrom, setVisitFrom] = useState('')
   const [visitTo, setVisitTo] = useState('')
   const [onItems, setOnItems] = useState<Record<string, boolean>>({})
+  const [customItems, setCustomItems] = useState<string[]>([])
+  const [newItem, setNewItem] = useState('')
   const [qty, setQty] = useState<Record<string, number>>({})
   const [myPlace, setMyPlace] = useState('')
   const [cmpPlaces, setCmpPlaces] = useState<Record<string, boolean>>({})
@@ -316,15 +324,44 @@ export function CompassPriceTools() {
     if (itemFilter === name) setItemFilter('all')
   }
 
+  // Add a typed item to the list. A case-insensitive match with a feed item
+  // (or an already-typed one) just turns that chip on instead of duplicating.
+  const addTypedItem = () => {
+    const name = newItem.trim().replace(/\s+/g, ' ').slice(0, 60)
+    if (!name) return
+    const feedMatch = model?.items.find((i) => i.name.toLowerCase() === name.toLowerCase())
+    const dup = customItems.find((n) => n.toLowerCase() === name.toLowerCase())
+    const hit = feedMatch?.name ?? dup
+    if (hit) {
+      setOnItems((prev) => ({ ...prev, [hit]: true }))
+      setNewItem('')
+      return
+    }
+    if (customItems.length >= MAX_CUSTOM_ITEMS) return
+    setCustomItems((prev) => [...prev, name])
+    setOnItems((prev) => ({ ...prev, [name]: true }))
+    setNewItem('')
+  }
+
+  const removeCustomItem = (name: string) => {
+    setCustomItems((prev) => prev.filter((n) => n !== name))
+    setOnItems((prev) => {
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
+    if (itemFilter === name) setItemFilter('all')
+  }
+
   const toggleCmp = (key: string) => {
     setCmpPlaces((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   const chosenKey = model
-    ? model.items
-        .filter((i) => onItems[i.name])
-        .map((i) => i.name)
-        .join('|')
+    ? [
+        ...model.items.filter((i) => onItems[i.name]).map((i) => i.name),
+        ...customItems.filter((n) => onItems[n]),
+      ].join('|')
     : ''
   const chosenNames = useMemo(
     () => (chosenKey ? chosenKey.split('|') : []),
@@ -534,6 +571,60 @@ export function CompassPriceTools() {
                 {i.name}
               </button>
             ))}
+            {customItems.map((name) => (
+              <span
+                key={name}
+                data-testid="compass-custom-chip"
+                title="Typed by you - priced once the community posts it"
+                className={cn(
+                  chipBase,
+                  'inline-flex items-center gap-1.5',
+                  onItems[name] ? chipOn : chipOff,
+                )}
+              >
+                <button type="button" aria-pressed={!!onItems[name]} onClick={() => toggleItem(name)} className="cursor-pointer">
+                  {name}
+                </button>
+                <button
+                  type="button"
+                  data-testid="compass-chip-remove"
+                  aria-label={`Remove ${name} from the list`}
+                  onClick={() => removeCustomItem(name)}
+                  className="cursor-pointer opacity-70 hover:opacity-100"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {/* Type your own item - Enter or the Add button */}
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <Input
+              type="text"
+              maxLength={60}
+              placeholder="Add your own item (e.g. morning bus fare)"
+              value={newItem}
+              data-testid="compass-custom-item-input"
+              aria-label="Add your own item"
+              onChange={(e) => setNewItem(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addTypedItem()
+                }
+              }}
+              className="h-8 min-w-[10rem] flex-1 text-sm"
+            />
+            <button
+              type="button"
+              data-testid="compass-add-item"
+              onClick={addTypedItem}
+              disabled={!newItem.trim() || customItems.length >= MAX_CUSTOM_ITEMS}
+              className="h-8 shrink-0 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              + Add
+            </button>
           </div>
 
           {/* Tabs */}
