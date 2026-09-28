@@ -14,8 +14,9 @@
  *                         typical prices side by side, cheapest highlighted,
  *                         tap a header to adopt that place.
  *   Plan my budget      - set quantities, see best / typical / worst totals,
- *                         the safe amount to set aside, a verdict on a
- *                         budget and cheaper alternatives elsewhere.
+ *                         the safe amount to set aside, a verdict on a budget
+ *                         written by hand (text input + currency dropdown next
+ *                         to it) and cheaper alternatives elsewhere.
  *
  * Data honesty rules (same as the market graph panel):
  *   - a post's price = recommendedPrice when set, else the midpoint of its
@@ -32,7 +33,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowRightLeft, Coins, Compass, Lightbulb, Loader2, MapPin, Scale,
+  ArrowRightLeft, CalendarDays, Coins, Compass, Lightbulb, Loader2, MapPin, Scale,
   SearchCheck, TrendingDown, TrendingUp, Wallet,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -78,8 +79,6 @@ const TABS: { key: TabKey; label: string; icon: typeof SearchCheck }[] = [
   { key: 'budget', label: 'Plan my budget', icon: Wallet },
 ]
 
-const VISIT_DAYS = ['Tomorrow', 'This weekend', 'Next week']
-
 const LIST_CHIP_LIMIT = 8 // shopping-list choices (most-posted products)
 const RESEARCH_ROWS = 6 // post rows before "Show all"
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
@@ -99,6 +98,30 @@ function shortOf(placeKey: string): string {
   return placeKey.split(',')[0]
 }
 
+// Local yyyy-mm-dd of a Date - native date inputs speak THIS zone, not UTC.
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// "Sep 28" out of a yyyy-mm-dd string; '' when it is not a complete date.
+function prettyDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return ''
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+// Inclusive day count of a from..to span; 0 when an end is missing or invalid.
+function spanDays(fromIso: string, toIso: string): number {
+  if (!fromIso || !toIso) return 0
+  const a = new Date(`${fromIso}T00:00:00`)
+  const b = new Date(`${toIso}T00:00:00`)
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return 0
+  return Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000) + 1)
+}
+
 // Cheapest-cell highlight shared by the compare table cells.
 function cheapClass(cheap: boolean): string {
   return cheap
@@ -111,7 +134,8 @@ export function CompassPriceTools() {
   const [failed, setFailed] = useState(false)
   const [currency, setCurrency] = useState('')
   const [tab, setTab] = useState<TabKey>('research')
-  const [visitDay, setVisitDay] = useState(VISIT_DAYS[0])
+  const [visitFrom, setVisitFrom] = useState('')
+  const [visitTo, setVisitTo] = useState('')
   const [onItems, setOnItems] = useState<Record<string, boolean>>({})
   const [qty, setQty] = useState<Record<string, number>>({})
   const [myPlace, setMyPlace] = useState('')
@@ -249,6 +273,14 @@ export function CompassPriceTools() {
     }
   }, [posts, currency])
 
+  // The visit span defaults to today once mounted - client only, so SSR
+  // never renders a date and hydration stays clean.
+  useEffect(() => {
+    const t = isoDay(new Date())
+    setVisitFrom(t)
+    setVisitTo(t)
+  }, [])
+
   // First data -> default picks: busiest place, top items on, top-3 compare.
   useEffect(() => {
     if (!model) return
@@ -360,12 +392,26 @@ export function CompassPriceTools() {
   const bestPlace = bestIdx >= 0 ? cmpSel[bestIdx] : null
   const savings = myTotals && minTotal != null ? myTotals.av - minTotal : 0
 
+  // Visiting span -> one phrase reused by the research intro and the budget
+  // line: "on Sep 28" for a single day, "from Sep 28 to Oct 3 (6 days)" for a
+  // span, and nothing while the dates are unset.
+  const vDays = spanDays(visitFrom, visitTo)
+  const fromShort = prettyDate(visitFrom)
+  const toShort = prettyDate(visitTo)
+  const visitSpan =
+    fromShort && toShort
+      ? visitFrom === visitTo
+        ? `on ${fromShort}`
+        : `from ${fromShort} to ${toShort} (${vDays} day${vDays === 1 ? '' : 's'})`
+      : ''
+
   // Budget: safe estimate = typical + half the gap to the worst case.
   const safe =
     myTotals
       ? Math.ceil((myTotals.av + (myTotals.hi - myTotals.av) / 2) / SAFE_ROUND_TO) * SAFE_ROUND_TO
       : null
-  const budgetNum = parseFloat(budget)
+  // Written by hand - tolerate "5,000"-style thousands separators.
+  const budgetNum = parseFloat(budget.replace(/,/g, ''))
   const verdict =
     myTotals && safe != null && budgetNum > 0
       ? budgetNum >= safe
@@ -445,26 +491,33 @@ export function CompassPriceTools() {
             </div>
           )}
 
-          {/* Shopping list + visit day */}
+          {/* Shopping list + visit span (calendar, from day to day) */}
           <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Your shopping list
             </p>
-            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <MapPin className="w-3 h-3 shrink-0" />
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
+              <CalendarDays className="w-3 h-3 shrink-0" />
               Visiting
-              <select
-                value={visitDay}
-                onChange={(e) => setVisitDay(e.target.value)}
-                data-testid="compass-visit-day"
+              <input
+                type="date"
+                value={visitFrom}
+                max={visitTo || undefined}
+                onChange={(e) => setVisitFrom(e.target.value)}
+                data-testid="compass-visit-from"
+                aria-label="Visiting from"
                 className="h-7 rounded-md border border-input bg-card px-1.5 text-[11px] text-foreground"
-              >
-                {VISIT_DAYS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+              />
+              <span className="shrink-0">to</span>
+              <input
+                type="date"
+                value={visitTo}
+                min={visitFrom || undefined}
+                onChange={(e) => setVisitTo(e.target.value)}
+                data-testid="compass-visit-to"
+                aria-label="Visiting to"
+                className="h-7 rounded-md border border-input bg-card px-1.5 text-[11px] text-foreground"
+              />
             </label>
           </div>
           <div className="mt-1.5 flex gap-1.5 flex-wrap">
@@ -518,7 +571,8 @@ export function CompassPriceTools() {
           {tab === 'research' && !emptyList && (
             <div className="mt-4">
               <p className="text-xs text-muted-foreground">
-                You are planning to visit {myShort} {visitDay.toLowerCase()}.
+                You are planning to visit {myShort}
+                {visitSpan ? ` ${visitSpan}` : ''}.
               </p>
               {myTotals ? (
                 <>
@@ -892,27 +946,48 @@ export function CompassPriceTools() {
                   <div className="mt-3 rounded-xl bg-emerald-500/10 border border-border p-3.5 flex items-start gap-2">
                     <Wallet className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <p className="text-xs sm:text-sm text-foreground">
-                      To shop in {myPlace} {visitDay.toLowerCase()}, bring at least{' '}
+                      To shop in {myPlace}
+                      {visitSpan ? ` ${visitSpan}` : ''}, bring at least{' '}
                       <b data-testid="compass-safe-budget">{money(safe, cur)}</b>. That is the typical
                       total plus half the gap to the highest prices.
+                      {vDays > 1 && (
+                        <>
+                          {' '}
+                          Spread over {vDays} days that works out to about{' '}
+                          <b data-testid="compass-per-day">{money(Math.ceil(safe / vDays), cur)} per day</b>.
+                        </>
+                      )}
                     </p>
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-3 flex items-stretch gap-2">
                     <Input
-                      type="number"
-                      min={0}
-                      placeholder={`Your budget for ${myShort} in ${cur} (optional)`}
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={`Your budget for ${myShort}, written by hand (optional)`}
                       value={budget}
                       data-testid="compass-budget-input"
                       onChange={(e) => setBudget(e.target.value)}
-                      className="h-10"
+                      className="h-10 flex-1 min-w-0"
                     />
-                    {verdict && (
-                      <p className="mt-2.5 text-sm text-foreground" data-testid="compass-budget-verdict">
-                        {verdict}
-                      </p>
-                    )}
+                    <select
+                      value={cur}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      data-testid="compass-currency-select"
+                      aria-label="Currency type"
+                      className="h-10 rounded-lg border border-input bg-card px-2.5 text-sm text-foreground shrink-0 cursor-pointer"
+                    >
+                      {model!.currencies.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                  {verdict && (
+                    <p className="mt-2.5 text-sm text-foreground" data-testid="compass-budget-verdict">
+                      {verdict}
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
