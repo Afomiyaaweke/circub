@@ -15,8 +15,9 @@
  *                         tap a header to adopt that place.
  *   Plan my budget      - set quantities, see best / typical / worst totals,
  *                         the safe amount to set aside, a verdict on a budget
- *                         written by hand (text input + currency dropdown next
- *                         to it) and cheaper alternatives elsewhere. The
+ *                         amount AND currency both written by hand (two text
+ *                         inputs side by side) and cheaper alternatives
+ *                         elsewhere. The
  *                         shopping location is WRITTEN into a text input or
  *                         taken from the device (geolocation + reverse
  *                         geocode) - a place without community posts stays
@@ -33,7 +34,10 @@
  *   - a post's price = recommendedPrice when set, else the midpoint of its
  *     priceMin..priceMax range
  *   - locations group by "city, country"; currencies never mix - the tools
- *     run on the dominant currency and a chip switches when others exist
+ *     run on the dominant currency or a currency the user typed; a code the
+ *     community has posted snaps in case-insensitively, anything else stays
+ *     honest (the real dominant numbers stay on screen, no exchange rate is
+ *     ever invented)
  *   - sparse data renders honestly (n=1 rows render; missing item/place
  *     combos stay blank in the table, never invented)
  *
@@ -44,7 +48,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowRightLeft, CalendarDays, Coins, Compass, Lightbulb, Loader2, MapPin, Scale,
+  ArrowRightLeft, CalendarDays, Compass, Lightbulb, Loader2, MapPin, Scale,
   SearchCheck, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -160,6 +164,9 @@ export function CompassPriceTools() {
   // Location input: null = the input shows the applied place; a string =
   // the user is typing. Committed on Enter, the Set button, or blur.
   const [placeDraft, setPlaceDraft] = useState<string | null>(null)
+  // Currency input: same contract - null shows the applied currency, a
+  // string is the user typing. Committed on Enter, the Set button, or blur.
+  const [currencyDraft, setCurrencyDraft] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
 
@@ -191,7 +198,8 @@ export function CompassPriceTools() {
     const placeOf = (p: ToolPost) =>
       [p.city?.trim(), p.country?.trim()].filter(Boolean).join(', ') || 'Unknown'
 
-    // Currencies never mix - dominant first, chip-switchable.
+    // Currencies never mix - dominant first; a currency the user typed
+    // switches the view only when the community actually posts in it.
     const curCount: Record<string, number> = {}
     posts.forEach((p) => {
       curCount[p.currency] = (curCount[p.currency] || 0) + 1
@@ -373,6 +381,19 @@ export function CompassPriceTools() {
     if (!raw) return
     const known = model?.places.find((p) => p.key.toLowerCase() === raw.toLowerCase())
     setMyPlace(known ? known.key : raw)
+  }
+
+  // Apply the typed currency. A case-insensitive match with a currency the
+  // community has posted snaps onto that canonical code so its real prices
+  // light up; anything else is kept as typed and stays honest - the tools
+  // keep the community's real numbers and NEVER invent an exchange rate.
+  const applyCurrency = () => {
+    if (currencyDraft == null) return
+    const raw = currencyDraft.trim().replace(/\s+/g, ' ').slice(0, 8).toUpperCase()
+    setCurrencyDraft(null)
+    if (!raw) return
+    const known = model?.currencies.find((c) => c.toLowerCase() === raw.toLowerCase())
+    setCurrency(known || raw)
   }
 
   // Device location -> reverse geocode to "City, Country" via Nominatim
@@ -569,25 +590,6 @@ export function CompassPriceTools() {
 
       {model && !noPosts && (
         <>
-          {/* Currency switch (only when posts mix currencies) */}
-          {model.currencies.length > 1 && (
-            <div className="mt-3 flex items-center gap-1.5 flex-wrap" data-testid="compass-currencies">
-              <Coins className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              {model.currencies.slice(0, 6).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  data-testid="compass-currency"
-                  aria-pressed={c === cur}
-                  onClick={() => setCurrency(c)}
-                  className={cn(chipBase, c === cur ? chipOn : chipOff)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Shopping list + visit span (calendar, from day to day) */}
           <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1152,7 +1154,7 @@ export function CompassPriceTools() {
                       )}
                     </p>
                   </div>
-                  <div className="mt-3 flex items-stretch gap-2">
+                  <div className="mt-3 flex items-stretch gap-2 flex-wrap">
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -1160,22 +1162,48 @@ export function CompassPriceTools() {
                       value={budget}
                       data-testid="compass-budget-input"
                       onChange={(e) => setBudget(e.target.value)}
-                      className="h-10 flex-1 min-w-0"
+                      className="h-10 flex-1 min-w-[10rem]"
                     />
-                    <select
-                      value={cur}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      data-testid="compass-currency-select"
+                    {/* The currency is WRITTEN too - no preset options. A code
+                        the community has posted snaps in case-insensitively;
+                        anything unknown keeps the real numbers on screen. */}
+                    <Input
+                      type="text"
+                      maxLength={8}
+                      placeholder="Currency (e.g. ETB)"
+                      value={currencyDraft ?? (currency || cur)}
+                      data-testid="compass-currency-input"
                       aria-label="Currency type"
-                      className="h-10 rounded-lg border border-input bg-card px-2.5 text-sm text-foreground shrink-0 cursor-pointer"
+                      onChange={(e) => setCurrencyDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          applyCurrency()
+                        }
+                      }}
+                      onBlur={applyCurrency}
+                      className="h-10 w-28 shrink-0 uppercase"
+                    />
+                    <button
+                      type="button"
+                      data-testid="compass-currency-set"
+                      onClick={applyCurrency}
+                      disabled={currencyDraft == null || !currencyDraft.trim()}
+                      className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {model!.currencies.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                      Set
+                    </button>
                   </div>
+                  {model && currency && !model.currencies.includes(currency) && (
+                    <p
+                      className="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
+                      data-testid="compass-currency-unknown"
+                    >
+                      No community prices in {currency} yet - the tools keep showing real prices in{' '}
+                      {cur || 'the community currency'} and never invent exchange rates. A known
+                      code snaps in automatically when the name matches.
+                    </p>
+                  )}
                   {verdict && (
                     <p className="mt-2.5 text-sm text-foreground" data-testid="compass-budget-verdict">
                       {verdict}
