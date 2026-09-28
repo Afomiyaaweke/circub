@@ -1,0 +1,4 @@
+// Sample data. Replace with real posts from your backend.
+var M={"Merkato, Addis Ababa":{f:1,a:["Shema Tera","Atkilt Tera","Gulit"]},"Walmara":{f:.93,a:["Main market","Bus station","Kebele 02"]},"Adama":{f:.97,a:["Kera market","Bole Tera","Old town"]},"Bahir Dar":{f:1.06,a:["Big market","Lake road","Tana Tera"]},"Jimma":{f:.95,a:["Merkato Jimma","Bosa","Hermata"]},"Hawassa":{f:1.02,a:["Tabor","Lake side","Piazza"]},"Dire Dawa":{f:1.08,a:["Taiwan","Kefira","Sabian"]}};
+var I=[{n:"Teff",u:"10 kg",p:9,lo:1080,hi:1420,ch:-3,q:1},{n:"Berbere",u:"1 kg",p:6,lo:520,hi:720,ch:12,q:2},{n:"Coffee beans",u:"1 kg",p:5,lo:620,hi:860,ch:9,q:2},{n:"Cooking oil",u:"5 L",p:3,lo:1000,hi:1500,ch:14,q:1}];
+var N=["Hana T.","Abel M.","Selam G.","Dawit K.","Meron A.","Yonas B.","Tigist W.","Kebede L.","Rahel S.","Samuel D."];

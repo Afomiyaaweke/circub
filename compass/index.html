@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Circub Compass · Know the price before you go</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>Circub Compass</h1>
+  <p class="sub">Know the price before you go. See what people paid, where it is cheapest, and how much to bring.</p>
+  <div class="bar">
+    <select id="mk" class="grow" aria-label="Market"></select>
+    <select id="wh" aria-label="Visit day"><option>Tomorrow</option><option>This weekend</option><option>Next week</option></select>
+  </div>
+  <div class="chips" id="chips" role="group" aria-label="Your shopping list"></div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div id="view"></div>
+  <p class="note">Sample data for illustration. Prices come from posts in the last 30 days, shown with the people who posted them.</p>
+</div>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
