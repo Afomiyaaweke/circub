@@ -77,7 +77,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   }
 
   return (
-    <Card className={cn('overflow-hidden shadow-sm hover:shadow-md transition-shadow border-border', compact ? 'p-3' : 'p-3')}>
+    <Card data-testid="price-card" className={cn('overflow-hidden shadow-sm hover:shadow-md transition-shadow border-border', compact ? 'p-3' : 'p-3')}>
       {/* Row 1: type badge + category left, edit/delete menu right */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">

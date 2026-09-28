@@ -33,7 +33,6 @@ import { GuideRatingModal } from './guide-rating-modal'
 import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
 import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
 import { GuideBookingsModal } from './guide-bookings-modal'
-import { CompassPriceTools } from './compass-price-tools'
 import type { User } from '@/lib/types'
 
 interface LiveZoneTabProps {
@@ -262,7 +261,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Compass className="w-5 h-5 text-primary shrink-0" />
-              <h2 className="text-lg font-bold text-foreground truncate" data-testid="compass-title">Circub Compass</h2>
+              <h2 className="text-lg font-bold text-foreground truncate">Live Zone</h2>
               {guides.length > 0 && (
                 <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
                   {guides.length} member{guides.length !== 1 && 's'}
@@ -319,12 +318,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           </Button>
         </div>
       </Card>
-
-      {/* Circub Compass price tools - research / compare by location / plan
-          my budget, all computed from the REAL community price posts. Sits
-          right under the tab hero so the price intelligence is the first
-          thing the Compass tab offers. */}
-      <CompassPriceTools />
 
       {/* Search bar - one unified pill (mirrors the Local Price feed). The
           search accepts comma-separated terms ("Addis, English, Hiking"):

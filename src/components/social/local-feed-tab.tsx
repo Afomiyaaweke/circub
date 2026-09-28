@@ -16,6 +16,7 @@ import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
 import { BudgetResultView, BUDGET_SOURCE_META } from '@/components/scanner/budget-result'
 import { MarketGraphPanel } from '@/components/scanner/market-graph'
+import { CompassPriceTools } from './compass-price-tools'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/lib/i18n'
 import { authFetch } from '@/lib/auth-fetch'
@@ -48,6 +49,12 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // Load part by part: render a small batch first, append more on scroll
   const { visible: visiblePosts, hasMore: postsHasMore, sentinelRef: postsSentinelRef } = useProgressiveList(posts, 6, 6)
   const [search, setSearch] = useState('')
+  // The search box accepts "item, location" (comma-separated): the part
+  // before the comma filters the item, the part after it resolves to a
+  // city or country filter when it matches a known feed location.
+  const [searchRaw, setSearchRaw] = useState('')
+  const [searchLocHint, setSearchLocHint] = useState<string | null>(null)
+  const searchLocAppliedRef = useRef('')
   const [country, setCountry] = useState('All countries')
   const [city, setCity] = useState('All cities')
   const [category, setCategory] = useState(ALL_CATEGORIES)
@@ -135,6 +142,43 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     const t = setTimeout(fetchPosts, 250)
     return () => clearTimeout(t)
   }, [fetchPosts])
+
+  // "item, location" comma parsing - the location part after the comma
+  // resolves against the feed's known cities/countries (whole text first,
+  // then each comma fragment last-first, so "Addis Ababa, Ethiopia" hits
+  // the city). Resolved -> the matching select updates and the other one
+  // resets (they must never AND into zero results). Unresolved -> honest
+  // hint + back to all locations. The applied-ref keeps the parser from
+  // fighting manual edits of the selects.
+  const searchCommaIdx = searchRaw.indexOf(',')
+  const searchLocPart = searchCommaIdx === -1 ? '' : searchRaw.slice(searchCommaIdx + 1).trim()
+  useEffect(() => {
+    const loc = searchLocPart
+    if (!loc) {
+      searchLocAppliedRef.current = ''
+      setSearchLocHint(null)
+      return
+    }
+    if (searchLocAppliedRef.current === loc) return
+    searchLocAppliedRef.current = loc
+    const cands = [loc, ...loc.split(',').map((s) => s.trim()).filter(Boolean).reverse()]
+    const eq = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+    const cityHit = cands.find((c) => filterValues.cities.some((x) => eq(x, c)))
+    const countryHit = cands.find((c) => filterValues.countries.some((x) => eq(x, c)))
+    if (cityHit) {
+      setCity(cityHit)
+      setCountry('All countries')
+      setSearchLocHint(null)
+    } else if (countryHit) {
+      setCountry(countryHit)
+      setCity('All cities')
+      setSearchLocHint(null)
+    } else {
+      setCity('All cities')
+      setCountry('All countries')
+      setSearchLocHint(loc)
+    }
+  }, [searchLocPart, filterValues])
 
   const handleCreated = () => { fetchPosts(); onRefreshUser() }
 
@@ -225,6 +269,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       // most local posts - far better feed results than the raw first keyword.
       const firstKeyword: string = (vlmData.searchTerm || keywords.split(',')[0] || '').trim()
       setSearch(firstKeyword)
+      setSearchRaw(firstKeyword)
       setLocFilter(null)
       setSearchImage(imageUrl)
       // Store the full results so we can show the AI description + price
@@ -290,6 +335,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       const term: string = (data.searchTerm || q).trim()
       const localMatches = Array.isArray(data.localMatches) ? data.localMatches : []
       setSearch(term)
+      setSearchRaw(term)
       setSearchImage(null)
       setLocFilter(null)
       setSearchResults({
@@ -329,6 +375,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
 
   const handleClearSearch = () => {
     setSearch('')
+    setSearchRaw('')
+    setSearchLocHint(null)
+    searchLocAppliedRef.current = ''
     setSearchImage(null)
     setSearchResults(null)
     setLocFilter(null)
@@ -522,7 +571,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <div className="flex items-center flex-1 basis-full sm:basis-auto sm:min-w-[150px] min-w-0">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
+              <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
             </div>
             {/* Phone: Camera search + Scan collapse into compact icon buttons
                 INSIDE the search bar - saves a whole row, and the camera menu
@@ -547,6 +596,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           <Select value={city} onValueChange={setCity}>
             <SelectTrigger
+              data-testid="city-filter"
               className={
                 'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[112px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
                 (city !== 'All cities' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
@@ -607,6 +657,22 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             <button onClick={() => setCustomLocations([])} className="p-0.5 rounded hover:bg-emerald-100 text-emerald-700" aria-label="Back to my location"><X className="w-3.5 h-3.5" /></button>
           </div>
         )}
+
+        {/* Comma-location hint - honest feedback when the text after the
+            comma is not a city or country the feed knows about. */}
+        {searchLocHint && (
+          <p data-testid="local-search-loc-hint" className="basis-full text-xs text-muted-foreground -mt-1">
+            {`No city or country named "${searchLocHint}" in the feed yet - showing ${search ? `"${search}"` : 'everything'} from all locations.`}
+          </p>
+        )}
+
+        {/* Compass price tools - research / compare by location / plan my
+            budget, computed from the REAL community price posts. Lives on
+            the Local tab now (moved from the Link tab) right under the
+            search bar, next to the data it works on. */}
+        <div className="w-full min-w-0">
+          <CompassPriceTools />
+        </div>
 
         {/* "Compare by location" - pick WHERE to compare prices (defaults
             to the auto-detected current location) and WHICH product to
