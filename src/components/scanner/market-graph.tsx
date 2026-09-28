@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { BarChart3, Loader2, MapPin, Navigation, Search, X } from 'lucide-react'
+import { Area, Bar, BarChart, CartesianGrid, ComposedChart, LabelList, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { BarChart3, Loader2, MapPin, Navigation, Search, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,6 +89,32 @@ function shortName(name: string, max = 13): string {
 function fmtNum(n: number): string {
   return n.toLocaleString('en-US')
 }
+
+// Compact y-axis ticks for the time chart: 1000 -> 1k, 1250 -> 1.3k.
+function compactNum(n: number): string {
+  if (!Number.isFinite(n)) return ''
+  if (Math.abs(n) >= 1000) {
+    const k = n / 1000
+    return `${k >= 100 ? Math.round(k) : Number(k.toFixed(1))}k`.replace('.0k', 'k')
+  }
+  return `${n}`
+}
+
+// Shared dark trading-style tooltip chrome - the polished panel every market
+// chart pops on hover (works on light and dark app themes alike).
+const TIP_STYLE = {
+  background: 'rgba(4, 24, 18, 0.94)',
+  border: '1px solid rgba(16, 185, 129, 0.35)',
+  borderRadius: 10,
+  color: '#ecfdf5',
+  fontSize: 12,
+  padding: '8px 12px',
+  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
+} as const
+const TIP_LABEL = { color: '#6ee7b7', fontWeight: 700, marginBottom: 4 } as const
+const TIP_ITEM = { color: '#ecfdf5', padding: 0 } as const
+// Softer emerald grid + hover crosshair accents shared by the charts.
+const GRID_STROKE = 'rgba(16, 185, 129, 0.14)'
 
 // recharts LabelList `content` prop shape - x/y/width/height + index.
 interface LabelProps {
@@ -250,6 +276,15 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
     return `${time.item} was ${summaryTime.currency} ${fmtNum(first.typical)} (${first.label}) \u2192 now ${summaryTime.currency} ${fmtNum(last.typical)} (${last.label}) - ${dir}`
   })()
 
+  // Trend direction of the drawn time line - the line/area tint green when
+  // the market moved up and red when it fell, like a real market graph.
+  const trendDir = (() => {
+    const pts = primaryTime?.points ?? []
+    if (pts.length < 2) return null
+    return pts[pts.length - 1].typical >= pts[0].typical ? 'up' : 'down'
+  })()
+  const lineColor = trendDir === 'down' ? '#f43f5e' : '#059669'
+
   // Cheapest highlight: with an item query the best place wins; without one
   // the best-priced item at this place does.
   const cheapestPlace = hasQuery
@@ -268,7 +303,7 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
     const x = Number(props.x ?? 0) + Number(props.width ?? 0) + 6
     const y = Number(props.y ?? 0) + Number(props.height ?? 0) / 2
     return (
-      <text x={x} y={y} dy={3.5} fontSize={10} fill="#065f46" fontWeight={600}>
+      <text x={x} y={y} dy={3.5} fontSize={10} fontWeight={600} className="fill-emerald-700">
         {it.currency} {fmtNum(it.typical)}
       </text>
     )
@@ -284,7 +319,7 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
       ? `${p.currency} ${fmtNum(p.typical)}`
       : `${p.count} post${p.count !== 1 ? 's' : ''}`
     return (
-      <text x={x} y={y} dy={3.5} fontSize={10} fill="#134e4a" fontWeight={600}>
+      <text x={x} y={y} dy={3.5} fontSize={10} fontWeight={600} className="fill-teal-700">
         {text}
       </text>
     )
@@ -296,6 +331,10 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
           <BarChart3 className="w-4 h-4 text-emerald-600" /> Market graph
+          <span className="relative flex h-2 w-2" title="Live from real price posts" data-testid="market-live-dot">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
         </p>
         <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close market graph" data-testid="market-close">
           <X className="w-4 h-4" />
@@ -381,7 +420,13 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
             ) : (
               <ResponsiveContainer width="100%" height={Math.max(90, items.length * 34 + 24)}>
                 <BarChart data={items} layout="vertical" margin={{ top: 4, right: 92, bottom: 0, left: 0 }}>
-                  <CartesianGrid horizontal={false} stroke="#e5e7eb" strokeDasharray="3 3" />
+                  <defs>
+                    <linearGradient id="gradMarketItem" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#047857" />
+                      <stop offset="100%" stopColor="#34d399" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid horizontal={false} stroke={GRID_STROKE} strokeDasharray="3 3" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
                   <YAxis
                     type="category"
@@ -393,7 +438,10 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                     tickLine={false}
                   />
                   <Tooltip
-                    cursor={{ fill: 'rgba(5, 150, 105, 0.06)' }}
+                    cursor={{ fill: 'rgba(16, 185, 129, 0.08)' }}
+                    contentStyle={TIP_STYLE}
+                    labelStyle={TIP_LABEL}
+                    itemStyle={TIP_ITEM}
                     formatter={(value: unknown, _name: unknown, entry: { payload?: MarketItem }) => {
                       const p = entry?.payload
                       if (!p) return ['', '']
@@ -401,7 +449,7 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                     }}
                     labelFormatter={(_label: unknown, payload: Array<{ payload?: MarketItem }>) => payload?.[0]?.payload?.name ?? ''}
                   />
-                  <Bar dataKey="typical" fill="#059669" radius={[0, 4, 4, 0]} barSize={16}>
+                  <Bar dataKey="typical" fill="url(#gradMarketItem)" radius={[0, 4, 4, 0]} barSize={18}>
                     <LabelList content={renderItemLabel} />
                   </Bar>
                 </BarChart>
@@ -419,7 +467,13 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
             ) : (
               <ResponsiveContainer width="100%" height={Math.max(90, places.length * 34 + 24)}>
                 <BarChart data={places} layout="vertical" margin={{ top: 4, right: 92, bottom: 0, left: 0 }}>
-                  <CartesianGrid horizontal={false} stroke="#e5e7eb" strokeDasharray="3 3" />
+                  <defs>
+                    <linearGradient id="gradMarketPlace" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#0f766e" />
+                      <stop offset="100%" stopColor="#2dd4bf" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid horizontal={false} stroke={GRID_STROKE} strokeDasharray="3 3" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
                   <YAxis
                     type="category"
@@ -431,7 +485,10 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                     tickLine={false}
                   />
                   <Tooltip
-                    cursor={{ fill: 'rgba(5, 150, 105, 0.06)' }}
+                    cursor={{ fill: 'rgba(16, 185, 129, 0.08)' }}
+                    contentStyle={TIP_STYLE}
+                    labelStyle={TIP_LABEL}
+                    itemStyle={TIP_ITEM}
                     formatter={(value: unknown, _name: unknown, entry: { payload?: MarketPlace }) => {
                       const p = entry?.payload
                       if (!p) return ['', '']
@@ -442,7 +499,7 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                     }}
                     labelFormatter={(_label: unknown, payload: Array<{ payload?: MarketPlace }>) => payload?.[0]?.payload?.label ?? ''}
                   />
-                  <Bar dataKey={hasQuery ? 'typical' : 'count'} fill="#0d9488" radius={[0, 4, 4, 0]} barSize={16}>
+                  <Bar dataKey={hasQuery ? 'typical' : 'count'} fill="url(#gradMarketPlace)" radius={[0, 4, 4, 0]} barSize={18}>
                     <LabelList content={renderPlaceLabel} />
                   </Bar>
                 </BarChart>
@@ -451,16 +508,23 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
           </div>
 
           {/* Chart 3 - the item over time: "it was like this before, now
-              it's like this" - at the shown market and across all markets */}
+              it's like this" - at the shown market and across all markets.
+              v85: trading-style look - gradient area under a smooth trend-
+              colored line (green up / red down), crosshair hover, dark
+              tooltip and a compact currency axis. */}
           <div className="space-y-1" data-testid="market-chart-time">
             <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">
               {hasQuery ? `${data?.query} over time \u00b7 before vs now` : `${time?.item ?? 'The market'} over time \u00b7 before vs now`}
+              {primaryTime && <span className="normal-case font-semibold"> &middot; {primaryTime.currency}</span>}
             </p>
             {primaryTime ? (
               <>
                 {timeSummary && (
-                  <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" data-testid="market-time-summary">
-                    Before vs now: <span className="font-semibold">{timeSummary}</span>
+                  <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900 flex items-start gap-1.5" data-testid="market-time-summary">
+                    {trendDir === 'down'
+                      ? <TrendingDown className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                      : <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />}
+                    <span>Before vs now: <span className="font-semibold">{timeSummary}</span></span>
                   </p>
                 )}
                 {!timeSummary && (
@@ -468,12 +532,28 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                     Only one period posted so far - the before-vs-now arrow builds as the market grows.
                   </p>
                 )}
-                <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={timeRows} margin={{ top: 6, right: 14, bottom: 0, left: -14 }}>
-                    <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <ResponsiveContainer width="100%" height={200}>
+                  <ComposedChart data={timeRows} margin={{ top: 8, right: 14, bottom: 0, left: -8 }}>
+                    <defs>
+                      <linearGradient id="gradMarketTime" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={lineColor} stopOpacity={0.30} />
+                        <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke={GRID_STROKE} strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
-                    <YAxis width={52} tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      width={56}
+                      tick={{ fontSize: 10, fill: '#71717a' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number | string) => compactNum(Number(v))}
+                    />
                     <Tooltip
+                      cursor={{ stroke: lineColor, strokeWidth: 1.5, strokeDasharray: '5 4' }}
+                      contentStyle={TIP_STYLE}
+                      labelStyle={TIP_LABEL}
+                      itemStyle={TIP_ITEM}
                       formatter={(value: unknown, name: unknown) => {
                         const v = Number(value)
                         if (!Number.isFinite(v)) return ['', '']
@@ -485,11 +565,23 @@ export function MarketGraphPanel({ userLocation, countries, onKickLocation, onCl
                       }
                     />
                     <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
-                    <Line type="monotone" dataKey="primary" name={primaryName} stroke="#059669" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    <Area
+                      type="monotone"
+                      dataKey="primary"
+                      name={primaryName}
+                      stroke={lineColor}
+                      strokeWidth={2.5}
+                      fill="url(#gradMarketTime)"
+                      fillOpacity={1}
+                      dot={{ r: 3.5, strokeWidth: 0, fill: lineColor }}
+                      activeDot={{ r: 5.5, strokeWidth: 2, stroke: '#ffffff' }}
+                      connectNulls
+                      legendType="circle"
+                    />
                     {secondaryTime && (
                       <Line type="monotone" dataKey="secondary" name={secondaryName} stroke="#0d9488" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3 }} connectNulls />
                     )}
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </>
             ) : (
