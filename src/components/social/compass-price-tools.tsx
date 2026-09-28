@@ -22,10 +22,12 @@
  *                         geocode) - a place without community posts stays
  *                         honest and empty, never invented.
  *
- *   The shopping list is not limited to what the feed knows: anything can
- *   be typed in (Enter or the Add button). Typed items ride along honestly
- *   - they show "no prices posted yet" rows / blank compare cells until a
- *   real post prices them, and they never invent numbers.
+ *   The shopping list is not a preset picker: NOTHING is offered as an
+ *   option - the user writes every item themselves (Enter or the Add
+ *   button). A typed name that matches a community product snaps onto it
+ *   so its real prices light up; anything else rides along honestly -
+ *   "no prices posted yet" rows / blank compare cells until a real post
+ *   prices it, and numbers are never invented.
  *
  * Data honesty rules (same as the market graph panel):
  *   - a post's price = recommendedPrice when set, else the midpoint of its
@@ -298,25 +300,11 @@ export function CompassPriceTools() {
     setVisitTo(t)
   }, [])
 
-  // First data -> default picks: busiest place, top items on, top-3 compare.
+  // First data -> defaults: currency chip, busiest place, top-3 compare.
+  // The LIST stays empty - every item on it is written by the user.
   useEffect(() => {
     if (!model) return
     if (!currency && model.currencies.length) setCurrency(model.currencies[0])
-    const top = model.items.slice(0, 4).map((i) => i.name)
-    setOnItems((prev) => {
-      const next = { ...prev }
-      top.forEach((n) => {
-        if (!(n in next)) next[n] = true
-      })
-      return next
-    })
-    setQty((prev) => {
-      const next = { ...prev }
-      top.forEach((n) => {
-        if (!(n in next)) next[n] = 1
-      })
-      return next
-    })
     setMyPlace((prev) => prev || model.places[0]?.key || '')
     setCmpPlaces((prev) => {
       if (Object.keys(prev).length) return prev
@@ -360,6 +348,13 @@ export function CompassPriceTools() {
       return next
     })
     if (itemFilter === name) setItemFilter('all')
+  }
+
+  // Remove an item from the list (the x on any list chip). Typed items are
+  // dropped entirely; a snapped feed item is toggled back off.
+  const removeListedItem = (name: string) => {
+    if (customItems.includes(name)) removeCustomItem(name)
+    else toggleItem(name)
   }
 
   const toggleCmp = (key: string) => {
@@ -622,39 +617,27 @@ export function CompassPriceTools() {
               />
             </label>
           </div>
+          {/* The list itself - ONLY what the user wrote. A typed name that
+              matched a community product snapped onto it, so every chip here
+              was added by the user and every chip has an x. */}
           <div className="mt-1.5 flex gap-1.5 flex-wrap">
-            {model.items.map((i) => (
-              <button
-                key={i.name}
-                type="button"
-                data-testid="compass-chip"
-                aria-pressed={!!onItems[i.name]}
-                title={`${i.count} price post${i.count !== 1 ? 's' : ''}`}
-                onClick={() => toggleItem(i.name)}
-                className={cn(chipBase, onItems[i.name] ? chipOn : chipOff)}
-              >
-                {i.name}
-              </button>
-            ))}
-            {customItems.map((name) => (
+            {chosenNames.map((name) => (
               <span
                 key={name}
-                data-testid="compass-custom-chip"
-                title="Typed by you - priced once the community posts it"
-                className={cn(
-                  chipBase,
-                  'inline-flex items-center gap-1.5',
-                  onItems[name] ? chipOn : chipOff,
-                )}
+                data-testid="compass-list-chip"
+                title={
+                  customItems.includes(name)
+                    ? 'Typed by you - priced once the community posts it'
+                    : 'Added by you - the community posts prices for this'
+                }
+                className={cn(chipBase, 'inline-flex items-center gap-1.5', chipOn)}
               >
-                <button type="button" aria-pressed={!!onItems[name]} onClick={() => toggleItem(name)} className="cursor-pointer">
-                  {name}
-                </button>
+                {name}
                 <button
                   type="button"
-                  data-testid="compass-chip-remove"
+                  data-testid="compass-list-remove"
                   aria-label={`Remove ${name} from the list`}
-                  onClick={() => removeCustomItem(name)}
+                  onClick={() => removeListedItem(name)}
                   className="cursor-pointer opacity-70 hover:opacity-100"
                 >
                   <X className="w-3 h-3" />
@@ -720,7 +703,10 @@ export function CompassPriceTools() {
           </div>
 
           {emptyList && (
-            <p className="mt-4 text-sm text-muted-foreground">Pick at least one item from your list.</p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Your list is empty - write what you buy into the box above (press Enter or + Add) and
+              the tools price it from real posts where the community has them.
+            </p>
           )}
 
           {/* ============================= RESEARCH ============================= */}
