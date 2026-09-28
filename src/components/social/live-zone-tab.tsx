@@ -261,7 +261,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Compass className="w-5 h-5 text-primary shrink-0" />
-              <h2 className="text-lg font-bold text-foreground truncate">Live Zone</h2>
+              <h2 className="text-lg font-bold text-foreground truncate" data-testid="compass-title">Circub Compass</h2>
               {guides.length > 0 && (
                 <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
                   {guides.length} member{guides.length !== 1 && 's'}

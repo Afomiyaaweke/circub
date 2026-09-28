@@ -26,10 +26,13 @@ interface HeaderProps {
 // Bookmark and Network live inside the Profile tab now (Instagram-style) -
 // the top nav keeps the four top-level destinations.
 // labelKey - the i18n dictionary key for the tab label (translated at render).
-const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile'; icon: typeof MapPin }[] = [
+// brandLabel - optional brand name that intentionally stays UNTRANSLATED in
+// every language (brand names do not translate); shortLabel - the compact
+// name for the phone bottom bar where full brand names do not fit.
+const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile'; icon: typeof MapPin; brandLabel?: string; shortLabel?: string }[] = [
   { key: 'feed', labelKey: 'nav.feed', icon: Sparkles },
   { key: 'local', labelKey: 'nav.local', icon: MapPin },
-  { key: 'guides', labelKey: 'nav.link', icon: Compass },
+  { key: 'guides', labelKey: 'nav.link', icon: Compass, brandLabel: 'Circub Compass', shortLabel: 'Compass' },
   { key: 'profile', labelKey: 'nav.profile', icon: UserCircle },
 ]
 
@@ -157,6 +160,7 @@ export function Header({
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
+              const tabText = tab.brandLabel ?? t(tab.labelKey)
               return (
                 <button
                   key={tab.key}
@@ -168,10 +172,10 @@ export function Header({
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                   aria-current={isActive ? 'page' : undefined}
-                  aria-label={t(tab.labelKey)}
+                  aria-label={tabText}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden md:inline">{t(tab.labelKey)}</span>
+                  <span className="hidden md:inline">{tabText}</span>
                 </button>
               )
             })}
@@ -342,6 +346,7 @@ export function Header({
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
+            const tabText = tab.shortLabel ?? tab.brandLabel ?? t(tab.labelKey)
             return (
               <button
                 key={tab.key}
@@ -351,11 +356,11 @@ export function Header({
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
                 aria-current={isActive ? 'page' : undefined}
-                aria-label={t(tab.labelKey)}
+                aria-label={tabText}
               >
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
                 <Icon className="w-[18px] h-[18px]" />
-                <span>{t(tab.labelKey)}</span>
+                <span>{tabText}</span>
               </button>
             )
           })}
