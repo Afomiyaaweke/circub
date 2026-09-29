@@ -10,9 +10,14 @@
  *   Research            - what the shopping list costs at "my" place: the
  *                         average / lowest / highest totals, the price range,
  *                         the month trend and the people who posted.
- *   Compare by location - pick any locations and see item and whole-list
+ *   Compare by location - type any locations and see item and whole-list
  *                         typical prices side by side, cheapest highlighted,
- *                         tap a header to adopt that place.
+ *                         tap a header to adopt that place. A typed name
+ *                         the community has posted (the full "City,
+ *                         Country" key or just its city part, any case)
+ *                         snaps onto that place so its real prices light
+ *                         up; anything else gets an honest empty column
+ *                         until a real post prices it there.
  *   Plan my budget      - set quantities, see best / typical / worst totals,
  *                         the safe amount to set aside, a verdict on a budget
  *                         amount AND currency both written by hand (two text
@@ -96,6 +101,7 @@ const TABS: { key: TabKey; label: string; icon: typeof SearchCheck }[] = [
 
 const LIST_CHIP_LIMIT = 8 // shopping-list choices (most-posted products)
 const MAX_CUSTOM_ITEMS = 12 // typed items cap - keeps the tables walkable
+const MAX_CMP_PLACES = 4 // typed compare columns cap - keeps the table walkable
 const RESEARCH_ROWS = 6 // post rows before "Show all"
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
 const TRUSTED_POSTS = 15 // authors with more posts than this show "Trusted"
@@ -157,7 +163,11 @@ export function CompassPriceTools() {
   const [newItem, setNewItem] = useState('')
   const [qty, setQty] = useState<Record<string, number>>({})
   const [myPlace, setMyPlace] = useState('')
-  const [cmpPlaces, setCmpPlaces] = useState<Record<string, boolean>>({})
+  // Compare columns are TYPED by the user (v96) - nothing is preset. Each
+  // entry is the canonical place key when the community posts there, or
+  // the text as typed for a column that stays honest and empty.
+  const [cmpList, setCmpList] = useState<string[]>([])
+  const [cmpDraft, setCmpDraft] = useState('')
   const [itemFilter, setItemFilter] = useState('all')
   const [showAll, setShowAll] = useState(false)
   const [budget, setBudget] = useState('')
@@ -308,20 +318,13 @@ export function CompassPriceTools() {
     setVisitTo(t)
   }, [])
 
-  // First data -> defaults: currency chip, busiest place, top-3 compare.
-  // The LIST stays empty - every item on it is written by the user.
+  // First data -> defaults: the dominant currency and the busiest place as
+  // the shopping location. The LIST and the COMPARE COLUMNS stay empty -
+  // everything on them is written by the user.
   useEffect(() => {
     if (!model) return
     if (!currency && model.currencies.length) setCurrency(model.currencies[0])
     setMyPlace((prev) => prev || model.places[0]?.key || '')
-    setCmpPlaces((prev) => {
-      if (Object.keys(prev).length) return prev
-      const next: Record<string, boolean> = {}
-      model.places.slice(0, 3).forEach((p) => {
-        next[p.key] = true
-      })
-      return next
-    })
   }, [model, currency])
 
   const toggleItem = (name: string) => {
@@ -365,8 +368,28 @@ export function CompassPriceTools() {
     else toggleItem(name)
   }
 
-  const toggleCmp = (key: string) => {
-    setCmpPlaces((prev) => ({ ...prev, [key]: !prev[key] }))
+  // Add a typed location to the compare. A case-insensitive match with a
+  // place the community has posted (the full "City, Country" key or just
+  // its city part) snaps onto that canonical key so its real prices light
+  // up; anything else is kept as typed and its column stays honest and
+  // empty until a real post prices it there - never invented.
+  const addCmpPlace = () => {
+    const raw = cmpDraft.trim().replace(/\s+/g, ' ').slice(0, 80)
+    if (!raw || cmpList.length >= MAX_CMP_PLACES) return
+    const known = model?.places.find(
+      (p) =>
+        p.key.toLowerCase() === raw.toLowerCase() ||
+        p.short.toLowerCase() === raw.toLowerCase(),
+    )
+    const key = known ? known.key : raw
+    setCmpList((prev) =>
+      prev.some((k) => k.toLowerCase() === key.toLowerCase()) ? prev : [...prev, key],
+    )
+    setCmpDraft('')
+  }
+
+  const removeCmpPlace = (key: string) => {
+    setCmpList((prev) => prev.filter((k) => k !== key))
   }
 
   // Apply the typed location. A case-insensitive match with a place the
@@ -491,8 +514,15 @@ export function CompassPriceTools() {
       ? Math.min(98, Math.max(2, ((myTotals.av - myTotals.lo) / (myTotals.hi - myTotals.lo)) * 100))
       : 50
 
-  // Compare: selected places, per-item cells, totals row, cheapest insight.
-  const cmpSel = model ? model.places.filter((p) => cmpPlaces[p.key]) : []
+  // Compare: the TYPED columns, per-item cells, totals row, cheapest
+  // insight. A typed name the community posts maps onto its real
+  // PlaceGroup; a name they don't post (yet) rides along as an honest
+  // zero-data column.
+  const cmpSel = model
+    ? cmpList.map(
+        (key) => model.places.find((p) => p.key === key) || { key, short: shortOf(key), count: 0 },
+      )
+    : []
   const cmpRows =
     model && !emptyList
       ? chosenNames.map((name) => {
@@ -884,27 +914,82 @@ export function CompassPriceTools() {
             <div className="mt-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
-                Choose the locations to compare.
+                Type the locations to compare - places the community posted snap in, anything
+                else gets an honest empty column.
               </p>
-              <div className="mt-2 flex gap-1.5 flex-wrap">
-                {model!.places.map((p) => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    data-testid="compass-place-chip"
-                    aria-pressed={!!cmpPlaces[p.key]}
-                    title={`${p.count} price post${p.count !== 1 ? 's' : ''}`}
-                    onClick={() => toggleCmp(p.key)}
-                    className={cn(chipBase, cmpPlaces[p.key] ? chipOn : chipOff)}
-                  >
-                    {p.short}
-                  </button>
-                ))}
+              {/* Type your own compare location - Enter or the + Compare
+                  button. Nothing is offered as an option: every column in
+                  the table below was written by the user. */}
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                <Input
+                  type="text"
+                  maxLength={80}
+                  placeholder="Type a location to compare (e.g. Bole, Addis Ababa)"
+                  value={cmpDraft}
+                  data-testid="compass-cmp-input"
+                  aria-label="Location to compare"
+                  onChange={(e) => setCmpDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addCmpPlace()
+                    }
+                  }}
+                  className="h-8 min-w-[10rem] flex-1 text-sm"
+                />
+                <button
+                  type="button"
+                  data-testid="compass-cmp-add"
+                  onClick={addCmpPlace}
+                  disabled={!cmpDraft.trim() || cmpList.length >= MAX_CMP_PLACES}
+                  className="h-8 shrink-0 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  + Compare
+                </button>
               </div>
+              {cmpList.length >= MAX_CMP_PLACES && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Up to {MAX_CMP_PLACES} locations at once keeps the table walkable - remove one
+                  to add another.
+                </p>
+              )}
+              {/* The typed compare columns - ONLY what the user wrote. A
+                  typed name that matched a community place snapped onto it,
+                  so a chip either carries real prices or stays honest. */}
+              {cmpList.length > 0 && (
+                <div className="mt-1.5 flex gap-1.5 flex-wrap">
+                  {cmpList.map((key) => {
+                    const known = model?.places.find((p) => p.key === key)
+                    return (
+                      <span
+                        key={key}
+                        data-testid="compass-cmp-chip"
+                        title={
+                          known
+                            ? `${known.count} price post${known.count !== 1 ? 's' : ''}`
+                            : 'Typed by you - its column stays empty until the community posts prices there'
+                        }
+                        className={cn(chipBase, 'inline-flex items-center gap-1.5', chipOn)}
+                      >
+                        {shortOf(key)}
+                        <button
+                          type="button"
+                          data-testid="compass-cmp-chip-remove"
+                          aria-label={`Remove ${shortOf(key)} from the comparison`}
+                          onClick={() => removeCmpPlace(key)}
+                          className="cursor-pointer opacity-70 hover:opacity-100"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
 
               {cmpSel.length < 2 ? (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Select at least two locations to see them side by side.
+                  Type at least two locations above to see them side by side.
                 </p>
               ) : (
                 <>
@@ -921,7 +1006,11 @@ export function CompassPriceTools() {
                                 type="button"
                                 data-testid="compass-place-head"
                                 data-sel={pl.key === myPlace}
-                                title="Use as my location"
+                                title={
+                                  pl.count > 0
+                                    ? 'Use as my location'
+                                    : 'Use as my location - no community prices posted here yet'
+                                }
                                 onClick={() => setMyPlace(pl.key)}
                                 className={cn(
                                   'text-xs cursor-pointer hover:underline underline-offset-2',
