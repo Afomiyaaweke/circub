@@ -21,7 +21,7 @@ interface ProfileData {
     id: string; name: string; avatarColor: string; profilePicture?: string | null
     bio?: string | null; headline?: string | null; location?: string | null
     isLocal?: boolean; verifiedLocal?: boolean; idVerified?: boolean; rating?: number
-    expertiseTags?: string[]; helpfulVotes?: number; localPostCount?: number; createdAt?: string
+    expertiseTags?: string[]; helpfulVotes?: number; localPostCount?: number; followersCount?: number; createdAt?: string
   } | null
   posts: Array<{
     id: string; productName: string; postType: string; country: string; city?: string | null
@@ -99,7 +99,8 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
             <div className="p-5 sm:p-6 space-y-4">
               {data.profile.bio && <p className="text-sm text-foreground/90 leading-relaxed">{data.profile.bio}</p>}
               {data.profile.location && <p className="text-sm text-muted-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-primary" />{data.profile.location}</p>}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground" data-testid="local-profile-followers">{(data.profile.followersCount ?? 0).toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Followers</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{data.profile.localPostCount ?? 0}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Posts</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{data.profile.helpfulVotes ?? 0}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Helpful Votes</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground flex items-center justify-center gap-0.5"><Star className="w-4 h-4 fill-amber-400 text-amber-400" />{(data.profile.rating ?? 0).toFixed(1)}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Rating</p></div>
