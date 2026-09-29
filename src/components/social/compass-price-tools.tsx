@@ -22,7 +22,13 @@
  *                         the safe amount to set aside, a verdict on a budget
  *                         amount AND currency both written by hand (two text
  *                         inputs side by side) and cheaper alternatives
- *                         elsewhere. The
+ *                         elsewhere. Write a budget and the card also
+ *                         LOCATES where the best price for the list is:
+ *                         every place the community has posted, cheapest
+ *                         typical total first, checked against that budget -
+ *                         the location the user gave is shown against the
+ *                         same budget and one tap moves the shopping there.
+ *                         The
  *                         shopping location is WRITTEN into a text input or
  *                         taken from the device (geolocation + reverse
  *                         geocode) - a place without community posts stays
@@ -577,6 +583,29 @@ export function CompassPriceTools() {
           .sort((a, b) => (a.total as number) - (b.total as number))
           .slice(0, 3)
       : []
+
+  // Budget locator (v98): once a budget is written, locate WHERE the best
+  // price for this list is - every place the community has posted, cheapest
+  // typical total first - and which of them fit INSIDE the typed budget.
+  // The location the user gave is measured against the same budget, and one
+  // tap moves the shopping there. Nothing is invented: places without real
+  // prices for the list are skipped, and when nothing fits the cheapest
+  // real total is shown with the honest gap instead.
+  const budgetPlaces =
+    model && !emptyList && budgetNum > 0
+      ? model.places
+          .map((p) => ({
+            key: p.key,
+            short: p.short,
+            total: model.totals(p.key, chosenNames, qty)?.av ?? null,
+          }))
+          .filter((p): p is { key: string; short: string; total: number } => p.total != null)
+          .sort((a, b) => a.total - b.total)
+      : []
+  const budgetBest =
+    budgetNum > 0 ? budgetPlaces.find((p) => p.total <= budgetNum) ?? null : null
+  const budgetCheapest = budgetPlaces[0] ?? null
+  const givenFits = myTotals && budgetNum > 0 ? myTotals.av <= budgetNum : null
 
   const chipBase =
     'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer'
@@ -1302,6 +1331,84 @@ export function CompassPriceTools() {
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
                   None of your list items have prices at {myShort} yet - type another location above.
+                </p>
+              )}
+
+              {/* Budget locator (v98): where the budget goes furthest.
+                  Rendered whenever a budget is written - even when the
+                  given location itself has no prices, because the point is
+                  to LOCATE the best real price for this list. */}
+              {budgetNum > 0 && budgetPlaces.length > 0 && (
+                <div
+                  className="mt-3 rounded-xl border border-border bg-primary/5 p-3.5"
+                  data-testid="compass-budget-locate"
+                >
+                  <h5 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                    Where your budget goes furthest
+                  </h5>
+                  {budgetBest ? (
+                    <p
+                      className="mt-1.5 text-sm text-foreground"
+                      data-testid="compass-budget-locate-best"
+                    >
+                      Best price within your {money(budgetNum, cur)} budget:{' '}
+                      <b>{budgetBest.short}</b> - the typical total there is{' '}
+                      <b className="text-emerald-600 dark:text-emerald-400">
+                        {money(budgetBest.total, cur)}
+                      </b>
+                      , {money(budgetNum - budgetBest.total, cur)} under budget.
+                      {budgetBest.key === myPlace
+                        ? ' That is the location you gave.'
+                        : myTotals
+                          ? ` From ${myShort} that saves ${money(myTotals.av - budgetBest.total, cur)}.`
+                          : ''}
+                    </p>
+                  ) : (
+                    budgetCheapest && (
+                      <p
+                        className="mt-1.5 text-sm text-foreground"
+                        data-testid="compass-budget-locate-none"
+                      >
+                        No location the community has posted fits your {money(budgetNum, cur)}{' '}
+                        budget for this list. The cheapest is {budgetCheapest.short} at{' '}
+                        <b>{money(budgetCheapest.total, cur)}</b> -{' '}
+                        {money(budgetCheapest.total - budgetNum, cur)} over.
+                      </p>
+                    )
+                  )}
+                  {myTotals && (
+                    <p
+                      className="mt-1.5 text-xs text-muted-foreground"
+                      data-testid="compass-budget-locate-given"
+                    >
+                      At the location you gave ({myShort}) this list comes to{' '}
+                      {money(myTotals.av, cur)} typical -{' '}
+                      {givenFits
+                        ? `${money(budgetNum - myTotals.av, cur)} inside your budget`
+                        : `${money(myTotals.av - budgetNum, cur)} over your budget`}
+                      .
+                    </p>
+                  )}
+                  {budgetBest && budgetBest.key !== myPlace && (
+                    <button
+                      type="button"
+                      data-testid="compass-budget-locate-switch"
+                      onClick={() => setMyPlace(budgetBest.key)}
+                      className="mt-2 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                    >
+                      Shop at {budgetBest.short} instead
+                    </button>
+                  )}
+                </div>
+              )}
+              {budgetNum > 0 && budgetPlaces.length === 0 && (
+                <p
+                  className="mt-3 text-sm text-muted-foreground"
+                  data-testid="compass-budget-locate-empty"
+                >
+                  No community prices for this list in {cur || 'any currency'} yet - post a price
+                  and the budget locator will find where your budget goes furthest.
                 </p>
               )}
 
