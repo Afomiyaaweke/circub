@@ -80,7 +80,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // auto-detected current location) and WHICH product to compare - typed
   // straight into the panel (the old separate "Search by name first"
   // section was folded into this panel).
-  const [locPickOpen, setLocPickOpen] = useState(false)
   const [pickCountry, setPickCountry] = useState('')
   const [pickCity, setPickCity] = useState('')
   // One or MORE places the user picked for the price compare - "add two or
@@ -306,7 +305,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // location WITHOUT needing a successful scan first (the scan can be slow
   // or fail, the budget should not depend on it). Uses the same /api/budget
   // endpoint as the scan-result planner.
-  const [budgetOpen, setBudgetOpen] = useState(false)
   const [budgetItems, setBudgetItems] = useState<Array<{ name: string; qty: number }>>([{ name: '', qty: 1 }])
   const [budgetCurrency, setBudgetCurrency] = useState('')
   const [budgetHave, setBudgetHave] = useState('')
@@ -382,19 +380,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     setSearchResults(null)
     setLocFilter(null)
     searchFileRef.current = null
-  }
-
-  // Camera-search menu action (shared by the desktop labeled button and the
-  // compact phone icon inside the search bar) - opens the compare panel.
-  const openComparePanel = () => {
-    setLocPickOpen(true)
-  }
-
-  // Camera-search menu action - opens the budget panel and starts resolving
-  // the location so the default "My location" pick is ready.
-  const openBudgetPanel = () => {
-    setBudgetOpen(true)
-    kickLocation()
   }
 
   // Where the budget is calculated for: typed place wins, then the resolved
@@ -545,145 +530,15 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <Card className="p-4 sm:p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary shrink-0" />
-              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">Local Price Feed</h2>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
-          </div>
-          <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
-            <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
-          </Button>
-        </div>
-      </Card>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Unified search bar - the country/city/category filters live INSIDE
-            the search field as segmented sections of one pill. Desktop: a
-            single row (input | country | city | category). Phone: the pill
-            wraps - search on top, filters on a second row inside the bar. */}
-        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs">
-          <div className="flex items-center flex-1 basis-full sm:basis-auto sm:min-w-[150px] min-w-0">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
-            </div>
-            {/* Phone: Camera search + Scan collapse into compact icon buttons
-                INSIDE the search bar - saves a whole row, and the camera menu
-                drops from the pill's right edge so it always fits the screen. */}
-            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} onOpenCompare={openComparePanel} onOpenBudget={openBudgetPanel} />
-            <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Market graph - prices by item and location" data-testid="market-open-compact">
-              <BarChart3 className="w-4 h-4 text-emerald-600" />
-            </Button>
-          </div>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          <Select value={country} onValueChange={setCountry}>
-            <SelectTrigger
-              className={
-                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[150px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (country !== 'All countries' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
-              }
-            >
-              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All countries" />
-            </SelectTrigger>
-            <SelectContent><SelectItem value="All countries">{t('filter.allCountries')}</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          <Select value={city} onValueChange={setCity}>
-            <SelectTrigger
-              data-testid="city-filter"
-              className={
-                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[112px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (city !== 'All cities' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
-              }
-            >
-              <SelectValue placeholder="All cities" />
-            </SelectTrigger>
-            <SelectContent><SelectItem value="All cities">{t('filter.allCities')}</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger
-              data-testid="category-filter"
-              className={
-                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[132px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (category !== ALL_CATEGORIES ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
-              }
-            >
-              <SelectValue placeholder="All categories" />
-            </SelectTrigger>
-            <SelectContent><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{categoryFilterOptions(filterValues.categories).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <PhotoSearchButton
-          className="hidden sm:block"
-          onImage={handleImageSearch}
-          loading={searchingByImage}
-          onInitiate={kickLocation}
-          onOpenCompare={openComparePanel}
-          onOpenBudget={openBudgetPanel}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={openMarket}
-          disabled={searchingByImage}
-          className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
-          title="Open the market graph - what things cost by item and place, from real price posts"
-          data-testid="market-open"
-        >
-          <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Market graph</span>
-        </Button>
-        {searchImage && (
-          <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
-            <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
-            <span className="text-xs text-foreground truncate max-w-[120px]">{search}</span>
-            <button onClick={handleClearSearch} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
-          </div>
-        )}
-        {customLocations.length > 0 && (
-          <div className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-emerald-500/40 bg-emerald-50">
-            <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="text-xs text-emerald-800 truncate max-w-[220px]">
-              Comparing in: {customLocations.slice(0, 2).map((p) => p.place).join(' · ')}{customLocations.length > 2 ? ` +${customLocations.length - 2} more` : ''}
-            </span>
-            <button onClick={() => setCustomLocations([])} className="p-0.5 rounded hover:bg-emerald-100 text-emerald-700" aria-label="Back to my location"><X className="w-3.5 h-3.5" /></button>
-          </div>
-        )}
-
-        {/* Comma-location hint - honest feedback when the text after the
-            comma is not a city or country the feed knows about. */}
-        {searchLocHint && (
-          <p data-testid="local-search-loc-hint" className="basis-full text-xs text-muted-foreground -mt-1">
-            {`No city or country named "${searchLocHint}" in the feed yet - showing ${search ? `"${search}"` : 'everything'} from all locations.`}
-          </p>
-        )}
-
-        {/* Compass price tools - research / compare by location / plan my
-            budget, computed from the REAL community price posts. Lives on
-            the Local tab now (moved from the Link tab) right under the
-            search bar, next to the data it works on. */}
-        <div className="w-full min-w-0">
-          <CompassPriceTools />
-        </div>
-
-        {/* "Compare by location" - pick WHERE to compare prices (defaults
-            to the auto-detected current location) and WHICH product to
-            compare, then show the result right in the panel. Applies to
-            the compare action below. */}
-        {locPickOpen && (
-          <Card className="w-full p-3 shadow-sm border-emerald-500/40 space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-emerald-600" /> Compare prices by location</p>
-              <button onClick={() => setLocPickOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close location picker"><X className="w-4 h-4" /></button>
-            </div>
+  // v95: the camera-search tools live ON the market graph - these two
+  // sections render INSIDE the MarketGraphPanel while it is open.
+  // "Compare by location" - ON the market graph (v95): pick WHERE to
+  // compare prices (defaults to the auto-detected current location) and
+  // WHICH product to compare, then see the result right in the panel.
+  // The old camera-search menu entry is gone.
+  const compareSection = (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-2.5" data-testid="market-compare-section">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-emerald-600" /> Compare prices by location</p>
             {/* The product to compare - typed here and added to the
                 comparison with the button below. Adding a product here
                 means ADD IT TO THE COMPARE - it never opens the post
@@ -725,17 +580,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
               >
                 <Plus className="w-3.5 h-3.5" /> Add place
               </Button>
-              {customLocations.length > 0 && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setLocPickOpen(false)}
-                  className="h-9 shrink-0"
-                >
-                  Done
-                </Button>
-              )}
             </div>
             {customLocations.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -787,20 +631,16 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
               )
             })()}
             <p className="text-xs text-muted-foreground">Type the product, add one or more places, then use Add product to compare - the first place ranks the matches and every place gets its own price line in the results.</p>
-          </Card>
-        )}
+          </div>
+  )
 
-        {/* "Plan my budget" - the direct budget entry point on the camera
-            search. Type what you want to buy, optionally how many and the
-            money you have, and get the set-aside answer for your location
-            (typed place wins, else the auto-detected location) - no scan
-            needed. Same result layout as the scan-result planner. */}
-        {budgetOpen && (
-          <Card className="w-full p-3 shadow-sm border-emerald-500/40 space-y-2.5" data-testid="budget-panel">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Calculator className="w-4 h-4 text-emerald-600" /> Plan my budget</p>
-              <button onClick={() => setBudgetOpen(false)} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close budget planner"><X className="w-4 h-4" /></button>
-            </div>
+  // "Plan my budget" - ON the market graph (v95): type what you want to
+  // buy, optionally how many and the money you have, and get the set-aside
+  // answer for your location (typed place wins, else the auto-detected
+  // location) - no scan needed. Same result layout as the scan planner.
+  const budgetSection = (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-2.5" data-testid="budget-panel">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Calculator className="w-4 h-4 text-emerald-600" /> Plan my budget</p>
             <form
               onSubmit={(e) => { e.preventDefault(); void runBudgetCalc() }}
               className="space-y-2"
@@ -934,21 +774,147 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             )}
 
             <p className="text-xs text-muted-foreground">The budget mixes real local price posts on circub with AI estimates for the chosen location and currency - use the safe number and you will not come up short.</p>
-          </Card>
+          </div>
+  )
+
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4 sm:p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary shrink-0" />
+              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">Local Price Feed</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
+          </div>
+          <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
+            <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
+          </Button>
+        </div>
+      </Card>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Unified search bar - the country/city/category filters live INSIDE
+            the search field as segmented sections of one pill. Desktop: a
+            single row (input | country | city | category). Phone: the pill
+            wraps - search on top, filters on a second row inside the bar. */}
+        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs">
+          <div className="flex items-center flex-1 basis-full sm:basis-auto sm:min-w-[150px] min-w-0">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
+            </div>
+            {/* Phone: Camera search + Scan collapse into compact icon buttons
+                INSIDE the search bar - saves a whole row, and the camera menu
+                drops from the pill's right edge so it always fits the screen. */}
+            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} />
+            <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Market graph - prices by item and location" data-testid="market-open-compact">
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+            </Button>
+          </div>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
+          <Select value={country} onValueChange={setCountry}>
+            <SelectTrigger
+              className={
+                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[150px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (country !== 'All countries' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+              }
+            >
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All countries" />
+            </SelectTrigger>
+            <SelectContent><SelectItem value="All countries">{t('filter.allCountries')}</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
+          <Select value={city} onValueChange={setCity}>
+            <SelectTrigger
+              data-testid="city-filter"
+              className={
+                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[112px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (city !== 'All cities' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+              }
+            >
+              <SelectValue placeholder="All cities" />
+            </SelectTrigger>
+            <SelectContent><SelectItem value="All cities">{t('filter.allCities')}</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger
+              data-testid="category-filter"
+              className={
+                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[132px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (category !== ALL_CATEGORIES ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+              }
+            >
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{categoryFilterOptions(filterValues.categories).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <PhotoSearchButton
+          className="hidden sm:block"
+          onImage={handleImageSearch}
+          loading={searchingByImage}
+          onInitiate={kickLocation}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={openMarket}
+          disabled={searchingByImage}
+          className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
+          title="Open the market graph - what things cost by item and place, from real price posts"
+          data-testid="market-open"
+        >
+          <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Market graph</span>
+        </Button>
+        {searchImage && (
+          <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
+            <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
+            <span className="text-xs text-foreground truncate max-w-[120px]">{search}</span>
+            <button onClick={handleClearSearch} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
+        {customLocations.length > 0 && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-emerald-500/40 bg-emerald-50">
+            <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="text-xs text-emerald-800 truncate max-w-[220px]">
+              Comparing in: {customLocations.slice(0, 2).map((p) => p.place).join(' · ')}{customLocations.length > 2 ? ` +${customLocations.length - 2} more` : ''}
+            </span>
+            <button onClick={() => setCustomLocations([])} className="p-0.5 rounded hover:bg-emerald-100 text-emerald-700" aria-label="Back to my location"><X className="w-3.5 h-3.5" /></button>
+          </div>
         )}
 
-        {/* Market graph - the scan entry point, completely graph-based:
-            prices by item at the picked place, and any item's prices across
-            places, aggregated from real local price posts. The scan camera
-            modal was removed from this entry (pricelens-modal.tsx stays in
-            the repo - one commit reverts if the camera flow is wanted). */}
+        {/* Comma-location hint - honest feedback when the text after the
+            comma is not a city or country the feed knows about. */}
+        {searchLocHint && (
+          <p data-testid="local-search-loc-hint" className="basis-full text-xs text-muted-foreground -mt-1">
+            {`No city or country named "${searchLocHint}" in the feed yet - showing ${search ? `"${search}"` : 'everything'} from all locations.`}
+          </p>
+        )}
+
+        {/* Compass price tools - research / compare by location / plan my
+            budget, computed from the REAL community price posts. Lives on
+            the Local tab now (moved from the Link tab) right under the
+            search bar, next to the data it works on. */}
+        <div className="w-full min-w-0">
+          <CompassPriceTools />
+        </div>
+
+        {/* Market graph - the ONE place the price tools live (v95):
+            everything the camera search used to carry (Compare by location +
+            Plan my budget) sits ON the market graph, and the old chart
+            content is gone. /api/market-graph still serves the chart data
+            for API consumers; one commit reverts if the graphs are wanted. */}
         {marketOpen && (
-          <MarketGraphPanel
-            userLocation={userLocation}
-            countries={filterValues.countries}
-            onKickLocation={kickLocation}
-            onClose={() => setMarketOpen(false)}
-          />
+          <MarketGraphPanel onClose={() => setMarketOpen(false)}>
+            {compareSection}
+            {budgetSection}
+          </MarketGraphPanel>
         )}
 
         {/* AI search results panel - shows after a camera capture or image
@@ -1218,10 +1184,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   )
 }
 
-function PhotoSearchButton({ onImage, loading, onInitiate, onOpenCompare, onOpenBudget, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; onOpenCompare?: () => void; onOpenBudget?: () => void; compact?: boolean; className?: string }) {
+// v95: the camera search is ONLY the camera search - tapping it goes
+// straight to the photo capture/upload. The Compare-by-location and
+// Plan-my-budget actions moved ONTO the market graph panel, so the old
+// dropdown menu is gone.
+function PhotoSearchButton({ onImage, loading, onInitiate, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; compact?: boolean; className?: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
-  const [menuOpen, setMenuOpen] = useState(false)
   return (
     <>
       <input type="file" accept="image/*" ref={inputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImage(f); if (inputRef.current) inputRef.current.value = '' }} className="hidden" />
@@ -1239,51 +1208,18 @@ function PhotoSearchButton({ onImage, loading, onInitiate, onOpenCompare, onOpen
             // for the geolocation permission prompt) so it is ready by the time
             // the photo is chosen, enabling the location-based price compare.
             onInitiate?.()
-            setMenuOpen((o) => !o)
+            inputRef.current?.click()
           }}
           disabled={loading}
           className={compact
             ? 'bg-card border-primary/30 h-9 w-9 px-0 justify-center'
             : 'bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs'}
-          title="Search by photo or compare prices in another location"
+          title="Search by photo - AI identifies the product and compares real local prices"
         >
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
           {!compact && <><span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span></>}
           {!compact && SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
         </Button>
-        {/* Options menu - take a photo, or compare prices in a chosen
-            location (the typed-product compare lives inside that panel).
-            Anchored to the trigger's right edge with a viewport guard so it
-            never clips off screen on phones. */}
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-            <div className="absolute right-0 top-full mt-1.5 z-50 w-64 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card shadow-lg p-1.5 space-y-0.5">
-              <button
-                onClick={() => { setMenuOpen(false); inputRef.current?.click() }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
-              >
-                <p className="text-sm font-medium text-foreground flex items-center gap-2"><Camera className="w-4 h-4 text-primary shrink-0" />Take photo or upload</p>
-                <p className="text-[11px] text-muted-foreground">AI identifies the product from a picture</p>
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); onOpenCompare?.() }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
-              >
-                <p className="text-sm font-medium text-foreground flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600 shrink-0" />Compare by location</p>
-                <p className="text-[11px] text-muted-foreground">Pick the product and the places to compare prices in</p>
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); onOpenBudget?.() }}
-                className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors space-y-0.5"
-                data-testid="menu-plan-budget"
-              >
-                <p className="text-sm font-medium text-foreground flex items-center gap-2"><Calculator className="w-4 h-4 text-emerald-600 shrink-0" />Plan my budget</p>
-                <p className="text-[11px] text-muted-foreground">Work out what to set aside to buy something near you</p>
-              </button>
-            </div>
-          </>
-        )}
       </div>
     </>
   )

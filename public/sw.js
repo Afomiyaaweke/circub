@@ -11,7 +11,7 @@
  * ⚠️ Bump VERSION on EVERY deploy that changes code: cached assets reference
  * hashed /_next files of that deployment.
  */
-const VERSION = 'circub-v94';
+const VERSION = 'circub-v95';
 const SHELL = [
   '/',
   '/manifest.webmanifest',
