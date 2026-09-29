@@ -107,6 +107,7 @@ model User {
   localPricePosts LocalPricePost[]
   localPriceVotes LocalPriceVote[]
   localPriceReports LocalPriceReport[]
+  priceLinksCreated PricePostLink[] @relation("PricePostLinkCreator")
   guideRatingsReceived GuideRating[] @relation("GuideRatingReceiver")
   guideRatingsGiven GuideRating[] @relation("GuideRatingRater")
   bookingsAsTourist GuideBooking[] @relation("BookingTourist")
@@ -252,15 +253,43 @@ model Message {
 
 model Story {
   id        String   @id @default(cuid())
-  imageUrl  String   // data URL (uploaded photo)
+  // Photo stories carry the uploaded image; price stories (auto-shared when
+  // a price post is published) may have no photo - the client renders a
+  // price banner for those instead of an image.
+  imageUrl  String?
   caption   String?
   authorId  String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  // The price post this story was shared from (created automatically when a
+  // new price goes out through the composer). Cascade: deleting the post
+  // removes its story with it.
+  pricePostId String?  @unique
+  pricePost   LocalPricePost? @relation(fields: [pricePostId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   expiresAt DateTime // createdAt + 24h — stories disappear like Instagram
 
   @@index([authorId, expiresAt])
   @@index([expiresAt])
+}
+
+// Symmetric links between price posts ("same item posted elsewhere"): one
+// row per pair with the ids stored normalized (postAId < postBId), so the
+// @@unique makes a duplicate link impossible from either direction. Managed
+// from the price detail modal: link another post, remove a link, count shown
+// on the card.
+model PricePostLink {
+  id        String   @id @default(cuid())
+  postAId   String
+  postBId   String
+  createdBy String
+  creator   User     @relation("PricePostLinkCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  postA     LocalPricePost @relation("PricePostLinkA", fields: [postAId], references: [id], onDelete: Cascade)
+  postB     LocalPricePost @relation("PricePostLinkB", fields: [postBId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postAId, postBId])
+  @@index([postAId])
+  @@index([postBId])
 }
 
 // =====================================================
@@ -314,6 +343,12 @@ model LocalPricePost {
   // Votes & reports
   votes            LocalPriceVote[]
   reports          LocalPriceReport[]
+
+  // Stories shared from this post (auto-created on publish, live 24h) and
+  // symmetric links to other price posts for the same item elsewhere.
+  stories          Story[]
+  linksA           PricePostLink[] @relation("PricePostLinkA")
+  linksB           PricePostLink[] @relation("PricePostLinkB")
 
   helpfulCount     Int      @default(0)
   notAccurateCount Int      @default(0)

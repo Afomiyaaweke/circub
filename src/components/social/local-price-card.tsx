@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store, Link2 } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -279,7 +279,16 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
       </div>
 
       {!compact && (
-        <div className="mt-2 flex items-center gap-1.5">
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+          {/* Links count - symmetric links to other posts for the same item
+              elsewhere; tapping opens the detail modal where links are
+              managed (add / remove). Only rendered when links exist. */}
+          {(post.linksCount ?? 0) > 0 && (
+            <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} data-testid="price-link-count" className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-primary" title="Linked price posts - the same item posted elsewhere">
+              <Link2 className="w-3.5 h-3.5" />
+              <span>{post.linksCount} link{(post.linksCount ?? 0) !== 1 ? 's' : ''}</span>
+            </Button>
+          )}
           <Button size="sm" variant={post.myVote === 'HELPFUL' ? 'default' : 'outline'} onClick={() => onVote?.(post.id, 'HELPFUL')} className={cn('h-7 px-2.5 text-xs gap-1.5', post.myVote === 'HELPFUL' ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-muted-foreground hover:text-primary')}>
             <ThumbsUp className="w-3.5 h-3.5" /><span>{post.helpfulCount}</span><span className="hidden sm:inline">Helpful</span>
           </Button>

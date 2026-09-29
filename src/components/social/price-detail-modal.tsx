@@ -21,6 +21,10 @@ import {
   Clock,
   Navigation,
   Store,
+  Link2,
+  Plus,
+  Search,
+  Loader2,
 } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import {
@@ -39,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
@@ -56,6 +61,29 @@ interface PriceDetailModalProps {
   onAuthorClick: (authorId: string) => void
   onMessage?: (authorId: string) => void
   currentUserId?: string | null
+  // Opens another price post in this modal (from the linked-prices list).
+  onOpenPost?: (postId: string) => void
+}
+
+// One row of the linked-prices list (the OTHER post of a symmetric link).
+interface LinkedPostRow {
+  linkId: string
+  createdBy: string
+  createdAt: string
+  canRemove: boolean
+  post: {
+    id: string
+    productName: string
+    category: string
+    currency: string
+    priceMin: number
+    priceMax: number
+    city?: string | null
+    country?: string | null
+    imageUrl?: string | null
+    createdAt: string
+    author?: { id: string; name: string; verifiedLocal?: boolean; idVerified?: boolean }
+  }
 }
 
 const REPORT_OPTIONS = [
@@ -73,7 +101,7 @@ function formatPrice(value: number | null | undefined, currency: string) {
   return `${currency} ${value}`
 }
 
-export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, currentUserId }: PriceDetailModalProps) {
+export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, currentUserId, onOpenPost }: PriceDetailModalProps) {
   const [post, setPost] = useState<LocalPricePost | null>(null)
   const [consensus, setConsensus] = useState<LocalPriceConsensus | null>(null)
   const [history, setHistory] = useState<LocalPriceHistory | null>(null)
@@ -82,6 +110,13 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [reportType, setReportType] = useState<string>('')
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
+  // Linked prices (same item posted elsewhere): list + add/remove picker.
+  const [links, setLinks] = useState<LinkedPostRow[]>([])
+  const [showLinkPicker, setShowLinkPicker] = useState(false)
+  const [linkSearch, setLinkSearch] = useState('')
+  const [linkResults, setLinkResults] = useState<any[]>([])
+  const [linkSearching, setLinkSearching] = useState(false)
+  const [linkBusyId, setLinkBusyId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -92,12 +127,25 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
     const loadData = async () => {
       setLoading(true)
+      // Reset the linked-prices panel - it belongs to the post being opened.
+      setLinks([])
+      setShowLinkPicker(false)
+      setLinkSearch('')
+      setLinkResults([])
       try {
         const postDataRes = await fetch(`/api/local-prices/${postId}`, { cache: 'no-store' })
         const postData = await postDataRes.json()
         const p = postData.post
         if (!p || cancelled) return
         setPost(p)
+
+        // Linked price posts (same item posted elsewhere) - count + rows
+        // for the manage list.
+        try {
+          const lRes = await fetch(`/api/local-prices/${postId}/links`, { cache: 'no-store' })
+          const lData = await lRes.json()
+          if (!cancelled) setLinks(Array.isArray(lData.links) ? lData.links : [])
+        } catch { if (!cancelled) setLinks([]) }
 
         // Fetch consensus using the post's productName + country + city, excluding this post
         const cParams = new URLSearchParams()
@@ -181,6 +229,88 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       })
     }
   }
+
+  // ---------------------------------------------------------------- links
+  // Candidates for the link picker: feed search results minus this post
+  // and everything already linked.
+  const linkCandidates = linkResults.filter(
+    (c) => post && c.id !== post.id && !links.some((l) => l.post.id === c.id)
+  )
+
+  const handleAddLink = async (otherId: string) => {
+    if (!post) return
+    setLinkBusyId(otherId)
+    try {
+      const res = await fetch(`/api/local-prices/${post.id}/links`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedId: otherId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to link')
+      setLinks(Array.isArray(data.links) ? data.links : [])
+      // The feed re-counts the "N links" chips without a reload.
+      try { window.dispatchEvent(new Event('circub:feed-changed')) } catch {}
+      toast({ title: 'Posts linked', description: 'The link shows on both price posts.' })
+      setShowLinkPicker(false)
+      setLinkSearch('')
+      setLinkResults([])
+    } catch (e) {
+      toast({ title: 'Link failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setLinkBusyId(null)
+    }
+  }
+
+  const handleRemoveLink = async (otherId: string) => {
+    if (!post) return
+    setLinkBusyId(otherId)
+    try {
+      const res = await fetch(`/api/local-prices/${post.id}/links`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedId: otherId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to remove')
+      setLinks(Array.isArray(data.links) ? data.links : [])
+      // The feed re-counts the "N links" chips without a reload.
+      try { window.dispatchEvent(new Event('circub:feed-changed')) } catch {}
+      toast({ title: 'Link removed' })
+    } catch (e) {
+      toast({ title: 'Remove failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setLinkBusyId(null)
+    }
+  }
+
+  // Debounced feed search for the link picker (min 2 chars).
+  useEffect(() => {
+    if (!showLinkPicker) return
+    const q = linkSearch.trim()
+    if (q.length < 2) {
+      setLinkResults([])
+      setLinkSearching(false)
+      return
+    }
+    let dead = false
+    const t = setTimeout(async () => {
+      setLinkSearching(true)
+      try {
+        const res = await fetch(`/api/local-prices?search=${encodeURIComponent(q)}`, { cache: 'no-store' })
+        const data = await res.json()
+        if (!dead) setLinkResults(Array.isArray(data.posts) ? data.posts : [])
+      } catch {
+        if (!dead) setLinkResults([])
+      } finally {
+        if (!dead) setLinkSearching(false)
+      }
+    }, 300)
+    return () => {
+      dead = true
+      clearTimeout(t)
+    }
+  }, [linkSearch, showLinkPicker])
 
   const handleReport = async () => {
     if (!post || !reportType) return
@@ -437,6 +567,137 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* Linked prices - symmetric links to other posts for the
+                  same item elsewhere: add via the picker, remove with the
+                  x, count in the header. Every link shows on BOTH posts. */}
+              <div className="rounded-xl border border-border p-4" data-testid="detail-links-section">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <Link2 className="w-4 h-4 text-primary" />
+                    Linked prices
+                    <span
+                      data-testid="detail-links-count"
+                      className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5"
+                    >
+                      {links.length}
+                    </span>
+                  </h3>
+                  {currentUserId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="detail-link-picker-toggle"
+                      onClick={() => setShowLinkPicker((v) => !v)}
+                      className="h-7 px-2 text-xs gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Link a price post
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mb-2.5">
+                  The same item posted elsewhere - every link shows on both posts.
+                </p>
+
+                {showLinkPicker && currentUserId && (
+                  <div className="mb-3 rounded-lg border border-border bg-accent/30 p-2.5 space-y-2" data-testid="detail-link-picker">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        data-testid="detail-link-search"
+                        value={linkSearch}
+                        onChange={(e) => setLinkSearch(e.target.value)}
+                        placeholder="Search the item to link..."
+                        className="pl-8 h-8 text-xs bg-card"
+                      />
+                    </div>
+                    {linkSearching && (
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Searching the feed...
+                      </p>
+                    )}
+                    {!linkSearching && linkSearch.trim().length >= 2 && linkCandidates.length === 0 && (
+                      <p className="text-[11px] text-muted-foreground">{`No other price post matches "${linkSearch.trim()}".`}</p>
+                    )}
+                    {linkSearch.trim().length < 2 && (
+                      <p className="text-[11px] text-muted-foreground">Type at least 2 letters to search the whole feed for the item to link.</p>
+                    )}
+                    <div className="space-y-1.5 max-h-44 overflow-y-auto scrollbar-thin">
+                      {linkCandidates.slice(0, 6).map((c) => (
+                        <div key={c.id} data-testid="detail-link-cand" className="flex items-center justify-between gap-2 bg-card border border-border rounded-md px-2.5 py-1.5">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-foreground truncate">{c.productName}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {[c.city, c.country].filter(Boolean).join(', ')} · {c.currency} {c.priceMin}{c.priceMin !== c.priceMax ? `-${c.priceMax}` : ''}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            data-testid="detail-link-add"
+                            disabled={linkBusyId === c.id}
+                            onClick={() => void handleAddLink(c.id)}
+                            className="h-6 px-2 text-[11px] bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 gap-1"
+                          >
+                            {linkBusyId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+                            Link
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {links.length === 0 ? (
+                  <p className="text-xs text-muted-foreground" data-testid="detail-links-empty">
+                    {currentUserId
+                      ? 'No linked price posts yet - search above and link the same item elsewhere.'
+                      : 'No linked price posts yet.'}
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {links.map((l) => (
+                      <div
+                        key={l.linkId}
+                        data-testid="detail-link-row"
+                        className="flex items-center justify-between gap-2 bg-card border border-border rounded-md px-2.5 py-1.5"
+                      >
+                        <button
+                          className="flex items-center gap-2 min-w-0 text-left flex-1 hover:opacity-80"
+                          onClick={() => onOpenPost?.(l.post.id)}
+                          title="Open this linked price post"
+                          data-testid="detail-link-open"
+                        >
+                          {l.post.imageUrl && (
+                            <img src={l.post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block text-xs font-medium text-foreground truncate">{l.post.productName}</span>
+                            <span className="block text-[10px] text-muted-foreground truncate">
+                              {[l.post.city, l.post.country].filter(Boolean).join(', ')}
+                            </span>
+                          </span>
+                        </button>
+                        <span className="text-xs font-bold text-emerald-700 shrink-0">
+                          {l.post.currency} {l.post.priceMin}{l.post.priceMin !== l.post.priceMax ? `-${l.post.priceMax}` : ''}
+                        </span>
+                        {l.canRemove && (
+                          <button
+                            data-testid="detail-link-remove"
+                            onClick={() => void handleRemoveLink(l.post.id)}
+                            disabled={linkBusyId === l.post.id}
+                            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-50"
+                            aria-label="Remove this link"
+                            title="Remove this link"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

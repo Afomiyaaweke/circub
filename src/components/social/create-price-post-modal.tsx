@@ -77,6 +77,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   // a "Shop owner" badge on the published post - travelers know the price
   // comes first-hand from the business itself.
   const [ownsShop, setOwnsShop] = useState(false)
+  // "Make it story while posting a new price": ON by default - publishing
+  // also shares the price as a 24h story banner in the feed's stories strip.
+  const [alsoStory, setAlsoStory] = useState(true)
   const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -119,6 +122,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setPersonalPrice('')
     setLocalTip('')
     setOwnsShop(false)
+    setAlsoStory(true)
     setCategory('Other')
     setImageUrl('')
     setCompareResult(null)
@@ -234,6 +238,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           contactEmail,
           contactWhatsApp,
           ownsShop,
+          alsoStory,
           category,
           imageUrl,
         }),
@@ -242,9 +247,17 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
         const e = await res.json()
         throw new Error(e.error || 'Failed to save')
       }
+      const data = await res.json().catch(() => ({ story: null }))
+      if (data?.story) {
+        // Tell the stories strip on the feed to refetch - the new banner
+        // appears without a reload.
+        try { window.dispatchEvent(new Event('circub:stories-changed')) } catch {}
+      }
       toast({
         title: 'Price guide published!',
-        description: `${productName} is now visible to travelers worldwide.`,
+        description: data?.story
+          ? `${productName} is live - and shared as a 24h story banner.`
+          : `${productName} is now visible to travelers worldwide.`,
       })
       reset()
       onOpenChange(false)
@@ -610,6 +623,25 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
               photo - lets the user price the product against the feed
               BEFORE publishing. */}
           {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
+
+          {/* Share as story - ON by default: the new price goes out as a
+              24h story banner the whole feed sees in its stories strip. */}
+          <label
+            data-testid="also-story-row"
+            className="mt-6 flex items-start gap-2.5 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 cursor-pointer select-none"
+          >
+            <input
+              type="checkbox"
+              checked={alsoStory}
+              onChange={(e) => setAlsoStory(e.target.checked)}
+              className="mt-0.5 accent-primary w-4 h-4"
+              data-testid="also-story-checkbox"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-foreground">Also share as a 24h story banner</span>
+              <span className="block text-[11px] text-muted-foreground mt-0.5">Your price appears in the stories strip at the top of the feed for 24 hours - like a banner shared with everyone.</span>
+            </span>
+          </label>
         </div>
 
         {/* Footer - pinned to the bottom of the sheet while scrolling */}

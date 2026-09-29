@@ -173,6 +173,10 @@ export interface LocalPricePost {
   helpfulCount: number
   notAccurateCount: number
   myVote?: 'HELPFUL' | 'NOT_ACCURATE' | null
+  // Symmetric links to other price posts for the same item elsewhere
+  // (count shown as the "N links" chip on the card, managed in the detail
+  // modal).
+  linksCount?: number
   createdAt: string
 }
 
@@ -215,6 +219,39 @@ export interface PriceHistoryPoint {
   recommendedPrice: number | null
   sampleCount: number
   date?: string
+}
+
+// A story shared from a price post (24h banner in the feed strip).
+export interface PriceStoryPost {
+  id: string
+  productName: string
+  category?: string
+  currency: string
+  priceMin: number
+  priceMax: number
+  city?: string | null
+  country?: string | null
+  imageUrl?: string | null
+}
+
+export interface PriceStory {
+  id: string
+  imageUrl?: string | null // null on imageless price stories -> banner render
+  caption?: string | null
+  authorId: string
+  author?: {
+    id: string
+    name: string
+    avatarColor: string
+    profilePicture?: string | null
+    verifiedLocal?: boolean
+    isLocal?: boolean
+    idVerified?: boolean
+  } | null
+  pricePostId?: string | null
+  pricePost?: PriceStoryPost | null
+  createdAt: string
+  expiresAt: string
 }
 
 export interface LocalPriceHistory {

@@ -253,3 +253,12 @@
     filter: brightness(0.95);
   }
 }
+
+/* Story viewer progress - the active segment fills over the 6s auto-advance */
+@keyframes storyProgress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+.story-progress {
+  animation: storyProgress 6s linear forwards;
+}

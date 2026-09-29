@@ -61,8 +61,11 @@ interface MyProduct {
   imageUrl?: string | null; description?: string | null; createdAt: string
 }
 interface MyStory {
-  id: string; imageUrl: string; caption?: string | null
+  // Price stories (auto-shared when a price post is published) may have no
+  // photo - the ring/viewer render a price banner for those.
+  id: string; imageUrl?: string | null; caption?: string | null
   author?: { id: string; name: string; profilePicture?: string | null; avatarColor?: string }
+  pricePost?: { id: string; productName: string; currency: string; priceMin: number; priceMax: number } | null
   createdAt: string; expiresAt: string
 }
 
@@ -1047,9 +1050,11 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <button onClick={pickStoryImage} className="shrink-0 flex flex-col items-center gap-1 w-16" aria-label="Add to your story">
             <div className="relative w-14 h-14 rounded-full border border-border flex items-center justify-center bg-accent/40">
               <Plus className="w-5 h-5 text-primary" />
-              {stories.length > 0 && (
-                <img src={stories[stories.length - 1].imageUrl} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
-              )}
+              {stories.length > 0 && (stories[stories.length - 1].imageUrl ? (
+                <img src={stories[stories.length - 1].imageUrl!} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
+              ) : (
+                <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 opacity-60" />
+              ))}
             </div>
             <span className="text-[10px] text-muted-foreground">Your story</span>
           </button>
@@ -1057,7 +1062,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <button key={s.id} onClick={() => setViewerIndex(i)} className="shrink-0 flex flex-col items-center gap-1 w-16" aria-label={`Open story from ${timeAgo(s.createdAt)}`}>
               <div className="rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2.5px] w-14 h-14">
                 <div className="rounded-full bg-background p-[1.5px] w-full h-full">
-                  <img src={s.imageUrl} alt="Your story" className="w-full h-full rounded-full object-cover" loading="lazy" />
+                  {s.imageUrl ? (
+                    <img src={s.imageUrl} alt="Your story" className="w-full h-full rounded-full object-cover" loading="lazy" />
+                  ) : (
+                    <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 flex items-center justify-center text-[7px] font-bold text-primary leading-none text-center px-0.5">
+                      {s.pricePost ? `${s.pricePost.currency} ${s.pricePost.priceMin}` : 'Price'}
+                    </span>
+                  )}
                 </div>
               </div>
               <span className="text-[10px] text-muted-foreground">{timeAgo(s.createdAt).replace(' ago', '')}</span>
@@ -1194,8 +1205,22 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   </button>
                 </div>
               </div>
-              {/* image */}
-              <img src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
+              {/* image (photo stories) or price banner (imageless price stories) */}
+              {stories[viewerIndex].imageUrl ? (
+                <img src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
+              ) : (
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-2">
+                  {stories[viewerIndex].pricePost && (
+                    <>
+                      <span className="text-3xl font-black text-white drop-shadow">
+                        {stories[viewerIndex].pricePost.currency} {stories[viewerIndex].pricePost.priceMin}{stories[viewerIndex].pricePost.priceMin !== stories[viewerIndex].pricePost.priceMax ? `-${stories[viewerIndex].pricePost.priceMax}` : ''}
+                      </span>
+                      <span className="text-base font-semibold text-white/95 drop-shadow">{stories[viewerIndex].pricePost.productName}</span>
+                    </>
+                  )}
+                  <span className="text-[9px] uppercase tracking-widest text-white/60 mt-2">circub price story</span>
+                </div>
+              )}
               {/* caption */}
               {stories[viewerIndex].caption && (
                 <div className="absolute bottom-6 inset-x-4 z-20 text-center">

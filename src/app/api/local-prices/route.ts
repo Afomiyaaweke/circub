@@ -41,10 +41,13 @@ export async function GET(req: NextRequest) {
     if (sort === 'popular') orderBy = { helpfulCount: 'desc' }
     let me: any = null
     try { const s = await getCurrentUser(); if (s) me = await db.user.findUnique({ where: { id: s.id }, include: { localPriceVotes: true } }) } catch {}
-    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true }, take: 100 })
+    // _count.linksA/linksB -> the "N links" chip on each card (symmetric
+    // PricePostLink rows; every link touches exactly one of the two sides).
+    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: 100 })
     const result = posts.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
-      return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote }
+      const { linksA, linksB } = (p as any)._count || { linksA: 0, linksB: 0 }
+      return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote, linksCount: (linksA || 0) + (linksB || 0) }
     })
     return NextResponse.json({ posts: result }, { headers: cacheHeaders() })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
@@ -95,6 +98,30 @@ export async function POST(req: NextRequest) {
       include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } } },
     })
     await db.user.update({ where: { id: me.id }, data: updates })
-    return NextResponse.json({ post }, { status: 201 })
+    // "Make it story while posting a new price": the composer sends
+    // alsoStory (default true) and the new price is IMMEDIATELY shared as a
+    // 24-hour story banner - the whole feed sees it in the stories strip.
+    // Best-effort: a story failure never blocks the price post itself.
+    let story: Record<string, unknown> | null = null
+    if (body.alsoStory === true) {
+      try {
+        const now = new Date()
+        const dupe = await db.story.findUnique({ where: { pricePostId: post.id } })
+        if (!dupe) {
+          const priceBit = `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? '-' + post.priceMax : ''}`
+          story = await db.story.create({
+            data: {
+              imageUrl: post.imageUrl,
+              caption: `${post.productName} · ${priceBit}`.slice(0, 300),
+              authorId: me.id,
+              pricePostId: post.id,
+              createdAt: now,
+              expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+            },
+          })
+        }
+      } catch { /* story is additive - never blocks the post */ }
+    }
+    return NextResponse.json({ post, story }, { status: 201 })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

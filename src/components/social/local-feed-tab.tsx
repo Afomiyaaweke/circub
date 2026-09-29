@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
+import { PriceStoriesStrip } from './price-stories-strip'
 import { CreatePricePostModal } from './create-price-post-modal'
 import { CATEGORIES, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 import { EditPricePostModal } from './edit-price-post-modal'
@@ -130,6 +131,15 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   useEffect(() => {
     const t = setTimeout(fetchPosts, 250)
     return () => clearTimeout(t)
+  }, [fetchPosts])
+
+  // Link management inside the detail modal dispatches 'circub:feed-changed'
+  // - the feed refetches so the "N links" chip on every card stays true
+  // without a manual reload.
+  useEffect(() => {
+    const onFeedChanged = () => fetchPosts()
+    window.addEventListener('circub:feed-changed', onFeedChanged)
+    return () => window.removeEventListener('circub:feed-changed', onFeedChanged)
   }, [fetchPosts])
 
   // "item, location" comma parsing - the location part after the comma
@@ -400,6 +410,11 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           </Button>
         </div>
       </Card>
+
+      {/* Price stories - every newly posted price is shared as a 24h story
+          banner here (the composer creates it on publish). Hidden entirely
+          while nothing is live. */}
+      <PriceStoriesStrip onOpenPost={setDetailPostId} />
 
       <div className="flex items-center gap-2 flex-wrap">
         {/* Unified search bar - the country/city/category filters live INSIDE
@@ -779,7 +794,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
 
       <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={() => { setPostPrefill(null); handleCreated() }} prefill={postPrefill} />
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
-      <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} />
+      <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} onOpenPost={setDetailPostId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} onMessage={onMessage} currentUserId={currentUserId} />
     </div>
   )
