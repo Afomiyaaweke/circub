@@ -132,6 +132,10 @@ export function Header({
   }, [])
 
   const isCompany = user?.accountType === 'COMPANY'
+  // The demo viewer (id === 'guest', the old guest mode) has no account -
+  // "Deactivate account" would 401-storm against the auth APIs, so the menu
+  // omits it. "Sign out" stays: for the demo it simply ends the demo and
+  // returns to the landing page.
 
   return (
     <>
@@ -303,16 +307,18 @@ export function Header({
                   {t('header.terms')}
                 </a>
                 <div className="border-t border-border my-1" />
-                <button
-                  onClick={() => {
-                    setMenuOpen(false)
-                    onDeactivateAccount()
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
-                >
-                  <UserX className="w-4 h-4" />
-                  {t('header.deactivate')}
-                </button>
+                {user.id !== 'guest' && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onDeactivateAccount()
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2"
+                  >
+                    <UserX className="w-4 h-4" />
+                    {t('header.deactivate')}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setMenuOpen(false)

@@ -145,7 +145,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground">Sign up to post</p>
-            <p className="text-xs text-muted-foreground">Guests can browse everything · posting needs a free account. It takes 10 seconds.</p>
+            <p className="text-xs text-muted-foreground">Demo view is read-only &middot; posting needs a free account. It takes 10 seconds.</p>
           </div>
           <Button
             size="sm"

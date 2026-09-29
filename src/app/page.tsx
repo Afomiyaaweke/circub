@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage } from '@/components/social/landing-page'
+import { DemoBanner } from '@/components/social/demo-banner'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 import { rememberPosition, recallPosition, type ProfileSection } from '@/lib/last-position'
@@ -355,20 +356,21 @@ function HomeInner() {
         <LandingPage
           onSignUp={() => setRegisterOpen(true)}
           onLogin={() => setLoginOpen(true)}
-          onContinueAsGuest={() => {
-            // Set a guest user object so the full dashboard renders.
-            // Guest users can see ALL tabs and browse everything, but
-            // posting prices, voting, messaging, and editing profile
-            // will prompt them to register.
+          onViewDemo={() => {
+            // Set a demo user object so the full dashboard renders.
+            // Demo mode is VIEW ONLY: the demo user can see ALL tabs and
+            // browse everything, but posting prices, voting, messaging,
+            // and editing profile all prompt them to sign up. The demo
+            // banner (below) labels the mode and offers Sign up / Exit.
             try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
             setMe({
               id: 'guest',
-              name: 'Guest',
+              name: 'Demo',
               email: '',
               avatarColor: 'teal',
               profilePicture: null,
               bio: null,
-              headline: 'Guest user - sign up to post',
+              headline: 'Demo view - sign up to interact',
               location: null,
               accountType: 'PERSONAL',
               companyName: null,
@@ -386,8 +388,8 @@ function HomeInner() {
               guideAvailable: false,
             } as any)
             toast({
-              title: 'Browsing as guest',
-              description: 'Explore prices, scan products, and browse the feed. Sign up free to post prices or vote.',
+              title: 'Demo view',
+              description: 'You are browsing a read-only demo. Sign up free to post prices, vote, and message.',
             })
           }}
         />
@@ -414,6 +416,18 @@ function HomeInner() {
   // Logged-in → dashboard
   return (
     <div className="min-h-screen flex flex-col bg-background pb-[46px] md:pb-0">
+      {/* Demo mode (me.id === 'guest'): the persistent read-only banner.
+          Rendered above the header so it is the first thing on screen;
+          Exit drops back to the landing page, Sign up opens registration. */}
+      {me.id === 'guest' && (
+        <DemoBanner
+          onSignUp={() => setRegisterOpen(true)}
+          onExit={() => {
+            setMe(null)
+            toast({ title: 'Demo ended', description: 'Sign up free any time to post prices, vote, and message locals.' })
+          }}
+        />
+      )}
       <Header
         activeTab={activeTab}
         onTabChange={handleTabChange}

@@ -10,7 +10,7 @@ import { useLanguage } from '@/lib/i18n'
 interface LandingPageProps {
   onSignUp: () => void
   onLogin: () => void
-  onContinueAsGuest?: () => void
+  onViewDemo?: () => void
 }
 
 /**
@@ -29,13 +29,14 @@ interface LandingPageProps {
  *   Get the mobile app    PWA install (Android/Chrome one-tap dialog,
  *                         iOS step-by-step Add-to-Home-Screen; hides itself
  *                         once the app already runs installed/standalone)
- *   Continue as guest     browse everything, post/vote prompts sign-up
+ *   View demo             read-only demo view: browse everything, every
+ *                         action (post/vote/message) prompts sign-up
  *
  * Everything fits a single viewport on modern phones (brand row is inline
  * to keep vertical budget tight) and the theme toggle plus the legal/version
  * footer round out the corners.
  */
-export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, onViewDemo }: LandingPageProps) {
   const { t } = useLanguage()
   return (
     <div
@@ -112,13 +113,13 @@ export function LandingPage({ onSignUp, onLogin, onContinueAsGuest }: LandingPag
             <PwaInstallButton className="h-10 w-full text-sm" />
           </div>
 
-          {onContinueAsGuest && (
+          {onViewDemo && (
             <button
-              data-testid="landing-guest"
-              onClick={onContinueAsGuest}
+              data-testid="landing-demo"
+              onClick={onViewDemo}
               className="mt-1 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
             >
-              {t('landing.guest')}
+              {t('landing.demo')}
             </button>
           )}
         </div>
