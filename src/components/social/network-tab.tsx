@@ -468,6 +468,137 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
             className="bg-card"
           />
         </div>
+
+        {/* Following & Followers (v101 merge) - the one-way links are
+            managed in this same card: follow/unfollow toggle and the block
+            control on every row. Counts live once, in the pills above -
+            no duplicated card header or repeated count line. */}
+        <div className="mt-5 pt-5 border-t border-border/50" data-testid="follows-card">
+          {loading ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Loading your network links...
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Following */}
+              <div data-testid="following-list">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  Following
+                </p>
+                {following.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3" data-testid="following-empty">
+                    You aren&apos;t following anyone yet - follow people from the
+                    suggestions below.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {following.map((u) => (
+                      <div
+                        key={u.id}
+                        data-testid="net-user-row"
+                        data-user-id={u.id}
+                        className="flex items-center gap-2.5"
+                      >
+                        <Avatar className="w-9 h-9 border border-accent shrink-0">
+                          <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
+                            {u.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {u.name}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {u.headline || u.location || `${u.followersCount ?? 0} followers`}
+                          </p>
+                        </div>
+                        <button
+                          data-testid="net-follow-btn"
+                          data-user-id={u.id}
+                          data-state={followBusy === u.id ? 'busy' : 'following'}
+                          onClick={() => handleFollow(u.id, u.name, true, fetchAll)}
+                          disabled={followBusy === u.id}
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0',
+                            'bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive'
+                          )}
+                          title={`Unfollow ${u.name}`}
+                        >
+                          {followBusy === u.id ? '...' : 'Following'}
+                        </button>
+                        <BlockControl userId={u.id} name={u.name} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Followers */}
+              <div data-testid="followers-list">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  Followers
+                </p>
+                {followers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3" data-testid="followers-empty">
+                    No followers yet - share your profile so people can follow you.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {followers.map((u) => (
+                      <div
+                        key={u.id}
+                        data-testid="net-user-row"
+                        data-user-id={u.id}
+                        className="flex items-center gap-2.5"
+                      >
+                        <Avatar className="w-9 h-9 border border-accent shrink-0">
+                          <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
+                            {u.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {u.name}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {u.headline || u.location || `${u.followersCount ?? 0} followers`}
+                          </p>
+                        </div>
+                        <button
+                          data-testid="net-follow-btn"
+                          data-user-id={u.id}
+                          data-state={
+                            followBusy === u.id
+                              ? 'busy'
+                              : u.isFollowing
+                                ? 'following'
+                                : 'follow'
+                          }
+                          onClick={() => handleFollow(u.id, u.name, u.isFollowing, fetchAll)}
+                          disabled={followBusy === u.id}
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0',
+                            u.isFollowing
+                              ? 'bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive'
+                              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                          )}
+                          title={u.isFollowing ? `Unfollow ${u.name}` : `Follow back ${u.name}`}
+                        >
+                          {followBusy === u.id
+                            ? '...'
+                            : u.isFollowing
+                              ? 'Following'
+                              : 'Follow back'}
+                        </button>
+                        <BlockControl userId={u.id} name={u.name} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Invitations (incoming) */}
@@ -476,9 +607,6 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <Mail className="w-4 h-4 text-primary" />
             Invitations
-            <span className="ml-1 text-xs text-muted-foreground">
-              ({invitations.length})
-            </span>
           </h3>
           <div className="space-y-3">
             {invitations.map((inv) => (
@@ -550,146 +678,6 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
         </Card>
       )}
 
-      {/* Followers & following (v100) - the one-way links, with the toggle
-          between follow / unfollow and the block control on every row. */}
-      <Card className="p-5 shadow-sm" data-testid="follows-card">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-primary" />
-            Followers &amp; following
-          </h3>
-          <span className="text-xs text-muted-foreground">
-            {followStats.followersCount} follower
-            {followStats.followersCount !== 1 && 's'} ·{' '}
-            {followStats.followingCount} following
-          </span>
-        </div>
-
-        {loading ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            Loading your network links...
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Following */}
-            <div data-testid="following-list">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Following ({following.length})
-              </p>
-              {following.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-3" data-testid="following-empty">
-                  You aren&apos;t following anyone yet - follow people from the
-                  suggestions below.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {following.map((u) => (
-                    <div
-                      key={u.id}
-                      data-testid="net-user-row"
-                      data-user-id={u.id}
-                      className="flex items-center gap-2.5"
-                    >
-                      <Avatar className="w-9 h-9 border border-accent shrink-0">
-                        <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
-                          {u.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {u.name}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {u.headline || u.location || `${u.followersCount ?? 0} followers`}
-                        </p>
-                      </div>
-                      <button
-                        data-testid="net-follow-btn"
-                        data-user-id={u.id}
-                        data-state={followBusy === u.id ? 'busy' : 'following'}
-                        onClick={() => handleFollow(u.id, u.name, true, fetchAll)}
-                        disabled={followBusy === u.id}
-                        className={cn(
-                          'px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0',
-                          'bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive'
-                        )}
-                        title={`Unfollow ${u.name}`}
-                      >
-                        {followBusy === u.id ? '...' : 'Following'}
-                      </button>
-                      <BlockControl userId={u.id} name={u.name} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Followers */}
-            <div data-testid="followers-list">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Followers ({followers.length})
-              </p>
-              {followers.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-3" data-testid="followers-empty">
-                  No followers yet - share your profile so people can follow you.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {followers.map((u) => (
-                    <div
-                      key={u.id}
-                      data-testid="net-user-row"
-                      data-user-id={u.id}
-                      className="flex items-center gap-2.5"
-                    >
-                      <Avatar className="w-9 h-9 border border-accent shrink-0">
-                        <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
-                          {u.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {u.name}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {u.headline || u.location || `${u.followersCount ?? 0} followers`}
-                        </p>
-                      </div>
-                      <button
-                        data-testid="net-follow-btn"
-                        data-user-id={u.id}
-                        data-state={
-                          followBusy === u.id
-                            ? 'busy'
-                            : u.isFollowing
-                              ? 'following'
-                              : 'follow'
-                        }
-                        onClick={() => handleFollow(u.id, u.name, u.isFollowing, fetchAll)}
-                        disabled={followBusy === u.id}
-                        className={cn(
-                          'px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0',
-                          u.isFollowing
-                            ? 'bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                        )}
-                        title={u.isFollowing ? `Unfollow ${u.name}` : `Follow back ${u.name}`}
-                      >
-                        {followBusy === u.id
-                          ? '...'
-                          : u.isFollowing
-                            ? 'Following'
-                            : 'Follow back'}
-                      </button>
-                      <BlockControl userId={u.id} name={u.name} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </Card>
 
       {/* Grow your network · People you may know */}
       <Card className="p-5 shadow-sm">
