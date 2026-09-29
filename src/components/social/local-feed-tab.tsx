@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, BarChart3, PenLine, Navigation, Calculator, Minus, Store } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, BarChart3, PenLine } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,18 +14,15 @@ import { CATEGORIES, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose }
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
-import { BudgetResultView, BUDGET_SOURCE_META } from '@/components/scanner/budget-result'
 import { MarketGraphPanel } from '@/components/scanner/market-graph'
 import { CompassPriceTools } from './compass-price-tools'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/lib/i18n'
 import { authFetch } from '@/lib/auth-fetch'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
-import { formatPrice } from '@/lib/location'
-import { CURRENCY_CHOICES } from '@/lib/currency-choices'
 import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
-import type { BudgetResponse, LocalPricePost } from '@/lib/types'
+import type { LocalPricePost } from '@/lib/types'
 
 // Camera scan + camera search are LIVE - clicking either entry point opens the
 // camera/search flow (AI identifies the item, then compares the AI price
@@ -75,17 +72,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // (device GPS with IP fallback) and reused for every subsequent search.
   const [userLocation, setUserLocation] = useState<ResolvedLocation | null>(null)
   const locationPromiseRef = useRef<Promise<ResolvedLocation | null> | null>(null)
-  // Camera-search option panel + custom compare location. "Compare by
-  // location" lets the user pick WHERE to compare prices (defaults to the
-  // auto-detected current location) and WHICH product to compare - typed
-  // straight into the panel (the old separate "Search by name first"
-  // section was folded into this panel).
-  const [pickCountry, setPickCountry] = useState('')
-  const [pickCity, setPickCity] = useState('')
-  // One or MORE places the user picked for the price compare - "add two or
-  // more locations". `place` is the display label; the FIRST pick is the
-  // primary location sent to the search API, the rest are matched client-side
-  // (badges + per-place summary lines in the results panel).
+  // Custom compare places for the camera-search results panel (badges +
+  // per-place summary lines). The pickers that filled this list used to sit
+  // in the market graph's compare section - removed in v97 - so it stays
+  // empty unless a future flow fills it again.
   const [customLocations, setCustomLocations] = useState<Array<{ city: string | null; country: string | null; countryCode?: string | null; place: string }>>([])
   // When set, the results panel's match cards are filtered to one location
   // group from the "Compare by location" breakdown (key: city|country|currency).
@@ -295,70 +285,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     } finally { setSearchingByImage(false) }
   }
 
-  // "Compare prices by location" panel - the product the user wants to
-  // compare, typed into the panel (absorbs the removed "Search by name
-  // first" section).
-  const [compareProduct, setCompareProduct] = useState('')
-
-  // "Plan my budget" panel - a DIRECT budget entry point on the camera
-  // search: type what you want to buy and get the set-aside answer for your
-  // location WITHOUT needing a successful scan first (the scan can be slow
-  // or fail, the budget should not depend on it). Uses the same /api/budget
-  // endpoint as the scan-result planner.
-  const [budgetItems, setBudgetItems] = useState<Array<{ name: string; qty: number }>>([{ name: '', qty: 1 }])
-  const [budgetCurrency, setBudgetCurrency] = useState('')
-  const [budgetHave, setBudgetHave] = useState('')
-  const [budgetCity, setBudgetCity] = useState('')
-  const [budgetCountry, setBudgetCountry] = useState('')
-  const [budgetLoading, setBudgetLoading] = useState(false)
-  const [budgetResult, setBudgetResult] = useState<BudgetResponse | null>(null)
-  const [budgetError, setBudgetError] = useState<string | null>(null)
-
-  // Text mode price comparison - same location-ranked compare as the camera
-  // search, but the product name is TYPED (compare panel) instead of
-  // photographed. Used by the "Add product to compare" action.
-  const handleTextSearch = async (query: string) => {
-    const q = query.trim()
-    if (!q) return
-    setSearchingByImage(true)
-    try {
-      const loc = await locationForSearch()
-      const formData = new FormData()
-      formData.append('query', q)
-      if (loc) formData.append('location', JSON.stringify(loc))
-      const res = await fetch('/api/visual-search', { method: 'POST', body: formData })
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Search failed') }
-      searchFileRef.current = null
-      const data = await res.json()
-      const term: string = (data.searchTerm || q).trim()
-      const localMatches = Array.isArray(data.localMatches) ? data.localMatches : []
-      setSearch(term)
-      setSearchRaw(term)
-      setSearchImage(null)
-      setLocFilter(null)
-      setSearchResults({
-        aiDescription: data.aiDescription || '',
-        aiPriceEstimate: data.aiPriceEstimate || null,
-        localMatches,
-        keywords: term,
-        imageUrl: '',
-        locationCompare: data.locationCompare || null,
-        location: data.location || null,
-      })
-      const nearCount = (data.locationCompare?.count as number) || 0
-      toast({
-        title: localMatches.length > 0 ? `Found ${localMatches.length} local price${localMatches.length !== 1 ? 's' : ''} for "${term}"` : `No local prices for "${term}" yet`,
-        description: localMatches.length > 0
-          ? nearCount > 0
-            ? `${data.locationCompare.currency} ${data.locationCompare.min}-${data.locationCompare.max} · ${nearCount} near ${data.locationCompare.place}`
-            : 'See the results panel - grouped by location'
-          : 'Try "Compare by location" for another city, or post the first price.',
-      })
-    } catch (e) {
-      toast({ title: 'Search failed', description: (e as Error).message, variant: 'destructive' })
-    } finally { setSearchingByImage(false) }
-  }
-
   // Kick off location resolution on the FIRST user gesture (camera-search
   // click) - browsers only allow the geolocation prompt from a gesture, and
   // by the time the user has picked/captured a photo it has usually resolved.
@@ -382,85 +308,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     searchFileRef.current = null
   }
 
-  // Where the budget is calculated for: typed place wins, then the resolved
-  // user location, then null (the API falls back to a sensible default).
-  const budgetLocation = (): { city: string | null; country: string | null; countryCode: string | null; region?: string | null } | null => {
-    const c = budgetCity.trim()
-    if (c || budgetCountry) {
-      return { city: c || null, country: budgetCountry || c || null, countryCode: null }
-    }
-    if (userLocation) {
-      return { city: userLocation.city, country: userLocation.country, countryCode: userLocation.countryCode, region: userLocation.region }
-    }
-    return null
-  }
-
-  const budgetPlaceLabel = (): string => {
-    const loc = budgetLocation()
-    if (!loc) return 'your area'
-    return loc.city ? `${loc.city}${loc.country ? ', ' + loc.country : ''}` : loc.country || 'your area'
-  }
-
-  const runBudgetCalc = async () => {
-    const items = budgetItems.map((it) => ({ name: it.name.trim(), quantity: it.qty })).filter((it) => it.name)
-    if (items.length === 0) {
-      setBudgetError('Type what you want to buy first.')
-      return
-    }
-    setBudgetError(null)
-    const trimmed = budgetHave.trim()
-    const availableNum = trimmed === '' ? null : Number(trimmed)
-    if (availableNum !== null && (!Number.isFinite(availableNum) || availableNum < 0)) {
-      setBudgetError('Enter the money you have as a plain number, or leave it empty.')
-      return
-    }
-    setBudgetLoading(true)
-    try {
-      const res = await fetch('/api/budget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items,
-          location: budgetLocation(),
-          currency: budgetCurrency || null,
-          availableBudget: availableNum,
-          aiHint: null,
-        }),
-        signal: AbortSignal.timeout(55_000),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || `Budget failed (${res.status})`)
-      setBudgetResult(data as BudgetResponse)
-    } catch (e) {
-      setBudgetError(e instanceof Error ? e.message : 'Could not calculate the budget. Try again.')
-    } finally {
-      setBudgetLoading(false)
-    }
-  }
-
   // Market graph (shared by the desktop labeled button and the compact
-  // phone icon inside the search bar) - the scan experience is COMPLETELY
-  // graph-based now: prices by item at a place, prices by place for an
-  // item, all from real posts. Starts resolving the location on open so
-  // the first graph is already the user's own market.
+  // phone icon inside the search bar) - v97: the graph's content IS the
+  // Know-the-price-before-you-go compass card; everything else that used
+  // to sit on it is gone.
   const openMarket = () => {
     setMarketOpen(true)
     kickLocation()
-  }
-
-  // Add the currently typed place to the multi-location compare list.
-  const addPlace = () => {
-    const city = pickCity.trim() || null
-    const country = pickCountry || city
-    const place = [city, pickCountry].filter(Boolean).join(', ')
-    if (!place) return
-    if (customLocations.some((p) => p.place.toLowerCase() === place.toLowerCase())) {
-      toast({ title: 'Already added', description: `${place} is already in your compare list.` })
-      return
-    }
-    setCustomLocations([...customLocations, { city, country, countryCode: null, place }])
-    setPickCity('')
-    toast({ title: `${place} added`, description: 'Add another place to compare side by side, or close and run a search.' })
   }
 
   // "Post this product" - turn the camera-search result into a price post.
@@ -529,254 +383,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       toast({ title: 'Vote failed', description: (e as Error).message, variant: 'destructive' })
     }
   }
-
-  // v95: the camera-search tools live ON the market graph - these two
-  // sections render INSIDE the MarketGraphPanel while it is open.
-  // "Compare by location" - ON the market graph (v95): pick WHERE to
-  // compare prices (defaults to the auto-detected current location) and
-  // WHICH product to compare, then see the result right in the panel.
-  // The old camera-search menu entry is gone.
-  const compareSection = (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-2.5" data-testid="market-compare-section">
-          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-emerald-600" /> Compare prices by location</p>
-            {/* The product to compare - typed here and added to the
-                comparison with the button below. Adding a product here
-                means ADD IT TO THE COMPARE - it never opens the post
-                form; posting stays with "Post Price" and the results
-                panel's "Post this product". */}
-            <form
-              onSubmit={(e) => { e.preventDefault(); void handleTextSearch(compareProduct) }}
-              className="flex items-center gap-2"
-            >
-              <Input value={compareProduct} onChange={(e) => setCompareProduct(e.target.value)} placeholder="Product to compare (e.g. coffee beans)..." className="flex-1 h-9 bg-card text-sm" />
-              <Button type="submit" size="sm" disabled={searchingByImage || !compareProduct.trim()} className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-9 shrink-0" title="Add this product to the comparison - shows its prices in the picked places">
-                {searchingByImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Add product to compare
-              </Button>
-            </form>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                type="button"
-                size="sm"
-                variant={customLocations.length ? 'outline' : 'default'}
-                onClick={() => { setCustomLocations([]); setPickCountry(''); setPickCity(''); kickLocation() }}
-                className="gap-1.5 h-9 shrink-0"
-              >
-                <Navigation className="w-3.5 h-3.5" /> My location
-              </Button>
-              <Select value={pickCountry || 'any'} onValueChange={(v) => setPickCountry(v === 'any' ? '' : v)}>
-                <SelectTrigger className="w-[160px] bg-card h-9 text-sm"><SelectValue placeholder="Any country" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any country</SelectItem>
-                  {filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Input value={pickCity} onChange={(e) => setPickCity(e.target.value)} placeholder="City (optional)" className="w-[150px] h-9 bg-card text-sm" />
-              <Button
-                type="button"
-                size="sm"
-                disabled={searchingByImage || (!pickCountry && !pickCity.trim())}
-                onClick={addPlace}
-                className="bg-emerald-600 hover:bg-emerald-700 h-9 shrink-0 gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add place
-              </Button>
-            </div>
-            {customLocations.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {customLocations.map((p, i) => (
-                  <span key={`${p.place}-${i}`} className="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-full border border-emerald-300 bg-emerald-50 text-xs text-emerald-800">
-                    <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                    {p.place}
-                    <button onClick={() => setCustomLocations(customLocations.filter((_, j) => j !== i))} className="p-0.5 rounded-full hover:bg-emerald-100 text-emerald-700" aria-label={`Remove ${p.place}`}><X className="w-3 h-3" /></button>
-                  </span>
-                ))}
-              </div>
-            )}
-            {/* Live per-place results - shown right in the panel so the
-                user sees the comparison WHILE comparing, not only after
-                closing the panel and hunting for the results card. Every
-                picked place gets its own price line. */}
-            {searchResults && customLocations.length > 0 && (() => {
-              const groups = groupMatchesByLocation(searchResults.localMatches)
-              const lines = customLocations.slice(0, 5).map((p) => {
-                const ms = groups.filter((g) => groupMatchesPick(g, p))
-                if (ms.length === 0) return { place: p.place, empty: true as const, currency: '', min: 0, max: 0, count: 0 }
-                return {
-                  place: p.place, empty: false as const,
-                  currency: ms[0].currency,
-                  min: Math.min(...ms.map((g) => g.min)),
-                  max: Math.max(...ms.map((g) => g.max)),
-                  count: ms.reduce((s, g) => s + g.count, 0),
-                }
-              })
-              return (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-1">
-                  <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
-                    <Search className="w-3 h-3 shrink-0" />
-                    {searchResults.keywords || compareProduct || 'Compare results'}
-                  </p>
-                  {lines.map((l) => (
-                    <p key={l.place} className="text-xs text-emerald-900 flex items-center gap-1.5 flex-wrap">
-                      <MapPin className="w-3 h-3 shrink-0 text-emerald-600" />
-                      <span className="font-semibold">{l.place}:</span>
-                      {l.empty
-                        ? <span className="text-muted-foreground">no local prices yet</span>
-                        : <span><span className="font-bold">{l.currency} {l.min}-{l.max}</span> · {l.count} price{l.count !== 1 ? 's' : ''}</span>}
-                    </p>
-                  ))}
-                  {searchResults.aiPriceEstimate && (
-                    <p className="text-[11px] text-amber-700">AI estimate: {searchResults.aiPriceEstimate.currency} {searchResults.aiPriceEstimate.min}-{searchResults.aiPriceEstimate.max}</p>
-                  )}
-                </div>
-              )
-            })()}
-            <p className="text-xs text-muted-foreground">Type the product, add one or more places, then use Add product to compare - the first place ranks the matches and every place gets its own price line in the results.</p>
-          </div>
-  )
-
-  // "Plan my budget" - ON the market graph (v95): type what you want to
-  // buy, optionally how many and the money you have, and get the set-aside
-  // answer for your location (typed place wins, else the auto-detected
-  // location) - no scan needed. Same result layout as the scan planner.
-  const budgetSection = (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-2.5" data-testid="budget-panel">
-          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5"><Calculator className="w-4 h-4 text-emerald-600" /> Plan my budget</p>
-            <form
-              onSubmit={(e) => { e.preventDefault(); void runBudgetCalc() }}
-              className="space-y-2"
-            >
-              {budgetItems.map((row, idx) => (
-                <div key={idx} className="flex items-center gap-2 flex-wrap">
-                  <Input
-                    value={row.name}
-                    onChange={(e) => setBudgetItems(budgetItems.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)))}
-                    placeholder={idx === 0 ? 'What do you want to buy? (e.g. coffee beans)...' : 'Another item to budget for...'}
-                    className="flex-1 min-w-[180px] h-9 bg-card text-sm"
-                    data-testid={idx === 0 ? 'budget-panel-item' : undefined}
-                  />
-                  <div className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-card p-1 shrink-0">
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Decrease quantity ${idx + 1}`} onClick={() => setBudgetItems(budgetItems.map((r, i) => (i === idx ? { ...r, qty: Math.max(1, r.qty - 1) } : r)))} disabled={row.qty <= 1 || budgetLoading}>
-                      <Minus className="h-3.5 w-3.5" />
-                    </Button>
-                    <span className="min-w-8 text-center text-sm font-semibold text-foreground" data-testid={idx === 0 ? 'budget-panel-qty' : undefined}>{row.qty}</span>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Increase quantity ${idx + 1}`} onClick={() => setBudgetItems(budgetItems.map((r, i) => (i === idx ? { ...r, qty: Math.min(99, r.qty + 1) } : r)))} disabled={row.qty >= 99 || budgetLoading}>
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  {idx > 0 && (
-                    <button type="button" onClick={() => setBudgetItems(budgetItems.filter((_, i) => i !== idx))} className="p-1 rounded hover:bg-accent text-muted-foreground shrink-0" aria-label={`Remove ${row.name || 'item'}`}>
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setBudgetItems([...budgetItems, { name: '', qty: 1 }])}
-                  disabled={budgetItems.length >= 8 || budgetLoading}
-                  className="gap-1.5 h-9 shrink-0"
-                  data-testid="budget-panel-add"
-                  title="Add up to 8 items to one combined budget"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add another item
-                </Button>
-                <Select value={budgetCurrency || 'auto'} onValueChange={(v) => setBudgetCurrency(v === 'auto' ? '' : v)}>
-                  <SelectTrigger className="w-[190px] bg-card h-9 text-sm" data-testid="budget-panel-currency"><SelectValue placeholder="Currency" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto - local currency</SelectItem>
-                    {CURRENCY_CHOICES.map((c) => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input value={budgetHave} onChange={(e) => setBudgetHave(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder={budgetResult ? `Money I have (${budgetResult.currency})` : 'Money I have (optional)'} className="h-9 w-44 bg-card text-sm shrink-0" data-testid="budget-panel-have" />
-                <Button type="submit" size="sm" disabled={budgetLoading || budgetItems.every((it) => !it.name.trim())} className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 h-9 shrink-0" data-testid="budget-panel-calc" title="Work out the budget for the whole list in the chosen location and currency">
-                  {budgetLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />} Calculate budget
-                </Button>
-              </div>
-            </form>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => { setBudgetCity(''); setBudgetCountry(''); kickLocation() }}
-                className="gap-1.5 h-9 shrink-0"
-                title="Use the auto-detected current location for the budget"
-              >
-                <Navigation className="w-3.5 h-3.5" /> My location
-              </Button>
-              <Select value={budgetCountry || 'any'} onValueChange={(v) => setBudgetCountry(v === 'any' ? '' : v)}>
-                <SelectTrigger className="w-[160px] bg-card h-9 text-sm"><SelectValue placeholder="Any country" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any country</SelectItem>
-                  {filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Input value={budgetCity} onChange={(e) => setBudgetCity(e.target.value)} placeholder="City (optional)" className="w-[150px] h-9 bg-card text-sm" data-testid="budget-panel-city" />
-              <span className="text-xs text-muted-foreground">Budget for: <span className="font-medium text-emerald-700" data-testid="budget-panel-place">{budgetPlaceLabel()}</span></span>
-            </div>
-
-            {budgetError && (
-              <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{budgetError}</p>
-            )}
-
-            {budgetLoading && !budgetResult && (
-              <p className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="budget-panel-loading">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
-                Working out your budget for {budgetPlaceLabel()}…
-              </p>
-            )}
-
-            {budgetResult && <BudgetResultView result={budgetResult} />}
-
-            {budgetResult?.lineItems && budgetResult.lineItems.length > 0 && (
-              <div className="space-y-1.5" data-testid="budget-line-items">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">Per item</p>
-                {budgetResult.lineItems.map((li, i) => {
-                  const sm = BUDGET_SOURCE_META[li.source]
-                  return (
-                    <div key={i} className="flex items-center justify-between gap-2 text-xs" data-testid="budget-line-item">
-                      <span className="min-w-0 flex-1 truncate text-zinc-600">
-                        {li.quantity === 1 ? li.name : `${li.quantity} × ${li.name}`}
-                        {li.error && <span className="text-rose-600"> - {li.error}</span>}
-                      </span>
-                      <span className="inline-flex items-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500 shrink-0">{sm.label}</span>
-                      <span className="shrink-0 font-semibold text-zinc-900">{li.error ? '-' : formatPrice(li.total.recommended, budgetResult.currency)}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {budgetResult?.places && budgetResult.places.length > 0 && (
-              <div className="space-y-2" data-testid="budget-places">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-700/80">Where to find these near {budgetPlaceLabel()}</p>
-                {budgetResult.places.map((pl, i) => {
-                  const Icon = pl.source === 'circub' ? MapPin : pl.source === 'ai' ? Sparkles : Store
-                  return (
-                    <div key={i} className="flex items-start gap-2 text-xs" data-testid="budget-place-item">
-                      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                      <div className="min-w-0">
-                        <p className="font-medium text-zinc-700">
-                          {pl.name}
-                          <span className="ml-1.5 inline-flex items-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500">
-                            {pl.source === 'circub' ? 'on circub' : pl.source === 'ai' ? 'local guide' : 'tip'}
-                          </span>
-                        </p>
-                        <p className="text-zinc-500 leading-relaxed">{pl.detail}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground">The budget mixes real local price posts on circub with AI estimates for the chosen location and currency - use the safe number and you will not come up short.</p>
-          </div>
-  )
-
 
   return (
     <div className="space-y-4">
@@ -897,23 +503,18 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           </p>
         )}
 
-        {/* Compass price tools - research / compare by location / plan my
-            budget, computed from the REAL community price posts. Lives on
-            the Local tab now (moved from the Link tab) right under the
-            search bar, next to the data it works on. */}
-        <div className="w-full min-w-0">
-          <CompassPriceTools />
-        </div>
-
-        {/* Market graph - the ONE place the price tools live (v95):
-            everything the camera search used to carry (Compare by location +
-            Plan my budget) sits ON the market graph, and the old chart
-            content is gone. /api/market-graph still serves the chart data
-            for API consumers; one commit reverts if the graphs are wanted. */}
+        {/* Market graph - v97: the Know-the-price-before-you-go compass
+            card (research / compare by location / plan my budget - all
+            written by the user) IS the market graph's content. Everything
+            that used to sit on the graph - the old chart content and the
+            camera-search compare + budget panels (both removed in v95)
+            - is gone. /api/market-graph still serves the chart data for
+            API consumers; one commit reverts if any of it is wanted. */}
         {marketOpen && (
           <MarketGraphPanel onClose={() => setMarketOpen(false)}>
-            {compareSection}
-            {budgetSection}
+            <div className="w-full min-w-0" data-testid="market-compass-host">
+              <CompassPriceTools />
+            </div>
           </MarketGraphPanel>
         )}
 
