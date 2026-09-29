@@ -1,4 +1,7 @@
-// People you may know · exclude existing connections (ACCEPTED, PENDING) and myself
+// People you may know · exclude existing connections (ACCEPTED, PENDING),
+// myself, and anyone blocked in EITHER direction (a block is the hard cut:
+// neither side should ever see the other suggested again). Each suggestion
+// carries `isFollowing` so the card can show the Follow/Following state.
 // Paginated: ?offset=0&limit=8 -> { suggestions, hasMore, nextOffset } so the
 // Network tab can "Load more" in pages instead of one hard take: 8.
 import { NextRequest, NextResponse } from 'next/server'
@@ -26,6 +29,15 @@ export async function GET(req: NextRequest) {
     for (const c of myConns) {
       if (c.requesterId === me.id) excludeIds.add(c.receiverId)
       else excludeIds.add(c.requesterId)
+    }
+
+    // Blocked in either direction is also excluded - blocking is the hard cut.
+    const blocks = await db.block.findMany({
+      where: { OR: [{ blockerId: me.id }, { blockedId: me.id }] },
+      select: { blockerId: true, blockedId: true },
+    })
+    for (const b of blocks) {
+      excludeIds.add(b.blockerId === me.id ? b.blockedId : b.blockerId)
     }
 
     // take one extra row so hasMore costs nothing extra
@@ -86,7 +98,13 @@ export async function GET(req: NextRequest) {
         const mutualCount = [...myConnIds].filter((id) =>
           theirConnIds.has(id)
         ).length
-        return { ...s, mutualCount }
+        const isFollowing = await db.follow.findUnique({
+          where: {
+            followerId_followingId: { followerId: me.id, followingId: s.id },
+          },
+          select: { id: true },
+        })
+        return { ...s, mutualCount, isFollowing: !!isFollowing }
       })
     )
 

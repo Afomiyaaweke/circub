@@ -37,6 +37,7 @@ model User {
   location       String?
   postsCount     Int      @default(0)
   followersCount Int      @default(0)
+  followingCount Int      @default(0)
   likesCount     Int      @default(0)
   connectionsCount Int    @default(0)
   createdAt      DateTime @default(now())
@@ -117,6 +118,12 @@ model User {
   connRequested  Connection[] @relation("ConnRequester")
   connReceived  Connection[] @relation("ConnReceiver")
 
+  // Follows (one-way network link) + blocks
+  followsMade    Follow[] @relation("FollowFollower")
+  followsReceived Follow[] @relation("FollowFollowing")
+  blocksMade     Block[]  @relation("BlockBlocker")
+  blocksReceived Block[]  @relation("BlockBlocked")
+
   // Direct messages
   msgsSent       Message[]    @relation("MsgSender")
   msgsReceived   Message[]    @relation("MsgReceiver")
@@ -177,6 +184,38 @@ model Connection {
   @@unique([requesterId, receiverId])
   @@index([receiverId, status]) // incoming invitations lookup
   @@index([requesterId, status])
+}
+
+// One-way follow (the network LINK): I follow you without needing your
+// approval - the lightweight link alongside the mutual Connection. Counts
+// live on User (followersCount / followingCount) so profiles can show them.
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])  // who I follow
+  @@index([followingId]) // who follows me
+}
+
+// Block: the hard cut. Blocking removes any Connection row between the two
+// users and every Follow in BOTH directions, and hides each side from the
+// other's suggestions. Reversible with unblock.
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("BlockBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("BlockBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])  // my block list
+  @@index([blockedId])  // who blocked me (suggestion exclusion)
 }
 
 // LinkedIn-style social posts (text + image + optional video link)

@@ -1,8 +1,25 @@
-// DEPRECATED: legacy follow endpoint, redirected to connection request
-// Use /api/connections/request instead for LinkedIn-style mutual connections
+// Follow / unfollow - the one-way network LINK.
+// POST   = follow   (idempotent; second call just returns the current state)
+// DELETE = unfollow
+// Unlike the LinkedIn-style /api/connections/request this needs NO approval
+// from the other side. Blocking in either direction refuses it (403
+// 'blocked'). Counts live on User: followersCount (theirs) + followingCount
+// (mine) so profiles and the network manager can show them everywhere.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+
+async function blockedBetween(a: string, b: string) {
+  return db.block.findFirst({
+    where: {
+      OR: [
+        { blockerId: a, blockedId: b },
+        { blockerId: b, blockedId: a },
+      ],
+    },
+    select: { id: true },
+  })
+}
 
 export async function POST(
   _req: NextRequest,
@@ -11,48 +28,103 @@ export async function POST(
   try {
     const { id: targetId } = await params
     const me = await getCurrentUser()
+    if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     if (me.id === targetId) {
-      return NextResponse.json({ error: 'Cannot connect with yourself' }, { status: 400 })
+      return NextResponse.json({ error: 'Cannot follow yourself' }, { status: 400 })
     }
 
-    const existing = await db.connection.findFirst({
+    const target = await db.user.findUnique({
+      where: { id: targetId },
+      select: { id: true, deactivatedAt: true },
+    })
+    if (!target) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if (await blockedBetween(me.id, targetId)) {
+      return NextResponse.json({ error: 'blocked' }, { status: 403 })
+    }
+
+    const existing = await db.follow.findUnique({
       where: {
-        OR: [
-          { requesterId: me.id, receiverId: targetId },
-          { requesterId: targetId, receiverId: me.id },
-        ],
+        followerId_followingId: { followerId: me.id, followingId: targetId },
       },
+      select: { id: true },
     })
-
     if (existing) {
-      if (existing.status === 'ACCEPTED') {
-        // Remove connection
-        await db.connection.delete({ where: { id: existing.id } })
-        await db.user.update({
-          where: { id: me.id },
-          data: { connectionsCount: { decrement: 1 } },
-        })
-        await db.user.update({
-          where: { id: targetId },
-          data: { connectionsCount: { decrement: 1 } },
-        })
-        return NextResponse.json({ following: false })
-      }
-      if (existing.status === 'PENDING') {
-        // Cancel pending request
-        await db.connection.delete({ where: { id: existing.id } })
-        return NextResponse.json({ following: false })
-      }
-      // IGNORED - reset and send fresh
-      await db.connection.delete({ where: { id: existing.id } })
+      // Idempotent: already following - report the current state honestly.
+      const t = await db.user.findUnique({
+        where: { id: targetId },
+        select: { followersCount: true },
+      })
+      return NextResponse.json({ following: true, followersCount: t?.followersCount ?? 0 })
     }
 
-    await db.connection.create({
-      data: { requesterId: me.id, receiverId: targetId, status: 'PENDING' },
-    })
-    return NextResponse.json({ following: true, pending: true })
+    const [, t] = await db.$transaction([
+      db.follow.create({
+        data: { followerId: me.id, followingId: targetId },
+      }),
+      db.user.update({
+        where: { id: targetId },
+        data: { followersCount: { increment: 1 } },
+        select: { followersCount: true },
+      }),
+      db.user.update({
+        where: { id: me.id },
+        data: { followingCount: { increment: 1 } },
+      }),
+    ])
+
+    return NextResponse.json({ following: true, followersCount: t.followersCount })
   } catch (error) {
-    console.error('Failed to toggle follow:', error)
+    console.error('Failed to follow:', error)
+    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: targetId } = await params
+    const me = await getCurrentUser()
+    if (!me) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    if (me.id === targetId) {
+      return NextResponse.json({ error: 'Cannot unfollow yourself' }, { status: 400 })
+    }
+
+    const existing = await db.follow.findUnique({
+      where: {
+        followerId_followingId: { followerId: me.id, followingId: targetId },
+      },
+      select: { id: true },
+    })
+    if (!existing) {
+      const t = await db.user.findUnique({
+        where: { id: targetId },
+        select: { followersCount: true },
+      })
+      // Idempotent: not following - report the current state honestly.
+      return NextResponse.json({ following: false, followersCount: t?.followersCount ?? 0 })
+    }
+
+    const [, t] = await db.$transaction([
+      db.follow.delete({ where: { id: existing.id } }),
+      db.user.update({
+        where: { id: targetId },
+        data: { followersCount: { decrement: 1 } },
+        select: { followersCount: true },
+      }),
+      db.user.update({
+        where: { id: me.id },
+        data: { followingCount: { decrement: 1 } },
+      }),
+    ])
+
+    return NextResponse.json({ following: false, followersCount: t.followersCount })
+  } catch (error) {
+    console.error('Failed to unfollow:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }

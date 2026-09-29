@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Users,
   UserPlus,
+  UserCheck,
+  Ban,
   Mail,
   X,
   Check,
@@ -20,6 +22,33 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import type { User, Connection } from '@/lib/types'
+
+// One row of the followers / following lists (the user + the follow state).
+interface NetUser {
+  id: string
+  name: string
+  username?: string | null
+  avatarColor: string
+  bio?: string | null
+  headline?: string | null
+  location?: string | null
+  postsCount?: number
+  followersCount?: number
+  followingCount?: number
+  connectionsCount?: number
+  isFollowing: boolean
+  followedAt?: string
+}
+
+interface BlockedUser {
+  id: string
+  name: string
+  username?: string | null
+  avatarColor: string
+  headline?: string | null
+  location?: string | null
+  blockedAt: string
+}
 
 interface NetworkTabProps {
   me: User | null
@@ -39,16 +68,30 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
   const [search, setSearch] = useState('')
   const [connecting, setConnecting] = useState<string | null>(null)
   const [accepting, setAccepting] = useState<string | null>(null)
+  // Follows + blocks (v100): the one-way link and the hard cut, both managed
+  // right here in the profile's Network section.
+  const [following, setFollowing] = useState<NetUser[]>([])
+  const [followers, setFollowers] = useState<NetUser[]>([])
+  const [followStats, setFollowStats] = useState({ followingCount: 0, followersCount: 0 })
+  const [blocked, setBlocked] = useState<BlockedUser[]>([])
+  const [followBusy, setFollowBusy] = useState<string | null>(null)
+  const [blockBusy, setBlockBusy] = useState<string | null>(null)
+  // Two-step block confirm: first tap arms the button ("Block?"), the second
+  // within a few seconds really blocks. No native confirm() dialogs.
+  const [confirmBlock, setConfirmBlock] = useState<string | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { toast } = useToast()
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [conns, inv, pend, sugg] = await Promise.all([
+      const [conns, inv, pend, sugg, flw, blk] = await Promise.all([
         fetch('/api/connections').then((r) => r.json()),
         fetch('/api/connections/invitations').then((r) => r.json()),
         fetch('/api/connections/pending').then((r) => r.json()),
         fetch('/api/connections/suggestions').then((r) => r.json()),
+        fetch('/api/network/follows').then((r) => r.json()),
+        fetch('/api/network/blocked').then((r) => r.json()),
       ])
       setConnections(conns.connections || [])
       setInvitations(inv.invitations || [])
@@ -56,6 +99,13 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
       setSuggestions(sugg.suggestions || [])
       setSuggHasMore(!!sugg.hasMore)
       setSuggNextOffset(Number(sugg.nextOffset) || 0)
+      setFollowing(flw.following || [])
+      setFollowers(flw.followers || [])
+      setFollowStats({
+        followingCount: Number(flw.followingCount) || 0,
+        followersCount: Number(flw.followersCount) || 0,
+      })
+      setBlocked(blk.blocked || [])
     } catch {
       /* ignore */
     } finally {
@@ -90,6 +140,100 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
       setLoadingMore(false)
     }
   }, [loadingMore, suggNextOffset])
+
+  const armBlock = (userId: string) => {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current)
+    setConfirmBlock(userId)
+    confirmTimer.current = setTimeout(() => setConfirmBlock(null), 4000)
+  }
+
+  const disarmBlock = () => {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current)
+    setConfirmBlock(null)
+  }
+
+  // Follow / unfollow toggle. Works from any row: the follow state is read
+  // from the row itself (`isFollowing`) so the same handler serves the
+  // suggestions, the following list and the followers list.
+  const handleFollow = async (
+    userId: string,
+    name: string,
+    isFollowing: boolean,
+    refresh: () => void
+  ) => {
+    setFollowBusy(userId)
+    try {
+      const res = await fetch(`/api/users/${userId}/follow`, {
+        method: isFollowing ? 'DELETE' : 'POST',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (data.error === 'blocked') {
+          toast({ title: `Can't follow ${name} - one of you blocked the other`, variant: 'destructive' })
+        } else {
+          toast({ title: 'Failed to update follow', variant: 'destructive' })
+        }
+        return
+      }
+      toast({
+        title: data.following ? `Following ${name}` : `Unfollowed ${name}`,
+      })
+      refresh()
+      onRefreshUser()
+    } catch {
+      toast({ title: 'Failed to update follow', variant: 'destructive' })
+    } finally {
+      setFollowBusy(null)
+    }
+  }
+
+  const handleBlock = async (userId: string, name: string) => {
+    disarmBlock()
+    setBlockBusy(userId)
+    try {
+      const res = await fetch(`/api/users/${userId}/block`, { method: 'POST' })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        throw new Error(e.error || 'Failed')
+      }
+      toast({
+        title: `Blocked ${name}`,
+        description: 'They can no longer follow or connect with you.',
+      })
+      fetchAll()
+      onRefreshUser()
+    } catch (e) {
+      toast({
+        title: 'Failed to block',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBlockBusy(null)
+    }
+  }
+
+  const handleUnblock = async (userId: string, name: string) => {
+    setBlockBusy(userId)
+    try {
+      const res = await fetch(`/api/users/${userId}/block`, { method: 'DELETE' })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        throw new Error(e.error || 'Failed')
+      }
+      toast({ title: `Unblocked ${name}` })
+      fetchAll()
+      onRefreshUser()
+    } catch (e) {
+      toast({
+        title: 'Failed to unblock',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setBlockBusy(null)
+    }
+  }
 
   const handleConnect = async (userId: string, name: string) => {
     setConnecting(userId)
@@ -235,9 +379,41 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
     (c.location || '').toLowerCase().includes(search.toLowerCase())
   )
 
+  // The small round block control shared by every person row. First tap arms
+  // it ("Block?"), the second tap really blocks.
+  const BlockControl = ({ userId, name }: { userId: string; name: string }) => {
+    const armed = confirmBlock === userId
+    if (armed) {
+      return (
+        <button
+          data-testid="net-block-confirm"
+          data-user-id={userId}
+          onClick={() => handleBlock(userId, name)}
+          disabled={blockBusy === userId}
+          className="px-2.5 py-1.5 rounded-full text-xs font-semibold text-white bg-destructive hover:bg-destructive/90 transition-colors"
+        >
+          {blockBusy === userId ? '...' : 'Confirm block'}
+        </button>
+      )
+    }
+    return (
+      <button
+        data-testid="net-block-btn"
+        data-user-id={userId}
+        onClick={() => armBlock(userId)}
+        disabled={blockBusy === userId}
+        className="p-1.5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+        aria-label={`Block ${name}`}
+        title={`Block ${name}`}
+      >
+        <Ban className="w-3.5 h-3.5" />
+      </button>
+    )
+  }
+
   return (
     <div className="space-y-4">
-      {/* Header with connections count */}
+      {/* Header with the network counts: connections + followers + following */}
       <Card className="p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -246,16 +422,30 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
               Manage my network
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Stay in touch with your connections and grow your network.
+              Connect, follow and manage everyone you link with - all in one place.
             </p>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-2 flex-wrap text-sm" data-testid="network-stats">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/60">
               <Users className="w-4 h-4 text-primary" />
-              <span className="font-semibold text-foreground">
+              <span className="font-semibold text-foreground" data-testid="stat-connections">
                 {me?.connectionsCount ?? 0}
               </span>
               <span className="text-muted-foreground">connections</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/60">
+              <UserPlus className="w-4 h-4 text-primary" />
+              <span className="font-semibold text-foreground" data-testid="stat-followers">
+                {followStats.followersCount}
+              </span>
+              <span className="text-muted-foreground">followers</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/60">
+              <UserCheck className="w-4 h-4 text-primary" />
+              <span className="font-semibold text-foreground" data-testid="stat-following">
+                {followStats.followingCount}
+              </span>
+              <span className="text-muted-foreground">following</span>
             </div>
             {invitations.length > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/15">
@@ -360,6 +550,147 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
         </Card>
       )}
 
+      {/* Followers & following (v100) - the one-way links, with the toggle
+          between follow / unfollow and the block control on every row. */}
+      <Card className="p-5 shadow-sm" data-testid="follows-card">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-primary" />
+            Followers &amp; following
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {followStats.followersCount} follower
+            {followStats.followersCount !== 1 && 's'} ·{' '}
+            {followStats.followingCount} following
+          </span>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            Loading your network links...
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Following */}
+            <div data-testid="following-list">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Following ({following.length})
+              </p>
+              {following.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-3" data-testid="following-empty">
+                  You aren&apos;t following anyone yet - follow people from the
+                  suggestions below.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {following.map((u) => (
+                    <div
+                      key={u.id}
+                      data-testid="net-user-row"
+                      data-user-id={u.id}
+                      className="flex items-center gap-2.5"
+                    >
+                      <Avatar className="w-9 h-9 border border-accent shrink-0">
+                        <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
+                          {u.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {u.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {u.headline || u.location || `${u.followersCount ?? 0} followers`}
+                        </p>
+                      </div>
+                      <button
+                        data-testid="net-follow-btn"
+                        data-user-id={u.id}
+                        data-state={followBusy === u.id ? 'busy' : 'following'}
+                        onClick={() => handleFollow(u.id, u.name, true, fetchAll)}
+                        disabled={followBusy === u.id}
+                        className={cn(
+                          'px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0',
+                          'bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive'
+                        )}
+                        title={`Unfollow ${u.name}`}
+                      >
+                        {followBusy === u.id ? '...' : 'Following'}
+                      </button>
+                      <BlockControl userId={u.id} name={u.name} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Followers */}
+            <div data-testid="followers-list">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Followers ({followers.length})
+              </p>
+              {followers.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-3" data-testid="followers-empty">
+                  No followers yet - share your profile so people can follow you.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {followers.map((u) => (
+                    <div
+                      key={u.id}
+                      data-testid="net-user-row"
+                      data-user-id={u.id}
+                      className="flex items-center gap-2.5"
+                    >
+                      <Avatar className="w-9 h-9 border border-accent shrink-0">
+                        <AvatarFallback className="bg-primary/15 text-primary font-semibold text-xs">
+                          {u.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {u.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {u.headline || u.location || `${u.followersCount ?? 0} followers`}
+                        </p>
+                      </div>
+                      <button
+                        data-testid="net-follow-btn"
+                        data-user-id={u.id}
+                        data-state={
+                          followBusy === u.id
+                            ? 'busy'
+                            : u.isFollowing
+                              ? 'following'
+                              : 'follow'
+                        }
+                        onClick={() => handleFollow(u.id, u.name, u.isFollowing, fetchAll)}
+                        disabled={followBusy === u.id}
+                        className={cn(
+                          'px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0',
+                          u.isFollowing
+                            ? 'bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive'
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        )}
+                        title={u.isFollowing ? `Unfollow ${u.name}` : `Follow back ${u.name}`}
+                      >
+                        {followBusy === u.id
+                          ? '...'
+                          : u.isFollowing
+                            ? 'Following'
+                            : 'Follow back'}
+                      </button>
+                      <BlockControl userId={u.id} name={u.name} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Grow your network · People you may know */}
       <Card className="p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
@@ -414,21 +745,49 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
                       {s.mutualCount !== 1 && 's'}
                     </p>
                   )}
-                  <Button
-                    size="sm"
-                    onClick={() => handleConnect(s.id, s.name)}
-                    disabled={connecting === s.id}
-                    className="mt-3 bg-primary hover:bg-primary/90 h-8 px-4 text-xs w-full gap-1.5"
-                  >
-                    {connecting === s.id ? (
-                      '...'
-                    ) : (
-                      <>
-                        <UserPlus className="w-3.5 h-3.5" />
-                        Connect
-                      </>
-                    )}
-                  </Button>
+                  <div className="mt-3 w-full flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      onClick={() => handleConnect(s.id, s.name)}
+                      disabled={connecting === s.id}
+                      className="bg-primary hover:bg-primary/90 h-8 px-3 text-xs flex-1 gap-1.5"
+                    >
+                      {connecting === s.id ? (
+                        '...'
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" />
+                          Connect
+                        </>
+                      )}
+                    </Button>
+                    <button
+                      data-testid="net-suggest-follow-btn"
+                      data-user-id={s.id}
+                      data-state={
+                        followBusy === s.id
+                          ? 'busy'
+                          : s.isFollowing
+                            ? 'following'
+                            : 'follow'
+                      }
+                      onClick={() => handleFollow(s.id, s.name, !!s.isFollowing, fetchAll)}
+                      disabled={followBusy === s.id}
+                      className={cn(
+                        'h-8 px-3 rounded-md text-xs font-medium transition-colors flex-1 border',
+                        s.isFollowing
+                          ? 'border-primary/40 bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40'
+                          : 'border-border bg-card text-foreground hover:bg-accent'
+                      )}
+                      title={s.isFollowing ? `Unfollow ${s.name}` : `Follow ${s.name}`}
+                    >
+                      {followBusy === s.id
+                        ? '...'
+                        : s.isFollowing
+                          ? 'Following'
+                          : 'Follow'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -571,7 +930,7 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col sm:flex-row gap-1.5 shrink-0">
+                <div className="flex flex-col sm:flex-row items-end gap-1.5 shrink-0">
                   <Button
                     size="sm"
                     onClick={() => onMessage(c.id)}
@@ -580,6 +939,7 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
                     <MessageCircle className="w-3.5 h-3.5" />
                     Message
                   </Button>
+                  <BlockControl userId={c.id} name={c.name} />
                   <button
                     onClick={() => handleRemoveConnection(connectionIds[c.id] || '', c.name)}
                     className="px-2 py-1.5 rounded-full text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
@@ -589,6 +949,60 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Blocked users (v100) - the hard cut, reversible from here. */}
+      <Card className="p-5 shadow-sm" data-testid="blocked-card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Ban className="w-4 h-4 text-destructive" />
+            Blocked users
+            <span className="ml-1 text-xs text-muted-foreground">
+              ({blocked.length})
+            </span>
+          </h3>
+        </div>
+        {blocked.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2" data-testid="blocked-empty">
+            You haven&apos;t blocked anyone. Blocking someone removes every
+            follow and connection between you, and hides you from each
+            other&apos;s suggestions.
+          </p>
+        ) : (
+          <div className="space-y-2" data-testid="blocked-list">
+            {blocked.map((b) => (
+              <div
+                key={b.id}
+                data-testid="net-blocked-row"
+                data-user-id={b.id}
+                className="flex items-center gap-2.5"
+              >
+                <Avatar className="w-9 h-9 border border-accent shrink-0">
+                  <AvatarFallback className="bg-destructive/10 text-destructive font-semibold text-xs">
+                    {b.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {b.name}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {b.headline || b.location || 'Blocked'}
+                  </p>
+                </div>
+                <button
+                  data-testid="net-unblock-btn"
+                  data-user-id={b.id}
+                  onClick={() => handleUnblock(b.id, b.name)}
+                  disabled={blockBusy === b.id}
+                  className="px-3 py-1 rounded-full text-xs font-medium border border-border text-foreground hover:bg-accent transition-colors"
+                >
+                  {blockBusy === b.id ? '...' : 'Unblock'}
+                </button>
               </div>
             ))}
           </div>

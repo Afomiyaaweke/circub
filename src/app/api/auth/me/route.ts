@@ -61,6 +61,7 @@ export async function GET() {
       followersCount: me.followersCount,
       likesCount: me.likesCount,
       connectionsCount: me.connectionsCount,
+      followingCount: me.followingCount,
       incomingInvitationsCount: incomingPending,
       isLocal: me.isLocal,
       verifiedLocal: me.verifiedLocal,
