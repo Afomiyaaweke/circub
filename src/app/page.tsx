@@ -142,6 +142,18 @@ function HomeInner() {
     }
   }, [toast])
 
+  // Demo mode has ZERO write access: every attempt (post, vote, like,
+  // message, guide registration...) is intercepted client-side and answered
+  // with the REGISTRATION FORM itself - not just a toast. One helper so the
+  // behavior is identical on every path.
+  const promptRegister = useCallback((title: string, description: string) => {
+    setMessagesOpen(false)
+    setLoginOpen(false)
+    setGuideRegisterOpen(false)
+    setRegisterOpen(true)
+    toast({ title, description })
+  }, [toast])
+
   // Listen for auth-expired events from authFetch (401 on publish/edit/etc.)
   // If the user is a guest (id === 'guest'), show the register modal instead
   // of the login modal - guests don't have credentials to log in with.
@@ -157,13 +169,10 @@ function HomeInner() {
         // Guest tried to do something that requires auth (post, vote, etc.)
         // Take them directly to registration - close everything else,
         // open the Register modal prominently.
-        setMessagesOpen(false)
-        setLoginOpen(false)
-        setRegisterOpen(true)
-        toast({
-          title: 'Sign up to continue',
-          description: 'Create a free account to post prices, vote, and message locals. It takes 10 seconds.',
-        })
+        promptRegister(
+          'Register first',
+          'The demo cannot post, vote, or message. Create a free account to do that - it takes 10 seconds.',
+        )
       } else {
         // Logged-in user's session expired - bounce to login
         setMe(null)
@@ -179,7 +188,7 @@ function HomeInner() {
     }
     window.addEventListener(AUTH_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
-  }, [toast, me, deactivateOpen])
+  }, [toast, me, deactivateOpen, promptRegister])
 
   // Listen for "Ask a Guide" events from the PriceLens scanner - when
   // a user scans a product and taps "Ask a local guide about this item",
@@ -195,19 +204,18 @@ function HomeInner() {
           ? `Looking for help with: ${detail.itemName}${detail?.location?.city ? ' in ' + detail.location.city : ''}`
           : undefined,
       })
-      // If guest, prompt them to register so they can message guides
+      // If guest, bring up the REGISTRATION FORM right away - asking a
+      // guide is messaging, and the demo cannot message.
       if (isGuest) {
-        setTimeout(() => {
-          toast({
-            title: 'Sign up to message guides',
-            description: 'Create a free account to contact local guides directly.',
-          })
-        }, 1500)
+        promptRegister(
+          'Register to ask a guide',
+          'The demo cannot message guides. Create a free account to ask locals directly.',
+        )
       }
     }
     window.addEventListener('circub:ask-guide', handler)
     return () => window.removeEventListener('circub:ask-guide', handler)
-  }, [toast, me])
+  }, [toast, me, promptRegister])
 
   const handleRefreshAll = useCallback(() => {
     setRefreshSignal((s) => s + 1)
@@ -222,13 +230,15 @@ function HomeInner() {
       return
     }
     if (me.id === 'guest') {
-      setRegisterOpen(true)
-      toast({ title: 'Sign up to continue', description: 'Create a free account to post prices, vote, and message locals. It takes 10 seconds.' })
+      promptRegister(
+        'Register to message',
+        'The demo cannot message anyone. Create a free account to message locals and guides.',
+      )
       return
     }
     setMessageTargetId(userId)
     setMessagesOpen(true)
-  }, [me, toast])
+  }, [me, toast, promptRegister])
 
   // Plain nav clicks reset the deep-linked Profile section so the tab opens
   // on Posts, while "My network" entry points still land on their section.
@@ -276,19 +286,43 @@ function HomeInner() {
       return
     }
     if (me.id === 'guest') {
-      setRegisterOpen(true)
-      toast({ title: 'Sign up to save a profile', description: 'Create a free account first - your profile saves with it. It takes 10 seconds.' })
+      promptRegister(
+        'Register to save a profile',
+        'The demo is read-only. Create a free account first - your profile saves with it. It takes 10 seconds.',
+      )
       return
     }
     setActiveTab('profile')
     setProfileSection(null)
     setEditSignal((s) => s + 1)
-  }, [me, toast])
+  }, [me, toast, promptRegister])
 
   const handleOpenMessages = useCallback(() => {
+    // The Messages inbox needs an account - the demo gets the registration
+    // form instead of an inbox that would just 401 on everything.
+    if (me?.id === 'guest') {
+      promptRegister(
+        'Register to message',
+        'The demo cannot message anyone. Create a free account to message locals and guides.',
+      )
+      return
+    }
     setMessageTargetId(null)
     setMessagesOpen(true)
-  }, [])
+  }, [me, promptRegister])
+
+  // "Join as a local" (guide registration) is an account action - the demo
+  // gets the REGISTRATION form, never the guide application.
+  const handleBecomeGuide = useCallback(() => {
+    if (me?.id === 'guest') {
+      promptRegister(
+        'Register to join as a guide',
+        'The demo cannot register as a guide. Create a free account first - then join the local program.',
+      )
+      return
+    }
+    setGuideRegisterOpen(true)
+  }, [me, promptRegister])
 
   const handleToggleGuideAvailability = useCallback(async () => {
     if (!me) return
@@ -416,19 +450,21 @@ function HomeInner() {
   // Logged-in → dashboard
   return (
     <div className="min-h-screen flex flex-col bg-background pb-[46px] md:pb-0">
-      {/* Demo mode (me.id === 'guest'): the persistent read-only banner.
-          Rendered above the header so it is the first thing on screen;
-          Exit drops back to the landing page, Sign up opens registration. */}
-      {me.id === 'guest' && (
-        <DemoBanner
-          onSignUp={() => setRegisterOpen(true)}
-          onExit={() => {
-            setMe(null)
-            toast({ title: 'Demo ended', description: 'Sign up free any time to post prices, vote, and message locals.' })
-          }}
-        />
-      )}
-      <Header
+      {/* Demo mode (me.id === 'guest'): the persistent read-only banner,
+          pinned together with the header in ONE sticky stack so the mode
+          stays boldly visible at every scroll position. Exit drops back to
+          the landing page, Register now opens the registration form. */}
+      <div className="sticky top-0 z-40">
+        {me.id === 'guest' && (
+          <DemoBanner
+            onSignUp={() => setRegisterOpen(true)}
+            onExit={() => {
+              setMe(null)
+              toast({ title: 'Demo ended', description: 'Register free any time to post prices, vote, and message locals.' })
+            }}
+          />
+        )}
+        <Header
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onOpenMessages={handleOpenMessages}
@@ -441,6 +477,7 @@ function HomeInner() {
         onOpenNetwork={() => openProfileSection('network')}
         onDeactivateAccount={() => setDeactivateOpen(true)}
       />
+      </div>
 
       <Suspense fallback={null}>
         <DeactivateAccountModal
@@ -467,7 +504,7 @@ function HomeInner() {
 
           {activeTab === 'guides' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={() => setGuideRegisterOpen(true)} onToggleAvailability={handleToggleGuideAvailability} />
+              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} />
             </Suspense>
           )}
 

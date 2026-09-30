@@ -374,6 +374,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   }
 
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
+    // Demo mode has zero write access: a vote attempt brings up the
+    // registration form - no API call, no failed-vote noise.
+    if (isGuest) {
+      if (onRequireSignUp) onRequireSignUp()
+      toast({ title: 'Register to vote', description: 'The demo cannot vote. Create a free account to mark prices helpful or not accurate.' })
+      return
+    }
     try {
       const res = await authFetch(`/api/local-prices/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voteType }) })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }

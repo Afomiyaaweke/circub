@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Trash2, Globe, Pencil, X, Save, Camera, Loader2, Bookmark, BadgeCheck, Share2, MapPin, Link2 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -144,6 +145,11 @@ export function PostCard({
 
   const handleSubmitComment = async () => {
     if (!commentText.trim()) return
+    // Demo mode has zero write access: commenting brings up the registration form.
+    if (!currentUserId || currentUserId === 'guest') {
+      dispatchAuthExpired('guest-comment')
+      return
+    }
     setSubmitting(true)
     try {
       const res = await fetch(`/api/posts/${post.id}/comments`, {

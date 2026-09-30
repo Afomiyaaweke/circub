@@ -27,6 +27,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
+import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import {
   Dialog,
   DialogContent,
@@ -180,6 +181,13 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
   const handleVote = async (voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
     if (!post) return
+    // Demo mode has zero write access: a vote attempt brings up the
+    // registration form via the auth-expired event (page.tsx opens the
+    // Register modal for id 'guest' / null users). No API call, no noise.
+    if (!currentUserId || currentUserId === 'guest') {
+      dispatchAuthExpired('guest-vote')
+      return
+    }
     try {
       const res = await fetch(`/api/local-prices/${post.id}/vote`, {
         method: 'POST',

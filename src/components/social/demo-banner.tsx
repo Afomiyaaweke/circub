@@ -10,42 +10,48 @@ interface DemoBannerProps {
 
 /**
  * The persistent "Demo view" banner - shown across the whole dashboard while
- * someone is browsing the read-only demo (the old "Continue as guest" mode,
- * reframed: there is no guest account any more, just a look-around demo).
- *
- * It labels the mode honestly ("you are looking at a demo, not signed in"),
- * keeps the two always-available actions one tap away - sign up (the real
- * way in) and exit (back to the landing page) - and scrolls away with the
- * page so it never covers the sticky header or the bottom tab bar.
+ * someone is browsing the read-only demo. Deliberately BOLD (solid amber,
+ * big type, DEMO chip) and pinned together with the header in a sticky stack
+ * so the mode is unmissable at every scroll position: this is not an
+ * account, it is a look-only demo, and every write attempt is answered with
+ * the registration form.
  */
 export function DemoBanner({ onSignUp, onExit }: DemoBannerProps) {
   return (
     <div
       data-testid="demo-banner"
-      className="flex items-center gap-2 sm:gap-3 border-b border-amber-200 bg-amber-50 px-3 py-2 text-amber-950 sm:px-6 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+      className="flex items-center gap-2.5 sm:gap-3 border-b-2 border-amber-500/60 bg-amber-400 px-3 py-3 text-amber-950 sm:px-6"
     >
-      <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <p className="min-w-0 flex-1 text-xs leading-snug sm:text-sm">
-        <span className="font-semibold">Demo view.</span>{' '}
-        <span className="text-amber-900/80 dark:text-amber-200/80">
-          You are looking around a read-only demo - sign up free to post prices, vote, and message.
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-950 text-amber-400" aria-hidden="true">
+        <Eye className="h-4 w-4" />
+      </span>
+      <p className="min-w-0 flex-1 text-sm leading-snug sm:text-base">
+        <span
+          data-testid="demo-banner-chip"
+          className="mr-2 inline-block rounded bg-amber-950 px-1.5 py-0.5 align-middle text-[10px] font-extrabold uppercase tracking-widest text-amber-400 sm:text-xs"
+        >
+          Demo
+        </span>
+        <span className="font-extrabold">Demo view — read only.</span>{' '}
+        <span className="font-semibold">
+          You cannot post, vote, message, or join as a guide. Register first — it is free and takes 10 seconds.
         </span>
       </p>
       <Button
         data-testid="demo-signup"
         onClick={onSignUp}
         size="sm"
-        className="h-7 shrink-0 bg-amber-900 px-2.5 text-xs text-amber-50 hover:bg-amber-800 sm:px-3 sm:text-sm dark:bg-amber-100 dark:text-amber-950 dark:hover:bg-amber-200"
+        className="h-8 shrink-0 bg-amber-950 px-2.5 text-xs font-bold text-amber-50 hover:bg-amber-900 sm:px-4 sm:text-sm dark:bg-amber-950 dark:text-amber-50 dark:hover:bg-amber-900"
       >
-        Sign up free
+        Register now
       </Button>
       <button
         data-testid="demo-exit"
         onClick={onExit}
         aria-label="Exit demo"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-amber-900/70 transition-colors hover:bg-amber-200/60 hover:text-amber-950 dark:text-amber-200/70 dark:hover:bg-amber-900/60 dark:hover:text-amber-50"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-amber-950/70 transition-colors hover:bg-amber-950/15 hover:text-amber-950"
       >
-        <X className="h-4 w-4" />
+        <X className="h-5 w-5" />
       </button>
     </div>
   )

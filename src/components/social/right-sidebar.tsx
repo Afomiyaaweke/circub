@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import type { User, Trend, LocalPricePost } from '@/lib/types'
+import { dispatchAuthExpired } from '@/lib/auth-fetch'
 
 interface RightSidebarProps {
   refreshSignal: number
@@ -84,6 +85,12 @@ export function RightSidebar({
   }, [refreshSignal])
 
   const handleConnect = async (id: string, name: string) => {
+    // Demo mode has zero write access: connecting brings up the registration
+    // form via the auth-expired event instead of a false-success toast.
+    if (!user || user.id === 'guest') {
+      dispatchAuthExpired('guest-connect')
+      return
+    }
     setConnecting(id)
     try {
       const res = await fetch('/api/connections/request', {

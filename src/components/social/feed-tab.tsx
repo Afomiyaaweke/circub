@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, TrendingUp, Newspaper, MapPin } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
+import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { resolveIpLocation } from '@/lib/location'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -62,6 +63,11 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   }, [fetchPosts])
 
   const handleLike = async (postId: string) => {
+    // Demo mode has zero write access: a like brings up the registration form.
+    if (user.id === 'guest') {
+      dispatchAuthExpired('guest-like')
+      return
+    }
     try {
       const res = await fetch(`/api/posts/${postId}/like`, { method: 'POST' })
       const data = await res.json()
@@ -84,6 +90,11 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   }
 
   const handleRepost = async (postId: string) => {
+    // Demo mode has zero write access: a repost brings up the registration form.
+    if (user.id === 'guest') {
+      dispatchAuthExpired('guest-repost')
+      return
+    }
     try {
       const res = await fetch(`/api/posts/${postId}/repost`, { method: 'POST' })
       const data = await res.json()
