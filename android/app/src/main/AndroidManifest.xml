@@ -5,9 +5,21 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+        <!--
+          Appodeal mediation (v106): AdMob requires an App ID or the app
+          CRASHES at launch. The value below is Google's official PUBLIC
+          TEST App ID - safe to run, required placeholder.
+          TODO (BEFORE RELEASE): replace with your real AdMob App ID from
+          https://apps.admob.com (Apps -> Add app -> Android -> App ID).
+        -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"

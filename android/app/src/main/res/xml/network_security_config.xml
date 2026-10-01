@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Appodeal mediation (v106): some mediated ad networks still fetch
+  resources over plain HTTP, so cleartext traffic is permitted for the
+  ad SDKs to initialise correctly (per Appodeal's Android guide).
+  All first-party circub traffic stays on https (server.url uses the
+  https scheme in capacitor.config.ts).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

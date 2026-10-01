@@ -36,6 +36,17 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+
+    // ---- Appodeal mediation, interstitial (added v106) ----
+    // Recommended network set: AdMob, Meta Audience Network, AppLovin MAX,
+    // Unity Ads, Mintegral. Swap the placeholder keys in MainActivity.java
+    // before building a release AAB.
+    implementation 'com.appodeal.ads.sdk:core:4.4.0'
+    implementation 'com.appodeal.ads.sdk.adapters:admob:25.2.0.0'
+    implementation 'com.appodeal.ads.sdk.adapters:meta:6.21.0.0'
+    implementation 'com.appodeal.ads.sdk.adapters:applovin_max:13.6.3.1'
+    implementation 'com.appodeal.ads.sdk.adapters:unity_ads:4.17.0.0'
+    implementation 'com.appodeal.ads.sdk.adapters:mintegral:17.1.61.0'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

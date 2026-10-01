@@ -21,6 +21,10 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // ---- Appodeal mediation + its networks (added v106) ----
+        maven { url 'https://artifactory.appodeal.com/appodeal' }
+        // Mintegral SDK is hosted on its own maven
+        maven { url 'https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea' }
     }
 }
 

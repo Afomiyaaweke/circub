@@ -80,6 +80,33 @@ Android packaging requirements.
 
 ---
 
+---
+
+## Option D — Ads (Appodeal mediation, added v106)
+
+The app ships with **Appodeal interstitial mediation** already wired:
+
+- Networks included: AdMob, Meta Audience Network, AppLovin MAX, Unity Ads, Mintegral
+- Placement: **one interstitial on app open**, at most every 3 hours, never in the first session
+- Code: `MainActivity.java` (init + frequency cap), `AndroidManifest.xml` (AdMob ID), `network_security_config.xml`
+
+**Two placeholders MUST be replaced before a release build:**
+
+| Where | Replace | With |
+|---|---|---|
+| `MainActivity.java` → `APPODEAL_APP_KEY` | `"YOUR_APPODEAL_KEY"` | Real APP_KEY from [app.appodeal.com](https://app.appodeal.com) (Apps → circub) |
+| `AndroidManifest.xml` → `APPLICATION_ID` | Google's public TEST App ID | Your real AdMob App ID from [apps.admob.com](https://apps.admob.com) |
+
+Until replaced the app still builds and runs — it just serves no paid ads
+(the AdMob value is Google's official test ID; a random fake ID would crash).
+
+**Testing:** uncomment `Appodeal.setTesting(true)` in `MainActivity.java`, build a debug APK, launch twice (first session never shows ads by design).
+
+**Play Store note:** with ads enabled, your Play Console **Data safety** form must
+declare ad data collection (device ID / advertising ID, approximate location, ad
+interactions — as used by Appodeal's networks), and answer **Yes** to "does the
+app contain ads".
+
 ## Known limitation: Google sign-in inside the native shell
 
 Google blocks OAuth in embedded WebViews ("disallowed_useragent"). In the
