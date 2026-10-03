@@ -636,16 +636,33 @@ export function CompassPriceTools() {
               covered: number
             } => p.total != null,
           )
-          // Lower price first; ties on price break by the community's
-          // helpful votes (many likes rises). Cheapest-with-most-votes
-          // floats to the top, exactly what a budget shopper wants.
-          .sort((a, b) => a.total - b.total || b.likes - a.likes)
+          // Full-list places lead (v111): a total that prices EVERY item
+          // on the list is the only one that can honestly match the budget
+          // for all the items - so those rows rank first. Partial rows
+          // follow: most coverage first, then cheapest, then most liked.
+          .sort(
+            (a, b) =>
+              b.covered - a.covered || a.total - b.total || b.likes - a.likes,
+          )
           .slice(0, BUDGET_ROWS)
       : []
   const budgetMaxLikes = budgetPlaces.reduce((m, p) => Math.max(m, p.likes), 0)
+  // v111: the budget MATCH is only claimed by a place that prices the
+  // WHOLE list - a partial row cannot honestly "fit the budget" for all
+  // the items. bestFullAny = cheapest full-list total (even when over
+  // budget); budgetClosest = the most-covering row when nobody prices
+  // everything yet. Nothing invented - every fallback says what it is.
   const budgetBest =
-    budgetNum > 0 ? budgetPlaces.find((p) => p.total <= budgetNum) ?? null : null
-  const budgetCheapest = budgetPlaces[0] ?? null
+    budgetNum > 0
+      ? budgetPlaces.find(
+          (p) => p.covered === chosenNames.length && p.total <= budgetNum,
+        ) ?? null
+      : null
+  const bestFullAny =
+    budgetNum > 0
+      ? budgetPlaces.find((p) => p.covered === chosenNames.length) ?? null
+      : null
+  const budgetClosest = budgetPlaces[0] ?? null
   const givenFits = myTotals && budgetNum > 0 ? myTotals.av <= budgetNum : null
 
   const chipBase =
@@ -1398,23 +1415,36 @@ export function CompassPriceTools() {
                       <b className="text-emerald-600 dark:text-emerald-400">
                         {money(budgetBest.total, cur)}
                       </b>
-                      , {money(budgetNum - budgetBest.total, cur)} under budget.
+                      , {money(budgetNum - budgetBest.total, cur)} under budget - and that
+                      total covers every item on your list.
                       {budgetBest.key === myPlace
                         ? ' That is the location you gave.'
                         : myTotals
                           ? ` From ${myShort} that saves ${money(myTotals.av - budgetBest.total, cur)}.`
                           : ''}
                     </p>
+                  ) : bestFullAny ? (
+                    <p
+                      className="mt-1.5 text-sm text-foreground"
+                      data-testid="compass-budget-locate-none"
+                    >
+                      No location prices your whole list inside your{' '}
+                      {money(budgetNum, cur)} budget yet. The cheapest full-list total is{' '}
+                      {bestFullAny.short} at <b>{money(bestFullAny.total, cur)}</b> -{' '}
+                      {money(bestFullAny.total - budgetNum, cur)} over.
+                    </p>
                   ) : (
-                    budgetCheapest && (
+                    budgetClosest && (
                       <p
                         className="mt-1.5 text-sm text-foreground"
-                        data-testid="compass-budget-locate-none"
+                        data-testid="compass-budget-locate-partial"
                       >
-                        No location the community has posted fits your {money(budgetNum, cur)}{' '}
-                        budget for this list. The cheapest is {budgetCheapest.short} at{' '}
-                        <b>{money(budgetCheapest.total, cur)}</b> -{' '}
-                        {money(budgetCheapest.total - budgetNum, cur)} over.
+                        No single location prices your whole list yet.{' '}
+                        <b>{budgetClosest.short}</b> comes closest - it prices{' '}
+                        {budgetClosest.covered} of {chosenNames.length}{' '}
+                        {chosenNames.length === 1 ? 'item' : 'items'} at{' '}
+                        <b>{money(budgetClosest.total, cur)}</b> typical for those. Post the
+                        missing prices and the locator will match the full list.
                       </p>
                     )
                   )}
@@ -1445,6 +1475,7 @@ export function CompassPriceTools() {
                       data-testid="compass-budget-place-list"
                     >
                       {budgetPlaces.map((p, i) => {
+                        const full = p.covered === chosenNames.length
                         const fits = p.total <= budgetNum
                         // Exactly one badge: the first row that holds the
                         // highest helpful count (ties keep it on the
@@ -1482,26 +1513,27 @@ export function CompassPriceTools() {
                                 <ThumbsUp className="w-3 h-3 shrink-0" />
                                 {p.likes} helpful
                                 {p.nPosts > 0 ? ` · ${p.nPosts} post${p.nPosts === 1 ? '' : 's'}` : ''}
-                                {p.covered < chosenNames.length
-                                  ? ` · ${p.covered} of ${chosenNames.length} items`
-                                  : ''}
                               </p>
                             </div>
                             <div className="text-right shrink-0" data-testid="compass-budget-place-fit">
                               <b
                                 className={cn(
                                   'block text-sm font-bold tracking-tight',
-                                  fits
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-amber-600 dark:text-amber-400',
+                                  full
+                                    ? fits
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-amber-600 dark:text-amber-400'
+                                    : 'text-foreground',
                                 )}
                               >
                                 {money(p.total, cur)}
                               </b>
                               <span className="block text-[10px] text-muted-foreground">
-                                {fits
-                                  ? 'fits your budget'
-                                  : `${money(p.total - budgetNum, cur)} over`}
+                                {full
+                                  ? fits
+                                    ? 'fits your budget'
+                                    : `${money(p.total - budgetNum, cur)} over`
+                                  : `${p.covered} of ${chosenNames.length} items only`}
                               </span>
                             </div>
                           </div>
