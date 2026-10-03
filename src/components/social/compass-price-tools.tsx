@@ -28,6 +28,12 @@
  *                         typical total first, checked against that budget -
  *                         the location the user gave is shown against the
  *                         same budget and one tap moves the shopping there.
+ *                         The ranked place list (v107) also carries the
+ *                         community's HELPFUL votes: every row shows how
+ *                         many thumbs-up the posts behind that place's
+ *                         prices earned, the most-endorsed place gets a
+ *                         Most liked badge, and ties on price break by
+ *                         votes - lower price AND many likes, together.
  *                         The
  *                         shopping location is WRITTEN into a text input or
  *                         taken from the device (geolocation + reverse
@@ -60,7 +66,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightLeft, CalendarDays, Compass, Lightbulb, Loader2, MapPin, Scale,
-  SearchCheck, TrendingDown, TrendingUp, Wallet, X,
+  SearchCheck, ThumbsUp, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -81,6 +87,7 @@ interface ToolPost {
   city?: string | null
   country: string
   createdAt: string
+  helpfulCount?: number | null
   author: ToolAuthor
 }
 
@@ -109,6 +116,7 @@ const LIST_CHIP_LIMIT = 8 // shopping-list choices (most-posted products)
 const MAX_CUSTOM_ITEMS = 12 // typed items cap - keeps the tables walkable
 const MAX_CMP_PLACES = 4 // typed compare columns cap - keeps the table walkable
 const RESEARCH_ROWS = 6 // post rows before "Show all"
+const BUDGET_ROWS = 6 // budget-locator place rows before the cut
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
 const TRUSTED_POSTS = 15 // authors with more posts than this show "Trusted"
 
@@ -283,6 +291,19 @@ export function CompassPriceTools() {
       return n > 0 ? { lo, hi, av, n } : null
     }
 
+    // Community endorsement (v107): the sum of HELPFUL votes across the
+    // real posts that stand behind one place's price for the chosen list.
+    // A place with zero votes shows an honest 0 - never invented.
+    const helpful = (place: string, chosen: string[]): number =>
+      inCur
+        .filter(
+          (p) =>
+            chosen.includes(p.productName.trim()) &&
+            placeOf(p) === place &&
+            p.helpfulCount,
+        )
+        .reduce((a, p) => a + (p.helpfulCount || 0), 0)
+
     // Month trend (last 30 days vs the 30 before) for a list at a place.
     const trendOf = (chosen: string[], place: string): number | null => {
       const mine = inCur.filter(
@@ -309,6 +330,7 @@ export function CompassPriceTools() {
       items,
       per,
       totals,
+      helpful,
       trendOf,
       priceOf,
       placeOf,
@@ -598,10 +620,20 @@ export function CompassPriceTools() {
             key: p.key,
             short: p.short,
             total: model.totals(p.key, chosenNames, qty)?.av ?? null,
+            nPosts: model.totals(p.key, chosenNames, qty)?.n ?? 0,
+            likes: model.helpful(p.key, chosenNames),
           }))
-          .filter((p): p is { key: string; short: string; total: number } => p.total != null)
-          .sort((a, b) => a.total - b.total)
+          .filter(
+            (p): p is { key: string; short: string; total: number; nPosts: number; likes: number } =>
+              p.total != null,
+          )
+          // Lower price first; ties on price break by the community's
+          // helpful votes (many likes rises). Cheapest-with-most-votes
+          // floats to the top, exactly what a budget shopper wants.
+          .sort((a, b) => a.total - b.total || b.likes - a.likes)
+          .slice(0, BUDGET_ROWS)
       : []
+  const budgetMaxLikes = budgetPlaces.reduce((m, p) => Math.max(m, p.likes), 0)
   const budgetBest =
     budgetNum > 0 ? budgetPlaces.find((p) => p.total <= budgetNum) ?? null : null
   const budgetCheapest = budgetPlaces[0] ?? null
@@ -1389,6 +1421,78 @@ export function CompassPriceTools() {
                         : `${money(myTotals.av - budgetNum, cur)} over your budget`}
                       .
                     </p>
+                  )}
+                  {/* Ranked place list (v107): every place with a real price
+                      for this list, cheapest first, each row carrying the
+                      community's HELPFUL votes - the user asked for lower
+                      price AND many likes, so both live on every row and
+                      the most-endorsed place wears a Most liked badge. */}
+                  {budgetPlaces.length > 1 && (
+                    <div
+                      className="mt-2.5 rounded-lg border border-border bg-card divide-y divide-border overflow-hidden"
+                      data-testid="compass-budget-place-list"
+                    >
+                      {budgetPlaces.map((p, i) => {
+                        const fits = p.total <= budgetNum
+                        // Exactly one badge: the first row that holds the
+                        // highest helpful count (ties keep it on the
+                        // higher-ranked = cheaper row).
+                        const mostLiked =
+                          p.likes > 0 &&
+                          p.likes === budgetMaxLikes &&
+                          budgetPlaces.findIndex((x) => x.likes === budgetMaxLikes) === i
+                        return (
+                          <div
+                            key={p.key}
+                            className="px-3 py-2.5 flex items-center gap-2.5"
+                            data-testid="compass-budget-place-row"
+                          >
+                            <span className="text-[11px] font-bold text-muted-foreground w-4 shrink-0">
+                              {i + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1.5">
+                                <span className="truncate">{p.short}</span>
+                                {mostLiked && (
+                                  <span
+                                    className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
+                                    data-testid="compass-budget-most-liked"
+                                  >
+                                    <ThumbsUp className="w-2.5 h-2.5" />
+                                    Most liked
+                                  </span>
+                                )}
+                              </p>
+                              <p
+                                className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5"
+                                data-testid="compass-budget-place-likes"
+                              >
+                                <ThumbsUp className="w-3 h-3 shrink-0" />
+                                {p.likes} helpful
+                                {p.nPosts > 0 ? ` · ${p.nPosts} post${p.nPosts === 1 ? '' : 's'}` : ''}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0" data-testid="compass-budget-place-fit">
+                              <b
+                                className={cn(
+                                  'block text-sm font-bold tracking-tight',
+                                  fits
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-amber-600 dark:text-amber-400',
+                                )}
+                              >
+                                {money(p.total, cur)}
+                              </b>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {fits
+                                  ? 'fits your budget'
+                                  : `${money(p.total - budgetNum, cur)} over`}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                   {budgetBest && budgetBest.key !== myPlace && (
                     <button
