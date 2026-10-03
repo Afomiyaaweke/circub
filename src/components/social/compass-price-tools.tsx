@@ -622,10 +622,19 @@ export function CompassPriceTools() {
             total: model.totals(p.key, chosenNames, qty)?.av ?? null,
             nPosts: model.totals(p.key, chosenNames, qty)?.n ?? 0,
             likes: model.helpful(p.key, chosenNames),
+            // How many of the list items this place actually prices - a
+            // sparse row that covers only part of the list says so (v110).
+            covered: chosenNames.filter((n) => model.per(n, p.key)).length,
           }))
           .filter(
-            (p): p is { key: string; short: string; total: number; nPosts: number; likes: number } =>
-              p.total != null,
+            (p): p is {
+              key: string
+              short: string
+              total: number
+              nPosts: number
+              likes: number
+              covered: number
+            } => p.total != null,
           )
           // Lower price first; ties on price break by the community's
           // helpful votes (many likes rises). Cheapest-with-most-votes
@@ -1422,12 +1431,15 @@ export function CompassPriceTools() {
                       .
                     </p>
                   )}
-                  {/* Ranked place list (v107): every place with a real price
-                      for this list, cheapest first, each row carrying the
-                      community's HELPFUL votes - the user asked for lower
-                      price AND many likes, so both live on every row and
-                      the most-endorsed place wears a Most liked badge. */}
-                  {budgetPlaces.length > 1 && (
+                  {/* Ranked place list (v107, visible from one place v110):
+                      every place with a real price for this list renders,
+                      cheapest first, each row carrying the community's
+                      HELPFUL votes - the user asked for lower price AND
+                      many likes, so both live on every row and the
+                      most-endorsed place wears a Most liked badge. The old
+                      2+ gate hid the whole ranking behind sparse prod data
+                      (one priced place), making v107 invisible there. */}
+                  {budgetPlaces.length > 0 && (
                     <div
                       className="mt-2.5 rounded-lg border border-border bg-card divide-y divide-border overflow-hidden"
                       data-testid="compass-budget-place-list"
@@ -1470,6 +1482,9 @@ export function CompassPriceTools() {
                                 <ThumbsUp className="w-3 h-3 shrink-0" />
                                 {p.likes} helpful
                                 {p.nPosts > 0 ? ` · ${p.nPosts} post${p.nPosts === 1 ? '' : 's'}` : ''}
+                                {p.covered < chosenNames.length
+                                  ? ` · ${p.covered} of ${chosenNames.length} items`
+                                  : ''}
                               </p>
                             </div>
                             <div className="text-right shrink-0" data-testid="compass-budget-place-fit">
