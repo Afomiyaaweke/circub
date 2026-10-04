@@ -1289,11 +1289,73 @@ export function CompassPriceTools() {
                 })}
               </div>
 
-              <h4 className="mt-5 text-sm font-bold text-foreground">
-                What to set aside for {myShort}
-              </h4>
+              {/* v112: the budget input is the user's entry point to Plan my
+                  budget - it renders as long as the list is non-empty, even
+                  when the given location has no prices for it (myTotals
+                  null). Hiding the INPUT behind price data made the tool
+                  unusable exactly where community data is sparse: no input,
+                  no locator, nothing to fill. The planning NUMBERS still
+                  need real prices; the input never disappears. */}
+              <div className="mt-5">
+                <span className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  Your budget
+                </span>
+                <div className="flex items-stretch gap-2 flex-wrap">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder={`Your budget for ${myShort}, written by hand (optional)`}
+                    value={budget}
+                    data-testid="compass-budget-input"
+                    onChange={(e) => setBudget(e.target.value)}
+                    className="h-10 flex-1 min-w-[10rem]"
+                  />
+                  {/* The currency is WRITTEN too - no preset options. A code
+                      the community has posted snaps in case-insensitively;
+                      anything unknown keeps the real numbers on screen. */}
+                  <Input
+                    type="text"
+                    maxLength={8}
+                    placeholder="Currency (e.g. ETB)"
+                    value={currencyDraft ?? (currency || cur)}
+                    data-testid="compass-currency-input"
+                    aria-label="Currency type"
+                    onChange={(e) => setCurrencyDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        applyCurrency()
+                      }
+                    }}
+                    onBlur={applyCurrency}
+                    className="h-10 w-28 shrink-0 uppercase"
+                  />
+                  <button
+                    type="button"
+                    data-testid="compass-currency-set"
+                    onClick={applyCurrency}
+                    disabled={currencyDraft == null || !currencyDraft.trim()}
+                    className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Set
+                  </button>
+                </div>
+                {model && currency && !model.currencies.includes(currency) && (
+                  <p
+                    className="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
+                    data-testid="compass-currency-unknown"
+                  >
+                    No community prices in {currency} yet - the tools keep showing real prices in{' '}
+                    {cur || 'the community currency'} and never invent exchange rates. A known
+                    code snaps in automatically when the name matches.
+                  </p>
+                )}
+              </div>
               {myTotals && safe != null ? (
                 <>
+                  <h4 className="mt-5 text-sm font-bold text-foreground">
+                    What to set aside for {myShort}
+                  </h4>
                   <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="border-l-4 border-emerald-400 pl-3" data-testid="compass-budget-best">
                       <b className="block text-lg sm:text-xl font-bold tracking-tight text-foreground">
@@ -1330,56 +1392,6 @@ export function CompassPriceTools() {
                       )}
                     </p>
                   </div>
-                  <div className="mt-3 flex items-stretch gap-2 flex-wrap">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder={`Your budget for ${myShort}, written by hand (optional)`}
-                      value={budget}
-                      data-testid="compass-budget-input"
-                      onChange={(e) => setBudget(e.target.value)}
-                      className="h-10 flex-1 min-w-[10rem]"
-                    />
-                    {/* The currency is WRITTEN too - no preset options. A code
-                        the community has posted snaps in case-insensitively;
-                        anything unknown keeps the real numbers on screen. */}
-                    <Input
-                      type="text"
-                      maxLength={8}
-                      placeholder="Currency (e.g. ETB)"
-                      value={currencyDraft ?? (currency || cur)}
-                      data-testid="compass-currency-input"
-                      aria-label="Currency type"
-                      onChange={(e) => setCurrencyDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          applyCurrency()
-                        }
-                      }}
-                      onBlur={applyCurrency}
-                      className="h-10 w-28 shrink-0 uppercase"
-                    />
-                    <button
-                      type="button"
-                      data-testid="compass-currency-set"
-                      onClick={applyCurrency}
-                      disabled={currencyDraft == null || !currencyDraft.trim()}
-                      className="h-10 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Set
-                    </button>
-                  </div>
-                  {model && currency && !model.currencies.includes(currency) && (
-                    <p
-                      className="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
-                      data-testid="compass-currency-unknown"
-                    >
-                      No community prices in {currency} yet - the tools keep showing real prices in{' '}
-                      {cur || 'the community currency'} and never invent exchange rates. A known
-                      code snaps in automatically when the name matches.
-                    </p>
-                  )}
                   {verdict && (
                     <p className="mt-2.5 text-sm text-foreground" data-testid="compass-budget-verdict">
                       {verdict}
@@ -1387,8 +1399,13 @@ export function CompassPriceTools() {
                   )}
                 </>
               ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  None of your list items have prices at {myShort} yet - type another location above.
+                <p
+                  className="mt-3 text-sm text-muted-foreground"
+                  data-testid="compass-budget-nodata"
+                >
+                  None of your list items have prices at {myShort} yet. Write your budget above -
+                  the locator below still searches every community place for real prices for this
+                  list, and the numbers here appear the moment prices are posted.
                 </p>
               )}
 
@@ -1558,8 +1575,10 @@ export function CompassPriceTools() {
                   className="mt-3 text-sm text-muted-foreground"
                   data-testid="compass-budget-locate-empty"
                 >
-                  No community prices for this list in {cur || 'any currency'} yet - post a price
-                  and the budget locator will find where your budget goes furthest.
+                  No community prices for this list ({chosenNames.slice(0, 3).join(', ')}
+                  {chosenNames.length > 3 ? ` +${chosenNames.length - 3} more` : ''}) in{' '}
+                  {cur || 'any currency'} yet - post a price and the budget locator will find
+                  where your budget goes furthest.
                 </p>
               )}
 
