@@ -255,6 +255,12 @@ export function CompassPriceTools() {
       .map(([name, ps]) => ({ name, count: ps.length }))
       .sort((a, b) => b.count - a.count)
       .slice(0, LIST_CHIP_LIMIT)
+    // v113: the FULL set of community product names in the currency - the
+    // capped `items` above is a DISPLAY choice only. The typed-name snap
+    // and the chosen-list totals must keep working for every product the
+    // community has posted, even when the feed grows past the 8 chip
+    // slots (test probes and debris included).
+    const itemNames = Object.keys(itemPosts)
 
     // Typical-price stats for one item at one place.
     const per = (item: string, place: string): ItemStats | null => {
@@ -328,6 +334,8 @@ export function CompassPriceTools() {
       currencies,
       places,
       items,
+      itemNames,
+      countOf: (item: string) => (itemPosts[item] || []).length,
       per,
       totals,
       helpful,
@@ -365,9 +373,12 @@ export function CompassPriceTools() {
   const addTypedItem = () => {
     const name = newItem.trim().replace(/\s+/g, ' ').slice(0, 60)
     if (!name) return
-    const feedMatch = model?.items.find((i) => i.name.toLowerCase() === name.toLowerCase())
+    // v113: snap against ALL community product names in the currency -
+    // not the capped display list - so a typed name that matches ANY real
+    // product snaps onto it, no matter how far down the feed it sits.
+    const feedMatch = model?.itemNames.find((n) => n.toLowerCase() === name.toLowerCase())
     const dup = customItems.find((n) => n.toLowerCase() === name.toLowerCase())
-    const hit = feedMatch?.name ?? dup
+    const hit = feedMatch ?? dup
     if (hit) {
       setOnItems((prev) => ({ ...prev, [hit]: true }))
       setNewItem('')
@@ -491,7 +502,7 @@ export function CompassPriceTools() {
 
   const chosenKey = model
     ? [
-        ...model.items.filter((i) => onItems[i.name]).map((i) => i.name),
+        ...model.itemNames.filter((n) => onItems[n]),
         ...customItems.filter((n) => onItems[n]),
       ].join('|')
     : ''
@@ -557,7 +568,7 @@ export function CompassPriceTools() {
           const cells = cmpSel.map((pl) => model.per(name, pl.key))
           const defined = cells.filter(Boolean) as ItemStats[]
           const minAv = defined.length ? Math.min(...defined.map((c) => c.av)) : null
-          const count = model.items.find((i) => i.name === name)?.count ?? 0
+          const count = model.countOf(name)
           return { name, count, cells, minAv }
         })
       : []
