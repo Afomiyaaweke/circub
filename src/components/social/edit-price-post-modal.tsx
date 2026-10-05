@@ -41,7 +41,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [recommendedPrice, setRecommendedPrice] = useState('')
-  const [touristPrice, setTouristPrice] = useState('')
   const [localTip, setLocalTip] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -70,7 +69,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setPriceMin(String(post.priceMin || ''))
       setPriceMax(String(post.priceMax || ''))
       setRecommendedPrice(post.recommendedPrice ? String(post.recommendedPrice) : '')
-      setTouristPrice(post.touristPrice ? String(post.touristPrice) : '')
       setLocalTip(post.localTip || '')
       setContactPhone(post.contactPhone || '')
       setContactEmail(post.contactEmail || '')
@@ -123,7 +121,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           priceMin: Number(priceMin),
           priceMax: Number(priceMax),
           recommendedPrice: recommendedPrice ? Number(recommendedPrice) : null,
-          touristPrice: touristPrice ? Number(touristPrice) : null,
           localTip: localTip.trim() || null,
           contactPhone: contactPhone.trim() || null,
           contactEmail: contactEmail.trim() || null,
@@ -223,7 +220,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Min price *</label><Input type="number" placeholder="1500" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Max price *</label><Input type="number" placeholder="2200" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Fair price</label><Input type="number" placeholder="1800" value={recommendedPrice} onChange={(e) => setRecommendedPrice(e.target.value)} /></div>
-              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Tourist price</label><Input type="number" placeholder="3000" value={touristPrice} onChange={(e) => setTouristPrice(e.target.value)} /></div>
             </div>
             <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Currency</label>
               <Select value={currency} onValueChange={setCurrency}>

@@ -36,20 +36,23 @@ function formatPrice(value: number, currency: string) {
 // a big gradient price box, a separate tourist-price box, a tip, a contact
 // panel, a share row, an author row and a vote row: ~700px per card on a
 // phone. Everything kept, but tightened: photo is a side thumbnail, price is
-// one line with fair/tourist inline, share lives in the footer icon group.
+// one line with the fair price inline, share lives in the footer icon group.
+// v117: photo and price strip are tappable (open the detail modal), the
+// tourist price section is gone, and Share points at the post's own deep
+// link so link previews show the post's photo.
 export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
   // Share-to-social poster - the Share2 button opens the poster modal.
-  // The poster's QR and every share route land on the AUTHOR'S SHOP PROFILE
-  // (/u/<username>) when they have one, so scanning showcases their shop to
-  // travelers; otherwise it falls back to the post deep link.
   const [shareOpen, setShareOpen] = useState(false)
+  // v117: the share link is ALWAYS the post's own deep link (/?post=<id>).
+  // That page renders per-post Open Graph tags (post photo, name, price
+  // range via /api/local-prices/<id>/image) so WhatsApp / X / Telegram /
+  // Facebook previews show THE POST'S IMAGE - and on circub it auto-opens
+  // the price detail modal for the recipient.
   const shareLink = typeof window === 'undefined'
     ? 'https://circub.vercel.app'
-    : post.author?.username
-      ? `${window.location.origin}/u/${post.author.username}`
-      : `${window.location.origin}/?post=${post.id}`
+    : `${window.location.origin}/?post=${post.id}`
   const { toast } = useToast()
 
   useEffect(() => {
@@ -152,42 +155,57 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           )}
         </div>
         {post.imageUrl && compact && (
-          <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover border border-border bg-accent/30 shrink-0" />
+          <button
+            type="button"
+            data-testid="price-card-image"
+            onClick={() => onOpen?.(post.id)}
+            aria-label={`Open details for ${post.productName}`}
+            className="shrink-0 rounded-lg overflow-hidden border border-border bg-accent/30 cursor-pointer transition-opacity hover:opacity-85"
+          >
+            <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-14 h-14 sm:w-16 sm:h-16 object-cover" />
+          </button>
         )}
       </div>
 
-      {/* Row 2.5: photo banner - price posts that carry a photo show it big */}
+      {/* Row 2.5: photo banner - price posts that carry a photo show it big.
+          v117: tapping the photo opens the price details. */}
       {post.imageUrl && !compact && (
-        <div className="mt-2 rounded-xl overflow-hidden border border-border bg-accent/30">
+        <button
+          type="button"
+          data-testid="price-card-image"
+          onClick={() => onOpen?.(post.id)}
+          aria-label={`Open details for ${post.productName}`}
+          className="mt-2 block w-full rounded-xl overflow-hidden border border-border bg-accent/30 cursor-pointer transition-opacity hover:opacity-90"
+        >
           <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.productName} className="w-full h-40 sm:h-48 object-cover" />
-        </div>
+        </button>
       )}
 
-      {/* Row 3: one-line price strip - fair price and tourist price inline */}
-      <div className="mt-2 px-2.5 py-2 rounded-lg bg-gradient-to-br from-primary/10 to-emerald-50 border border-primary/20">
+      {/* Row 3: one-line price strip - fair price inline. v117: the whole
+          strip is tappable and opens the price details; the tourist price
+          section was removed (fair/local price only). */}
+      <button
+        type="button"
+        data-testid="price-card-price"
+        onClick={() => onOpen?.(post.id)}
+        aria-label={`Open price details for ${post.productName}`}
+        className="mt-2 w-full text-left px-2.5 py-2 rounded-lg bg-gradient-to-br from-primary/10 to-emerald-50 border border-primary/20 cursor-pointer transition-colors hover:border-primary/40"
+      >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Typical local price</span>
           <span className="text-sm sm:text-base font-bold text-foreground">
             {formatPrice(post.priceMin, post.currency)} · {formatPrice(post.priceMax, post.currency)}
           </span>
         </div>
-        {(post.recommendedPrice != null || (post.touristPrice != null && !compact)) && (
+        {post.recommendedPrice != null && (
           <div className="mt-1 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px]">
-            {post.recommendedPrice != null && (
-              <span className="text-primary font-medium flex items-center gap-1">
-                <BadgeCheck className="w-3 h-3" />
-                Fair: {formatPrice(post.recommendedPrice, post.currency)}
-              </span>
-            )}
-            {post.touristPrice != null && !compact && (
-              <span className="text-orange-700 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
-                Tourists: {formatPrice(post.touristPrice, post.currency)}
-              </span>
-            )}
+            <span className="text-primary font-medium flex items-center gap-1">
+              <BadgeCheck className="w-3 h-3" />
+              Fair: {formatPrice(post.recommendedPrice, post.currency)}
+            </span>
           </div>
         )}
-      </div>
+      </button>
 
       {post.localTip && !compact && (
         <div className="mt-2 flex gap-1.5">
@@ -298,7 +316,8 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </div>
       )}
 
-      {/* Share poster modal (Task 77) */}
+      {/* Share poster modal (Task 77; v117 shares the post deep link and
+          includes the post's photo on the poster canvas) */}
       <SharePosterModal
         open={shareOpen}
         onOpenChange={setShareOpen}
@@ -311,6 +330,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           priceMax: post.priceMax,
           city: post.city,
           country: post.country,
+          imageUrl: post.imageUrl,
           authorName: post.author?.name ?? null,
           authorUsername: post.author?.username ?? null,
           date: new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),

@@ -447,8 +447,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 </button>
               </div>
 
-              {/* Price block */}
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Price block - v117: typical + fair price (tourist price removed) */}
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-lg bg-card border border-primary/20 p-3">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
                     Typical local price
@@ -465,16 +465,6 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     </p>
                     <p className="text-base font-bold text-emerald-700 mt-1">
                       {formatPrice(post.recommendedPrice, post.currency)}
-                    </p>
-                  </div>
-                )}
-                {post.touristPrice != null && (
-                  <div className="rounded-lg bg-orange-50 border border-orange-200 p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-orange-700 font-medium">
-                      Tourists may be charged
-                    </p>
-                    <p className="text-base font-bold text-orange-700 mt-1">
-                      {formatPrice(post.touristPrice, post.currency)}+
                     </p>
                   </div>
                 )}
@@ -536,7 +526,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         <Badge className="bg-emerald-500 text-white">🟢 Fair price</Badge>
                       )}
                       {consensus.verdict === 'expensive' && (
-                        <Badge className="bg-orange-500 text-white">🟠 Tourists pay more</Badge>
+                        <Badge className="bg-orange-500 text-white">🟠 Above local average</Badge>
                       )}
                       {consensus.verdict === 'cheap' && (
                         <Badge className="bg-emerald-500 text-white">🟢 Below market</Badge>

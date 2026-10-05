@@ -76,7 +76,28 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
     const { user } = data
     const title = `${user.name} (@${user.username}) · circub`
     const description = user.headline || user.bio || `See ${user.name}'s profile, posts and local price knowledge on circub.`
-    return { title, description }
+    // v117: profile picture as the link-preview image. Uploaded avatars are
+    // base64 data: URLs (crawlers cannot fetch them), so og:image points at
+    // /api/users/<id>/image which serves the real bytes.
+    const image = user.profilePicture ? `/api/users/${user.id}/image` : undefined
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        url: `/u/${user.username}`,
+        siteName: 'circub',
+        type: 'profile',
+        images: image ? [{ url: image }] : undefined,
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: image ? [image] : undefined,
+      },
+    }
   } catch {
     return { title: 'Profile · circub' }
   }

@@ -32,6 +32,7 @@ export type SharePosterTarget =
       priceMax: number
       city?: string | null
       country?: string | null
+      imageUrl?: string | null // v117: the post's photo is drawn onto the poster
       authorName?: string | null
       authorUsername?: string | null
       date: string
@@ -286,7 +287,17 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
 
   const contentX = 92
   const contentW = W - contentX * 2
-  const footerTop = H - 250
+
+  // v117: price posters include the post's own photo (uploads are data: URLs
+  // and seed photos are same-origin paths - both draw cleanly; a remote image
+  // that fails CORS simply falls back to the text-only layout). With a photo
+  // the footer compresses slightly so the image gets room to breathe.
+  const photo = target.kind === 'price' && target.imageUrl ? await loadImage(target.imageUrl) : null
+  const footerTop = photo ? H - 200 : H - 250
+  const qrSize = photo ? 160 : 190
+  const rowCta = photo ? 56 : 66
+  const rowLink = photo ? 100 : 120
+  const rowTag = photo ? 140 : 164
 
   // Divider above the footer
   const div = ctx.createLinearGradient(contentX, 0, W - contentX, 0)
@@ -306,64 +317,141 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     const chipText = (target.category || 'Local price').toUpperCase()
     drawChip(ctx, chipText, contentX + ctx.measureText('PRICE CHECK').width + 24, 336 - 42)
 
-    // Product name
-    ctx.font = FONT(72)
-    ctx.fillStyle = '#f0fdf4'
-    const nameLines = wrapLines(ctx, target.productName, contentW, 3)
-    let y = 440
-    for (const line of nameLines) {
-      ctx.fillText(line, contentX, y)
-      y += 88
-    }
-
-    // Location row
-    const place = [target.city, target.country].filter(Boolean).join(', ')
-    if (place) {
-      drawPin(ctx, contentX + 16, y + 6, 30)
-      ctx.font = FONT(40, '600')
-      ctx.fillStyle = '#bbf7d0'
-      ctx.fillText(place, contentX + 52, y + 16)
-      y += 72
-    }
-
-    // Price range - the hero element, glowing
-    const range = target.priceMin === target.priceMax
-      ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
-      : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}`
-    ctx.font = FONT(128)
-    const size = fitText(ctx, range, contentW, 128, 56)
-    ctx.font = FONT(size)
-    ctx.save()
-    ctx.shadowColor = 'rgba(74,222,128,0.9)'
-    ctx.shadowBlur = 34
-    ctx.fillStyle = '#4ade80'
-    ctx.fillText(range, contentX, Math.max(y + 120, 780))
-    ctx.restore()
-    ctx.font = FONT(34, '600')
-    ctx.fillStyle = 'rgba(187,247,208,0.85)'
-    ctx.fillText('typical local price range', contentX, Math.max(y + 120, 780) + 56)
-    if (target.authorName) {
-      // Shop identity rows - who posted this, their @handle and the date.
-      // The @handle is the poster's shop link (same /u/<username> the QR
-      // points to), so the poster doubles as a showcase for their shop.
-      const priceY = Math.max(y + 120, 780)
-      const uname = target.authorUsername?.trim()
-      const byLine = `by ${target.authorName}`
-      const handleText = uname ? ` · @${uname}` : ''
-      ctx.font = FONT(34)
-      const combined = byLine + handleText
-      const idSize = fitText(ctx, combined, contentW, 34, 24)
-      ctx.font = FONT(idSize)
+    if (photo) {
+      // ---------- v117 PHOTO LAYOUT: the post's image is the hero ----------
+      // Product name - up to 2 lines above the photo
+      ctx.font = FONT(56)
       ctx.fillStyle = '#f0fdf4'
-      ctx.fillText(byLine, contentX, priceY + 108)
-      if (uname) {
-        ctx.font = FONT(idSize, '600')
-        ctx.fillStyle = '#4ade80'
-        ctx.fillText(handleText, contentX + ctx.measureText(byLine).width, priceY + 108)
+      const nameLines = wrapLines(ctx, target.productName, contentW, 2)
+      let py = 402
+      for (const line of nameLines) {
+        ctx.fillText(line, contentX, py)
+        py += 66
       }
-      ctx.font = FONT(28, '600')
-      ctx.fillStyle = 'rgba(187,247,208,0.7)'
-      ctx.fillText(target.date, contentX, priceY + 156)
+
+      // Location row
+      const place = [target.city, target.country].filter(Boolean).join(', ')
+      if (place) {
+        drawPin(ctx, contentX + 14, py - 10, 26)
+        ctx.font = FONT(30, '600')
+        ctx.fillStyle = '#bbf7d0'
+        ctx.fillText(place, contentX + 44, py)
+        py += 50
+      }
+
+      // Photo - cover-cropped into a rounded card with a soft green frame
+      const phH = 400
+      const phY = py + 6
+      ctx.save()
+      roundRect(ctx, contentX, phY, contentW, phH, 28)
+      ctx.clip()
+      const scale = Math.max(contentW / photo.width, phH / photo.height)
+      const sw = contentW / scale
+      const sh = phH / scale
+      ctx.drawImage(photo, (photo.width - sw) / 2, (photo.height - sh) / 2, sw, sh, contentX, phY, contentW, phH)
+      ctx.restore()
+      ctx.save()
+      ctx.shadowColor = 'rgba(34,197,94,0.55)'
+      ctx.shadowBlur = 16
+      ctx.strokeStyle = 'rgba(74,222,128,0.75)'
+      ctx.lineWidth = 3
+      roundRect(ctx, contentX, phY, contentW, phH, 28)
+      ctx.stroke()
+      ctx.restore()
+
+      // Who posted it - a readable chip pinned to the photo's top-left
+      if (target.authorName) {
+        const byLine = `by ${target.authorName}`
+        const handleText = target.authorUsername?.trim() ? ` · @${target.authorUsername.trim()}` : ''
+        ctx.font = FONT(28)
+        const chipW = ctx.measureText(byLine + handleText).width + 36
+        ctx.save()
+        ctx.fillStyle = 'rgba(4, 21, 12, 0.72)'
+        roundRect(ctx, contentX + 18, phY + 18, chipW, 46, 23)
+        ctx.fill()
+        ctx.restore()
+        ctx.fillStyle = '#f0fdf4'
+        ctx.fillText(byLine, contentX + 36, phY + 49)
+        if (handleText) {
+          ctx.fillStyle = '#4ade80'
+          ctx.fillText(handleText, contentX + 36 + ctx.measureText(byLine).width, phY + 49)
+        }
+      }
+
+      // Price range - the glowing number right under the photo
+      const range = target.priceMin === target.priceMax
+        ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
+        : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}`
+      const priceY = Math.max(phY + phH + 84, 1040)
+      const psize = fitText(ctx, range, contentW, 76, 48)
+      ctx.font = FONT(psize)
+      ctx.save()
+      ctx.shadowColor = 'rgba(74,222,128,0.9)'
+      ctx.shadowBlur = 30
+      ctx.fillStyle = '#4ade80'
+      ctx.fillText(range, contentX, priceY)
+      ctx.restore()
+    } else {
+      // ---------- TEXT-ONLY LAYOUT (no photo / photo failed to load) ----------
+      // Product name
+      ctx.font = FONT(72)
+      ctx.fillStyle = '#f0fdf4'
+      const nameLines = wrapLines(ctx, target.productName, contentW, 3)
+      let y = 440
+      for (const line of nameLines) {
+        ctx.fillText(line, contentX, y)
+        y += 88
+      }
+
+      // Location row
+      const place = [target.city, target.country].filter(Boolean).join(', ')
+      if (place) {
+        drawPin(ctx, contentX + 16, y + 6, 30)
+        ctx.font = FONT(40, '600')
+        ctx.fillStyle = '#bbf7d0'
+        ctx.fillText(place, contentX + 52, y + 16)
+        y += 72
+      }
+
+      // Price range - the hero element, glowing
+      const range = target.priceMin === target.priceMax
+        ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
+        : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}`
+      ctx.font = FONT(128)
+      const size = fitText(ctx, range, contentW, 128, 56)
+      ctx.font = FONT(size)
+      ctx.save()
+      ctx.shadowColor = 'rgba(74,222,128,0.9)'
+      ctx.shadowBlur = 34
+      ctx.fillStyle = '#4ade80'
+      ctx.fillText(range, contentX, Math.max(y + 120, 780))
+      ctx.restore()
+      ctx.font = FONT(34, '600')
+      ctx.fillStyle = 'rgba(187,247,208,0.85)'
+      ctx.fillText('typical local price range', contentX, Math.max(y + 120, 780) + 56)
+      if (target.authorName) {
+        // Shop identity rows - who posted this, their @handle and the date.
+        // The @handle is the poster's shop link (same /u/<username> the QR
+        // points to), so the poster doubles as a showcase for their shop.
+        const priceY = Math.max(y + 120, 780)
+        const uname = target.authorUsername?.trim()
+        const byLine = `by ${target.authorName}`
+        const handleText = uname ? ` · @${uname}` : ''
+        ctx.font = FONT(34)
+        const combined = byLine + handleText
+        const idSize = fitText(ctx, combined, contentW, 34, 24)
+        ctx.font = FONT(idSize)
+        ctx.fillStyle = '#f0fdf4'
+        ctx.fillText(byLine, contentX, priceY + 108)
+        if (uname) {
+          ctx.font = FONT(idSize, '600')
+          ctx.fillStyle = '#4ade80'
+          ctx.fillText(handleText, contentX + ctx.measureText(byLine).width, priceY + 108)
+        }
+        ctx.font = FONT(28, '600')
+        ctx.fillStyle = 'rgba(187,247,208,0.7)'
+        ctx.fillText(target.date, contentX, priceY + 156)
+      }
     }
   } else {
     ctx.font = FONT(34, '600')
@@ -402,31 +490,37 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     }
   }
 
-  // Footer: QR + call to action + link. When the author has a shop profile
-  // the QR lands on /u/<username> - spell that out so scanners know what
-  // they get: the poster's full shop (listings, products, posts).
-  await drawQr(ctx, linkUrl, W - contentX - 190, footerTop, 190)
-  const qrTextW = contentW - 220
+  // Footer: QR + call to action + link. v117: price-post shares point at the
+  // post's own deep link (/?post=<id>), so the QR opens that exact price
+  // detail on circub - spell that out on the CTA.
+  await drawQr(ctx, linkUrl, W - contentX - qrSize, footerTop, qrSize)
+  const qrTextW = contentW - (qrSize + 30)
   const footerHandle = target.authorUsername?.trim()
-  const cta = footerHandle ? `Scan to see @${footerHandle}'s shop` : 'Scan for real local prices'
+  let cta = footerHandle ? `Scan to see @${footerHandle}'s shop` : 'Scan for real local prices'
+  try {
+    const lu = new URL(linkUrl, window.location.origin)
+    if (lu.searchParams.has('post')) cta = 'Scan to open this price on circub'
+  } catch {
+    /* keep the default CTA */
+  }
   const ctaSize = fitText(ctx, cta, qrTextW, 44, 28, '600')
   ctx.font = FONT(ctaSize, '600')
   ctx.fillStyle = '#f0fdf4'
-  ctx.fillText(cta, contentX, footerTop + 66)
+  ctx.fillText(cta, contentX, footerTop + rowCta)
   try {
     const u = new URL(linkUrl, window.location.origin)
     const linkText = `${u.host}${u.pathname !== '/' ? u.pathname : ''}` || 'circub.app'
     ctx.font = FONT(fitText(ctx, linkText, qrTextW, 32, 20, '600'), '600')
     ctx.fillStyle = '#4ade80'
-    ctx.fillText(linkText, contentX, footerTop + 120)
+    ctx.fillText(linkText, contentX, footerTop + rowLink)
   } catch {
     ctx.font = FONT(32, '600')
     ctx.fillStyle = '#4ade80'
-    ctx.fillText('circub.app', contentX, footerTop + 120)
+    ctx.fillText('circub.app', contentX, footerTop + rowLink)
   }
   ctx.font = FONT(26, '600')
   ctx.fillStyle = 'rgba(187,247,208,0.6)'
-  ctx.fillText('Know what things actually cost · before you travel', contentX, footerTop + 164)
+  ctx.fillText('Know what things actually cost · before you travel', contentX, footerTop + rowTag)
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'))
 }

@@ -1,579 +1,86 @@
-'use client'
+// ============================================================================
+// v117: page.tsx is now a SERVER component so shared price-post links get
+// per-post Open Graph metadata. Every share / copy / QR of a price post now
+// points at /?post=<postId>, and when a crawler (WhatsApp, Facebook, X,
+// Telegram, iMessage) fetches that URL, generateMetadata below swaps the
+// generic site card for the post's own photo, product name and price range.
+//
+// The photo itself is served by /api/local-prices/<id>/image: uploads are
+// base64 data: URLs in the DB, which crawlers cannot fetch, so the route
+// decodes them and serves real bytes.
+//
+// The interactive app shell (unchanged client behavior) lives in
+// home-client.tsx - including the deep-link handler that auto-opens the
+// price detail modal for ?post= links.
+// ============================================================================
+import type { Metadata } from "next";
+import { db } from "@/lib/db";
+import HomeClient from "./home-client";
 
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
-import { Header } from '@/components/social/header'
-import { RightSidebar } from '@/components/social/right-sidebar'
-import { LandingPage } from '@/components/social/landing-page'
-import { DemoBanner } from '@/components/social/demo-banner'
-import { useToast } from '@/hooks/use-toast'
-import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
-import { rememberPosition, recallPosition, type ProfileSection } from '@/lib/last-position'
-import { LanguageProvider } from '@/lib/i18n'
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-// Lazy-load heavy tab components (only loaded when user switches to that tab)
-const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
-const LocalFeedTab = lazy(() => import('@/components/social/local-feed-tab').then(m => ({ default: m.LocalFeedTab })))
-const LiveZoneTab = lazy(() => import('@/components/social/live-zone-tab').then(m => ({ default: m.LiveZoneTab })))
-const ProfileTab = lazy(() => import('@/components/social/profile-tab').then(m => ({ default: m.ProfileTab })))
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const raw = sp.post;
+  const postId = typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : null;
+  if (!postId) return {}; // plain visit - layout defaults apply
 
-// Lazy-load modals (only loaded when opened)
-const PriceDetailModal = lazy(() => import('@/components/social/price-detail-modal').then(m => ({ default: m.PriceDetailModal })))
-const LocalProfileModal = lazy(() => import('@/components/social/local-profile-modal').then(m => ({ default: m.LocalProfileModal })))
-const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
-const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
-const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
-const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
-const DeactivateAccountModal = lazy(() => import('@/components/social/deactivate-account-modal').then(m => ({ default: m.DeactivateAccountModal })))
-import type { User, TabKey } from '@/lib/types'
-
-// localStorage key for the cached session user - enables instant repeat loads
-// (dashboard paints immediately, then revalidates against /api/auth/me).
-// Guests are never cached: guest mode is intentionally per-visit only.
-const ME_CACHE_KEY = 'circub.me.v1'
-
-// Synchronously read the cached session user, if any, so the very first
-// render already knows whether to paint the dashboard shell or the landing
-// page - no flash of the wrong screen while the lazy initializer runs.
-// Guarded for SSR (localStorage doesn't exist on the server).
-function getCachedUser(): User | null {
-  if (typeof window === 'undefined') return null
   try {
-    const cached = localStorage.getItem(ME_CACHE_KEY)
-    if (cached) {
-      const u = JSON.parse(cached)
-      if (u && u.id && u.id !== 'guest') return u
-    }
-  } catch {}
-  return null
+    const post = await db.localPricePost.findUnique({
+      where: { id: postId },
+      select: {
+        productName: true,
+        currency: true,
+        priceMin: true,
+        priceMax: true,
+        city: true,
+        country: true,
+        postType: true,
+        imageUrl: true,
+      },
+    });
+    if (!post) return {}; // unknown/deleted post - layout defaults apply
+
+    const place = [post.city, post.country].filter(Boolean).join(", ");
+    const range =
+      post.priceMin === post.priceMax
+        ? `${post.currency} ${post.priceMin.toLocaleString("en-US")}`
+        : `${post.currency} ${post.priceMin.toLocaleString("en-US")} - ${post.priceMax.toLocaleString("en-US")}`;
+    const kind = post.postType === "SERVICE" ? "service" : "product";
+    const title = `${post.productName} - ${range} · real local price on circub`;
+    const description = `Locals report this ${kind}${place ? ` in ${place}` : ""} costs ${range}. See the full price details, GPS directions and community votes on circub.`;
+    // Uploaded photos are data: URLs (crawler-invisible) - the image route
+    // serves them as real bytes. Posts without a photo keep the sitewide
+    // og:image from the root layout.
+    const image = post.imageUrl ? `/api/local-prices/${postId}/image` : undefined;
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        url: `/?post=${postId}`,
+        siteName: "circub",
+        type: "website",
+        images: image ? [{ url: image }] : undefined,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: image ? [image] : undefined,
+      },
+    };
+  } catch {
+    return {}; // DB hiccup - layout defaults apply, page still renders
+  }
 }
 
 export default function Home() {
-  // LanguageProvider wraps the whole shell - landing AND dashboard - so the
-  // chosen language applies to the entire app and persists across visits.
-  return (
-    <LanguageProvider>
-      <HomeInner />
-    </LanguageProvider>
-  )
-}
-
-function HomeInner() {
-  const [me, setMe] = useState<User | null>(getCachedUser)
-  // authChecked now only tracks whether the background /api/auth/me
-  // revalidation has completed - it no longer gates the first paint.
-  // Blocking every visit (most of which are anonymous) behind a network
-  // round-trip just to find out "you're not logged in" was the single
-  // biggest chunk of the "Loading circub..." delay, so we render
-  // optimistically from cache/guest state immediately and let the
-  // real auth check settle in the background.
-  const [authChecked, setAuthChecked] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('local')
-  const [refreshSignal, setRefreshSignal] = useState(0)
-  const [messagesOpen, setMessagesOpen] = useState(false)
-  const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
-  const [localPriceId, setLocalPriceId] = useState<string | null>(null)
-  const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
-  const [registerOpen, setRegisterOpen] = useState(false)
-  const [loginOpen, setLoginOpen] = useState(false)
-  // "Deactivate account" (header menu, next to Sign out) - asks for a reason,
-  // forwards it to the contact-us inbox, then signs the user out.
-  const [deactivateOpen, setDeactivateOpen] = useState(false)
-  // Bumped every time an "Edit profile" entry point is used (header menu,
-  // right sidebar) - routes to the Profile tab in edit mode (full tab).
-  const [editSignal, setEditSignal] = useState(0)
-  // Bookmark and Network live INSIDE the Profile tab now (Instagram-style):
-  // profileSection is the section the Profile tab should open on, bumped
-  // by sectionBump so it also applies when the tab is already active.
-  const [profileSection, setProfileSection] = useState<ProfileSection | null>(null)
-  const [sectionBump, setSectionBump] = useState(0)
-  // The section the Profile tab is ACTUALLY showing (reported by ProfileTab),
-  // so the position memory records the truth even when the user switches
-  // sections with the chips inside the tab.
-  const [profileLiveSection, setProfileLiveSection] = useState<ProfileSection | null>(null)
-  const [guideRegisterOpen, setGuideRegisterOpen] = useState(false)
-  const { toast } = useToast()
-
-  const fetchMe = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/me')
-      if (res.status === 401) {
-        setMe(null)
-        try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
-        return
-      }
-      const data = await res.json()
-      setMe(data)
-      // Cache the signed-in user so the next visit paints instantly
-      // (revalidated below by this same fetch on every load).
-      if (data && data.id && data.id !== 'guest') {
-        try { localStorage.setItem(ME_CACHE_KEY, JSON.stringify(data)) } catch {}
-      }
-    } catch {
-      setMe(null)
-    } finally {
-      setAuthChecked(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    // `me` is already painted synchronously from cache (or null/guest) by
-    // the lazy useState initializer above. All this effect needs to do is
-    // kick off the background revalidation against the server - it must
-    // NOT block or delay the first paint.
-    fetchMe()
-  }, [fetchMe])
-
-  // Show a clear toast when NextAuth redirects back with ?error=google
-  // (Google OAuth couldn't start because the client secret is missing on the server).
-  // Without this, the user just sees the landing page with no feedback.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const err = params.get('error')
-    if (err === 'google' || err === 'OAuthCallback' || err === 'Configuration') {
-      toast({
-        title: 'Google sign-in failed',
-        description: 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.',
-        variant: 'destructive',
-      })
-      // Clean the URL so the toast doesn't re-fire on refresh.
-      const url = window.location.origin + window.location.pathname
-      window.history.replaceState({}, '', url)
-    }
-  }, [toast])
-
-  // Demo mode has ZERO write access: every attempt (post, vote, like,
-  // message, guide registration...) is intercepted client-side and answered
-  // with the REGISTRATION FORM itself - not just a toast. One helper so the
-  // behavior is identical on every path.
-  const promptRegister = useCallback((title: string, description: string) => {
-    setMessagesOpen(false)
-    setLoginOpen(false)
-    setGuideRegisterOpen(false)
-    setRegisterOpen(true)
-    toast({ title, description })
-  }, [toast])
-
-  // Listen for auth-expired events from authFetch (401 on publish/edit/etc.)
-  // If the user is a guest (id === 'guest'), show the register modal instead
-  // of the login modal - guests don't have credentials to log in with.
-  useEffect(() => {
-    const handler = () => {
-      // While the Deactivate modal is open the 401 storm it causes (every
-      // background API now returns 401 for the deactivated user) must NOT
-      // trigger the "Session expired" bounce / login modal on top of it -
-      // the modal's own Done flow signs the user out cleanly.
-      if (deactivateOpen) return
-      const isGuest = me?.id === 'guest'
-      if (isGuest) {
-        // Guest tried to do something that requires auth (post, vote, etc.)
-        // Take them directly to registration - close everything else,
-        // open the Register modal prominently.
-        promptRegister(
-          'Register first',
-          'The demo cannot post, vote, or message. Create a free account to do that - it takes 10 seconds.',
-        )
-      } else {
-        // Logged-in user's session expired - bounce to login
-        setMe(null)
-        setMessagesOpen(false)
-        setRegisterOpen(false)
-        setLoginOpen(true)
-        toast({
-          title: 'Session expired',
-          description: 'Your login has expired. Please sign in again to continue.',
-          variant: 'destructive',
-        })
-      }
-    }
-    window.addEventListener(AUTH_EXPIRED_EVENT, handler)
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
-  }, [toast, me, deactivateOpen, promptRegister])
-
-  // Listen for "Ask a Guide" events from the PriceLens scanner - when
-  // a user scans a product and taps "Ask a local guide about this item",
-  // switch to the Guides tab so they can find a guide in their area.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail
-      setActiveTab('guides')
-      const isGuest = me?.id === 'guest'
-      toast({
-        title: isGuest ? 'Browse local guides' : 'Find a guide',
-        description: detail?.itemName
-          ? `Looking for help with: ${detail.itemName}${detail?.location?.city ? ' in ' + detail.location.city : ''}`
-          : undefined,
-      })
-      // If guest, bring up the REGISTRATION FORM right away - asking a
-      // guide is messaging, and the demo cannot message.
-      if (isGuest) {
-        promptRegister(
-          'Register to ask a guide',
-          'The demo cannot message guides. Create a free account to ask locals directly.',
-        )
-      }
-    }
-    window.addEventListener('circub:ask-guide', handler)
-    return () => window.removeEventListener('circub:ask-guide', handler)
-  }, [toast, me, promptRegister])
-
-  const handleRefreshAll = useCallback(() => {
-    setRefreshSignal((s) => s + 1)
-  }, [])
-
-  const handleMessageUser = useCallback((userId: string) => {
-    // Messaging requires an account - guests are taken straight to sign-up,
-    // expired sessions to login (same flow as posting/voting).
-    if (!me) {
-      setLoginOpen(true)
-      toast({ title: 'Sign in to message', description: 'Log in or create a free account to message locals and guides.' })
-      return
-    }
-    if (me.id === 'guest') {
-      promptRegister(
-        'Register to message',
-        'The demo cannot message anyone. Create a free account to message locals and guides.',
-      )
-      return
-    }
-    setMessageTargetId(userId)
-    setMessagesOpen(true)
-  }, [me, toast, promptRegister])
-
-  // Plain nav clicks reset the deep-linked Profile section so the tab opens
-  // on Posts, while "My network" entry points still land on their section.
-  const handleTabChange = useCallback((tab: TabKey) => {
-    if (tab === 'profile') setProfileSection(null)
-    setActiveTab(tab)
-  }, [])
-
-  const openProfileSection = useCallback((section: 'saved' | 'network') => {
-    setProfileSection(section)
-    setSectionBump((b) => b + 1)
-    setActiveTab('profile')
-  }, [])
-
-  // "Remember where the user is if the page is not refreshed": when the user
-  // comes back from another page (browser back, or a client-side nav) the tab
-  // - and the Profile sub-section - they were on is restored. Runs in a
-  // post-hydration effect so the SSR markup always matches the first client
-  // render; an explicit refresh or a fresh visit starts clean at the default.
-  useEffect(() => {
-    const pos = recallPosition()
-    if (!pos || pos.tab === 'local') return
-    setActiveTab(pos.tab)
-    if (pos.tab === 'profile' && pos.section) {
-      setProfileSection(pos.section)
-      setSectionBump((b) => b + 1)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    rememberPosition(
-      activeTab,
-      activeTab === 'profile' ? (profileLiveSection ?? profileSection) : null
-    )
-  }, [activeTab, profileSection, profileLiveSection])
-
-  // Editing the profile requires a real account - guests get the sign-up
-  // dialog. Real users land on the Profile tab in edit mode (Instagram-style
-  // full tab, replacing the old modal).
-  const handleEditProfile = useCallback(() => {
-    if (!me) {
-      setLoginOpen(true)
-      toast({ title: 'Sign in to edit your profile', description: 'Log in or create a free account to personalize your profile.' })
-      return
-    }
-    if (me.id === 'guest') {
-      promptRegister(
-        'Register to save a profile',
-        'The demo is read-only. Create a free account first - your profile saves with it. It takes 10 seconds.',
-      )
-      return
-    }
-    setActiveTab('profile')
-    setProfileSection(null)
-    setEditSignal((s) => s + 1)
-  }, [me, toast, promptRegister])
-
-  const handleOpenMessages = useCallback(() => {
-    // The Messages inbox needs an account - the demo gets the registration
-    // form instead of an inbox that would just 401 on everything.
-    if (me?.id === 'guest') {
-      promptRegister(
-        'Register to message',
-        'The demo cannot message anyone. Create a free account to message locals and guides.',
-      )
-      return
-    }
-    setMessageTargetId(null)
-    setMessagesOpen(true)
-  }, [me, promptRegister])
-
-  // "Join as a local" (guide registration) is an account action - the demo
-  // gets the REGISTRATION form, never the guide application.
-  const handleBecomeGuide = useCallback(() => {
-    if (me?.id === 'guest') {
-      promptRegister(
-        'Register to join as a guide',
-        'The demo cannot register as a guide. Create a free account first - then join the local program.',
-      )
-      return
-    }
-    setGuideRegisterOpen(true)
-  }, [me, promptRegister])
-
-  const handleToggleGuideAvailability = useCallback(async () => {
-    if (!me) return
-    try {
-      await fetch(`/api/guides/${me.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guideAvailable: !(me as any).guideAvailable }),
-      })
-      fetchMe()
-      toast({ title: (me as any).guideAvailable ? 'You are now offline' : 'You are now available' })
-    } catch {
-      toast({ title: 'Failed to toggle availability', variant: 'destructive' })
-    }
-  }, [me, fetchMe, toast])
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } catch {
-      /* ignore */
-    }
-    try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
-    setMe(null)
-    setMessagesOpen(false)
-    setRegisterOpen(false)
-    setLoginOpen(false)
-    toast({ title: 'Signed out' })
-  }, [toast])
-
-  // After a successful deactivation: same teardown as logout, different copy.
-  const handleDeactivated = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } catch {
-      /* ignore */
-    }
-    try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
-    setMe(null)
-    setMessagesOpen(false)
-    toast({ title: 'Account deactivated', description: 'Your reason was sent to our team. Email support@tenetbid.com to come back any time.' })
-  }, [toast])
-
-  const handleAuthed = useCallback(() => {
-    // Fetch fresh user data from /api/auth/me
-    fetchMe()
-  }, [fetchMe])
-
-  // NOTE: we intentionally do NOT gate rendering on `authChecked` anymore.
-  // `me` already reflects the best information we have synchronously
-  // (cached user, or null/guest) and `fetchMe()` is revalidating in the
-  // background. Blocking first paint on that network round-trip meant
-  // every anonymous visitor - the majority of first-time traffic - sat on
-  // a spinner just to be told "you're logged out" and shown the landing
-  // page anyway. If a returning user opens the app on a device with no
-  // cache, they'll see the landing page for a moment and then flip to the
-  // dashboard once fetchMe() resolves - a brief, non-blocking flash beats
-  // a guaranteed multi-hundred-ms (or, on a cold serverless/DB start,
-  // multi-second) blank wait for everyone.
-
-  // Logged-out → landing page
-  if (!me) {
-    return (
-      <>
-        <LandingPage
-          onSignUp={() => setRegisterOpen(true)}
-          onLogin={() => setLoginOpen(true)}
-          onViewDemo={() => {
-            // Set a demo user object so the full dashboard renders.
-            // Demo mode is VIEW ONLY: the demo user can see ALL tabs and
-            // browse everything, but posting prices, voting, messaging,
-            // and editing profile all prompt them to sign up. The demo
-            // banner (below) labels the mode and offers Sign up / Exit.
-            try { localStorage.removeItem(ME_CACHE_KEY) } catch {}
-            setMe({
-              id: 'guest',
-              name: 'Demo',
-              email: '',
-              avatarColor: 'teal',
-              profilePicture: null,
-              bio: null,
-              headline: 'Demo view - sign up to interact',
-              location: null,
-              accountType: 'PERSONAL',
-              companyName: null,
-              companyWebsite: null,
-              companySize: null,
-              companyIndustry: null,
-              postsCount: 0,
-              followersCount: 0,
-              likesCount: 0,
-              connectionsCount: 0,
-              incomingInvitationsCount: 0,
-              isLocal: false,
-              verifiedLocal: false,
-              isGuide: false,
-              guideAvailable: false,
-            } as any)
-            toast({
-              title: 'Demo view',
-              description: 'You are browsing a read-only demo. Sign up free to post prices, vote, and message.',
-            })
-          }}
-        />
-        <Suspense fallback={null}>
-          <RegisterModal
-            open={registerOpen}
-            onOpenChange={setRegisterOpen}
-            onAuthed={handleAuthed}
-            onSwitchToLogin={() => setLoginOpen(true)}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <LoginModal
-            open={loginOpen}
-            onOpenChange={setLoginOpen}
-            onAuthed={handleAuthed}
-            onSwitchToRegister={() => setRegisterOpen(true)}
-          />
-        </Suspense>
-      </>
-    )
-  }
-
-  // Logged-in → dashboard
-  return (
-    <div className="min-h-screen flex flex-col bg-background pb-[46px] md:pb-0">
-      {/* Demo mode (me.id === 'guest'): the persistent read-only banner,
-          pinned together with the header in ONE sticky stack so the mode
-          stays boldly visible at every scroll position. Exit drops back to
-          the landing page, Register now opens the registration form. */}
-      <div className="sticky top-0 z-40">
-        {me.id === 'guest' && (
-          <DemoBanner
-            onSignUp={() => setRegisterOpen(true)}
-            onExit={() => {
-              setMe(null)
-              toast({ title: 'Demo ended', description: 'Register free any time to post prices, vote, and message locals.' })
-            }}
-          />
-        )}
-        <Header
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onOpenMessages={handleOpenMessages}
-        incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
-        user={me}
-        onSignUp={() => setRegisterOpen(true)}
-        onLogin={() => setLoginOpen(true)}
-        onLogout={handleLogout}
-        onEditProfile={handleEditProfile}
-        onOpenNetwork={() => openProfileSection('network')}
-        onDeactivateAccount={() => setDeactivateOpen(true)}
-      />
-      </div>
-
-      <Suspense fallback={null}>
-        <DeactivateAccountModal
-          open={deactivateOpen}
-          onOpenChange={setDeactivateOpen}
-          user={me ? { name: me.name, email: me.email } : null}
-          onDeactivated={handleDeactivated}
-        />
-      </Suspense>
-
-      <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
-        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-          {activeTab === 'feed' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <FeedTab user={me} onMessage={handleMessageUser} onRefreshUser={fetchMe} />
-            </Suspense>
-          )}
-
-          {activeTab === 'local' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} />
-            </Suspense>
-          )}
-
-          {activeTab === 'guides' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} />
-            </Suspense>
-          )}
-
-          {activeTab === 'profile' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <ProfileTab
-                me={me}
-                editSignal={editSignal}
-                initialSection={profileSection}
-                sectionBump={sectionBump}
-                onSectionChange={setProfileLiveSection}
-                onOpenListing={setLocalPriceId}
-                onMessage={handleMessageUser}
-                onUserChanged={fetchMe}
-                onSignUp={() => setRegisterOpen(true)}
-              />
-            </Suspense>
-          )}
-
-          <RightSidebar
-            refreshSignal={refreshSignal}
-            user={me}
-            onMessage={handleMessageUser}
-            onOpenMessages={handleOpenMessages}
-            incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
-            onOpenLocalPrice={setLocalPriceId}
-            onOpenLocalProfile={setLocalProfileUserId}
-            onGoToFeed={() => setActiveTab('local')}
-            onEditProfile={handleEditProfile}
-            onManageNetwork={() => openProfileSection('network')}
-          />
-        </div>
-      </div>
-
-      <Suspense fallback={null}>
-        <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <PriceDetailModal postId={localPriceId} onClose={() => setLocalPriceId(null)} onAuthorClick={setLocalProfileUserId} onMessage={handleMessageUser} currentUserId={me?.id ?? null} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <LocalProfileModal userId={localProfileUserId} onClose={() => setLocalProfileUserId(null)} onOpenPost={setLocalPriceId} onMessage={handleMessageUser} currentUserId={me?.id ?? null} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <GuideRegisterModal open={guideRegisterOpen} onOpenChange={setGuideRegisterOpen} user={me} onSaved={() => { fetchMe(); setActiveTab('guides') }} />
-      </Suspense>
-
-      {/* Auth modals also in the dashboard: guests who hit an auth-gated action
-          (message a poster, vote, post) get the sign-up prompt without leaving
-          the dashboard. No-ops while closed. */}
-      <Suspense fallback={null}>
-        <RegisterModal
-          open={registerOpen}
-          onOpenChange={setRegisterOpen}
-          onAuthed={handleAuthed}
-          onSwitchToLogin={() => setLoginOpen(true)}
-        />
-      </Suspense>
-      <Suspense fallback={null}>
-        <LoginModal
-          open={loginOpen}
-          onOpenChange={setLoginOpen}
-          onAuthed={handleAuthed}
-          onSwitchToRegister={() => setRegisterOpen(true)}
-        />
-      </Suspense>
-    </div>
-  )
+  return <HomeClient />;
 }

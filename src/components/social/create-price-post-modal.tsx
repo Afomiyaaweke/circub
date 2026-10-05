@@ -67,7 +67,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [recommendedPrice, setRecommendedPrice] = useState('')
-  const [touristPrice, setTouristPrice] = useState('')
   const [personalPrice, setPersonalPrice] = useState('')
   const [localTip, setLocalTip] = useState('')
   const [contactPhone, setContactPhone] = useState('')
@@ -118,7 +117,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setPriceMin('')
     setPriceMax('')
     setRecommendedPrice('')
-    setTouristPrice('')
     setPersonalPrice('')
     setLocalTip('')
     setOwnsShop(false)
@@ -231,7 +229,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           priceMin: Number(priceMin),
           priceMax: Number(priceMax),
           recommendedPrice: recommendedPrice ? Number(recommendedPrice) : undefined,
-          touristPrice: touristPrice ? Number(touristPrice) : undefined,
           personalPrice: personalPrice ? Number(personalPrice) : undefined,
           localTip,
           contactPhone,
@@ -491,16 +488,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                   placeholder="1800"
                   value={recommendedPrice}
                   onChange={(e) => setRecommendedPrice(e.target.value)}
-                  min="0"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Tourist price</label>
-                <Input
-                  type="number"
-                  placeholder="3000"
-                  value={touristPrice}
-                  onChange={(e) => setTouristPrice(e.target.value)}
                   min="0"
                 />
               </div>
