@@ -7,16 +7,22 @@
 // app closes) instead of stepping back to where the user was.
 //
 // One coordinator owns the interplay between our overlays and the history
-// stack:
-// - an overlay that OPENS pushes one same-document history entry and joins
-//   the module stack (last opened = top);
-// - a popstate (device back) closes ONLY the top overlay; that overlay's own
-//   close logic runs and its cleanup sees it was popstate-closed, so it does
-//   NOT call history.back() again (no loop);
-// - an overlay closed by the UI (X, Done, back arrow) consumes its own entry
-//   with history.back(), so the next device back never needs two presses;
-// - deep nesting unwinds in reverse order (profile modal -> price modal ->
-//   register: three entries, three backs).
+// stack. Every open overlay pushes ONE same-document entry carrying a
+// circubOverlay marker; a popstate closes the TOP registered overlay (last
+// opened = top, so nesting unwinds in reverse order). An overlay closed by
+// the UI (X, Done, back arrow) TOMBSTONES its entry (replaceState with a
+// circubDead marker) instead of calling history.back() - a programmatic
+// back() at close time races with the Next.js App Router's own history
+// patching and behaves differently between dev and prod builds, while a
+// tombstone is just a state swap on the entry we are already on. Device
+// backs that land on a tombstoned (or otherwise stale marker) entry skip it
+// with a chained history.back(), so a UI close never leaves a dead press.
+//
+// Known benign quirk: when an overlay opens during the very first hydration
+// (the /?post=<id> deep link), Next.js' boot replaceState can merge the
+// overlay marker onto the BASE entry as well. That stale marker is
+// de-polluted lazily (before the next push, or on the first back that lands
+// on it) and costs at most one no-op back press, once.
 //
 // Usage (client components only):
 //   useBackClose(editing, () => setEditing(false))
@@ -31,28 +37,80 @@ type CloseFn = () => void
 
 const stack: symbol[] = []
 const closeFns = new Map<symbol, CloseFn>()
-// Overlays whose close was ALREADY triggered by a popstate - their cleanup
-// must not consume another history entry (the device back did that).
+// Overlays whose close was ALREADY triggered by a popstate (device back) -
+// their cleanup must not tombstone anything (the entry is already consumed).
 const popstateClosed = new Set<symbol>()
-// UI-initiated history.back() calls whose popstate echo must be swallowed.
-// Counted, so several overlays closing in one commit each consume their own
-// echo instead of the count leaking onto a real device back.
-let pendingConsumes = 0
 let bound = false
+
+type HistoryState = {
+  circubOverlay?: number
+  circubDead?: number
+  [k: string]: unknown
+}
+
+function currentState(): HistoryState | null {
+  try {
+    return (window.history.state as HistoryState) ?? null
+  } catch {
+    return null
+  }
+}
+
+// Remove a stale circubOverlay marker from the CURRENT entry (the Next.js
+// boot-merge quirk). structuredClone drops `undefined` values, so the key
+// disappears from the stored state.
+function depolluteCurrent() {
+  const st = currentState()
+  if (st && st.circubOverlay !== undefined && st.circubDead === undefined) {
+    try {
+      window.history.replaceState({ ...st, circubOverlay: undefined }, '')
+    } catch {
+      /* state write refused - the stale marker is harmless */
+    }
+  }
+}
+
+// Mark the CURRENT entry as consumed-by-UI. Tombstoned entries are skipped
+// (chained history.back()) by the next device backs that land on them.
+function tombstoneCurrent() {
+  const st = currentState()
+  if (st && st.circubOverlay !== undefined && st.circubDead === undefined) {
+    try {
+      window.history.replaceState({ ...st, circubOverlay: undefined, circubDead: 1 }, '')
+    } catch {
+      /* state write refused - worst case one dead back press remains */
+    }
+  }
+}
 
 function ensureBound() {
   if (bound || typeof window === 'undefined') return
   bound = true
-  window.addEventListener('popstate', () => {
-    if (pendingConsumes > 0) {
-      pendingConsumes -= 1
+  window.addEventListener('popstate', (event) => {
+    if (stack.length > 0) {
+      // The entry we are LEAVING belongs to the top overlay - close it.
+      // The destination may itself be a tombstoned/stale entry; that is
+      // handled by whichever press lands there next.
+      const top = stack.pop()!
+      popstateClosed.add(top)
+      closeFns.get(top)?.()
       return
     }
-    const top = stack[stack.length - 1]
-    if (top === undefined) return // nothing of ours open - native nav proceeds
-    stack.pop()
-    popstateClosed.add(top)
-    closeFns.get(top)?.()
+    // Nothing of ours is open - only clean up markers our overlays left.
+    const st = (event.state as HistoryState) ?? currentState()
+    if (st && st.circubDead !== undefined) {
+      // Tombstoned entry: consume it and keep going (chains if several).
+      try {
+        window.history.back()
+      } catch {
+        /* traversal refused - nothing else to do */
+      }
+    } else if (st && st.circubOverlay !== undefined) {
+      // Stale marker merged onto a base entry by Next.js' boot replaceState:
+      // scrub it so later flows start clean. The press is eaten (rare).
+      depolluteCurrent()
+    }
+    // Otherwise: not ours - native navigation proceeds.
   })
 }
 
@@ -66,6 +124,9 @@ export function useBackClose(active: boolean, onClose: CloseFn) {
     if (!active) return
     ensureBound()
     const key = Symbol('back-close')
+    // A stale marker on the current entry (boot-merge quirk) would otherwise
+    // double-count - scrub it before stacking our own entry on top.
+    depolluteCurrent()
     let pushed = false
     try {
       window.history.pushState({ circubOverlay: stack.length + 1 }, '')
@@ -82,18 +143,13 @@ export function useBackClose(active: boolean, onClose: CloseFn) {
       if (i >= 0) stack.splice(i, 1)
       if (!pushed) return
       if (popstateClosed.has(key)) {
-        // Device back already consumed this entry - nothing to unwind.
+        // Device back already consumed this entry - nothing to mark.
         popstateClosed.delete(key)
         return
       }
-      // Closed by the UI: consume our entry so the next device back acts on
-      // whatever is actually on screen.
-      pendingConsumes += 1
-      try {
-        window.history.back()
-      } catch {
-        pendingConsumes -= 1
-      }
+      // Closed by the UI: tombstone the entry we are sitting on so the next
+      // device back skips it instead of needing a dead press.
+      tombstoneCurrent()
     }
   }, [active])
 }
