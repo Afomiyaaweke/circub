@@ -16,6 +16,7 @@ import { DemoBanner } from '@/components/social/demo-banner'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 import { rememberPosition, recallPosition, type ProfileSection } from '@/lib/last-position'
+import { useBackClose } from '@/lib/back-close'
 import { LanguageProvider } from '@/lib/i18n'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
@@ -100,6 +101,19 @@ function HomeInner() {
   const [profileLiveSection, setProfileLiveSection] = useState<ProfileSection | null>(null)
   const [guideRegisterOpen, setGuideRegisterOpen] = useState(false)
   const { toast } = useToast()
+
+  // v119: the device/browser back button closes the topmost open overlay
+  // (price detail, local profile, messages, guide join, auth dialogs) and
+  // returns to the position underneath, instead of leaving the app. Each
+  // overlay pushes one history entry when it opens; back unwinds them in
+  // reverse order. Closing via the UI consumes its own entry (no dead press).
+  useBackClose(!!localPriceId, () => setLocalPriceId(null))
+  useBackClose(!!localProfileUserId, () => setLocalProfileUserId(null))
+  useBackClose(messagesOpen, () => setMessagesOpen(false))
+  useBackClose(guideRegisterOpen, () => setGuideRegisterOpen(false))
+  useBackClose(registerOpen, () => setRegisterOpen(false))
+  useBackClose(loginOpen, () => setLoginOpen(false))
+  useBackClose(deactivateOpen, () => setDeactivateOpen(false))
 
   const fetchMe = useCallback(async () => {
     try {

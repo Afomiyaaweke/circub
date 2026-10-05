@@ -22,7 +22,13 @@ export async function compressImage(file: File, maxDim = 1280, quality = 0.78): 
   try {
     const bitmap = await createImageBitmap(file)
     const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
-    if (scale >= 1 && file.size <= 400 * 1024) {
+    // A small file still gets re-encoded when it is HEIC/HEIF: only Safari
+    // can render those, so storing one as-is puts a broken image on every
+    // other browser (and the avatar looked dead). Anything that DECODES here
+    // always leaves this function as JPEG - the small-size pass-through is
+    // reserved for the render-everywhere types.
+    const RENDERABLE_EVERYWHERE = ['image/png', 'image/jpeg', 'image/webp']
+    if (scale >= 1 && file.size <= 400 * 1024 && RENDERABLE_EVERYWHERE.includes(file.type)) {
       // Already small enough - pass through untouched.
       bitmap.close?.()
       return file

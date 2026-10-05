@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { compressImage } from '@/lib/image-compress'
+import { useBackClose } from '@/lib/back-close'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { normalizeUsername, validateUsername, profileLink } from '@/lib/username'
 import { getSavedItems, unsaveItem, type SavedItem } from '@/lib/saved-items'
@@ -98,6 +99,18 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   { key: 'network', label: 'Network', icon: Users },
 ]
 
+// An HEIC/HEIF file that SURVIVED compression means the browser could not
+// decode it (compressImage re-encodes every decodable image to JPEG), so the
+// stored picture would only ever render on Safari - every other client sees
+// a broken image. Fail loudly with an actionable message instead of quietly
+// storing a picture nobody (outside that one browser) can see.
+function ensureRenderableImage(file: File): File {
+  if (file.type === 'image/heic' || file.type === 'image/heif') {
+    throw new Error("This photo format can't be used here - please pick a JPEG or PNG image.")
+  }
+  return file
+}
+
 export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onSectionChange, onOpenListing, onMessage, onUserChanged, onSignUp }: ProfileTabProps) {
   const { toast } = useToast()
   const isGuest = me.id === 'guest'
@@ -151,6 +164,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [profilePicture, setProfilePicture] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Instant local preview of a freshly picked avatar - painted the moment
+  // the user chooses the photo, not seconds later when the upload + save
+  // round-trip finishes (the whole reason the picture editor felt dead on
+  // slow connections). Only renderable types preview; an HEIC this browser
+  // cannot show would flash a broken image instead of a photo.
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const avatarPreviewUrl = useRef<string | null>(null)
   const avatarFileRef = useRef<HTMLInputElement>(null)
   const isGuide = Boolean(me.isGuide)
 
@@ -226,6 +246,17 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [savedItems, setSavedItems] = useState<SavedItem[]>([])
   const [savedView, setSavedView] = useState<SavedItem | null>(null)
   const refreshSaved = useCallback(() => setSavedItems(getSavedItems()), [])
+
+  // v119: the device/browser back button closes the open overlay and returns
+  // to the position underneath (native-app behavior) instead of leaving the
+  // page. Every full-screen surface in this tab registers here.
+  useBackClose(editing && !isGuest, () => setEditing(false))
+  useBackClose(verifying && !isGuest, () => setVerifying(false))
+  useBackClose(viewerIndex >= 0, () => setViewerIndex(-1))
+  useBackClose(!!newStoryImage, () => { setNewStoryImage(null); setNewStoryCaption('') })
+  useBackClose(!!postView, () => setPostView(null))
+  useBackClose(!!productView, () => setProductView(null))
+  useBackClose(!!savedView, () => setSavedView(null))
   useEffect(() => {
     refreshSaved()
     window.addEventListener('circub:saved-changed', refreshSaved)
@@ -341,7 +372,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     setDocBusy(true)
     try {
       // Higher maxDim + quality than avatars: document text must stay readable.
-      const compressed = await compressImage(file, 2000, 0.85)
+      const compressed = ensureRenderableImage(await compressImage(file, 2000, 0.85))
       const fd = new FormData()
       fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
@@ -393,20 +424,54 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const handleAvatarUpload = async (file: File) => {
     if (!file) return
     setUploading(true)
+    // Instant feedback: paint the picked photo locally right away. The
+    // upload + save round-trip (seconds on a slow connection) no longer
+    // stands between the user and seeing the new picture.
+    let localUrl: string | null = null
+    if (/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+      localUrl = URL.createObjectURL(file)
+      if (avatarPreviewUrl.current) URL.revokeObjectURL(avatarPreviewUrl.current)
+      avatarPreviewUrl.current = localUrl
+      setAvatarPreview(localUrl)
+    }
     try {
       // Avatars render small - compress hard so the profile update payload
       // stays tiny (raw phone photos previously broke the upload entirely).
-      const compressed = await compressImage(file, 800, 0.85)
+      // The guard rejects formats this browser could not decode (they would
+      // store as a picture only Safari can render).
+      const compressed = ensureRenderableImage(await compressImage(file, 800, 0.85))
       const fd = new FormData()
       fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Upload failed') }
       const data = await res.json()
       setProfilePicture(data.url)
+      // Persist IMMEDIATELY - the endpoint accepts partial payloads. The
+      // picture used to live only in this form until Save, so leaving via
+      // the back arrow (or the device back) silently lost it. Auto-saving
+      // also makes the "updated" toast the truth.
+      const save = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profilePicture: data.url }),
+      })
+      if (save.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!save.ok) { const e = await save.json(); throw new Error(e.error || 'Could not save the picture') }
       toast({ title: 'Profile picture updated' })
+      onUserChanged()
     } catch (err) {
-      toast({ title: 'Upload failed', description: (err as Error).message, variant: 'destructive' })
-    } finally { setUploading(false) }
+      toast({ title: 'Could not update the picture', description: (err as Error).message, variant: 'destructive' })
+    } finally {
+      setUploading(false)
+      // Preview cleared on every exit path: success switches to the stored
+      // picture, failure falls back to the previous one, 401 closes the
+      // flow via the auth event.
+      setAvatarPreview(null)
+      if (localUrl) {
+        URL.revokeObjectURL(localUrl)
+        if (avatarPreviewUrl.current === localUrl) avatarPreviewUrl.current = null
+      }
+    }
   }
 
   // Stop being a guide - same contract as the guide modal's action: card
@@ -489,7 +554,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     e.target.value = ''
     if (!file) return
     try {
-      const compressed = await compressImage(file, 1080, 0.8)
+      const compressed = ensureRenderableImage(await compressImage(file, 1080, 0.8))
       const fd = new FormData()
       fd.append('file', compressed)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
@@ -664,8 +729,8 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             {/* Avatar */}
             <div className="flex items-center gap-4">
               <div className="relative">
-                {profilePicture ? (
-                  <img src={profilePicture} alt={name} className="w-20 h-20 rounded-full object-cover border-2 border-accent" />
+                {avatarPreview || profilePicture ? (
+                  <img src={avatarPreview ?? profilePicture ?? undefined} alt={name} className={cn('w-20 h-20 rounded-full object-cover border-2 border-accent', uploading && 'opacity-80')} data-testid="avatar-preview" />
                 ) : (
                   <Avatar className="w-20 h-20 border-2 border-accent"><AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{name.charAt(0).toUpperCase() || '?'}</AvatarFallback></Avatar>
                 )}
@@ -675,7 +740,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">Profile picture</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Tap the camera icon to upload (max 2 MB).</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Tap the camera icon to choose a photo - it saves right away.</p>
                 {profilePicture && <button onClick={() => setProfilePicture(null)} className="mt-1 text-xs text-destructive hover:underline flex items-center gap-1"><X className="w-3 h-3" />Remove picture</button>}
               </div>
             </div>
