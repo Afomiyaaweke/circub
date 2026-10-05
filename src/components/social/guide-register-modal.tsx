@@ -315,7 +315,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
               value={languages}
               onChange={setLanguages}
               placeholder="e.g. Amharic, English, French…"
-              hint="Type a language and press Enter. Backspace removes the last one."
+              hint="Type a language and tap Add (or press Enter). Tap the x on a chip to remove it."
             />
           </div>
 
@@ -329,7 +329,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
               value={specialties}
               onChange={setSpecialties}
               placeholder="e.g. Historical, Food, Safari…"
-              hint="Type a specialty and press Enter. Use your own words - no preset list."
+              hint="Type a specialty and tap Add (or press Enter). Use your own words - no preset list."
             />
           </div>
 

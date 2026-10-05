@@ -21,9 +21,12 @@ interface TagInputProps {
 }
 
 /**
- * Free-text tag input. The user types whatever they want and presses Enter
- * (or comma) to add it as a removable chip. No pre-defined list - the owner
- * fills in their own values. Backspace on an empty input removes the last tag.
+ * Free-text tag input. The user types whatever they want and adds it as a
+ * removable chip via the VISIBLE Add button (v117 - the mobile complaint
+ * path: typing + Enter was an invisible affordance, nothing seemed to
+ * happen), or by pressing Enter / comma for keyboard speed. No pre-defined
+ * list - the owner fills in their own values. Backspace on an empty input
+ * removes the last tag.
  */
 export function TagInput({ value, onChange, placeholder, hint, className, inputId }: TagInputProps) {
   const [draft, setDraft] = useState('')
@@ -36,6 +39,21 @@ export function TagInput({ value, onChange, placeholder, hint, className, inputI
     if (value.some((v) => v.toLowerCase() === lower)) return
     if (value.length >= 30) return
     onChange([...value, cleaned])
+  }
+
+  // The Add button mirrors Enter: same cleaning, same de-dupe. Disabled
+  // while the draft is empty, a duplicate, or the list is at the 30 cap -
+  // the button state itself teaches what a valid entry is.
+  const draftClean = draft.trim().replace(/,+$/, '').trim()
+  const isDuplicate = draftClean !== '' && value.some((v) => v.toLowerCase() === draftClean.toLowerCase())
+  const canAdd = draftClean !== '' && !isDuplicate && value.length < 30
+
+  const addDraft = () => {
+    if (!canAdd) return
+    commit(draft)
+    setDraft('')
+    // Keep the flow going: the next entry is one type away.
+    if (inputId) document.getElementById(inputId)?.focus()
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -103,6 +121,18 @@ export function TagInput({ value, onChange, placeholder, hint, className, inputI
           placeholder={value.length === 0 ? placeholder : 'Add another…'}
           className="h-7 flex-1 min-w-[120px] border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
+        {/* v117: the visible add action - matches the compass "+ Add" chip.
+            Same house style: disabled until the draft is a valid new entry. */}
+        <button
+          type="button"
+          data-testid={inputId ? `${inputId}-add` : 'tag-input-add'}
+          onClick={(e) => { e.stopPropagation(); addDraft() }}
+          disabled={!canAdd}
+          aria-label="Add"
+          className="h-7 shrink-0 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          + Add
+        </button>
       </div>
       {hint && <p className="text-[10px] leading-relaxed text-muted-foreground">{hint}</p>}
     </div>
