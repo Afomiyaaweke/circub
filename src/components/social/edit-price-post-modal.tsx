@@ -14,6 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { CATEGORIES } from '@/lib/categories'
+import { MEASURE_UNITS, QUANTITY_OPTIONS } from '@/lib/product-units'
 import { compressImage } from '@/lib/image-compress'
 import type { LocalPricePost } from '@/lib/types'
 import { GpsCapture } from './gps-capture'
@@ -47,6 +48,9 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [contactWhatsApp, setContactWhatsApp] = useState('')
   // Shop ownership declaration - prefilled from the existing post, editable.
   const [ownsShop, setOwnsShop] = useState(false)
+  // v122: marketplace details (synced to the auto-created product twin).
+  const [quantity, setQuantity] = useState('')
+  const [unit, setUnit] = useState('')
   const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [imageRemoved, setImageRemoved] = useState(false)
@@ -74,6 +78,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setContactEmail(post.contactEmail || '')
       setContactWhatsApp(post.contactWhatsApp || '')
       setOwnsShop(post.ownsShop === true)
+      setQuantity(post.quantity || '')
+      setUnit(post.unit || '')
       setCategory(post.category || 'Other')
       setImageUrl(post.imageUrl || '')
       setImageRemoved(false)
@@ -126,6 +132,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           contactEmail: contactEmail.trim() || null,
           contactWhatsApp: contactWhatsApp.trim() || null,
           ownsShop,
+          quantity,
+          unit,
           category: category,
           imageUrl: imageRemoved ? null : (imageUrl || null),
         }),
@@ -226,6 +234,24 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>{CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
+            </div>
+            {/* v122: pack size + measuring unit - synced to the product twin. */}
+            <div className="grid grid-cols-2 gap-2" data-testid="edit-marketplace-details">
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Pack size (quantity)</label>
+                <Select value={quantity || 'none'} onValueChange={(v) => setQuantity(v === 'none' ? '' : v)}>
+                  <SelectTrigger className="w-full" data-testid="edit-quantity-select"><SelectValue placeholder="Not set" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not set</SelectItem>
+                    {QUANTITY_OPTIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Measuring unit</label>
+                <Select value={unit || 'each'} onValueChange={(v) => setUnit(v === 'each' ? '' : v)}>
+                  <SelectTrigger className="w-full" data-testid="edit-unit-select"><SelectValue placeholder="Unit" /></SelectTrigger>
+                  <SelectContent>{MEASURE_UNITS.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

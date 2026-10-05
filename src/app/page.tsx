@@ -15,6 +15,7 @@
 // ============================================================================
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
+import { formatUnitSuffix } from "@/lib/utils";
 import HomeClient from "./home-client";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -37,6 +38,7 @@ export async function generateMetadata({
         currency: true,
         priceMin: true,
         priceMax: true,
+        unit: true,
         city: true,
         country: true,
         postType: true,
@@ -48,8 +50,8 @@ export async function generateMetadata({
     const place = [post.city, post.country].filter(Boolean).join(", ");
     const range =
       post.priceMin === post.priceMax
-        ? `${post.currency} ${post.priceMin.toLocaleString("en-US")}`
-        : `${post.currency} ${post.priceMin.toLocaleString("en-US")} - ${post.priceMax.toLocaleString("en-US")}`;
+        ? `${post.currency} ${post.priceMin.toLocaleString("en-US")}${formatUnitSuffix(post.unit)}`
+        : `${post.currency} ${post.priceMin.toLocaleString("en-US")} - ${post.priceMax.toLocaleString("en-US")}${formatUnitSuffix(post.unit)}`;
     const kind = post.postType === "SERVICE" ? "service" : "product";
     const title = `${post.productName} - ${range} · real local price on circub`;
     const description = `Locals report this ${kind}${place ? ` in ${place}` : ""} costs ${range}. See the full price details, GPS directions and community votes on circub.`;

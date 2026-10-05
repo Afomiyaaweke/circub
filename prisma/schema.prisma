@@ -146,6 +146,10 @@ model Product {
   description String?
   imageUrl    String?
   category    String   @default("Other")
+  // v122: the price post this product was auto-created from (one post =
+  // one product). Null for standalone products added the old way. The link
+  // keeps the pair in sync on edit and deletes the twin on either side.
+  localPricePostId String? @unique
   authorId    String
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes       Like[]
@@ -361,6 +365,12 @@ model LocalPricePost {
 
   // Local knowledge
   localTip          String?
+
+  // v122: marketplace details carried by the unified composer - the unit the
+  // price refers to ("50 / kg") and the pack size, rendered on the card and
+  // synced to the auto-created Product twin.
+  unit              String?
+  quantity          String?
 
   // Contact info (for travelers to reach the local)
   contactPhone      String?

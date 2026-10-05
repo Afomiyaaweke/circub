@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
+import { cn, formatUnitSuffix } from '@/lib/utils'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
 import { useToast } from '@/hooks/use-toast'
 import type {
@@ -454,7 +454,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     Typical local price
                   </p>
                   <p className="text-base font-bold text-foreground mt-1">
-                    {formatPrice(post.priceMin, post.currency)} - {formatPrice(post.priceMax, post.currency)}
+                    {formatPrice(post.priceMin, post.currency)} - {formatPrice(post.priceMax, post.currency)}{formatUnitSuffix(post.unit)}
                   </p>
                 </div>
                 {post.recommendedPrice != null && (

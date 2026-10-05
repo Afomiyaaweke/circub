@@ -1,6 +1,7 @@
 'use client'
 
 import QRCode from 'qrcode'
+import { formatUnitSuffix } from '@/lib/utils'
 
 /**
  * Green futuristic share poster (Task 77).
@@ -30,6 +31,8 @@ export type SharePosterTarget =
       currency: string
       priceMin: number
       priceMax: number
+      // v122: measuring unit from the unified composer ("50 / kg" on posters)
+      unit?: string | null
       city?: string | null
       country?: string | null
       imageUrl?: string | null // v117: the post's photo is drawn onto the poster
@@ -56,8 +59,8 @@ export function posterShareText(target: SharePosterTarget, url: string): string 
   if (target.kind === 'price') {
     const place = [target.city, target.country].filter(Boolean).join(', ')
     const range = target.priceMin === target.priceMax
-      ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
-      : `${target.currency} ${target.priceMin.toLocaleString('en-US')}-${target.priceMax.toLocaleString('en-US')}`
+      ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}${formatUnitSuffix(target.unit)}`
+      : `${target.currency} ${target.priceMin.toLocaleString('en-US')}-${target.priceMax.toLocaleString('en-US')}${formatUnitSuffix(target.unit)}`
     return `Check this price on circub: ${target.productName}${place ? ` in ${place}` : ''} - ${range}${handle ? ` by${handle}` : ''}`
   }
   const trimmed = target.content.length > 140 ? target.content.slice(0, 140) + '…' : target.content
@@ -380,8 +383,8 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
 
       // Price range - the glowing number right under the photo
       const range = target.priceMin === target.priceMax
-        ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
-        : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}`
+        ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}${formatUnitSuffix(target.unit)}`
+        : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}${formatUnitSuffix(target.unit)}`
       const priceY = Math.max(phY + phH + 84, 1040)
       const psize = fitText(ctx, range, contentW, 76, 48)
       ctx.font = FONT(psize)

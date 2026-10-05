@@ -32,7 +32,10 @@ import { normalizeUsername, validateUsername, profileLink } from '@/lib/username
 import { getSavedItems, unsaveItem, type SavedItem } from '@/lib/saved-items'
 import { GuideStars } from './guide-reviews-modal'
 import { NetworkTab } from './network-tab'
-import { AddProductModal } from './add-product-modal'
+// v122: one unified composer - the profile's "Add product" flow now opens
+// the SAME Post-a-Price form the Local tab uses; a product price post
+// publishes the price guide AND the product listing in one save.
+import { CreatePricePostModal } from './create-price-post-modal'
 import type { User } from '@/lib/types'
 
 interface ProfileTabProps {
@@ -56,10 +59,12 @@ interface MyPost { id: string; content: string; imageUrl?: string | null; create
 interface MyListing {
   id: string; productName: string; category: string; currency: string
   priceMin: number; priceMax: number; imageUrl?: string | null; createdAt: string
+  unit?: string | null
 }
 interface MyProduct {
   id: string; name: string; price: number; currency: string
   imageUrl?: string | null; description?: string | null; unit?: string | null; createdAt: string
+  localPricePostId?: string | null
 }
 interface MyStory {
   // Price stories (auto-shared when a price post is published) may have no
@@ -138,10 +143,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     | { kind: 'listing'; id: string; createdAt: string; imageUrl?: string | null; text: string; sub: string; listing: MyListing }
     | { kind: 'product'; id: string; createdAt: string; imageUrl?: string | null; text: string; sub: string; product: MyProduct }
   const mixedItems = useMemo<MixedItem[]>(() => {
+    // v122: products auto-created from a price post (the unified composer)
+    // are twins - they already show as their Listing tile with the richer
+    // price-detail view, so they are NOT repeated as a second Product tile.
+    const standaloneProducts = products.filter((pr) => !pr.localPricePostId)
     const items: MixedItem[] = [
       ...posts.map((p) => ({ kind: 'post' as const, id: p.id, createdAt: p.createdAt, imageUrl: p.imageUrl, text: p.content, post: p })),
-      ...listings.map((l) => ({ kind: 'listing' as const, id: l.id, createdAt: l.createdAt, imageUrl: l.imageUrl, text: l.productName, sub: priceLabel(l.priceMin, l.priceMax, l.currency), listing: l })),
-      ...products.map((pr) => ({ kind: 'product' as const, id: pr.id, createdAt: pr.createdAt, imageUrl: pr.imageUrl, text: pr.name, sub: `${pr.currency} ${pr.price?.toLocaleString?.() ?? pr.price}${formatUnitSuffix(pr.unit)}`, product: pr })),
+      ...listings.map((l) => ({ kind: 'listing' as const, id: l.id, createdAt: l.createdAt, imageUrl: l.imageUrl, text: l.productName, sub: `${priceLabel(l.priceMin, l.priceMax, l.currency)}${formatUnitSuffix(l.unit)}`, listing: l })),
+      ...standaloneProducts.map((pr) => ({ kind: 'product' as const, id: pr.id, createdAt: pr.createdAt, imageUrl: pr.imageUrl, text: pr.name, sub: `${pr.currency} ${pr.price?.toLocaleString?.() ?? pr.price}${formatUnitSuffix(pr.unit)}`, product: pr })),
     ]
     return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }, [posts, listings, products])
@@ -307,8 +316,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // Guests can keep saving on this device - the CTA branch reuses this list.
   const [guestSaved, setGuestSaved] = useState(false)
 
-  // Marketplace: list a new product straight from the profile's Products section
-  const [addProductOpen, setAddProductOpen] = useState(false)
+  // v122: the unified Post-a-Price composer - both the profile's product
+  // button and the Local tab's Post Price button open the SAME form, and one
+  // save publishes the price guide + the product listing together.
+  const [priceComposerOpen, setPriceComposerOpen] = useState(false)
 
   // Auto-advance the story viewer every 6 seconds (Instagram-style)
   useEffect(() => {
@@ -637,9 +648,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         setPostView(null)
       } else if (kind === 'listing') {
         setListings((list) => list.filter((x) => x.id !== id))
+        // v122: the deleted price post's twin product was removed server-side
+        // too - quietly refetch products so the Products stat stays true.
+        fetch(`/api/products?authorId=${me.id}`).then((r) => r.json()).then((d) => { if (d?.products) setProducts(d.products) }).catch(() => {})
       } else if (kind === 'product') {
         setProducts((list) => list.filter((x) => x.id !== id))
         setProductView(null)
+        // v122: deleting a twin product removes its price post server-side.
+        fetch(`/api/local-prices?authorId=${me.id}`).then((r) => r.json()).then((d) => { if (d?.posts) setListings(d.posts) }).catch(() => {})
       } else {
         setStories((list) => {
           const next = list.filter((x) => x.id !== id)
@@ -1065,7 +1081,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const stats = [
     { value: posts.length, label: 'Posts' },
     { value: listings.length, label: 'Listings' },
-    { value: products.length, label: 'Products' },
+    // v122: twin products count inside Listings (they ARE the same thing) -
+    // only standalone products count here.
+    { value: products.filter((pr) => !pr.localPricePostId).length, label: 'Products' },
     { value: stories.length, label: 'Stories' },
   ]
 
@@ -1208,17 +1226,17 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <NetworkTab me={me} onMessage={onMessage} onRefreshUser={onUserChanged} />
         ) : mixedItems.length === 0 ? (
           <EmptyState icon={<LayoutGrid className="w-7 h-7 text-primary/50" />} title="Nothing here yet"
-            text="Your posts, price listings and products all live together in this one grid - share from the Feed or Local prices tabs, or list an item for sale below."
+            text="Your posts, price listings and products all live together in this one grid - post a price below and it appears here as both a listing and a product."
             action={
-              <Button size="sm" onClick={() => setAddProductOpen(true)} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Plus className="w-3.5 h-3.5" /> Add product
+              <Button size="sm" onClick={() => setPriceComposerOpen(true)} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="profile-post-price-empty">
+                <Plus className="w-3.5 h-3.5" /> Post a price
               </Button>
             } />
         ) : (
           <>
             <div className="flex justify-end pt-2 pb-1">
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => setAddProductOpen(true)}>
-                <Plus className="w-3.5 h-3.5" /> Add product
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => setPriceComposerOpen(true)} data-testid="profile-post-price">
+                <Plus className="w-3.5 h-3.5" /> Post a price
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
@@ -1380,8 +1398,8 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         </DialogContent>
       </Dialog>
 
-      {/* ---------------------------------------------- add product dialog */}
-      <AddProductModal open={addProductOpen} onOpenChange={setAddProductOpen} onCreated={() => { fetchAll(); onUserChanged() }} />
+      {/* ------------------------------------ unified post-a-price composer */}
+      <CreatePricePostModal open={priceComposerOpen} onOpenChange={setPriceComposerOpen} onCreated={() => { fetchAll(); onUserChanged() }} />
 
       {/* -------------------------------------------------- saved post view */}
       <Dialog open={!!savedView} onOpenChange={(o) => { if (!o) setSavedView(null) }}>

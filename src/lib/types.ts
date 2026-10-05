@@ -69,6 +69,10 @@ export interface Product {
     avatarColor: string
   }
   likes?: { id: string; userId: string }[]
+  // v122: set when the product was auto-created from a price post (the
+  // unified composer) - twins are deduped to their Listing tile on the
+  // profile grid and delete together.
+  localPricePostId?: string | null
   createdAt: string
 }
 
@@ -168,6 +172,11 @@ export interface LocalPricePost {
   ownsShop?: boolean
   category: string
   imageUrl?: string | null
+  // v122: marketplace details from the unified composer - what the price
+  // refers to ("50 / kg" via formatUnitSuffix) and the pack size. Null on
+  // pre-v122 posts and SERVICE posts.
+  unit?: string | null
+  quantity?: string | null
   authorId: string
   author: LocalPriceAuthor
   helpfulCount: number

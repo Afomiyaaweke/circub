@@ -24,6 +24,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
+import { MEASURE_UNITS, QUANTITY_OPTIONS } from '@/lib/product-units'
 import { ComparePreview } from './compare-preview'
 import { GpsCapture } from './gps-capture'
 
@@ -79,6 +80,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   // "Make it story while posting a new price": ON by default - publishing
   // also shares the price as a 24h story banner in the feed's stories strip.
   const [alsoStory, setAlsoStory] = useState(true)
+  // v122: marketplace details from the unified composer. unit '' = 'each'
+  // (no suffix); quantity '' = not set. Both ride along to the auto-created
+  // product listing.
+  const [quantity, setQuantity] = useState('')
+  const [unit, setUnit] = useState('')
   const [category, setCategory] = useState('Other')
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -121,6 +127,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setLocalTip('')
     setOwnsShop(false)
     setAlsoStory(true)
+    setQuantity('')
+    setUnit('')
     setCategory('Other')
     setImageUrl('')
     setCompareResult(null)
@@ -236,6 +244,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           contactWhatsApp,
           ownsShop,
           alsoStory,
+          quantity,
+          unit,
           category,
           imageUrl,
         }),
@@ -251,10 +261,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
         try { window.dispatchEvent(new Event('circub:stories-changed')) } catch {}
       }
       toast({
-        title: 'Price guide published!',
+        title: 'Price published - and listed!',
         description: data?.story
-          ? `${productName} is live - and shared as a 24h story banner.`
-          : `${productName} is now visible to travelers worldwide.`,
+          ? `${productName} is live as a price guide, a 24h story banner AND a product on your profile.`
+          : `${productName} is live as a price guide and a product on your profile.`,
       })
       reset()
       onOpenChange(false)
@@ -281,10 +291,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
-            Post a Local Price
+            Post a Price
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Share what something really costs in your area. Your local knowledge helps travelers avoid tourist traps.
+            Share what something really costs in your country - one post now publishes BOTH the price guide for travelers and the product listing on your profile.
           </DialogDescription>
         </DialogHeader>
 
@@ -502,6 +512,44 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                 />
               </div>
             </div>
+
+            {/* v122: marketplace details - the same pack size + measuring-unit
+                pickers the product form had, now part of the unified price
+                composer. Shown for products only (services have no unit). */}
+            {postType === 'PRODUCT' && (
+              <div className="grid grid-cols-2 gap-3 pt-1" data-testid="marketplace-details">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">Pack size (quantity)</label>
+                  <Select value={quantity || 'none'} onValueChange={(v) => setQuantity(v === 'none' ? '' : v)}>
+                    <SelectTrigger className="w-full" data-testid="composer-quantity-select">
+                      <SelectValue placeholder="Not set" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not set</SelectItem>
+                      {QUANTITY_OPTIONS.map((q) => (
+                        <SelectItem key={q} value={q}>{q}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">Measuring unit</label>
+                  <Select value={unit || 'each'} onValueChange={(v) => setUnit(v === 'each' ? '' : v)}>
+                    <SelectTrigger className="w-full" data-testid="composer-unit-select">
+                      <SelectValue placeholder="Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MEASURE_UNITS.map((u) => (
+                        <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground/80">
+                    What the price refers to - e.g. 50 with &ldquo;per kg&rdquo; shows as 50 / kg.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Category */}
@@ -647,7 +695,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             className="px-6 bg-primary hover:bg-primary/90 gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            {saving ? 'Publishing...' : 'Publish Price Guide'}
+            {saving ? 'Publishing...' : 'Publish Price & Listing'}
           </Button>
         </div>
       </DialogContent>

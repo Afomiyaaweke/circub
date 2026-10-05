@@ -57,13 +57,13 @@ async function getProfile(usernameRaw: string) {
       where: { authorId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 24,
-      select: { id: true, productName: true, currency: true, priceMin: true, priceMax: true, imageUrl: true, country: true, city: true, postType: true, createdAt: true },
+      select: { id: true, productName: true, currency: true, priceMin: true, priceMax: true, imageUrl: true, country: true, city: true, postType: true, unit: true, createdAt: true },
     }),
     db.product.findMany({
       where: { authorId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 24,
-      select: { id: true, name: true, price: true, currency: true, imageUrl: true, category: true, unit: true, createdAt: true },
+      select: { id: true, name: true, price: true, currency: true, imageUrl: true, category: true, unit: true, localPricePostId: true, createdAt: true },
     }),
   ])
   return { user, posts, listings, products }
@@ -133,10 +133,13 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
   const { user, posts, listings, products } = data
   const colorCls = AVATAR_COLORS[user.avatarColor] || AVATAR_COLORS.teal
   const verified = Boolean(user.idVerified) || Boolean(user.verifiedLocal)
+  // v122: products auto-created from a price post are twins - represented by
+  // their Listing tile, not repeated as a second Product tile.
+  const standaloneProducts = products.filter((pr) => !pr.localPricePostId)
   const stats = [
     { label: 'Posts', value: posts.length },
     { label: 'Listings', value: listings.length },
-    { label: 'Products', value: products.length },
+    { label: 'Products', value: standaloneProducts.length },
     { label: 'Followers', value: user.followersCount },
   ]
   // v121: posts + price listings + products MIXED into one newest-first
@@ -144,8 +147,8 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
   // instead of three sparse sections. Each tile carries its kind badge.
   const mixed = [
     ...posts.map((p) => ({ kind: 'Post' as const, key: `post-${p.id}`, createdAt: p.createdAt, imageUrl: p.imageUrl, title: p.content, sub: '', place: '' })),
-    ...listings.map((l) => ({ kind: 'Listing' as const, key: `listing-${l.id}`, createdAt: l.createdAt, imageUrl: l.imageUrl, title: l.productName, sub: priceLabel(l.currency, l.priceMin, l.priceMax), place: [l.city, l.country].filter(Boolean).join(', ') })),
-    ...products.map((pr) => ({ kind: 'Product' as const, key: `product-${pr.id}`, createdAt: pr.createdAt, imageUrl: pr.imageUrl, title: pr.name, sub: `${priceLabel(pr.currency, pr.price)}${formatUnitSuffix(pr.unit)}`, place: '' })),
+    ...listings.map((l) => ({ kind: 'Listing' as const, key: `listing-${l.id}`, createdAt: l.createdAt, imageUrl: l.imageUrl, title: l.productName, sub: `${priceLabel(l.currency, l.priceMin, l.priceMax)}${formatUnitSuffix(l.unit)}`, place: [l.city, l.country].filter(Boolean).join(', ') })),
+    ...standaloneProducts.map((pr) => ({ kind: 'Product' as const, key: `product-${pr.id}`, createdAt: pr.createdAt, imageUrl: pr.imageUrl, title: pr.name, sub: `${priceLabel(pr.currency, pr.price)}${formatUnitSuffix(pr.unit)}`, place: '' })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   return (

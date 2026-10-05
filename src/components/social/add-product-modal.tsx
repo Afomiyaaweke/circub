@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
+import { MEASURE_UNITS } from '@/lib/product-units'
 import { ComparePreview } from './compare-preview'
 
 interface AddProductModalProps {
@@ -34,25 +35,8 @@ interface AddProductModalProps {
 const CURRENCIES = ['USD', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD']
 // CATEGORIES comes from @/lib/categories - the full flat alphabetical list.
 const GENDERS = ['Any', 'Male', 'Female', 'Unisex']
-// v121: proper measuring units for the price input - "50 / kg" instead of a
-// vague free-text box nobody knew what to type into. 'each' stores as ''
-// (no unit suffix): the price is simply the price of one item.
-const MEASURE_UNITS: { value: string; label: string }[] = [
-  { value: 'each', label: 'each (no unit)' },
-  { value: 'kg', label: 'per kg' },
-  { value: 'g', label: 'per gram' },
-  { value: 'L', label: 'per litre' },
-  { value: 'ml', label: 'per ml' },
-  { value: 'lb', label: 'per pound' },
-  { value: 'ton', label: 'per ton' },
-  { value: 'piece', label: 'per piece' },
-  { value: 'dozen', label: 'per dozen' },
-  { value: 'pack', label: 'per pack' },
-  { value: 'bag', label: 'per bag' },
-  { value: 'crate', label: 'per crate' },
-  { value: 'bunch', label: 'per bunch' },
-  { value: 'metre', label: 'per metre' },
-]
+// v122: MEASURE_UNITS moved to @/lib/product-units - the single source shared
+// with the unified price composer, so both flows offer identical units.
 
 export function AddProductModal({ open, onOpenChange, onCreated }: AddProductModalProps) {
   const [name, setName] = useState('')

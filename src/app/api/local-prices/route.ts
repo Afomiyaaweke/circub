@@ -93,11 +93,45 @@ export async function POST(req: NextRequest) {
         ownsShop: body.ownsShop === true || body.ownsShop === 'true',
         category: body.category || 'Other',
         imageUrl: body.imageUrl || null,
+        // v122: marketplace details from the unified composer - what the
+        // price refers to ("50 / kg") and the pack size. Nullable, so every
+        // pre-v122 post and every SERVICE post stays exactly as it was.
+        unit: sanitizeInput(body.unit || '', 20) || null,
+        quantity: sanitizeInput(body.quantity || '', 40) || null,
         authorId: me.id,
       },
       include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } } },
     })
     await db.user.update({ where: { id: me.id }, data: updates })
+    // v122 "mix the country product post and the price post": a PRODUCT
+    // price post IS a product listing now. Every published PRODUCT post
+    // automatically gets a Product twin (linked via Product.localPricePostId)
+    // so the item appears on the profile/marketplace without a second form.
+    // The twin carries the unit + pack size and a representative price (the
+    // midpoint of the local range). Best-effort: a twin failure never blocks
+    // the price post itself - exactly like the story below.
+    let product: Record<string, unknown> | null = null
+    if (post.postType !== 'SERVICE' && body.makeProduct !== false) {
+      try {
+        const mid = Math.round(((Number(post.priceMin) + Number(post.priceMax)) / 2) * 100) / 100
+        product = await db.product.create({
+          data: {
+            name: post.productName,
+            quantity: post.quantity || '',
+            country: post.country,
+            currency: post.currency,
+            price: mid,
+            unit: post.unit,
+            description: post.description,
+            imageUrl: post.imageUrl,
+            category: post.category,
+            authorId: me.id,
+            localPricePostId: post.id,
+          },
+        })
+        await db.user.update({ where: { id: me.id }, data: { postsCount: { increment: 1 } } })
+      } catch (e) { console.error('Twin product creation failed (post kept):', e) }
+    }
     // "Make it story while posting a new price": the composer sends
     // alsoStory (default true) and the new price is IMMEDIATELY shared as a
     // 24-hour story banner - the whole feed sees it in the stories strip.
@@ -122,6 +156,6 @@ export async function POST(req: NextRequest) {
         }
       } catch { /* story is additive - never blocks the post */ }
     }
-    return NextResponse.json({ post, story }, { status: 201 })
+    return NextResponse.json({ post, story, product }, { status: 201 })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

@@ -55,6 +55,22 @@ export async function DELETE(
       )
     }
 
+    // v122: products created from the unified price composer are twins of a
+    // LocalPricePost (Product.localPricePostId). One thing, one delete: the
+    // twin price post (with its votes/story/link rows via cascade) goes too.
+    // Best-effort: the product itself always goes away even if this fails.
+    try {
+      if (product.localPricePostId) {
+        const twin = await db.localPricePost.findUnique({ where: { id: product.localPricePostId } })
+        if (twin && twin.authorId === user.id) {
+          await db.localPricePost.delete({ where: { id: twin.id } })
+          await db.user.update({ where: { id: user.id }, data: { localPostCount: { decrement: 1 } } })
+        }
+      }
+    } catch (error) {
+      console.error('Twin price post cleanup failed (product still deleted):', error)
+    }
+
     await db.product.delete({ where: { id } })
 
     // Decrement posts count

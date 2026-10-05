@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, formatUnitSuffix } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
@@ -65,7 +65,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
       type: 'localPrice',
       title: post.productName,
       subtitle: `${post.city ? post.city + ', ' : ''}${post.country}`,
-      priceLabel: `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? '-' + post.priceMax : ''}`,
+      priceLabel: `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? '-' + post.priceMax : ''}${formatUnitSuffix(post.unit)}`,
       imageUrl: post.imageUrl,
       href: null,
     })
@@ -194,7 +194,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Typical local price</span>
           <span className="text-sm sm:text-base font-bold text-foreground">
-            {formatPrice(post.priceMin, post.currency)} · {formatPrice(post.priceMax, post.currency)}
+            {formatPrice(post.priceMin, post.currency)} · {formatPrice(post.priceMax, post.currency)}{formatUnitSuffix(post.unit)}
           </span>
         </div>
         {post.recommendedPrice != null && (
@@ -328,6 +328,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           currency: post.currency,
           priceMin: post.priceMin,
           priceMax: post.priceMax,
+          unit: post.unit,
           city: post.city,
           country: post.country,
           imageUrl: post.imageUrl,
