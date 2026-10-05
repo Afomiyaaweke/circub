@@ -28,6 +28,13 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
+  // v115: Google Search Console ownership verification (HTML tag method).
+  // Renders <meta name="google-site-verification" content="..."/> in the head
+  // of every server-rendered page - Search Console only needs it on the
+  // homepage of the property, the field scopes it sitewide for free.
+  verification: {
+    google: "k4y2XXT7oVqj2RFHW2DErwumylcLCunw9gsFo9ld3ts",
+  },
   alternates: { canonical: "/" },
   robots: {
     index: true,
