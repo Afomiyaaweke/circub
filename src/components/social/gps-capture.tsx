@@ -3,12 +3,16 @@
 import { useState } from 'react'
 import { Navigation, X, Loader2, MapPin } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { getCoordinates, formatGps } from '@/lib/location'
+import { getCoordinates, formatGps, reverseGeocode } from '@/lib/location'
 
 interface GpsCaptureProps {
   lat: number | null
   lng: number | null
   onChange: (lat: number | null, lng: number | null) => void
+  /** v123: fired after the pin is captured AND reverse geocoding resolved a
+   *  place - the composers auto-fill their single "City, Country" input
+   *  with it so nobody has to type their location by hand. */
+  onPlaceResolved?: (place: { city: string | null; country: string | null }) => void
 }
 
 /**
@@ -18,8 +22,11 @@ interface GpsCaptureProps {
  * getCoordinates() helper), shows the captured coordinates, and lets the
  * author clear them again. The stored pin is what powers the one-tap
  * "Directions" link tourists see on the price card / detail view.
+ * The coordinates are also reverse-geocoded (BigDataCloud, free, no key)
+ * and the resolved "City, Country" is handed to the composer through
+ * onPlaceResolved so the location input fills itself.
  */
-export function GpsCapture({ lat, lng, onChange }: GpsCaptureProps) {
+export function GpsCapture({ lat, lng, onChange, onPlaceResolved }: GpsCaptureProps) {
   const [capturing, setCapturing] = useState(false)
   const { toast } = useToast()
   const hasGps = lat != null && lng != null
@@ -30,10 +37,24 @@ export function GpsCapture({ lat, lng, onChange }: GpsCaptureProps) {
       const { coords, error } = await getCoordinates()
       if (coords) {
         onChange(coords.lat, coords.lng)
-        toast({
-          title: 'GPS location captured',
-          description: `${formatGps(coords.lat, coords.lng)} - travelers will get directions straight to this spot.`,
-        })
+        // v123: turn the raw pin into a place and fill the location input.
+        // A failed lookup is non-fatal - the pin itself is already saved.
+        const place = await reverseGeocode(coords)
+        const placeLine = place
+          ? [place.city, place.country].filter(Boolean).join(', ')
+          : ''
+        if (place && placeLine && onPlaceResolved) {
+          onPlaceResolved({ city: place.city, country: place.country })
+          toast({
+            title: 'Location captured and filled',
+            description: `${placeLine} - travelers get directions straight to this spot.`,
+          })
+        } else {
+          toast({
+            title: 'GPS location captured',
+            description: `${formatGps(coords.lat, coords.lng)} - travelers will get directions straight to this spot.`,
+          })
+        }
       } else {
         toast({
           title: 'Could not read GPS',
@@ -58,7 +79,7 @@ export function GpsCapture({ lat, lng, onChange }: GpsCaptureProps) {
             GPS pin: {formatGps(lat, lng)}
           </p>
           <p className="text-[10px] text-muted-foreground">
-            Travelers get one-tap directions to this exact spot
+            Pin set - the City, Country input was filled automatically
           </p>
         </div>
         <button

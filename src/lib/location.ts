@@ -3,6 +3,45 @@
 // into the device's GPS chip on mobile + WiFi/IP triangulation on desktop.
 // Falls back to IP-based geolocation if GPS is denied or unavailable.
 
+import { isCountryName } from '@/lib/countries'
+
+/**
+ * Join city + country into the composer's single location string -
+ * "Addis Ababa, Ethiopia". Empty parts are skipped: a country-only post
+ * renders as just "Ethiopia", a city-only draft as just the city.
+ */
+export function joinLocationParts(
+  city?: string | null,
+  country?: string | null
+): string {
+  const c = (city || '').trim()
+  const k = (country || '').trim()
+  if (c && k) return `${c}, ${k}`
+  return c || k
+}
+
+/**
+ * Parse the composer's ONE location input ("Addis Ababa, Ethiopia") back
+ * into the separate city + country columns the API stores. The LAST comma
+ * separates the location from the country, so "Mercato, Addis Ababa,
+ * Ethiopia" keeps "Mercato, Addis Ababa" as the location part. With no
+ * comma the text is the country when it names one ("Ethiopia"), otherwise
+ * the city - callers decide whether a missing country blocks the save.
+ */
+export function splitLocationInput(input: string): { city: string; country: string } {
+  const text = (input || '').trim().replace(/,+$/, '').trim()
+  if (!text) return { city: '', country: '' }
+  const idx = text.lastIndexOf(',')
+  if (idx > -1) {
+    return {
+      city: text.slice(0, idx).trim(),
+      country: text.slice(idx + 1).trim(),
+    }
+  }
+  if (isCountryName(text)) return { city: '', country: text }
+  return { city: text, country: '' }
+}
+
 export interface ResolvedLocation {
   city: string | null
   country: string | null

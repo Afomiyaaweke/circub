@@ -16,6 +16,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { CATEGORIES } from '@/lib/categories'
 import { MEASURE_UNITS, QUANTITY_OPTIONS } from '@/lib/product-units'
 import { compressImage } from '@/lib/image-compress'
+import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import type { LocalPricePost } from '@/lib/types'
 import { GpsCapture } from './gps-capture'
 
@@ -32,8 +33,10 @@ const CURRENCIES = ['USD', 'ETB', 'EUR', 'KES', 'UGX', 'MYR', 'INR', 'CNY', 'JPY
 export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPricePostModalProps) {
   const [productName, setProductName] = useState('')
   const [description, setDescription] = useState('')
-  const [country, setCountry] = useState('')
-  const [city, setCity] = useState('')
+  // v123: ONE location input - "City, Country" ("Addis Ababa, Ethiopia"),
+  // joined from the stored columns on load and split back on save. The GPS
+  // button fills it from the device position.
+  const [location, setLocation] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [market, setMarket] = useState('')
   const [gpsLat, setGpsLat] = useState<number | null>(null)
@@ -63,8 +66,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
     if (open && post) {
       setProductName(post.productName || '')
       setDescription(post.description || '')
-      setCountry(post.country || '')
-      setCity(post.city || '')
+      setLocation(joinLocationParts(post.city, post.country))
       setNeighborhood(post.neighborhood || '')
       setMarket(post.market || '')
       setGpsLat(post.latitude ?? null)
@@ -105,8 +107,15 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
 
   const handleSave = async () => {
     if (!post) return
-    if (!productName.trim() || !country.trim() || !priceMin || !priceMax) {
-      toast({ title: 'Missing required fields', description: 'Name, country, min price, and max price are required.', variant: 'destructive' })
+    if (!productName.trim() || !location.trim() || !priceMin || !priceMax) {
+      toast({ title: 'Missing required fields', description: 'Name, location (City, Country), min price, and max price are required.', variant: 'destructive' })
+      return
+    }
+    // The single input must carry a country (the API stores city + country
+    // separately and the feed filters by country).
+    const loc = splitLocationInput(location)
+    if (!loc.country) {
+      toast({ title: 'Add the country', description: 'Type the location as "City, Country" - e.g. Addis Ababa, Ethiopia - or tap the GPS button to fill it automatically.', variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -117,8 +126,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
         body: JSON.stringify({
           productName: productName.trim(),
           description: description.trim() || null,
-          country: country.trim(),
-          city: city.trim() || null,
+          country: loc.country,
+          city: loc.city || null,
           neighborhood: neighborhood.trim() || null,
           market: market.trim() || null,
           latitude: gpsLat,
@@ -175,12 +184,14 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
             <Textarea placeholder="Brief description..." value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[50px] resize-y" />
           </div>
 
-          {/* Location */}
+          {/* Location - ONE "City, Country" input; the GPS button fills it */}
           <div className="space-y-3 p-3 rounded-xl bg-accent/30 border border-border">
             <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-primary" />Location</p>
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground">City, Country *</label>
+              <Input data-testid="edit-location-input" placeholder="e.g. Addis Ababa, Ethiopia" value={location} onChange={(e) => setLocation(e.target.value)} />
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Country *</label><Input placeholder="Ethiopia" value={country} onChange={(e) => setCountry(e.target.value)} /></div>
-              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">City</label><Input placeholder="Addis Ababa" value={city} onChange={(e) => setCity(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Neighborhood</label><Input placeholder="Mercato" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Market</label><Input placeholder="Mercato Market" value={market} onChange={(e) => setMarket(e.target.value)} /></div>
             </div>
@@ -188,6 +199,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
               lat={gpsLat}
               lng={gpsLng}
               onChange={(lat, lng) => { setGpsLat(lat); setGpsLng(lng) }}
+              onPlaceResolved={(place) => setLocation(joinLocationParts(place.city, place.country))}
             />
           </div>
 

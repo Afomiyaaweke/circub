@@ -25,6 +25,7 @@ import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
 import { MEASURE_UNITS, QUANTITY_OPTIONS } from '@/lib/product-units'
+import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import { ComparePreview } from './compare-preview'
 import { GpsCapture } from './gps-capture'
 
@@ -58,8 +59,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [postType, setPostType] = useState<'PRODUCT' | 'SERVICE'>('PRODUCT')
   const [productName, setProductName] = useState('')
   const [description, setDescription] = useState('')
-  const [country, setCountry] = useState('')
-  const [city, setCity] = useState('')
+  // v123: ONE location input - "City, Country" separated by a comma
+  // ("Addis Ababa, Ethiopia"). Parsed back into the API's separate
+  // city/country columns on save; the GPS button fills it automatically.
+  const [location, setLocation] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [market, setMarket] = useState('')
   const [gpsLat, setGpsLat] = useState<number | null>(null)
@@ -104,8 +107,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     if (prefill.currency && CURRENCIES.includes(prefill.currency)) setCurrency(prefill.currency)
     if (prefill.priceMin !== undefined && prefill.priceMin !== '') setPriceMin(String(prefill.priceMin))
     if (prefill.priceMax !== undefined && prefill.priceMax !== '') setPriceMax(String(prefill.priceMax))
-    if (prefill.country) setCountry(prefill.country)
-    if (prefill.city) setCity(prefill.city)
+    // Camera-search prefill still knows city + country separately - join
+    // them into the single "City, Country" input.
+    if (prefill.country || prefill.city) setLocation(joinLocationParts(prefill.city, prefill.country))
     if (prefill.imageUrl) setImageUrl(prefill.imageUrl)
   }, [open, prefill])
 
@@ -113,8 +117,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setPostType('PRODUCT')
     setProductName('')
     setDescription('')
-    setCountry('')
-    setCity('')
+    setLocation('')
     setNeighborhood('')
     setMarket('')
     setGpsLat(null)
@@ -168,7 +171,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     // Errors are non-fatal: the photo is already uploaded.
     setComparing(true)
     try {
-      const result = await identifyPhoto(compressed, { city, country })
+      const loc = splitLocationInput(location)
+      const result = await identifyPhoto(compressed, { city: loc.city || null, country: loc.country || null })
       setCompareResult(result)
       // Pre-fill only EMPTY fields - never override what the user typed.
       if (!productName.trim() && result.searchTerm) setProductName(result.searchTerm)
@@ -200,10 +204,23 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       // and dispatch the auth-expired event which shows the register modal.
       // But for a better UX, let's check first.
     }
-    if (!productName.trim() || !country.trim() || !priceMin || !priceMax || !currency) {
+    if (!productName.trim() || !location.trim() || !priceMin || !priceMax || !currency) {
       toast({
         title: 'Missing required fields',
-        description: 'Please fill in product name, country, currency, and price range.',
+        description: 'Please fill in product name, location (City, Country), currency, and price range.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // The single input must carry a country - "Addis Ababa" alone does not
+    // say WHICH country the price is from (the API stores city + country
+    // separately and the feed filters by country).
+    const loc = splitLocationInput(location)
+    if (!loc.country) {
+      toast({
+        title: 'Add the country',
+        description: 'Type the location as "City, Country" - e.g. Addis Ababa, Ethiopia - or tap the GPS button to fill it automatically.',
         variant: 'destructive',
       })
       return
@@ -227,8 +244,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           postType,
           productName,
           description,
-          country,
-          city,
+          country: loc.country,
+          city: loc.city,
           neighborhood,
           market,
           latitude: gpsLat,
@@ -352,29 +369,25 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             />
           </div>
 
-          {/* Location block */}
+          {/* Location block - ONE input: city and country together in a
+              single field, comma separated ("Addis Ababa, Ethiopia"). The
+              GPS button reverse-geocodes the pin and fills it, so most
+              posters never type their location at all. */}
           <div className="space-y-3 p-4 rounded-xl bg-accent/30 border border-border">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <MapPin className="w-4 h-4 text-primary" />
               Location
             </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground font-medium">City, Country *</label>
+              <Input
+                data-testid="composer-location-input"
+                placeholder="e.g. Addis Ababa, Ethiopia"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Country *</label>
-                <Input
-                  placeholder="e.g. Ethiopia"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">City</label>
-                <Input
-                  placeholder="e.g. Addis Ababa"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                />
-              </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground font-medium">Neighborhood</label>
                 <Input
@@ -393,16 +406,18 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
               </div>
             </div>
 
-            {/* GPS pin - one tap reads the device GPS; tourists get directions */}
+            {/* GPS pin - one tap reads the device GPS, drops the pin AND
+                fills the City, Country input from the coordinates */}
             <GpsCapture
               lat={gpsLat}
               lng={gpsLng}
               onChange={(lat, lng) => { setGpsLat(lat); setGpsLng(lng) }}
+              onPlaceResolved={(place) => setLocation(joinLocationParts(place.city, place.country))}
             />
 
             <p className="text-[11px] text-muted-foreground/80 flex items-center gap-1">
               <MapPin className="w-3 h-3" />
-              Tip: Add a GPS pin - tourists find the exact shop with one tap on Directions.
+              Tip: tap the GPS button - it drops the pin AND fills City, Country automatically. Tourists find the exact shop with one tap on Directions.
             </p>
           </div>
 
