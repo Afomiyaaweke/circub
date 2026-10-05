@@ -3,7 +3,7 @@
 import { Heart, MapPin, Tag, Trash2, User as UserIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatUnitSuffix } from '@/lib/utils'
 import type { Product } from '@/lib/types'
 
 interface ProductCardProps {
@@ -67,7 +67,7 @@ export function ProductCard({
               </div>
               {product.unit && (
                 <div className="text-[10px] text-muted-foreground">
-                  {product.unit}
+                  {formatUnitSuffix(product.unit).trim()}
                 </div>
               )}
             </div>

@@ -34,6 +34,25 @@ interface AddProductModalProps {
 const CURRENCIES = ['USD', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD']
 // CATEGORIES comes from @/lib/categories - the full flat alphabetical list.
 const GENDERS = ['Any', 'Male', 'Female', 'Unisex']
+// v121: proper measuring units for the price input - "50 / kg" instead of a
+// vague free-text box nobody knew what to type into. 'each' stores as ''
+// (no unit suffix): the price is simply the price of one item.
+const MEASURE_UNITS: { value: string; label: string }[] = [
+  { value: 'each', label: 'each (no unit)' },
+  { value: 'kg', label: 'per kg' },
+  { value: 'g', label: 'per gram' },
+  { value: 'L', label: 'per litre' },
+  { value: 'ml', label: 'per ml' },
+  { value: 'lb', label: 'per pound' },
+  { value: 'ton', label: 'per ton' },
+  { value: 'piece', label: 'per piece' },
+  { value: 'dozen', label: 'per dozen' },
+  { value: 'pack', label: 'per pack' },
+  { value: 'bag', label: 'per bag' },
+  { value: 'crate', label: 'per crate' },
+  { value: 'bunch', label: 'per bunch' },
+  { value: 'metre', label: 'per metre' },
+]
 
 export function AddProductModal({ open, onOpenChange, onCreated }: AddProductModalProps) {
   const [name, setName] = useState('')
@@ -277,10 +296,10 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
               </Select>
             </div>
 
-            {/* Row 3 - price, unit, category */}
+            {/* Row 3 - price + measuring unit, category */}
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground font-medium">
-                Price
+                Price &amp; measuring unit
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -295,13 +314,24 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
                     step="0.01"
                   />
                 </div>
-                <Input
-                  placeholder="unit"
-                  className="w-24"
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                />
+                {/* v121: measuring units are a picker now - typing "per"
+                    into a free-text box produced "50 per kg per unit" soup. */}
+                <Select value={unit || 'each'} onValueChange={(v) => setUnit(v === 'each' ? '' : v)}>
+                  <SelectTrigger className="w-[7.5rem]" data-testid="product-unit-select">
+                    <SelectValue placeholder="Unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MEASURE_UNITS.map((u) => (
+                      <SelectItem key={u.value} value={u.value}>
+                        {u.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <p className="text-[11px] text-muted-foreground/80">
+                What the price refers to - e.g. 50 with &ldquo;per kg&rdquo; shows as 50 / kg.
+              </p>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground font-medium">

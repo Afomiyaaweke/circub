@@ -10,7 +10,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { normalizeUsername } from '@/lib/username'
-import { BadgeCheck as VerifiedIcon, Building2, Camera, Grid3X3, Link2, MapPin, Package, Star } from 'lucide-react'
+import { formatUnitSuffix } from '@/lib/utils'
+import { BadgeCheck as VerifiedIcon, Building2, LayoutGrid, Link2, MapPin } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,7 +63,7 @@ async function getProfile(usernameRaw: string) {
       where: { authorId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 24,
-      select: { id: true, name: true, price: true, currency: true, imageUrl: true, category: true, createdAt: true },
+      select: { id: true, name: true, price: true, currency: true, imageUrl: true, category: true, unit: true, createdAt: true },
     }),
   ])
   return { user, posts, listings, products }
@@ -138,6 +139,14 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
     { label: 'Products', value: products.length },
     { label: 'Followers', value: user.followersCount },
   ]
+  // v121: posts + price listings + products MIXED into one newest-first
+  // grid - a profile reads as one stream of what this person shares
+  // instead of three sparse sections. Each tile carries its kind badge.
+  const mixed = [
+    ...posts.map((p) => ({ kind: 'Post' as const, key: `post-${p.id}`, createdAt: p.createdAt, imageUrl: p.imageUrl, title: p.content, sub: '', place: '' })),
+    ...listings.map((l) => ({ kind: 'Listing' as const, key: `listing-${l.id}`, createdAt: l.createdAt, imageUrl: l.imageUrl, title: l.productName, sub: priceLabel(l.currency, l.priceMin, l.priceMax), place: [l.city, l.country].filter(Boolean).join(', ') })),
+    ...products.map((pr) => ({ kind: 'Product' as const, key: `product-${pr.id}`, createdAt: pr.createdAt, imageUrl: pr.imageUrl, title: pr.name, sub: `${priceLabel(pr.currency, pr.price)}${formatUnitSuffix(pr.unit)}`, place: '' })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   return (
     <main className="min-h-screen bg-background pb-16">
@@ -182,66 +191,26 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
           )}
         </div>
 
-        {/* posts grid */}
+        {/* posts + listings + products - ONE mixed grid (v121) */}
         <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3"><Grid3X3 className="w-3.5 h-3.5" />Posts</h2>
-          {posts.length === 0 ? (
-            <EmptyRow icon={<Camera className="w-5 h-5" />} text="No posts yet" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3"><LayoutGrid className="w-3.5 h-3.5" />Posts, listings &amp; marketplace</h2>
+          {mixed.length === 0 ? (
+            <EmptyRow icon={<LayoutGrid className="w-5 h-5" />} text="No posts, listings or products yet" />
           ) : (
             <div className="grid grid-cols-3 gap-1 sm:gap-2">
-              {posts.map((p) => (
-                <div key={p.id} className="aspect-square rounded-md overflow-hidden bg-muted">
-                  {p.imageUrl ? (
-                    <img src={p.imageUrl} alt={p.content.slice(0, 80) || 'Post'} className="w-full h-full object-cover" loading="lazy" />
+              {mixed.map((item) => (
+                <div key={item.key} className="aspect-square rounded-md overflow-hidden bg-muted relative">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.title.slice(0, 80) || item.kind} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center p-2"><span className="text-[10px] leading-snug text-muted-foreground line-clamp-4">{p.content.slice(0, 90)}</span></div>
+                    <div className="w-full h-full flex items-center justify-center p-2"><span className="text-[10px] leading-snug text-muted-foreground line-clamp-4">{item.title.slice(0, 90)}</span></div>
                   )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* listings */}
-        <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3"><Star className="w-3.5 h-3.5" />Local price listings</h2>
-          {listings.length === 0 ? (
-            <EmptyRow icon={<Star className="w-5 h-5" />} text="No listings yet" />
-          ) : (
-            <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-              {listings.map((l) => (
-                <li key={l.id} className="flex items-center gap-3 p-3 bg-card">
-                  {l.imageUrl ? (
-                    <img src={l.imageUrl} alt={l.productName} className="w-11 h-11 rounded-lg object-cover shrink-0" loading="lazy" />
-                  ) : (
-                    <div className="w-11 h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><Star className="w-4 h-4" /></div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{l.productName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{[l.city, l.country].filter(Boolean).join(', ') || '-'} · {l.postType === 'SERVICE' ? 'Service' : 'Product'}</p>
+                  <span data-testid="kind-badge" className="absolute top-1 left-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-wide text-white bg-black/55 rounded-full px-1.5 py-0.5 backdrop-blur-sm pointer-events-none">{item.kind}</span>
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-1 pt-5">
+                    <p className="text-[9px] sm:text-[10px] font-semibold text-white truncate">{item.title}</p>
+                    {item.sub && <p className="text-[9px] sm:text-[10px] font-bold text-white/90 truncate">{item.sub}</p>}
+                    {item.place && <p className="text-[8px] text-white/70 truncate">{item.place}</p>}
                   </div>
-                  <span className="text-sm font-bold text-primary shrink-0">{priceLabel(l.currency, l.priceMin, l.priceMax)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* products */}
-        <section className="mt-8">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3"><Package className="w-3.5 h-3.5" />Marketplace</h2>
-          {products.length === 0 ? (
-            <EmptyRow icon={<Package className="w-5 h-5" />} text="No products yet" />
-          ) : (
-            <div className="grid grid-cols-3 gap-1 sm:gap-2">
-              {products.map((pr) => (
-                <div key={pr.id} className="aspect-square rounded-md overflow-hidden bg-muted relative">
-                  {pr.imageUrl ? (
-                    <img src={pr.imageUrl} alt={pr.name} className="w-full h-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-muted-foreground" /></div>
-                  )}
-                  <span className="absolute bottom-1 left-1 right-1 text-[10px] font-bold text-white bg-black/55 rounded px-1 py-0.5 truncate">{priceLabel(pr.currency, pr.price)}</span>
                 </div>
               ))}
             </div>

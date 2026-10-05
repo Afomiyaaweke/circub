@@ -8,9 +8,9 @@
 // straight from its tile, with a confirmation before it goes.
 // ============================================================================
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
-  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, Loader2,
+  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, LayoutGrid, Loader2,
   Check, Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Trash2, UserCircle, Users, X,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
+import { cn, formatUnitSuffix } from '@/lib/utils'
 import { compressImage } from '@/lib/image-compress'
 import { useBackClose } from '@/lib/back-close'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
@@ -59,7 +59,7 @@ interface MyListing {
 }
 interface MyProduct {
   id: string; name: string; price: number; currency: string
-  imageUrl?: string | null; description?: string | null; createdAt: string
+  imageUrl?: string | null; description?: string | null; unit?: string | null; createdAt: string
 }
 interface MyStory {
   // Price stories (auto-shared when a price post is published) may have no
@@ -92,9 +92,11 @@ function priceLabel(min: number, max: number, currency: string): string {
 }
 
 const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[] = [
-  { key: 'posts', label: 'Posts', icon: ImageIcon },
-  { key: 'listings', label: 'Listings', icon: MapPin },
-  { key: 'products', label: 'Products', icon: Package },
+  // v121: Posts, price listings and products are MIXED into one "All" grid
+  // (newest first, each tile carries a small type badge) - the three
+  // separate Posts/Listings/Products tabs were the same content split
+  // three ways and made the profile feel emptier than it is.
+  { key: 'posts', label: 'All', icon: LayoutGrid },
   { key: 'saved', label: 'Saved', icon: Bookmark },
   { key: 'network', label: 'Network', icon: Users },
 ]
@@ -121,7 +123,33 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [stories, setStories] = useState<MyStory[]>([])
   const [loading, setLoading] = useState(!isGuest)
 
-  const [contentType, setContentType] = useState<ContentType>(initialSection ?? 'posts')
+  const [contentType, setContentType] = useState<ContentType>(
+    // 'listings'/'products' are legacy deep-link targets from the old 5-tab
+    // strip (position memory in sessionStorage) - they land on the mixed
+    // "All" grid, which shows their content anyway.
+    initialSection === 'saved' || initialSection === 'network' ? initialSection : 'posts'
+  )
+
+  // v121: posts + price listings + products MERGED into one newest-first
+  // list for the "All" grid. Each item keeps its kind so the tile can
+  // badge it (Post / Listing / Product) and open/delete the right thing.
+  type MixedItem =
+    | { kind: 'post'; id: string; createdAt: string; imageUrl?: string | null; text: string; sub?: string; post: MyPost }
+    | { kind: 'listing'; id: string; createdAt: string; imageUrl?: string | null; text: string; sub: string; listing: MyListing }
+    | { kind: 'product'; id: string; createdAt: string; imageUrl?: string | null; text: string; sub: string; product: MyProduct }
+  const mixedItems = useMemo<MixedItem[]>(() => {
+    const items: MixedItem[] = [
+      ...posts.map((p) => ({ kind: 'post' as const, id: p.id, createdAt: p.createdAt, imageUrl: p.imageUrl, text: p.content, post: p })),
+      ...listings.map((l) => ({ kind: 'listing' as const, id: l.id, createdAt: l.createdAt, imageUrl: l.imageUrl, text: l.productName, sub: priceLabel(l.priceMin, l.priceMax, l.currency), listing: l })),
+      ...products.map((pr) => ({ kind: 'product' as const, id: pr.id, createdAt: pr.createdAt, imageUrl: pr.imageUrl, text: pr.name, sub: `${pr.currency} ${pr.price?.toLocaleString?.() ?? pr.price}${formatUnitSuffix(pr.unit)}`, product: pr })),
+    ]
+    return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [posts, listings, products])
+  const openMixed = (item: MixedItem) => {
+    if (item.kind === 'post') setPostView(item.post)
+    else if (item.kind === 'listing') onOpenListing(item.listing.id)
+    else setProductView(item.product)
+  }
 
   // Story creation
   const fileRef = useRef<HTMLInputElement>(null)
@@ -227,7 +255,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       lastBump.current = sectionBump
       if (initialSection && !isGuest) {
         setEditing(false)
-        setContentType(initialSection)
+        setContentType(initialSection === 'saved' || initialSection === 'network' ? initialSection : 'posts')
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1170,68 +1198,49 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
 
       {/* ------------------------------------------------------ manage grid */}
       <div className={cn('max-w-2xl mx-auto mt-1', contentType === 'saved' || contentType === 'network' ? 'px-4 sm:px-6' : 'px-1 sm:px-6')}>
-        {contentType === 'products' && !loading && products.length > 0 && (
-          <div className="flex justify-end pt-2 pb-1">
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => setAddProductOpen(true)}>
-              <Plus className="w-3.5 h-3.5" /> Add product
-            </Button>
-          </div>
-        )}
         {loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading your content...
           </div>
-        ) : contentType === 'posts' ? (
-          posts.length === 0 ? (
-            <EmptyState icon={<ImageIcon className="w-7 h-7 text-primary/50" />} title="No posts yet"
-              text="Share updates with your network from the Feed tab - they'll show up here where you can manage them." />
-          ) : (
-            <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-              {posts.map((p) => (
-                <Tile key={p.id} imageUrl={p.imageUrl} onDelete={() => setConfirm({ kind: 'post', id: p.id, label: 'Post' })}
-                  onOpen={() => setPostView(p)} ariaLabel="View post">
-                  <p className="text-[10px] sm:text-xs text-white line-clamp-2 leading-snug">{p.content}</p>
-                </Tile>
-              ))}
-            </div>
-          )
-        ) : contentType === 'listings' ? (
-          listings.length === 0 ? (
-            <EmptyState icon={<MapPin className="w-7 h-7 text-primary/50" />} title="No price listings yet"
-              text="Post local prices from the Local prices tab - travelers rely on them, and you can edit or delete them here anytime." />
-          ) : (
-            <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-              {listings.map((l) => (
-                <Tile key={l.id} imageUrl={l.imageUrl} onDelete={() => setConfirm({ kind: 'listing', id: l.id, label: 'Listing' })}
-                  onOpen={() => onOpenListing(l.id)} ariaLabel="View listing">
-                  <p className="text-[10px] sm:text-xs text-white font-medium truncate">{l.productName}</p>
-                  <p className="text-[9px] sm:text-[10px] text-white/85 font-semibold">{priceLabel(l.priceMin, l.priceMax, l.currency)}</p>
-                </Tile>
-              ))}
-            </div>
-          )
         ) : contentType === 'saved' ? (
           renderSavedItems()
         ) : contentType === 'network' ? (
           <NetworkTab me={me} onMessage={onMessage} onRefreshUser={onUserChanged} />
-        ) : products.length === 0 ? (
-          <EmptyState icon={<Package className="w-7 h-7 text-primary/50" />} title="No products yet"
-            text="List an item for sale and manage it here - travelers and locals browsing the marketplace will see it."
+        ) : mixedItems.length === 0 ? (
+          <EmptyState icon={<LayoutGrid className="w-7 h-7 text-primary/50" />} title="Nothing here yet"
+            text="Your posts, price listings and products all live together in this one grid - share from the Feed or Local prices tabs, or list an item for sale below."
             action={
               <Button size="sm" onClick={() => setAddProductOpen(true)} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Plus className="w-3.5 h-3.5" /> Add product
               </Button>
             } />
         ) : (
-          <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-            {products.map((pr) => (
-              <Tile key={pr.id} imageUrl={pr.imageUrl} onDelete={() => setConfirm({ kind: 'product', id: pr.id, label: 'Product' })}
-                onOpen={() => setProductView(pr)} ariaLabel="View product">
-                <p className="text-[10px] sm:text-xs text-white font-medium truncate">{pr.name}</p>
-                <p className="text-[9px] sm:text-[10px] text-white/85 font-semibold">{pr.currency} {pr.price?.toLocaleString?.() ?? pr.price}</p>
-              </Tile>
-            ))}
-          </div>
+          <>
+            <div className="flex justify-end pt-2 pb-1">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => setAddProductOpen(true)}>
+                <Plus className="w-3.5 h-3.5" /> Add product
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
+              {mixedItems.map((item) => (
+                <Tile key={`${item.kind}-${item.id}`} imageUrl={item.imageUrl} ariaLabel={`View ${item.kind}`}
+                  badge={
+                    <span data-testid="kind-badge" className="inline-flex items-center rounded-full bg-black/55 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wide text-white/95 backdrop-blur-sm">
+                      {item.kind === 'post' ? 'Post' : item.kind === 'listing' ? 'Listing' : 'Product'}
+                    </span>
+                  }
+                  onDelete={() => setConfirm({
+                    kind: item.kind === 'post' ? 'post' : item.kind === 'listing' ? 'listing' : 'product',
+                    id: item.id,
+                    label: item.kind === 'post' ? 'Post' : item.kind === 'listing' ? 'Listing' : 'Product',
+                  })}
+                  onOpen={() => openMixed(item)}>
+                  <p className="text-[10px] sm:text-xs text-white font-medium line-clamp-2 leading-snug">{item.text}</p>
+                  {item.sub && <p className="text-[9px] sm:text-[10px] text-white/85 font-semibold">{item.sub}</p>}
+                </Tile>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -1357,7 +1366,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <div>
               {productView.imageUrl && <img src={productView.imageUrl} alt="" className="w-full max-h-72 object-cover rounded-lg mb-3" loading="lazy" />}
               <h3 className="text-base font-bold text-foreground">{productView.name}</h3>
-              <p className="text-sm font-semibold text-primary">{productView.currency} {productView.price?.toLocaleString?.() ?? productView.price}</p>
+              <p className="text-sm font-semibold text-primary">{productView.currency} {productView.price?.toLocaleString?.() ?? productView.price}{formatUnitSuffix(productView.unit)}</p>
               {productView.description && <p className="mt-2 text-sm text-foreground/90 whitespace-pre-line leading-relaxed">{productView.description}</p>}
               <p className="mt-2 text-xs text-muted-foreground">Listed {timeAgo(productView.createdAt)}</p>
               <div className="mt-4 flex gap-2">
@@ -1418,12 +1427,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
 }
 
 // ------------------------------------------------------------- sub-components
-function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel }: {
+function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel, badge }: {
   imageUrl?: string | null
   children: React.ReactNode
   onOpen: () => void
   onDelete: () => void
   ariaLabel: string
+  badge?: React.ReactNode
 }) {
   return (
     <div className="relative aspect-square overflow-hidden bg-accent/40 group">
@@ -1437,6 +1447,9 @@ function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel }: {
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-1.5 pt-8">
         {children}
       </div>
+      {badge && (
+        <div className="absolute top-1 left-1 z-10 pointer-events-none">{badge}</div>
+      )}
       <button onClick={onOpen} className="absolute inset-0" aria-label={ariaLabel} />
       <button
         onClick={(e) => { e.stopPropagation(); onDelete() }}
