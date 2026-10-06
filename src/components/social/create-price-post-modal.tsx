@@ -24,7 +24,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
-import { MEASURE_UNITS, QUANTITY_OPTIONS } from '@/lib/product-units'
+import { MEASURE_UNITS } from '@/lib/product-units'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import { ComparePreview } from './compare-preview'
 import { GpsCapture } from './gps-capture'
@@ -70,8 +70,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [currency, setCurrency] = useState('USD')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
-  const [recommendedPrice, setRecommendedPrice] = useState('')
-  const [personalPrice, setPersonalPrice] = useState('')
   const [localTip, setLocalTip] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -125,8 +123,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setCurrency('USD')
     setPriceMin('')
     setPriceMax('')
-    setRecommendedPrice('')
-    setPersonalPrice('')
     setLocalTip('')
     setOwnsShop(false)
     setAlsoStory(true)
@@ -253,8 +249,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           currency,
           priceMin: Number(priceMin),
           priceMax: Number(priceMax),
-          recommendedPrice: recommendedPrice ? Number(recommendedPrice) : undefined,
-          personalPrice: personalPrice ? Number(personalPrice) : undefined,
           localTip,
           contactPhone,
           contactEmail,
@@ -506,46 +500,26 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Fair price</label>
-                <Input
-                  type="number"
-                  placeholder="1800"
-                  value={recommendedPrice}
-                  onChange={(e) => setRecommendedPrice(e.target.value)}
-                  min="0"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">What you'd pay</label>
-                <Input
-                  type="number"
-                  placeholder="1800"
-                  value={personalPrice}
-                  onChange={(e) => setPersonalPrice(e.target.value)}
-                  min="0"
-                />
-              </div>
             </div>
 
-            {/* v122: marketplace details - the same pack size + measuring-unit
-                pickers the product form had, now part of the unified price
-                composer. Shown for products only (services have no unit). */}
+            {/* v124: marketplace details - the measuring unit stays the one
+                dropdown, and the pack size is a number the user writes.
+                Shown for products only (services have no unit). */}
             {postType === 'PRODUCT' && (
               <div className="grid grid-cols-2 gap-3 pt-1" data-testid="marketplace-details">
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">Pack size (quantity)</label>
-                  <Select value={quantity || 'none'} onValueChange={(v) => setQuantity(v === 'none' ? '' : v)}>
-                    <SelectTrigger className="w-full" data-testid="composer-quantity-select">
-                      <SelectValue placeholder="Not set" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Not set</SelectItem>
-                      {QUANTITY_OPTIONS.map((q) => (
-                        <SelectItem key={q} value={q}>{q}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 2"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    min="0"
+                    data-testid="composer-quantity-input"
+                  />
+                  <p className="text-[11px] text-muted-foreground/80">
+                    How many units the pack holds - type any number.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground font-medium">Measuring unit</label>

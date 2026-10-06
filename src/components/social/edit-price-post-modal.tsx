@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { CATEGORIES } from '@/lib/categories'
-import { MEASURE_UNITS, QUANTITY_OPTIONS } from '@/lib/product-units'
+import { MEASURE_UNITS } from '@/lib/product-units'
 import { compressImage } from '@/lib/image-compress'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import type { LocalPricePost } from '@/lib/types'
@@ -44,7 +44,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [currency, setCurrency] = useState('USD')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
-  const [recommendedPrice, setRecommendedPrice] = useState('')
   const [localTip, setLocalTip] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -74,7 +73,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setCurrency(post.currency || 'USD')
       setPriceMin(String(post.priceMin || ''))
       setPriceMax(String(post.priceMax || ''))
-      setRecommendedPrice(post.recommendedPrice ? String(post.recommendedPrice) : '')
       setLocalTip(post.localTip || '')
       setContactPhone(post.contactPhone || '')
       setContactEmail(post.contactEmail || '')
@@ -135,7 +133,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           currency: currency.trim(),
           priceMin: Number(priceMin),
           priceMax: Number(priceMax),
-          recommendedPrice: recommendedPrice ? Number(recommendedPrice) : null,
           localTip: localTip.trim() || null,
           contactPhone: contactPhone.trim() || null,
           contactEmail: contactEmail.trim() || null,
@@ -239,7 +236,6 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Min price *</label><Input type="number" placeholder="1500" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} /></div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Max price *</label><Input type="number" placeholder="2200" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} /></div>
-              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Fair price</label><Input type="number" placeholder="1800" value={recommendedPrice} onChange={(e) => setRecommendedPrice(e.target.value)} /></div>
             </div>
             <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Currency</label>
               <Select value={currency} onValueChange={setCurrency}>
@@ -247,16 +243,11 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
                 <SelectContent>{CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            {/* v122: pack size + measuring unit - synced to the product twin. */}
+            {/* v124: the measuring unit stays the one dropdown, and the pack
+                size is a number the user writes - synced to the twin. */}
             <div className="grid grid-cols-2 gap-2" data-testid="edit-marketplace-details">
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Pack size (quantity)</label>
-                <Select value={quantity || 'none'} onValueChange={(v) => setQuantity(v === 'none' ? '' : v)}>
-                  <SelectTrigger className="w-full" data-testid="edit-quantity-select"><SelectValue placeholder="Not set" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Not set</SelectItem>
-                    {QUANTITY_OPTIONS.map((q) => <SelectItem key={q} value={q}>{q}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Input type="number" placeholder="e.g. 2" value={quantity} onChange={(e) => setQuantity(e.target.value)} min="0" data-testid="edit-quantity-input" />
               </div>
               <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Measuring unit</label>
                 <Select value={unit || 'each'} onValueChange={(v) => setUnit(v === 'each' ? '' : v)}>
