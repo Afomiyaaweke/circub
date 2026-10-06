@@ -111,8 +111,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     fetch('/api/local-prices/filters').then((r) => r.json()).then((data) => setFilterValues({ countries: data.countries || [], cities: data.cities || [], categories: data.categories || [] })).catch(() => {})
   }, [])
 
+  // Background refreshes keep the current list mounted: replacing the whole
+  // feed with skeletons the moment a post publishes made the app flash and
+  // snapped the scroll back to the top (the "glitch on new post").
+  // Skeletons only for the first load, or when the previous load came back
+  // empty - after that the old cards stay on screen until the new data lands.
+  const hasPostsRef = useRef(false)
   const fetchPosts = useCallback(async () => {
-    setLoading(true)
+    if (!hasPostsRef.current) setLoading(true)
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
@@ -124,8 +130,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       // post shows up immediately; the CDN edge cache (s-maxage=30) is unaffected.
       const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
       const data = await res.json()
-      setPosts(data.posts || [])
-    } catch { setPosts([]) } finally { setLoading(false) }
+      const next = data.posts || []
+      setPosts(next)
+      hasPostsRef.current = next.length > 0
+    } catch { setPosts([]); hasPostsRef.current = false } finally { setLoading(false) }
   }, [search, country, city, category])
 
   useEffect(() => {
@@ -179,7 +187,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     }
   }, [searchLocPart, filterValues])
 
-  const handleCreated = () => { fetchPosts(); onRefreshUser() }
+  // On publish: refetch WITHOUT the skeleton flash, then glide up to the top
+  // so the fresh post is the first thing on screen instead of the user
+  // wondering where it went.
+  const handleCreated = async () => { await fetchPosts(); onRefreshUser(); try { document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' }) } catch { document.scrollingElement?.scrollTo(0, 0) } }
 
   // Guests can browse everything but cannot post: opening the price
   // composer as a guest bounces to the Register modal instead. Logged-in
@@ -769,7 +780,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         )}
       </div>
 
-      {loading ? (
+      {loading && posts.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[1, 2, 3, 4].map((i) => <Card key={i} className="p-3 space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-5 w-3/4" /><Skeleton className="h-10 w-full" /><Skeleton className="h-3 w-full" /></Card>)}
         </div>

@@ -228,9 +228,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const docFileRef = useRef<HTMLInputElement>(null)
   const isIdVerified = Boolean(me.idVerified) || Boolean((me as any).hasUserIdDoc)
 
+  // Background refetches (e.g. right after publishing a post) keep the
+  // existing grid mounted - flipping the whole manage grid to a spinner
+  // on every fetch made the page flash and lose the scroll position.
+  // The spinner only shows when there is no content on screen yet.
+  const hasContentRef = useRef(false)
   const fetchAll = useCallback(async () => {
     if (isGuest) return
-    setLoading(true)
+    if (!hasContentRef.current) setLoading(true)
     const [p, l, pr, st] = await Promise.allSettled([
       fetch(`/api/posts?authorId=${me.id}&limit=60`).then((r) => r.json()),
       fetch(`/api/local-prices?authorId=${me.id}`).then((r) => r.json()),
@@ -243,6 +248,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     if (st.status === 'fulfilled' && Array.isArray(st.value?.stories)) {
       setStories(st.value.stories.filter((s: MyStory & { authorId?: string }) => s.authorId === me.id || s.author?.id === me.id))
     }
+    hasContentRef.current = true
     setLoading(false)
   }, [isGuest, me.id])
 

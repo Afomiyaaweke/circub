@@ -8,7 +8,7 @@ import Link from 'next/link'
 //  - "Near me": GPS-based distance sort (haversine via the city table).
 //  - Tourist star ratings are visible on every card with review count;
 //    tapping them opens the full reviews dialog.
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
@@ -130,8 +130,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   // manual refresh, no tab flit required.
   const meRolesKey = `${me?.isGuide ? 1 : 0}:${JSON.stringify((me as any)?.guideRoles ?? null)}`
 
+  // Same no-flash rule as the other feeds: refetches (rating a guide, role
+  // changes, filter edits) keep the current cards mounted - skeletons only
+  // for the first load / an empty previous load. Swapping the whole directory
+  // to skeleton cards on every refetch read as a glitch.
+  const hasGuidesRef = useRef(false)
   const fetchGuides = useCallback(async () => {
-    setLoading(true)
+    if (!hasGuidesRef.current) setLoading(true)
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
@@ -144,8 +149,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       }
       const res = await fetch(`/api/guides?${params.toString()}`)
       const data = await res.json()
-      setGuides(data.guides || [])
-    } catch { setGuides([]) } finally { setLoading(false) }
+      const next = data.guides || []
+      setGuides(next)
+      hasGuidesRef.current = next.length > 0
+    } catch { setGuides([]); hasGuidesRef.current = false } finally { setLoading(false) }
   }, [search, language, specialty, availableOnly, nearMe, myCoords, meRolesKey])
 
   useEffect(() => {
@@ -750,7 +757,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       )}
 
       {/* Guide cards */}
-      {loading ? (
+      {loading && guides.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="p-4 space-y-3">
