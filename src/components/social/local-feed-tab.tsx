@@ -117,7 +117,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // Skeletons only for the first load, or when the previous load came back
   // empty - after that the old cards stay on screen until the new data lands.
   const hasPostsRef = useRef(false)
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (opts?: { fresh?: boolean }) => {
     if (!hasPostsRef.current) setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -126,8 +126,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       if (city && city !== 'All cities') params.set('city', city)
       if (category && category !== ALL_CATEGORIES) params.set('category', category)
       // Posts default to most recent (API default) - no sort dropdown in the UI.
-      // cache:'no-store' -> the browser always revalidates so a just-published
-      // post shows up immediately; the CDN edge cache (s-maxage=30) is unaffected.
+      // cache:'no-store' keeps the BROWSER from caching, but the API also sets
+      // a CDN edge cache (s-maxage=30 + stale-while-revalidate=60) - a normal
+      // refetch after publishing could serve the pre-publish list for up to
+      // ~90s, so the fresh post seemed to vanish. Mutating refetches pass
+      // fresh:true which adds a unique query variant that misses the edge and
+      // hits the origin; ordinary filter loads keep using the edge cache.
+      if (opts?.fresh) params.set('_', String(Date.now()))
       const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
       const data = await res.json()
       const next = data.posts || []
@@ -145,7 +150,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // - the feed refetches so the "N links" chip on every card stays true
   // without a manual reload.
   useEffect(() => {
-    const onFeedChanged = () => fetchPosts()
+    const onFeedChanged = () => fetchPosts({ fresh: true })
     window.addEventListener('circub:feed-changed', onFeedChanged)
     return () => window.removeEventListener('circub:feed-changed', onFeedChanged)
   }, [fetchPosts])
@@ -190,7 +195,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // On publish: refetch WITHOUT the skeleton flash, then glide up to the top
   // so the fresh post is the first thing on screen instead of the user
   // wondering where it went.
-  const handleCreated = async () => { await fetchPosts(); onRefreshUser(); try { document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' }) } catch { document.scrollingElement?.scrollTo(0, 0) } }
+  const handleCreated = async () => { await fetchPosts({ fresh: true }); onRefreshUser(); try { document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' }) } catch { document.scrollingElement?.scrollTo(0, 0) } }
 
   // Guests can browse everything but cannot post: opening the price
   // composer as a guest bounces to the Register modal instead. Logged-in
