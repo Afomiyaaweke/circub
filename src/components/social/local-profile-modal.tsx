@@ -56,7 +56,7 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
 
   return (
     <Dialog open={!!userId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-thin p-0 gap-0">
+      <DialogContent showCloseButton={false} className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-thin p-0 gap-0">
         <DialogTitle className="sr-only">Local Profile</DialogTitle>
         {loading ? (
           <div className="p-10 text-center text-sm text-muted-foreground">Loading profile...</div>

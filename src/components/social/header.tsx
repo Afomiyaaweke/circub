@@ -148,16 +148,18 @@ export function Header({
             alt="circub"
             className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
           />
-          <div className="min-w-0 hidden md:block">
+          <div className="min-w-0 hidden xl:block">
             <p className="text-xs text-muted-foreground italic truncate">
               {isCompany ? `${user?.companyName || 'Company'} · Business account` : 'Local price intelligence for travelers'}
             </p>
           </div>
         </div>
 
-        {/* Nav tabs · desktop only - phones get the bottom tab bar below */}
+        {/* Nav tabs · desktop only (lg+) - phones AND tablets get the bottom
+            tab bar below: five pills plus logo + language + theme + account
+            cannot fit a 768-1023px header without clipping. */}
         {user && (
-          <nav className="hidden md:flex items-center gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-start">
+          <nav className="hidden lg:flex items-center gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-start">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
@@ -175,7 +177,7 @@ export function Header({
                   aria-label={t(tab.labelKey)}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden md:inline">{t(tab.labelKey)}</span>
+                  <span className="hidden lg:inline">{t(tab.labelKey)}</span>
                 </button>
               )
             })}
@@ -187,7 +189,7 @@ export function Header({
               aria-label={t('nav.messages')}
             >
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden md:inline">{t('nav.messages')}</span>
+              <span className="hidden lg:inline">{t('nav.messages')}</span>
               {incomingInvitationsCount > 0 && (
                 <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
                   {incomingInvitationsCount}
@@ -337,11 +339,12 @@ export function Header({
       </div>
     </header>
 
-    {/* Mobile bottom tab bar - the same tabs, docked to the bottom on phones.
+    {/* Mobile + tablet bottom tab bar - the same tabs, docked to the bottom
+        below the lg breakpoint (the header pills only fit from 1024px up).
         Fixed + safe-area padding so it clears the home indicator. */}
     {user && (
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
         <div className="grid grid-cols-5">

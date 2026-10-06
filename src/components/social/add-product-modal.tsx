@@ -182,7 +182,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-6 sm:p-8 gap-0">
+      <DialogContent showCloseButton={false} className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-6 sm:p-8 gap-0">
         <DialogHeader className="mb-6">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Globe className="w-5 h-5 text-primary" />

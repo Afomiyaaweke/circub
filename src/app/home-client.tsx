@@ -503,7 +503,7 @@ function HomeInner() {
 
   // Logged-in → dashboard
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-[46px] md:pb-0">
+    <div className="min-h-screen flex flex-col bg-background pb-[46px] lg:pb-0">
       {/* Demo mode (me.id === 'guest'): the persistent read-only banner,
           pinned together with the header in ONE sticky stack so the mode
           stays boldly visible at every scroll position. Exit drops back to

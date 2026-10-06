@@ -87,7 +87,7 @@ export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }
 
   return (
     <Dialog open={!!userId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin p-0 gap-0">
+      <DialogContent showCloseButton={false} className="max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin p-0 gap-0">
         <DialogTitle className="sr-only">Profile</DialogTitle>
         {loading ? (
           <div className="p-10 text-center text-sm text-muted-foreground">Loading profile...</div>

@@ -355,7 +355,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
   return (
     <Dialog open={!!postId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0">
+      <DialogContent showCloseButton={false} className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 gap-0">
         <DialogTitle className="sr-only">Price Details</DialogTitle>
 
         {loading ? (
@@ -440,7 +440,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-md hover:bg-accent text-muted-foreground shrink-0"
+                  className="p-2 -m-1 rounded-full bg-card/80 hover:bg-card text-muted-foreground shrink-0"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />
