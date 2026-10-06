@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { X, MapPin, BadgeCheck, Briefcase, MessageCircle, Heart, MessageSquare, User2, ExternalLink, Sparkles } from 'lucide-react'
+import { FollowButton } from '@/components/social/follow-button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +67,8 @@ function priceLabel(cur: string, min: number, max: number) {
 export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }: AuthorProfileModalProps) {
   const [data, setData] = useState<AuthorData | null>(null)
   const [loading, setLoading] = useState(false)
+  // Live followers count - updated by the FollowButton without a refetch.
+  const [followers, setFollowers] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -118,8 +121,14 @@ export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }
             </div>
 
             <div className="p-5 sm:p-6 space-y-4">
-              {/* Actions: message + full profile */}
-              <div className="flex items-center gap-2">
+              {/* Actions: follow + message + full profile */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <FollowButton
+                  targetUserId={profile.id}
+                  currentUserId={currentUserId}
+                  onChange={(f, c) => setFollowers(c)}
+                  className="flex-1"
+                />
                 {onMessage && profile.id !== currentUserId && (
                   <Button size="sm" onClick={() => onMessage(profile.id)} className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs gap-1.5 h-8 flex-1">
                     <MessageCircle className="w-3.5 h-3.5" />
@@ -145,7 +154,7 @@ export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{(profile.followersCount ?? 0).toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Followers</p></div>
+                <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground" data-testid="author-profile-followers">{(followers ?? (profile.followersCount ?? 0)).toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Followers</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{((profile.postsCount ?? 0) + (profile.localPostCount ?? 0)).toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Posts</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{(profile.likesCount ?? 0).toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Likes</p></div>
               </div>

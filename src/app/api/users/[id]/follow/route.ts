@@ -1,4 +1,6 @@
 // Follow / unfollow - the one-way network LINK.
+// GET    = current follow state for the FollowButton
+//          ({ auth, following, followersCount, isSelf }; auth:false for guests)
 // POST   = follow   (idempotent; second call just returns the current state)
 // DELETE = unfollow
 // Unlike the LinkedIn-style /api/connections/request this needs NO approval
@@ -8,6 +10,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: targetId } = await params
+    let me: { id: string } | null = null
+    try { me = await getCurrentUser() } catch {}
+    if (!me || me.id === 'guest') {
+      return NextResponse.json({ auth: false, following: false, followersCount: 0, isSelf: false })
+    }
+    const [row, target] = await Promise.all([
+      db.follow.findUnique({
+        where: { followerId_followingId: { followerId: me.id, followingId: targetId } },
+        select: { id: true },
+      }),
+      db.user.findUnique({ where: { id: targetId }, select: { followersCount: true } }),
+    ])
+    return NextResponse.json({
+      auth: true,
+      following: !!row,
+      followersCount: target?.followersCount ?? 0,
+      isSelf: me.id === targetId,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+  }
+}
 
 async function blockedBetween(a: string, b: string) {
   return db.block.findFirst({

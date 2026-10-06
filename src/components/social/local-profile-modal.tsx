@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { X, MapPin, Star, BadgeCheck, ThumbsUp, Calendar, Briefcase, Sparkles, MessageCircle } from 'lucide-react'
+import { FollowButton } from '@/components/social/follow-button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +41,9 @@ function formatPrice(value: number | null | undefined, currency: string) {
 export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, currentUserId }: LocalProfileModalProps) {
   const [data, setData] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(false)
+  // Live followers count - updated by the FollowButton without a refetch.
+  const [followers, setFollowers] = useState<number | null>(null)
+  const followersShown = followers ?? (data?.profile?.followersCount ?? 0)
 
   useEffect(() => {
     let cancelled = false
@@ -83,24 +87,33 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
                 </h2>
                 {data.profile.verifiedLocal && <p className="text-xs text-primary font-medium">Verified Local</p>}
               </div>
-              {/* Message this poster straight from their profile - hidden on your own */}
-              {onMessage && data.profile.id !== currentUserId && (
-                <Button
-                  size="sm"
-                  onClick={() => onMessage(data.profile!.id)}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs gap-1.5 h-8 shrink-0 self-center"
-                  title={`Message ${data.profile.name}`}
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  Message
-                </Button>
+              {/* Follow + message this poster straight from their profile - hidden on your own */}
+              {data.profile.id !== currentUserId && (
+                <div className="flex items-center gap-2 shrink-0 self-center">
+                  <FollowButton
+                    targetUserId={data.profile.id}
+                    currentUserId={currentUserId}
+                    onChange={(f, c) => setFollowers(c)}
+                  />
+                  {onMessage && (
+                    <Button
+                      size="sm"
+                      onClick={() => onMessage(data.profile!.id)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs gap-1.5 h-8"
+                      title={`Message ${data.profile.name}`}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Message
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
             <div className="p-5 sm:p-6 space-y-4">
               {data.profile.bio && <p className="text-sm text-foreground/90 leading-relaxed">{data.profile.bio}</p>}
               {data.profile.location && <p className="text-sm text-muted-foreground flex items-center gap-1.5"><MapPin className="w-4 h-4 text-primary" />{data.profile.location}</p>}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground" data-testid="local-profile-followers">{(data.profile.followersCount ?? 0).toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Followers</p></div>
+                <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground" data-testid="local-profile-followers">{followersShown.toLocaleString()}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Followers</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{data.profile.localPostCount ?? 0}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Posts</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground">{data.profile.helpfulVotes ?? 0}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Helpful Votes</p></div>
                 <div className="rounded-lg bg-accent/30 p-3 text-center"><p className="text-lg font-bold text-foreground flex items-center justify-center gap-0.5"><Star className="w-4 h-4 fill-amber-400 text-amber-400" />{(data.profile.rating ?? 0).toFixed(1)}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Rating</p></div>

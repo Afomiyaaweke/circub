@@ -16,7 +16,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   History,
-  Eye,
   MessageCircle,
   Clock,
   Navigation,
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
+import { FollowButton } from '@/components/social/follow-button'
 import {
   Dialog,
   DialogContent,
@@ -757,8 +757,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 <h3 className="text-sm font-semibold text-foreground mb-3">Posted by</h3>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => onAuthorClick?.(post.author.id)}
-                    className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                    title="View profile"
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity"
                   >
                   <Avatar className="w-12 h-12 border-2 border-accent">
                     <AvatarFallback className="bg-primary/15 text-primary font-semibold">
@@ -807,10 +809,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         Message
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" className="border-primary text-primary shrink-0" onClick={(e) => { e.stopPropagation(); onAuthorClick?.(post.author.id) }}>
-                      <Eye className="w-3.5 h-3.5 mr-1" />
-                      Profile
-                    </Button>
+                    <FollowButton targetUserId={post.author.id} currentUserId={currentUserId} />
                   </div>
                 </div>
               </div>
