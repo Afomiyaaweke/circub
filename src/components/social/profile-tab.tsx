@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
   AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, LayoutGrid, Loader2,
-  Check, Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Trash2, UserCircle, Users, X,
+  Check, Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Trash2, Trophy, UserCircle, Users, X,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -76,7 +76,7 @@ interface MyStory {
   createdAt: string; expiresAt: string
 }
 
-type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network'
+type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore'
 type Deletable =
   | { kind: 'post'; id: string; label: string }
   | { kind: 'listing'; id: string; label: string }
@@ -104,6 +104,12 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   // three ways and made the profile feel emptier than it is.
   { key: 'posts', label: 'All', icon: LayoutGrid },
   { key: 'saved', label: 'Saved', icon: Bookmark },
+  // v140: the third strip cell used to be the v135 rating chip, which read
+  // as a bare "New" until the poster earned reviews or votes. The user
+  // wants the Top score board IN that cell instead ("make the top score in
+  // the new and rename it top score"): the chip is gone and this is a real
+  // tab now - selecting it renders the shared TopPostersCard below.
+  { key: 'topscore', label: 'Top score', icon: Trophy },
   { key: 'network', label: 'Network', icon: Users },
 ]
 
@@ -234,26 +240,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // on every fetch made the page flash and lose the scroll position.
   // The spinner only shows when there is no content on screen yet.
   const hasContentRef = useRef(false)
-  // v135: the poster's rating chip that lives IN the content tab strip, right
-  // next to the Saved button. Two honest signals, nothing invented:
-  //   - rating: the poster's average review score (guides get theirs from
-  //     /api/guides/[id]/ratings; 0 = no reviews yet),
-  //   - helpful votes: how many HELPFUL votes the poster's price posts earned
-  //     (every HELPFUL vote on /api/local-prices/[id]/vote increments
-  //     User.helpfulVotes).
-  // Nothing to show (no reviews, no votes) renders as a plain "New".
-  const myRating = typeof me.rating === 'number' && me.rating > 0 ? me.rating : 0
-  const myVotes = typeof me.helpfulVotes === 'number' && me.helpfulVotes > 0 ? me.helpfulVotes : 0
-  const ratingChipText = myRating > 0
-    ? `${myRating.toFixed(1)}${myVotes > 0 ? ` · ${myVotes}` : ''}`
-    : myVotes > 0
-      ? `${myVotes} helpful`
-      : 'New'
-  const ratingChipTitle = myRating > 0
-    ? `Rating ${myRating.toFixed(1)} from reviews${myVotes > 0 ? `, ${myVotes} helpful votes on your price posts` : ''}`
-    : myVotes > 0
-      ? `${myVotes} helpful votes on your price posts`
-      : 'No reviews or helpful votes yet - publish price posts to earn your first ones'
   const fetchAll = useCallback(async () => {
     if (isGuest) return
     if (!hasContentRef.current) setLoading(true)
@@ -1215,20 +1201,11 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         </div>
       </div>
 
-      {/* --------------------------------------------- Top score board */}
-      {/* v138: the top-posters leaderboard MOVED here from the Local Price
-          Feed (user: "move this to profile and rename it to top score").
-          It sits above the content tab strip so it is visible the moment
-          the profile opens, and it renders the same shared TopPostersCard
-          the desktop sidebar uses - one source of truth. */}
-      <div className="max-w-2xl mx-auto mt-4" data-testid="profile-top-score">
-        <TopPostersCard />
-      </div>
-
       {/* ----------------------------------------------- content tab strip */}
-      {/* 4 cells - All | Saved | RATING chip | Network. Labels hidden on
-          phones (icon-only, like Instagram); the rating chip keeps its
-          number visible on phones because a bare star would read as a tab. */}
+      {/* 4 tabs - All | Saved | Top score | Network. v140: the third cell was
+          the v135 rating chip (read as "New"); it is the Top score TAB now
+          and the board renders in the content area below when selected.
+          Labels hidden on phones (icon-only, like Instagram). */}
       <div className="max-w-2xl mx-auto mt-4 border-t border-border">
         <div className="flex">
           {CONTENT_TABS.map((t) => {
@@ -1238,6 +1215,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               <Fragment key={t.key}>
                 <button
                   onClick={() => setContentType(t.key)}
+                  data-testid={`profile-tab-${t.key}`}
                   className={cn(
                     'flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border-t-2 -mt-px transition-colors',
                     active ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1248,18 +1226,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   <Icon className="w-4 h-4" />
                   <span className="hidden sm:inline">{t.label}</span>
                 </button>
-                {/* the rating chip sits directly NEXT TO the Saved button */}
-                {t.key === 'saved' && !isGuest && (
-                  <div
-                    data-testid="profile-rating-chip"
-                    aria-label="Rating and helpful votes"
-                    title={ratingChipTitle}
-                    className="flex-1 flex items-center justify-center gap-1 py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none"
-                  >
-                    <Star className={cn('w-3.5 h-3.5', myRating > 0 ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
-                    <span data-testid="profile-rating-chip-text">{ratingChipText}</span>
-                  </div>
-                )}
               </Fragment>
             )
           })}
@@ -1267,8 +1233,16 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       </div>
 
       {/* ------------------------------------------------------ manage grid */}
-      <div className={cn('max-w-2xl mx-auto mt-1', contentType === 'saved' || contentType === 'network' ? 'px-4 sm:px-6' : 'px-1 sm:px-6')}>
-        {loading ? (
+      <div className={cn('max-w-2xl mx-auto mt-1', contentType === 'posts' ? 'px-1 sm:px-6' : 'px-4 sm:px-6')}>
+        {contentType === 'topscore' ? (
+          /* v140: the board lives INSIDE the Top score tab - exactly the
+             strip cell where the old "New" rating chip was (user: "make
+             the top score in the new"). Same shared TopPostersCard the
+             desktop sidebar uses - one source of truth. */
+          <div className="py-4" data-testid="profile-top-score">
+            <TopPostersCard />
+          </div>
+        ) : loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading your content...
           </div>
