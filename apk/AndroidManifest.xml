@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  circub Android shell - vc3 / v1.1.0 (versionCode 3).
+
+  uses-feature required="false" on every hardware gate: Amazon Appstore
+  silently excluded the app from pure-Wi-Fi Fire tablets (Fire HD 8 2024 /
+  KFRASWI) while the location permissions implied a REQUIRED
+  android.hardware.location.gps. Explicit required=false on all six gates is
+  what makes the app visible to them again. Keep in lockstep with the CLI
+  flags in build.sh (aapt2 link CLI flags lose to manifest attributes, so
+  both must say the same thing).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.circub.app"
+    android:versionCode="3"
+    android:versionName="1.1.0">
+
+    <uses-sdk android:minSdkVersion="15" android:targetSdkVersion="36" />
+
+    <!-- Hardware gates: NONE of these are required. -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Legacy external storage for the download bridge; ignored on API 29+. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="false"
+        android:enableOnBackInvokedCallback="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name"
+            android:theme="@style/AppTheme"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|uiMode|density|locale|layoutDirection|fontScale|fontWeightAdjustment|colorMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- circub.vercel.app deep links open in the app instead of a browser. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="circub.vercel.app" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
