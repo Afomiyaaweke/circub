@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
 import { PriceStoriesStrip } from './price-stories-strip'
-import { TopPostersCard } from './top-posters-card'
 import { CreatePricePostModal } from './create-price-post-modal'
 import { CATEGORIES, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 import { EditPricePostModal } from './edit-price-post-modal'
@@ -786,12 +785,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         )}
       </div>
 
-      {/* v136: the leaderboard that used to live only in the desktop right
-          sidebar (hidden below lg, so phones never saw it) got its own
-          section in the Local Price Feed. v137: it is named "Score" and
-          shows who the top posters are (#1-#5 by post count). Same shared
-          component the sidebar renders, so the two can never drift. */}
-      <TopPostersCard />
+      {/* v136-v137: the top-posters board lived here as a section; v138
+          MOVED it to the profile page ("Top score", above the content
+          tabs). The desktop right sidebar still renders the shared card. */}
 
       {loading && posts.length === 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

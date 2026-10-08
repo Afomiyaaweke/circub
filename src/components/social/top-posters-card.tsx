@@ -1,14 +1,16 @@
 'use client'
 
-// v137: the "Score" section - ONE component, TWO homes.
-// v136 made this leaderboard a section in the Local Price Feed (visible on
-// every screen size) and kept the desktop sidebar on the same shared card;
-// v137 renamed the section to "Score". The content is deliberately the top
-// POSTERS board: rows ranked #1-#5 by lifetime post count with the amber
-// 'N posts' count on the right - that count IS the poster's score here.
-// NOT a star rating given by others: the user explicitly pulled the review
-// stars / helpful-votes display back out ("who is the top poster, not the
-// star given by the others"). Each poster keeps their OWN avatarColor.
+// v138: the "Top score" board - ONE component, TWO homes.
+// History: it lived only in the desktop right sidebar (v121 era), became a
+// section in the Local Price Feed (v136), was renamed "Score" (v137), and
+// MOVED to the profile page in v138 (user: "move this to profile and
+// rename it to top score") - it now sits above the profile's content tab
+// strip, and the desktop sidebar still renders this same shared card so
+// the two can never drift. The content is deliberately the top POSTERS
+// board: rows ranked #1-#5 by lifetime post count with the amber 'N posts'
+// count on the right - that count IS the poster's score here. NOT a star
+// rating given by others (the user pulled that back in v137b). Each
+// poster keeps their OWN avatarColor.
 
 import { useState, useEffect } from 'react'
 import { Trophy } from 'lucide-react'
@@ -52,7 +54,7 @@ export function TopPostersCard({ refreshSignal = 0 }: TopPostersCardProps) {
     <Card data-testid="top-posters-section" className="p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
         <Trophy className="w-4 h-4 text-primary" />
-        Score
+        Top score
       </h3>
       <div className="space-y-2.5">
         {posters.length === 0 ? (

@@ -32,6 +32,7 @@ import { normalizeUsername, validateUsername, profileLink } from '@/lib/username
 import { getSavedItems, unsaveItem, type SavedItem } from '@/lib/saved-items'
 import { GuideStars } from './guide-reviews-modal'
 import { NetworkTab } from './network-tab'
+import { TopPostersCard } from './top-posters-card'
 // v122: one unified composer - the profile's "Add product" flow now opens
 // the SAME Post-a-Price form the Local tab uses; a product price post
 // publishes the price guide AND the product listing in one save.
@@ -1212,6 +1213,16 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             </button>
           ))}
         </div>
+      </div>
+
+      {/* --------------------------------------------- Top score board */}
+      {/* v138: the top-posters leaderboard MOVED here from the Local Price
+          Feed (user: "move this to profile and rename it to top score").
+          It sits above the content tab strip so it is visible the moment
+          the profile opens, and it renders the same shared TopPostersCard
+          the desktop sidebar uses - one source of truth. */}
+      <div className="max-w-2xl mx-auto mt-4" data-testid="profile-top-score">
+        <TopPostersCard />
       </div>
 
       {/* ----------------------------------------------- content tab strip */}
