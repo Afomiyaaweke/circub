@@ -8,7 +8,7 @@
 // straight from its tile, with a confirmation before it goes.
 // ============================================================================
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
   AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, LayoutGrid, Loader2,
   Check, Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Trash2, UserCircle, Users, X,
@@ -233,6 +233,26 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // on every fetch made the page flash and lose the scroll position.
   // The spinner only shows when there is no content on screen yet.
   const hasContentRef = useRef(false)
+  // v135: the poster's rating chip that lives IN the content tab strip, right
+  // next to the Saved button. Two honest signals, nothing invented:
+  //   - rating: the poster's average review score (guides get theirs from
+  //     /api/guides/[id]/ratings; 0 = no reviews yet),
+  //   - helpful votes: how many HELPFUL votes the poster's price posts earned
+  //     (every HELPFUL vote on /api/local-prices/[id]/vote increments
+  //     User.helpfulVotes).
+  // Nothing to show (no reviews, no votes) renders as a plain "New".
+  const myRating = typeof me.rating === 'number' && me.rating > 0 ? me.rating : 0
+  const myVotes = typeof me.helpfulVotes === 'number' && me.helpfulVotes > 0 ? me.helpfulVotes : 0
+  const ratingChipText = myRating > 0
+    ? `${myRating.toFixed(1)}${myVotes > 0 ? ` · ${myVotes}` : ''}`
+    : myVotes > 0
+      ? `${myVotes} helpful`
+      : 'New'
+  const ratingChipTitle = myRating > 0
+    ? `Rating ${myRating.toFixed(1)} from reviews${myVotes > 0 ? `, ${myVotes} helpful votes on your price posts` : ''}`
+    : myVotes > 0
+      ? `${myVotes} helpful votes on your price posts`
+      : 'No reviews or helpful votes yet - publish price posts to earn your first ones'
   const fetchAll = useCallback(async () => {
     if (isGuest) return
     if (!hasContentRef.current) setLoading(true)
@@ -1195,26 +1215,41 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       </div>
 
       {/* ----------------------------------------------- content tab strip */}
-      {/* 5 sections - labels hidden on phones (icon-only, like Instagram) */}
+      {/* 4 cells - All | Saved | RATING chip | Network. Labels hidden on
+          phones (icon-only, like Instagram); the rating chip keeps its
+          number visible on phones because a bare star would read as a tab. */}
       <div className="max-w-2xl mx-auto mt-4 border-t border-border">
         <div className="flex">
           {CONTENT_TABS.map((t) => {
             const Icon = t.icon
             const active = contentType === t.key
             return (
-              <button
-                key={t.key}
-                onClick={() => setContentType(t.key)}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border-t-2 -mt-px transition-colors',
-                  active ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+              <Fragment key={t.key}>
+                <button
+                  onClick={() => setContentType(t.key)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border-t-2 -mt-px transition-colors',
+                    active ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  )}
+                  aria-current={active ? 'true' : undefined}
+                  aria-label={t.label}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t.label}</span>
+                </button>
+                {/* the rating chip sits directly NEXT TO the Saved button */}
+                {t.key === 'saved' && !isGuest && (
+                  <div
+                    data-testid="profile-rating-chip"
+                    aria-label="Rating and helpful votes"
+                    title={ratingChipTitle}
+                    className="flex-1 flex items-center justify-center gap-1 py-3 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none"
+                  >
+                    <Star className={cn('w-3.5 h-3.5', myRating > 0 ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                    <span data-testid="profile-rating-chip-text">{ratingChipText}</span>
+                  </div>
                 )}
-                aria-current={active ? 'true' : undefined}
-                aria-label={t.label}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.label}</span>
-              </button>
+              </Fragment>
             )
           })}
         </div>

@@ -67,6 +67,9 @@ export async function GET() {
       verifiedLocal: me.verifiedLocal,
       isGuide: me.isGuide,
       rating: me.rating,
+      // v135: HELPFUL votes the poster's price posts earned (the "best vote"
+      // counter next to the rating chip on the profile tab strip).
+      helpfulVotes: me.helpfulVotes,
       // Live Zone roles: parsed array (legacy null -> ['guide'] client-side).
       guideRoles: me.guideRoles,
       guideVideoUrls: me.guideVideoUrls,
