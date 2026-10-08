@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import {
   UserPlus,
   Flame,
-  Trophy,
   TrendingUp,
   Mail,
   Phone,
@@ -27,6 +26,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { TopPostersCard } from './top-posters-card'
 import type { User, Trend, LocalPricePost } from '@/lib/types'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
 
@@ -56,7 +56,6 @@ export function RightSidebar({
 }: RightSidebarProps) {
   const [suggestions, setSuggestions] = useState<User[]>([])
   const [trends, setTrends] = useState<Trend[]>([])
-  const [posters, setPosters] = useState<User[]>([])
   const [recentPrices, setRecentPrices] = useState<LocalPricePost[]>([])
   const [connecting, setConnecting] = useState<string | null>(null)
   const [profileExpanded, setProfileExpanded] = useState(true)
@@ -69,16 +68,16 @@ export function RightSidebar({
   ]
 
   useEffect(() => {
+    // v136: top-posters moved into the shared TopPostersCard (it fetches
+    // its own data), so this load covers the remaining three widgets.
     Promise.all([
       fetch('/api/suggested').then((r) => r.json()),
       fetch('/api/trending').then((r) => r.json()),
-      fetch('/api/top-posters').then((r) => r.json()),
       fetch('/api/recent-local-prices').then((r) => r.json()),
     ])
-      .then(([s, t, p, r]) => {
+      .then(([s, t, r]) => {
         setSuggestions(s.suggestions || [])
         setTrends(t.trends || [])
-        setPosters(p.posters || [])
         setRecentPrices(r.posts || [])
       })
       .catch(() => {})
@@ -415,54 +414,9 @@ export function RightSidebar({
         </div>
       </Card>
 
-      {/* Top Posters */}
-      <Card className="p-4 shadow-sm">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-          <Trophy className="w-4 h-4 text-primary" />
-          Top posters
-        </h3>
-        <div className="space-y-3">
-          {posters.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">
-              No posts yet.
-            </p>
-          ) : (
-            posters.map((p, idx) => {
-              const medal =
-                idx === 0
-                  ? 'text-amber-700'
-                  : idx === 1
-                  ? 'text-slate-500'
-                  : idx === 2
-                  ? 'text-orange-700'
-                  : 'text-muted-foreground'
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`text-xs font-bold ${medal} w-4 shrink-0`}>
-                      #{idx + 1}
-                    </span>
-                    <Avatar className="w-7 h-7 border border-accent">
-                      <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
-                        {p.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-foreground font-medium truncate">
-                      {p.name}
-                    </span>
-                  </div>
-                  <span className="text-xs text-amber-600 font-medium shrink-0">
-                    {p.postsCount} posts
-                  </span>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </Card>
+      {/* Top Posters - v136: the shared card (also rendered as a section in
+          the Local Price Feed so phone users see it too). */}
+      <TopPostersCard refreshSignal={refreshSignal} />
     </aside>
   )
 }
