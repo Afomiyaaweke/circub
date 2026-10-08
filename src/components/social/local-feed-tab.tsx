@@ -789,8 +789,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       {/* v136: the leaderboard that used to live only in the desktop right
           sidebar (hidden below lg, so phones never saw it) got its own
           section in the Local Price Feed. v137: it is named "Score" and
-          shows every poster's rating + helpful votes. Same shared component
-          the sidebar renders, so the two can never drift. */}
+          shows who the top posters are (#1-#5 by post count). Same shared
+          component the sidebar renders, so the two can never drift. */}
       <TopPostersCard />
 
       {loading && posts.length === 0 ? (
