@@ -5,9 +5,11 @@
 //   1. POST /api/auth/deactivate { reason }  → soft-off + the reason lands in
 //      the contact-us inbox (ContactMessage - the same channel the /contact
 //      page writes to).
-//   2. Shows a confirmation with an optional "open in email app" mailto link
-//      to support@tenetbid.com with the reason pre-filled, so the user also
-//      has a direct email trail.
+//   2. Shows a confirmation telling the user they can sign back in any time
+//      with the same email + password (no email verification) - the account
+//      is kept for 6 months and permanently deleted after that. An optional
+//      "open in email app" mailto link to support@tenetbid.com with the
+//      reason pre-filled gives the user a direct email trail.
 //   3. onDeactivated() → the app signs the user out.
 import { useState } from 'react'
 import { UserX, Mail, ArrowRight, Loader2, CircleCheck } from 'lucide-react'
@@ -131,9 +133,9 @@ export function DeactivateAccountModal({
                 Account deactivated
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                Your reason was sent to our team at{' '}
-                <span className="font-medium text-foreground">{SUPPORT_EMAIL}</span>. You have been
-                signed out - we are sorry to see you go.
+                Your reason was sent to our team. You have been signed out - we are sorry to see
+                you go. Sign back in any time with the same email and password; the account is
+                kept for 6 months, then permanently deleted.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -157,12 +159,10 @@ export function DeactivateAccountModal({
                 Deactivate your account?
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                You will be signed out and won&apos;t be able to sign back in. Your posts stay
-                visible. Deactivation is reversible - email{' '}
-                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary font-medium hover:underline">
-                  {SUPPORT_EMAIL}
-                </a>{' '}
-                any time.
+                You will be signed out. You can sign back in any time with the same email and
+                password - no email verification needed. Your account, with your posts and
+                followers, is kept for <span className="font-medium text-foreground">6 months</span>,
+                then permanently deleted.
               </DialogDescription>
             </DialogHeader>
 

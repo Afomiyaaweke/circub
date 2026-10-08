@@ -6,12 +6,17 @@
 //   3. Soft-off switch on the user row: deactivatedAt + deactivationReason.
 //      - getCurrentUser() treats deactivated users as signed out, so every
 //        API starts returning 401 immediately.
-//      - Login returns 403 with a clear "contact support" message.
+//      - Login (v134): the SAME email + password signs the user right back
+//        in - no email verification, no support email. The account is kept
+//        for 6 months, then hard-deleted (see src/lib/deactivation.ts and
+//        /api/cleanup/deactivated).
 //   4. The reason is FORWARDED TO THE CONTACT-US INBOX: a ContactMessage row
 //      (the exact channel the /contact page writes to), addressed from the
 //      user's account email with subject "Account deactivation request".
 //
-// Reversible: support clears deactivatedAt/deactivationReason.
+// Reversible: the owner signs back in with the same email + password (login
+// or re-register both reactivate), or support clears deactivatedAt.
+// Support-only after the 6-month retention window - the row is gone.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, checkRateLimit, sanitizeInput } from '@/lib/session'

@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
 import { validateUsername } from '@/lib/username'
 import { CIRCUB_ROLES } from '@/lib/roles'
+import { isPastRetention } from '@/lib/deactivation'
 
 interface RegisterBody {
   accountType: 'PERSONAL' | 'COMPANY'
@@ -102,18 +103,54 @@ export async function POST(req: NextRequest) {
       where: { email: body.email.trim().toLowerCase() },
     })
     if (existing) {
-      // Deactivated accounts don't come back through re-registration - point
-      // the user at the support inbox instead of the generic "already exists".
+      // Deactivated accounts (v134): re-signing up with the same email works.
+      // Past the 6-month retention window the account is purged on the spot
+      // and registration falls through and creates a brand-new account.
+      // Inside the window, the password typed into the form IS the ownership
+      // proof (no email verification): a match reactivates the ORIGINAL
+      // account - same id, same username, posts/followers/messages intact -
+      // refreshed with the profile fields from this form. A mismatch means
+      // someone else is trying to take the handle: generic 409, no hints.
       if (existing.deactivatedAt) {
+        if (isPastRetention(existing.deactivatedAt)) {
+          await db.user.delete({ where: { id: existing.id } })
+          // fall through: the unique-email row is gone, registration proceeds
+        } else {
+          const owns = existing.password
+            ? await bcrypt.compare(body.password, existing.password)
+            : false
+          if (!owns) {
+            return NextResponse.json(
+              { error: 'An account with this email already exists. Sign in with your password to reactivate it.' },
+              { status: 409 }
+            )
+          }
+          const reactivated = await applyRegistrationFields(existing.id, body)
+          await setSessionCookie(reactivated.email)
+          return NextResponse.json(
+            {
+              user: {
+                id: reactivated.id,
+                email: reactivated.email,
+                name: reactivated.name,
+                username: reactivated.username,
+                accountType: reactivated.accountType,
+                companyName: reactivated.companyName,
+                headline: reactivated.headline,
+                location: reactivated.location,
+                guideRoles: reactivated.guideRoles ? pickedRolesOf(reactivated.guideRoles) : [],
+                reactivated: true,
+              },
+            },
+            { status: 201 }
+          )
+        }
+      } else {
         return NextResponse.json(
-          { error: 'This account was deactivated. Email support@tenetbid.com to reactivate it.' },
-          { status: 403 }
+          { error: 'An account with this email already exists' },
+          { status: 409 }
         )
       }
-      return NextResponse.json(
-        { error: 'An account with this email already exists' },
-        { status: 409 }
-      )
     }
 
     // Username: required, normalized + validated, globally unique - it is the
@@ -208,4 +245,50 @@ export async function POST(req: NextRequest) {
 // Convenience for the 201 response: "local,sales" -> ['local', 'sales'].
 function pickedRolesOf(raw: string): string[] {
   return raw.split(',').filter(Boolean)
+}
+
+// Reactivation of a deactivated account via re-signup (v134): refresh the
+// same fields a fresh registration would set, clear the soft-off flags, and
+// return the row. Everything the user accumulated before deactivating - the
+// user id, the @username handle, posts, price posts, followers, following,
+// likes, messages, connections - is left exactly as it was.
+async function applyRegistrationFields(userId: string, body: RegisterBody) {
+  const hashed = await bcrypt.hash(body.password, 10)
+
+  let guideRoles: string | null = null
+  if (Array.isArray(body.guideRoles)) {
+    const picked = [...new Set(
+      body.guideRoles
+        .map((r) => String(r || '').trim().toLowerCase())
+        .filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
+    )]
+    if (picked.length > 0) guideRoles = picked.join(',')
+  }
+
+  const data: any = {
+    password: hashed,
+    accountType: body.accountType,
+    deactivatedAt: null,
+    deactivationReason: null,
+    guideRoles,
+  }
+
+  if (body.accountType === 'PERSONAL') {
+    data.name = sanitizeInput(body.name!, 100)
+    data.headline = sanitizeInput(body.headline || '', 200) || null
+    data.location = sanitizeInput(body.location || '', 200) || null
+    data.bio = sanitizeInput(body.bio || '', 2000) || null
+    data.phone = sanitizeInput(body.phone || '', 40) || null
+    data.whatsapp = sanitizeInput(body.whatsapp || '', 200) || null
+    data.isLocal = true
+  } else {
+    data.name = sanitizeInput(body.contactName || body.companyName!, 100)
+    data.companyName = sanitizeInput(body.companyName!, 200)
+    data.companyWebsite = sanitizeInput(body.companyWebsite || '', 500) || null
+    data.companySize = sanitizeInput(body.companySize || '', 20) || null
+    data.companyIndustry = sanitizeInput(body.companyIndustry || '', 100) || null
+    data.headline = sanitizeInput(`${body.companyName!.trim()} • ${body.companyIndustry || 'Company'}`, 200)
+  }
+
+  return db.user.update({ where: { id: userId }, data })
 }

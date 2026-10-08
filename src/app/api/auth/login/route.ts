@@ -1,8 +1,17 @@
 // Login with email + password
+//
+// Deactivated accounts (v134): a deactivated user signs back in with the SAME
+// email + password - no email verification, no support email. Login is the
+// reactivation path: the password IS the ownership proof, so the soft-off
+// flags are cleared right here and the session is issued as usual.
+// Accounts deactivated MORE than 6 months ago are past the retention window:
+// they are hard-deleted on the spot (cascade wipes posts, follows, messages)
+// and the login answers with the generic 401, as if the account never existed.
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit } from '@/lib/session'
+import { isPastRetention } from '@/lib/deactivation'
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,14 +52,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Deactivated accounts cannot sign back in - the message tells the owner
-    // exactly how to reactivate (checked AFTER the password check so the
-    // account's existence/status is never leaked to non-owners).
+    // Deactivated accounts: checked AFTER the password check so the account's
+    // existence/status is never leaked to non-owners. The correct password is
+    // the ownership proof - reactivate immediately, no email verification.
     if (user.deactivatedAt) {
-      return NextResponse.json(
-        { error: 'This account has been deactivated. Email support@tenetbid.com to reactivate it.' },
-        { status: 403 }
-      )
+      if (isPastRetention(user.deactivatedAt)) {
+        // 6-month retention window is over: hard-delete the account for real
+        // (every User relation in the schema cascades), then answer with the
+        // generic invalid-credentials 401 - the account is simply gone.
+        await db.user.delete({ where: { id: user.id } })
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      }
+      // Self-service reactivation: same email, same password, back in.
+      await db.user.update({
+        where: { id: user.id },
+        data: { deactivatedAt: null, deactivationReason: null },
+      })
+      // Fall through - the rest of the flow issues the session as normal.
     }
 
     await setSessionCookie(user.email)
