@@ -11,7 +11,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
-import { LandingPage } from '@/components/social/landing-page'
+import { LandingPage, type LandingStats } from '@/components/social/landing-page'
 import { DemoBanner } from '@/components/social/demo-banner'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
@@ -56,17 +56,17 @@ function getCachedUser(): User | null {
   return null
 }
 
-export default function HomeClient() {
+export default function HomeClient({ stats = null }: { stats?: LandingStats | null }) {
   // LanguageProvider wraps the whole shell - landing AND dashboard - so the
   // chosen language applies to the entire app and persists across visits.
   return (
     <LanguageProvider>
-      <HomeInner />
+      <HomeInner stats={stats} />
     </LanguageProvider>
   )
 }
 
-function HomeInner() {
+function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   const [me, setMe] = useState<User | null>(getCachedUser)
   // authChecked now only tracks whether the background /api/auth/me
   // revalidation has completed - it no longer gates the first paint.
@@ -421,6 +421,7 @@ function HomeInner() {
     return (
       <>
         <LandingPage
+          stats={stats}
           onSignUp={() => setRegisterOpen(true)}
           onLogin={() => setLoginOpen(true)}
           onViewDemo={() => {

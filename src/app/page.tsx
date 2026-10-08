@@ -83,6 +83,21 @@ export async function generateMetadata({
   }
 }
 
-export default function Home() {
-  return <HomeClient />;
+// v139: real community counts for the landing stats band, computed on the
+// server so the numbers can never drift into marketing fiction - the band
+// shows what the community has actually posted. Any DB hiccup hides the
+// band entirely instead of faking numbers.
+export default async function Home() {
+  let stats: { prices: number; people: number; countries: number } | null = null;
+  try {
+    const [prices, people, countryRows] = await Promise.all([
+      db.localPricePost.count(),
+      db.user.count(),
+      db.localPricePost.findMany({ distinct: ["country"], select: { country: true } }),
+    ]);
+    stats = { prices, people, countries: countryRows.length };
+  } catch {
+    stats = null;
+  }
+  return <HomeClient stats={stats} />;
 }
