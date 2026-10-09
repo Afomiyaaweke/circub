@@ -116,32 +116,36 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             {timeAgoLabel(post.createdAt)}
           </span>
         </div>
-        {(canDelete || canEdit) && (
-          <div className="relative shrink-0">
-            <button onClick={() => setShowMenu(!showMenu)} className="p-1 rounded-full hover:bg-accent text-muted-foreground transition-colors" aria-label="More options">
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </button>
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-7 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
-                  {canEdit && (
-                    <button onClick={() => { setShowMenu(false); onEdit?.(post) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2">
-                      <Pencil className="w-3.5 h-3.5" />
-                      Edit post
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button onClick={() => { setShowMenu(false); onDelete?.(post.id) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2">
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete post
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        {/* v151: the 3-dot menu is on EVERY card now - Share lives inside it
+            (was a standalone footer icon button), Edit/Delete stay owner-only. */}
+        <div className="relative shrink-0">
+          <button onClick={() => setShowMenu(!showMenu)} data-testid="price-more" className="p-1 rounded-full hover:bg-accent text-muted-foreground transition-colors" aria-label="More options">
+            <MoreHorizontal className="w-3.5 h-3.5" />
+          </button>
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+              <div className="absolute right-0 top-7 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                <button onClick={() => { setShowMenu(false); handleShare() }} data-testid="price-share" className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2">
+                  <Share2 className="w-3.5 h-3.5" />
+                  Share
+                </button>
+                {canEdit && (
+                  <button onClick={() => { setShowMenu(false); onEdit?.(post) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-foreground flex items-center gap-2">
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit post
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => { setShowMenu(false); onDelete?.(post.id) }} className="w-full text-left px-4 py-2 text-sm hover:bg-accent text-destructive flex items-center gap-2">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete post
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Row 2: name + location; in compact lists the photo stays a small side thumbnail */}
@@ -313,7 +317,8 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </Button>
       )}
 
-      {/* Footer: author left - Details / Save / Share right (share was its own row before) */}
+      {/* Footer: author left - Details / Save right (v151: Share moved into
+          the header 3-dot menu on every card) */}
       <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between gap-2">
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
           <Avatar className="w-7 h-7 border border-accent shrink-0 overflow-hidden">
@@ -353,9 +358,6 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             </Button>
             <Button size="sm" variant="outline" onClick={handleToggleSave} className={cn('shrink-0 h-7 w-7 p-0', saved ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')} title={saved ? 'Remove from bookmarks' : 'Save to bookmarks'}>
               <Bookmark className={cn('w-3.5 h-3.5', saved && 'fill-current')} />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={handleShare} data-testid="price-share" className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-primary" title="Share this price">
-              <Share2 className="w-3.5 h-3.5" />
             </Button>
           </div>
         )}

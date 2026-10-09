@@ -874,7 +874,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     <Scale className="w-4 h-4 text-primary" />
-                    Detail compare
+                    Compare
                     <span
                       data-testid="detail-links-count"
                       className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5"
@@ -888,10 +888,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       variant="outline"
                       data-testid="detail-link-picker-toggle"
                       onClick={() => setShowLinkPicker((v) => !v)}
-                      className="h-7 px-2 text-xs gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                      className="h-7 w-7 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                      title="Link a business"
+                      aria-label="Link a business"
                     >
                       <Link2 className="w-3.5 h-3.5" />
-                      Link a business
                     </Button>
                   )}
                 </div>
