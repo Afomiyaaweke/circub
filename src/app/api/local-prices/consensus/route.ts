@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
     const avgTouristPrice = touristPrices.length ? Math.round(touristPrices.reduce((a, b) => a + b, 0) / touristPrices.length) : null
     let verdict: 'fair' | 'expensive' | 'cheap' | 'unknown' = 'unknown'
     if (recommendedPrice && avgTouristPrice) { const ratio = avgTouristPrice / recommendedPrice; verdict = ratio > 1.5 ? 'expensive' : 'fair' }
-    return NextResponse.json({ consensus: { productName, country, city: city || null, currency: posts[0].currency, avgPriceMin, avgPriceMax, recommendedPrice, avgTouristPrice, reportCount: posts.length, verdict, contributingPosts: posts.map((p) => ({ id: p.id, productName: p.productName, priceMin: p.priceMin, priceMax: p.priceMax, recommendedPrice: p.recommendedPrice, helpfulCount: p.helpfulCount, createdAt: p.createdAt, author: { id: p.author.id, name: p.author.name, avatarColor: p.author.avatarColor, verifiedLocal: p.author.verifiedLocal, idVerified: p.author.idVerified, rating: p.author.rating } })) } })
+    // v143: contributingPosts now carry currency/city/country/imageUrl too -
+    // the detail modal renders them as the automatic "Other businesses on
+    // circub" compare rows (same product, no manual link needed).
+    return NextResponse.json({ consensus: { productName, country, city: city || null, currency: posts[0].currency, avgPriceMin, avgPriceMax, recommendedPrice, avgTouristPrice, reportCount: posts.length, verdict, contributingPosts: posts.map((p) => ({ id: p.id, productName: p.productName, priceMin: p.priceMin, priceMax: p.priceMax, currency: p.currency, city: p.city, country: p.country, imageUrl: p.imageUrl, recommendedPrice: p.recommendedPrice, helpfulCount: p.helpfulCount, createdAt: p.createdAt, author: { id: p.author.id, name: p.author.name, avatarColor: p.author.avatarColor, verifiedLocal: p.author.verifiedLocal, idVerified: p.author.idVerified, rating: p.author.rating } })) } })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

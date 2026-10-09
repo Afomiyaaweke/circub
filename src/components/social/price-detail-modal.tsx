@@ -264,16 +264,42 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     if (aSame === 0) return a.post.priceMax - b.post.priceMax
     return 0
   })
-  // This post is the cheapest when it undercuts (or ties) every
-  // same-currency linked business; ties keep the badge on the front row.
-  const cheapestSelf =
-    sameCurLinks.length > 0 && sameCurLinks.every((l) => selfPrice <= l.post.priceMax)
+  // v143: AUTO-compare - other businesses selling the SAME product pulled
+  // from the consensus panel's contributing posts (exact name match,
+  // case-insensitive, other authors only). Manual links always win: a post
+  // that is linked drops out here, so no business is ever counted twice.
+  const autoRows = (() => {
+    if (!post) return []
+    const selfName = post.productName.trim().toLowerCase()
+    const linkedIds = new Set(links.map((l) => l.post.id))
+    const seen = new Set<string>()
+    const rows = (consensus?.contributingPosts || []).filter((c) => {
+      if (!c || c.id === post.id || linkedIds.has(c.id) || seen.has(c.id)) return false
+      if (c.author.id === post.author.id) return false
+      if (c.productName.trim().toLowerCase() !== selfName) return false
+      seen.add(c.id)
+      return true
+    })
+    const same = rows.filter((r) => r.currency === post.currency).sort((a, b) => a.priceMax - b.priceMax)
+    const rest = rows.filter((r) => r.currency !== post.currency)
+    return [...same, ...rest].slice(0, 5)
+  })()
+  // Cheapest / average now run across BOTH sources: manually linked
+  // businesses plus the automatic same-product rows. This post is the
+  // cheapest when it undercuts (or ties) every same-currency one; ties
+  // keep the badge on the front row.
+  const autoSameCurPrices = autoRows
+    .filter((a) => post && a.currency === post.currency)
+    .map((a) => a.priceMax)
+  const allSameCurPrices = [...sameCurLinks.map((l) => l.post.priceMax), ...autoSameCurPrices]
+  const cheapestSelf = allSameCurPrices.length > 0 && allSameCurPrices.every((p) => selfPrice <= p)
   const cheapestPrice =
-    sameCurLinks.length > 0 ? Math.min(selfPrice, ...sameCurLinks.map((l) => l.post.priceMax)) : 0
+    allSameCurPrices.length > 0 ? Math.min(selfPrice, ...allSameCurPrices) : 0
   const avgPrice =
-    sameCurLinks.length > 0
-      ? (selfPrice + sameCurLinks.reduce((s, l) => s + l.post.priceMax, 0)) / (sameCurLinks.length + 1)
+    allSameCurPrices.length > 0
+      ? (selfPrice + allSameCurPrices.reduce((s, p) => s + p, 0)) / (allSameCurPrices.length + 1)
       : 0
+  const totalCompare = links.length + autoRows.length
   const deltaPct = (other: number) => (selfPrice > 0 ? ((other - selfPrice) / selfPrice) * 100 : 0)
 
   const handleAddLink = async (otherId: string) => {
@@ -605,7 +631,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   on the front"), same-currency rows sort cheapest-first and
                   carry a +% / -% delta vs this price, the lowest row gets
                   the Cheapest badge, and tapping a business opens its post.
-                  Every link shows on BOTH posts. */}
+                  Every link shows on BOTH posts. v143: businesses selling
+                  the SAME product also compare automatically ("Other
+                  businesses on circub") - no manual link needed, and manual
+                  links never double-count a business. */}
               <div className="rounded-xl border border-border p-4" data-testid="detail-links-section">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
@@ -615,7 +644,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       data-testid="detail-links-count"
                       className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5"
                     >
-                      {links.length}
+                      {totalCompare}
                     </span>
                   </h3>
                   {currentUserId && (
@@ -683,10 +712,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   </div>
                 )}
 
-                {links.length === 0 ? (
+                {links.length === 0 && autoRows.length === 0 ? (
                   <p className="text-xs text-muted-foreground" data-testid="detail-links-empty">
                     {currentUserId
-                      ? 'No linked businesses yet - search above and link the same item elsewhere to compare prices.'
+                      ? 'No other business sells this here yet - when another business posts the same item it shows up here automatically, or search above and link one now.'
                       : 'No linked businesses to compare yet.'}
                   </p>
                 ) : (
@@ -799,10 +828,79 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </div>
                       )
                     })}
+                    {/* v143: businesses selling the same product compare
+                        automatically - dashed rows, no link needed. */}
+                    {autoRows.length > 0 && (
+                      <div className="pt-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pb-1">
+                          Other businesses on circub
+                        </p>
+                        {autoRows.map((a) => {
+                          const sameCur = post && a.currency === post.currency
+                          const delta = sameCur ? deltaPct(a.priceMax) : 0
+                          return (
+                            <div
+                              key={a.id}
+                              data-testid="detail-compare-auto"
+                              className="flex items-center justify-between gap-2 border border-dashed border-border bg-accent/20 rounded-md px-2.5 py-1.5"
+                            >
+                              <button
+                                className="flex items-center gap-2 min-w-0 text-left flex-1 hover:opacity-80"
+                                onClick={() => onOpenPost?.(a.id)}
+                                title="Open this business's price post"
+                                data-testid="detail-auto-open"
+                              >
+                                {a.imageUrl && (
+                                  <img src={a.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                                )}
+                                <span className="min-w-0">
+                                  <span className="block text-xs font-medium text-foreground truncate">{a.productName}</span>
+                                  <span className="block text-[10px] text-muted-foreground truncate">
+                                    {a.author?.name ? `${a.author.name} · ` : ''}
+                                    {[a.city, a.country].filter(Boolean).join(', ')}
+                                  </span>
+                                </span>
+                              </button>
+                              {sameCur && selfPrice > 0 && (
+                                <span
+                                  data-testid="detail-compare-delta"
+                                  className={cn(
+                                    'text-[10px] font-semibold shrink-0 text-right w-14',
+                                    delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                                  )}
+                                >
+                                  {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
+                                </span>
+                              )}
+                              {!sameCur && (
+                                <span
+                                  data-testid="detail-compare-currency"
+                                  className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground bg-accent rounded-full px-1.5 py-0.5 shrink-0"
+                                >
+                                  {a.currency}
+                                </span>
+                              )}
+                              {sameCur && !cheapestSelf && a.priceMax === cheapestPrice && (
+                                <span
+                                  data-testid="detail-compare-cheapest"
+                                  className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
+                                >
+                                  Cheapest
+                                </span>
+                              )}
+                              <span className="text-xs font-bold text-emerald-700 shrink-0">
+                                {a.currency} {a.priceMin}
+                                {a.priceMin !== a.priceMax ? `-${a.priceMax}` : ''}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                     {/* the count the user asked for, spelled out in words */}
                     <p data-testid="detail-compare-summary" className="text-[11px] text-muted-foreground pt-1">
-                      {`Linked to ${links.length} ${links.length === 1 ? 'business' : 'businesses'}`}
-                      {sameCurLinks.length > 0
+                      {`Comparing ${totalCompare} ${totalCompare === 1 ? 'business' : 'businesses'}${links.length > 0 ? ` (${links.length} linked)` : ''}`}
+                      {allSameCurPrices.length > 0
                         ? ` · cheapest ${formatPrice(cheapestPrice, post.currency)} · average ${formatPrice(Math.round(avgPrice), post.currency)}`
                         : ''}
                     </p>
