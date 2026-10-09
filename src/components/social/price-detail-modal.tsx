@@ -220,16 +220,25 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   // nothing (no manual links, no same-name auto rows). Nearest matches
   // first (same currency, then same country, then same category); the
   // moment any compare row exists the suggestions clear out.
+  // v146 FIX: keyed on the PRIMITIVE post.id (or null) instead of the
+  // [post, links, similar] object identities. On production latency the
+  // setLinks/setSimilar empty-array updates land in separate renders, so an
+  // identity-keyed effect cancelled its in-flight fetch and the ref guard
+  // then blocked every re-run - suggestions hung on "Looking for..." forever
+  // (the exact "still the same" symptom). A primitive key cannot churn: the
+  // fetch runs once per post, and only a REAL change (a link/similar row
+  // appearing, or an unlink) re-triggers it.
+  const suggestKey =
+    post && links.length === 0 && similar.length === 0 ? post.id : null
   useEffect(() => {
-    if (!post) return
-    if (links.length > 0 || similar.length > 0) {
+    if (!suggestKey || !currentUserId || currentUserId === 'guest') {
       setSuggest([])
+      setSuggestLoading(false)
       suggestForRef.current = null
       return
     }
-    if (!currentUserId || currentUserId === 'guest') return
-    if (suggestForRef.current === post.id) return // already loaded for this post
-    suggestForRef.current = post.id
+    if (suggestForRef.current === suggestKey) return // already loaded for this post
+    suggestForRef.current = suggestKey
     let dead = false
     setSuggestLoading(true)
     ;(async () => {
@@ -237,12 +246,15 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         const res = await fetch('/api/local-prices?limit=40', { cache: 'no-store' })
         const data = await res.json()
         const posts = Array.isArray(data.posts) ? data.posts : []
-        if (!dead) {
+        if (!dead && post) {
+          // `post` here is the closure from the render whose post.id IS
+          // suggestKey (the effect only runs on that key), so the self row
+          // is authoritative even when the post is older than the recent-40
+          // feed window.
           const self = post
-          const linkedIds = new Set(links.map((l) => l.post.id))
           const pool = posts.filter(
             (c: any) =>
-              c && c.id !== self.id && !linkedIds.has(c.id) && c.author && c.author.id !== self.author.id
+              c && self && c.id !== self.id && c.author && c.author.id !== self.author.id
           )
           const score = (c: any) =>
             (c.currency === self.currency ? 0 : 2) +
@@ -260,7 +272,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     return () => {
       dead = true
     }
-  }, [post, links, similar, currentUserId])
+  }, [suggestKey, currentUserId])
 
   const handleVote = async (voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
     if (!post) return
