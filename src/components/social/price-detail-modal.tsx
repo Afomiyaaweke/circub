@@ -88,6 +88,21 @@ interface LinkedPostRow {
   }
 }
 
+// v144: a business selling the SAME product anywhere (auto-compare source,
+// independent of manual links).
+interface SimilarPost {
+  id: string
+  productName: string
+  currency: string
+  priceMin: number
+  priceMax: number
+  city?: string | null
+  country?: string | null
+  imageUrl?: string | null
+  createdAt: string
+  author?: { id: string; name?: string | null }
+}
+
 const REPORT_OPTIONS = [
   { value: 'INCORRECT_PRICE', label: 'Incorrect price' },
   { value: 'OUTDATED', label: 'Outdated information' },
@@ -114,6 +129,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [submittingReport, setSubmittingReport] = useState(false)
   // Linked prices (same item posted elsewhere): list + add/remove picker.
   const [links, setLinks] = useState<LinkedPostRow[]>([])
+  // v144: businesses selling the SAME product anywhere (auto-compare rows).
+  const [similar, setSimilar] = useState<SimilarPost[]>([])
   const [showLinkPicker, setShowLinkPicker] = useState(false)
   const [linkSearch, setLinkSearch] = useState('')
   const [linkResults, setLinkResults] = useState<any[]>([])
@@ -131,6 +148,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       setLoading(true)
       // Reset the linked-prices panel - it belongs to the post being opened.
       setLinks([])
+      setSimilar([])
       setShowLinkPicker(false)
       setLinkSearch('')
       setLinkResults([])
@@ -148,6 +166,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
           const lData = await lRes.json()
           if (!cancelled) setLinks(Array.isArray(lData.links) ? lData.links : [])
         } catch { if (!cancelled) setLinks([]) }
+
+        // v144: businesses selling the SAME product - ANY city, ANY country.
+        // These render as the automatic compare rows even with zero links.
+        try {
+          const sRes = await fetch(`/api/local-prices/${postId}/similar`, { cache: 'no-store' })
+          const sData = await sRes.json()
+          if (!cancelled) setSimilar(Array.isArray(sData.similar) ? sData.similar : [])
+        } catch { if (!cancelled) setSimilar([]) }
 
         // Fetch consensus using the post's productName + country + city, excluding this post
         const cParams = new URLSearchParams()
@@ -264,18 +290,19 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     if (aSame === 0) return a.post.priceMax - b.post.priceMax
     return 0
   })
-  // v143: AUTO-compare - other businesses selling the SAME product pulled
-  // from the consensus panel's contributing posts (exact name match,
-  // case-insensitive, other authors only). Manual links always win: a post
-  // that is linked drops out here, so no business is ever counted twice.
+  // v144: AUTO-compare - businesses selling the SAME product ANYWHERE
+  // (exact name match, case-insensitive, other authors only) from the
+  // /similar endpoint - not just the same city like the consensus panel.
+  // Manual links always win: a post that is linked drops out here, so no
+  // business is ever counted twice.
   const autoRows = (() => {
     if (!post) return []
     const selfName = post.productName.trim().toLowerCase()
     const linkedIds = new Set(links.map((l) => l.post.id))
     const seen = new Set<string>()
-    const rows = (consensus?.contributingPosts || []).filter((c) => {
+    const rows = similar.filter((c) => {
       if (!c || c.id === post.id || linkedIds.has(c.id) || seen.has(c.id)) return false
-      if (c.author.id === post.author.id) return false
+      if (c.author && c.author.id === post.author.id) return false
       if (c.productName.trim().toLowerCase() !== selfName) return false
       seen.add(c.id)
       return true
@@ -530,102 +557,6 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
             {/* Body */}
             <div className="p-5 sm:p-6 space-y-5">
-              {/* Description */}
-              {post.description && (
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-1.5">About this {post.postType.toLowerCase()}</h3>
-                  <p className="text-sm text-foreground/90 leading-relaxed">{post.description}</p>
-                </div>
-              )}
-
-              {/* Local tip */}
-              {post.localTip && (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
-                  <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-1.5 mb-2">
-                    <Lightbulb className="w-4 h-4 text-amber-500" />
-                    Local tip
-                  </h3>
-                  <p className="text-sm text-amber-900 italic leading-relaxed">
-                    &ldquo;{post.localTip}&rdquo;
-                  </p>
-                </div>
-              )}
-
-              {/* Image */}
-              {post.imageUrl && (
-                <div className="rounded-lg overflow-hidden border border-border">
-                  <img
-                    src={post.imageUrl}
-                    alt={post.productName}
-                    className="w-full max-h-80 object-cover"
-                  />
-                </div>
-              )}
-
-              {/* Consensus section */}
-              <div className="rounded-xl bg-emerald-50/50 border border-emerald-200 p-4">
-                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-primary" />
-                  Local consensus
-                </h3>
-                {!consensus ? (
-                  <p className="text-sm text-muted-foreground">
-                    No other local reports yet for this product in this area.
-                    Be the first to confirm or challenge this price · or wait for more locals to weigh in.
-                  </p>
-                ) : (
-                  <div>
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <p className="text-2xl font-bold text-foreground">
-                        {formatPrice(consensus.avgPriceMin, consensus.currency)} - {formatPrice(consensus.avgPriceMax, consensus.currency)}
-                      </p>
-                      {consensus.verdict === 'fair' && (
-                        <Badge className="bg-emerald-500 text-white">🟢 Fair price</Badge>
-                      )}
-                      {consensus.verdict === 'expensive' && (
-                        <Badge className="bg-orange-500 text-white">🟠 Above local average</Badge>
-                      )}
-                      {consensus.verdict === 'cheap' && (
-                        <Badge className="bg-emerald-500 text-white">🟢 Below market</Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1.5 italic">
-                      Based on <span className="font-semibold text-foreground">{consensus.reportCount}</span> community-reported prices.
-                    </p>
-
-                    {/* Contributing posts */}
-                    {consensus.contributingPosts.length > 0 && (
-                      <div className="mt-3 space-y-1.5">
-                        {consensus.contributingPosts.slice(0, 5).map((cp) => (
-                          <div
-                            key={cp.id}
-                            className="flex items-center justify-between gap-2 text-xs bg-card border border-border/50 rounded-md px-3 py-1.5"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Avatar className="w-5 h-5">
-                                <AvatarFallback className="bg-primary/15 text-primary text-[10px] font-semibold">
-                                  {cp.author.name.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="font-medium text-foreground truncate">{cp.author.name}</span>
-                              {cp.author.verifiedLocal && (
-                                <BadgeCheck className="w-3 h-3 text-primary shrink-0" />
-                              )}
-                              {cp.author.idVerified && (
-                                <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />
-                              )}
-                            </div>
-                            <span className="text-muted-foreground shrink-0">
-                              {formatPrice(cp.priceMin, consensus.currency)} - {formatPrice(cp.priceMax, consensus.currency)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
               {/* Compare businesses - v141 upgrade of the v99 linked-prices
                   list: the post you opened is pinned FIRST ("your business
                   on the front"), same-currency rows sort cheapest-first and
@@ -904,6 +835,102 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         ? ` · cheapest ${formatPrice(cheapestPrice, post.currency)} · average ${formatPrice(Math.round(avgPrice), post.currency)}`
                         : ''}
                     </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              {post.description && (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-1.5">About this {post.postType.toLowerCase()}</h3>
+                  <p className="text-sm text-foreground/90 leading-relaxed">{post.description}</p>
+                </div>
+              )}
+
+              {/* Local tip */}
+              {post.localTip && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
+                  <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-1.5 mb-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500" />
+                    Local tip
+                  </h3>
+                  <p className="text-sm text-amber-900 italic leading-relaxed">
+                    &ldquo;{post.localTip}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* Image */}
+              {post.imageUrl && (
+                <div className="rounded-lg overflow-hidden border border-border">
+                  <img
+                    src={post.imageUrl}
+                    alt={post.productName}
+                    className="w-full max-h-80 object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Consensus section */}
+              <div className="rounded-xl bg-emerald-50/50 border border-emerald-200 p-4">
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-primary" />
+                  Local consensus
+                </h3>
+                {!consensus ? (
+                  <p className="text-sm text-muted-foreground">
+                    No other local reports yet for this product in this area.
+                    Be the first to confirm or challenge this price · or wait for more locals to weigh in.
+                  </p>
+                ) : (
+                  <div>
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <p className="text-2xl font-bold text-foreground">
+                        {formatPrice(consensus.avgPriceMin, consensus.currency)} - {formatPrice(consensus.avgPriceMax, consensus.currency)}
+                      </p>
+                      {consensus.verdict === 'fair' && (
+                        <Badge className="bg-emerald-500 text-white">🟢 Fair price</Badge>
+                      )}
+                      {consensus.verdict === 'expensive' && (
+                        <Badge className="bg-orange-500 text-white">🟠 Above local average</Badge>
+                      )}
+                      {consensus.verdict === 'cheap' && (
+                        <Badge className="bg-emerald-500 text-white">🟢 Below market</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5 italic">
+                      Based on <span className="font-semibold text-foreground">{consensus.reportCount}</span> community-reported prices.
+                    </p>
+
+                    {/* Contributing posts */}
+                    {consensus.contributingPosts.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        {consensus.contributingPosts.slice(0, 5).map((cp) => (
+                          <div
+                            key={cp.id}
+                            className="flex items-center justify-between gap-2 text-xs bg-card border border-border/50 rounded-md px-3 py-1.5"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Avatar className="w-5 h-5">
+                                <AvatarFallback className="bg-primary/15 text-primary text-[10px] font-semibold">
+                                  {cp.author.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium text-foreground truncate">{cp.author.name}</span>
+                              {cp.author.verifiedLocal && (
+                                <BadgeCheck className="w-3 h-3 text-primary shrink-0" />
+                              )}
+                              {cp.author.idVerified && (
+                                <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />
+                              )}
+                            </div>
+                            <span className="text-muted-foreground shrink-0">
+                              {formatPrice(cp.priceMin, consensus.currency)} - {formatPrice(cp.priceMax, consensus.currency)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
