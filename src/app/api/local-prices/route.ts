@@ -41,15 +41,27 @@ export async function GET(req: NextRequest) {
     if (sort === 'popular') orderBy = { helpfulCount: 'desc' }
     let me: any = null
     try { const s = await getCurrentUser(); if (s) me = await db.user.findUnique({ where: { id: s.id }, include: { localPriceVotes: true } }) } catch {}
+    // v147 step-by-step loading: the feed asks for a SMALL window at a time
+    // (limit + offset) instead of one take-100 query - the server answers a
+    // fraction of the work per request and the phone paints faster. No limit
+    // param = the legacy full 100, so every existing caller is unchanged.
+    // `hasMore` (fetch one extra row to know for sure) tells the feed whether
+    // another step exists.
+    const limitRaw = parseInt(searchParams.get('limit') || '', 10)
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 100
+    const offsetRaw = parseInt(searchParams.get('offset') || '', 10)
+    const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0
     // _count.linksA/linksB -> the "N links" chip on each card (symmetric
     // PricePostLink rows; every link touches exactly one of the two sides).
-    const posts = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: 100 })
+    const rows = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: limit + 1, skip: offset })
+    const hasMore = rows.length > limit
+    const posts = rows.slice(0, limit)
     const result = posts.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       const { linksA, linksB } = (p as any)._count || { linksA: 0, linksB: 0 }
       return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote, linksCount: (linksA || 0) + (linksB || 0) }
     })
-    return NextResponse.json({ posts: result }, { headers: cacheHeaders() })
+    return NextResponse.json({ posts: result, hasMore }, { headers: cacheHeaders() })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }
 

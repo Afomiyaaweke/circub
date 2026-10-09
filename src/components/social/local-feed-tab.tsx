@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, BarChart3, PenLine } from 'lucide-react'
-import { useProgressiveList } from '@/lib/use-progressive-list'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +30,11 @@ import type { LocalPricePost } from '@/lib/types'
 // a "Soon" badge again (e.g. while the AI backend is unavailable).
 const SCAN_COMING_SOON = false
 
+// v147 step-by-step feed loading - how many price posts one request fetches.
+// The reader scrolls, the bottom sentinel asks for the next 10; the server
+// never answers a take-100 query from the feed again.
+const FEED_STEP = 10
+
 interface LocalFeedTabProps {
   onRefreshUser: () => void
   onMessage?: (userId: string) => void
@@ -44,8 +48,16 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const { t } = useLanguage()
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
-  // Load part by part: render a small batch first, append more on scroll
-  const { visible: visiblePosts, hasMore: postsHasMore, sentinelRef: postsSentinelRef } = useProgressiveList(posts, 6, 6)
+  // v147 step-by-step loading: the feed fetches a SMALL window (10 posts) per
+  // request and appends the next step only when the reader reaches the bottom
+  // - the server never answers one giant take-100 query again, the first
+  // paint carries a fraction of the payload, and every extra step costs the
+  // server (and the phone) one tiny 10-row read.
+  const [serverHasMore, setServerHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const postsCountRef = useRef(0)
+  const loadingMoreRef = useRef(false)
+  const postsSentinelRef = useRef<HTMLDivElement | null>(null)
   const [search, setSearch] = useState('')
   // The search box accepts "item, location" (comma-separated): the part
   // before the comma filters the item, the part after it resolves to a
@@ -133,18 +145,75 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       // fresh:true which adds a unique query variant that misses the edge and
       // hits the origin; ordinary filter loads keep using the edge cache.
       if (opts?.fresh) params.set('_', String(Date.now()))
+      // Step-by-step: an ordinary (filter) load fetches ONE window of posts;
+      // a fresh refresh (publish / link events) re-fetches everything
+      // currently on screen so no visible card can ever disappear.
+      params.set('limit', String(opts?.fresh ? Math.max(FEED_STEP, postsCountRef.current) : FEED_STEP))
+      params.set('offset', '0')
       const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
       const data = await res.json()
       const next = data.posts || []
       setPosts(next)
+      setServerHasMore(!!data.hasMore)
       hasPostsRef.current = next.length > 0
-    } catch { setPosts([]); hasPostsRef.current = false } finally { setLoading(false) }
+    } catch { setPosts([]); hasPostsRef.current = false; setServerHasMore(false) } finally { setLoading(false) }
   }, [search, country, city, category])
 
   useEffect(() => {
     const t = setTimeout(fetchPosts, 250)
     return () => clearTimeout(t)
   }, [fetchPosts])
+
+  // The next step: fetch the following FEED_STEP posts with the CURRENT
+  // filters and append them. De-duped by id so a fresh refresh racing in
+  // between cannot double a row; a failed step keeps the current list.
+  const loadMorePosts = useCallback(async () => {
+    if (loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      if (country && country !== 'All countries') params.set('country', country)
+      if (city && city !== 'All cities') params.set('city', city)
+      if (category && category !== ALL_CATEGORIES) params.set('category', category)
+      params.set('limit', String(FEED_STEP))
+      params.set('offset', String(postsCountRef.current))
+      const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
+      const data = await res.json()
+      const next: LocalPricePost[] = data.posts || []
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id))
+        return [...prev, ...next.filter((p) => !seen.has(p.id))]
+      })
+      setServerHasMore(!!data.hasMore)
+    } catch { /* keep the current list on a failed step */ } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
+    }
+  }, [search, country, city, category])
+
+  // Single source of truth for the offset of the next step.
+  useEffect(() => {
+    postsCountRef.current = posts.length
+  }, [posts])
+
+  // Bottom sentinel - loads the next step when it scrolls into view. The
+  // observer re-creates whenever a gate flips, so a sentinel still on screen
+  // immediately chains the following step until the viewport is full.
+  useEffect(() => {
+    const el = postsSentinelRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    if (!serverHasMore || loading) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMoreRef.current) void loadMorePosts()
+      },
+      { rootMargin: '600px 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [serverHasMore, loading, loadMorePosts])
 
   // Link management inside the detail modal dispatches 'circub:feed-changed'
   // - the feed refetches so the "N links" chip on every card stays true
@@ -808,13 +877,15 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         <>
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {visiblePosts.map((p) => (
+            {posts.map((p) => (
               <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onMessage={onMessage} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
             ))}
           </div>
           <div ref={postsSentinelRef} />
-          {postsHasMore && (
-            <p className="text-center text-xs text-muted-foreground py-2">Loading more prices…</p>
+          {loadingMore && (
+            <p data-testid="feed-loading-more" className="text-center text-xs text-muted-foreground py-2 flex items-center justify-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading more prices…
+            </p>
           )}
         </>
       )}

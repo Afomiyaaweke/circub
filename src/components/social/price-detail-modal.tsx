@@ -397,6 +397,70 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const totalCompare = links.length + autoRows.length
   const deltaPct = (other: number) => (selfPrice > 0 ? ((other - selfPrice) / selfPrice) * 100 : 0)
 
+  // ---------------------------------------------------------------- table
+  // v147: the compare OUTPUT in the exact shape the user drew - "{product}
+  // price by location and date ({currency})", months as rows, locations as
+  // columns. One currency per table (this post's): mixing currencies inside
+  // one grid would be fiction. Sources: this post + every same-name business
+  // (linked + automatic). The self post always fills the first column, so
+  // the table renders even when nothing compares yet - and every additional
+  // business / older post of the same item grows the grid into a real
+  // price history across places.
+  const priceTable = (() => {
+    if (!post) return null
+    const cityName = (p: { city?: string | null; country?: string | null }) =>
+      (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
+    const monthKeyOf = (iso: string) => {
+      const t = new Date(iso)
+      return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
+    }
+    const monthLabelOf = (key: string) => {
+      const [y, m] = key.split('-').map(Number)
+      return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    }
+    type TablePt = { city: string; key: string; min: number; max: number }
+    const pts: TablePt[] = []
+    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number }, currency: string) => {
+      if (!post || currency !== post.currency) return
+      const key = monthKeyOf(p.createdAt)
+      if (Number.isNaN(new Date(p.createdAt).getTime()) || Number.isNaN(new Date(`${key}-01T00:00:00`).getTime())) return
+      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax })
+    }
+    push(post, post.currency)
+    links.forEach((l) => push(l.post, l.post.currency))
+    autoRows.forEach((a) => push(a, a.currency))
+    if (pts.length === 0) return null
+    // Columns: this business FIRST, then the others by most data points
+    // (name order as tie-break), capped at 4 so the grid stays readable.
+    const counts = new Map<string, number>()
+    pts.forEach((p) => counts.set(p.city, (counts.get(p.city) || 0) + 1))
+    const selfCity = cityName(post)
+    const cities = [...new Set(pts.map((p) => p.city))]
+      .sort((x, y) => {
+        if (x === selfCity) return -1
+        if (y === selfCity) return 1
+        const dc = (counts.get(y) || 0) - (counts.get(x) || 0)
+        return dc !== 0 ? dc : x.localeCompare(y)
+      })
+      .slice(0, 4)
+    // Rows: months oldest -> newest like a history table, most recent 6.
+    const monthRows = [...new Set(pts.map((p) => p.key))]
+      .sort()
+      .slice(-6)
+      .map((key) => ({ key, label: monthLabelOf(key) }))
+    // One cell per month x location; several same-place same-month posts
+    // merge into the spanning range (min of mins - max of maxes).
+    const cellOf = (key: string, city: string) => {
+      const inCell = pts.filter((p) => p.key === key && p.city === city)
+      if (inCell.length === 0) return null
+      return {
+        min: Math.min(...inCell.map((p) => p.min)),
+        max: Math.max(...inCell.map((p) => p.max)),
+      }
+    }
+    return { cities, monthRows, cellOf, selfCity }
+  })()
+
   const handleAddLink = async (otherId: string) => {
     if (!post) return
     setLinkBusyId(otherId)
@@ -662,6 +726,73 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 <p className="text-[11px] text-muted-foreground mb-2.5">
                   Same item at other businesses - this one is first. Tap a business to open its price post.
                 </p>
+
+                {/* v147: the compare output as a price table - months as
+                    rows, locations as columns. Always present (this post
+                    fills the first column), grows as other businesses post
+                    the same item in other places or earlier months. */}
+                {priceTable && (
+                  <div className="mb-3 rounded-lg border border-border bg-card overflow-hidden" data-testid="detail-price-table">
+                    <p className="text-xs font-semibold text-foreground px-3 pt-2.5" data-testid="detail-price-table-title">
+                      {`${post.productName} price by location and date (${post.currency})`}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground px-3 pb-1.5">
+                      {`Price (${post.currency}) by Date - the same item at every business posting it on circub`}
+                    </p>
+                    <div className="overflow-x-auto scrollbar-thin">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-y border-border bg-accent/40">
+                            <th className="text-left font-medium text-muted-foreground px-3 py-1.5 whitespace-nowrap">Date</th>
+                            {priceTable.cities.map((c) => (
+                              <th
+                                key={c}
+                                data-testid="detail-price-table-city"
+                                className={cn(
+                                  'text-right font-semibold px-3 py-1.5 whitespace-nowrap',
+                                  c === priceTable.selfCity ? 'text-primary' : 'text-foreground'
+                                )}
+                              >
+                                {c}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {priceTable.monthRows.map((row) => {
+                            const cells = priceTable.cities.map((c) => priceTable.cellOf(row.key, c))
+                            const filled = cells.filter((v) => v !== null) as Array<{ min: number; max: number }>
+                            const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
+                            return (
+                              <tr key={row.key} className="border-b border-border/40 last:border-0">
+                                <td data-testid="detail-price-table-month" className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">
+                                  {row.label}
+                                </td>
+                                {cells.map((v, i) =>
+                                  v === null ? (
+                                    <td key={priceTable.cities[i]} className="px-3 py-1.5 text-right text-muted-foreground/40">-</td>
+                                  ) : (
+                                    <td
+                                      key={priceTable.cities[i]}
+                                      data-testid="detail-price-table-cell"
+                                      data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
+                                      className={cn(
+                                        'px-3 py-1.5 text-right whitespace-nowrap',
+                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
+                                      )}
+                                    >
+                                      {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
+                                    </td>
+                                  )
+                                )}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
 
                 {showLinkPicker && currentUserId && (
                   <div className="mb-3 rounded-lg border border-border bg-accent/30 p-2.5 space-y-2" data-testid="detail-link-picker">
