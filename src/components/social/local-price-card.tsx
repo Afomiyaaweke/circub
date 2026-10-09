@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store, Link2 } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -33,6 +33,9 @@ interface LocalPriceCardProps {
   // near ones marked ~) or 'category' (the fallback when the product
   // stands alone: same-category prices by location).
   isOwnPost?: boolean
+  // v153: the viewer's id - lets the poster's fetched compare rows carry the
+  // same "You" chips the feed-computed strip has.
+  currentUserId?: string | null
   compare?: {
     kind: 'product' | 'category'
     entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }>
@@ -53,11 +56,21 @@ function formatPrice(value: number, currency: string) {
 // v117: photo and price strip are tappable (open the detail modal), the
 // tourist price section is gone, and Share points at the post's own deep
 // link so link previews show the post's photo.
-export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, compare = null }: LocalPriceCardProps) {
+export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, currentUserId = null, compare = null }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
   // Share-to-social poster - the Share2 button opens the poster modal.
   const [shareOpen, setShareOpen] = useState(false)
+  // v153: "still the same" - the feed-computed compare only sees the posts
+  // ALREADY loaded, so a card without a strip shared a poster with NO compare
+  // even when the detail modal (which asks the API) had one. When the card
+  // has no strip, Share fetches the modal-grade /similar data once and the
+  // poster carries the comparison anyway. compareHold keeps the poster modal
+  // on its "Building your poster…" spinner until the fetch settles so the
+  // preview never flashes a compare-less poster first.
+  const [posterCompare, setPosterCompare] = useState<{ title: string; label: string } | null>(null)
+  const [compareHold, setCompareHold] = useState(false)
+  const posterCompareKeyRef = useRef('')
   // v117: the share link is ALWAYS the post's own deep link (/?post=<id>).
   // That page renders per-post Open Graph tags (post photo, name, price
   // range via /api/local-prices/<id>/image) so WhatsApp / X / Telegram /
@@ -88,8 +101,88 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   const detailedLocation = [post.market, post.neighborhood, post.city, post.country].filter(Boolean).join(' · ')
 
   // Opens the share poster modal (native share / copy link live inside it).
+  // v153: cards WITHOUT a compare strip fetch the modal-grade compare
+  // (/similar - the exact endpoint the detail modal uses) so the poster
+  // shows the price-by-location line for nearly every post, not just the
+  // ones whose matches happened to be in the loaded feed window.
   const handleShare = () => {
     setShareOpen(true)
+    const hasStrip = !!compare && compare.entries.length > 1
+    const sig = `${post.id}:${post.priceMin}:${post.priceMax}`
+    if (hasStrip) {
+      setPosterCompare(null)
+      setCompareHold(false)
+      return
+    }
+    if (posterCompareKeyRef.current === sig) return // already fetched for this state
+    posterCompareKeyRef.current = sig
+    setPosterCompare(null)
+    setCompareHold(true)
+    const selfPlace = (post.city && post.city.trim()) || (post.country && post.country.trim()) || 'Unknown'
+    const selfEntry = { place: selfPlace, min: post.priceMin, max: post.priceMax, you: isOwnPost, self: true, near: false }
+    // Same one-line format as the card strip (v148): You chip for the
+    // viewer's own rows, ~ for near matches, "Place (You)" for self-owned.
+    const fmt = (e: { place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }) =>
+      `${e.you && !e.self ? 'You' : e.near ? `~${e.place}` : e.place}${e.you && e.self ? ' (You)' : ''} ${e.min === e.max ? e.min : `${e.min}-${e.max}`}`
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/local-prices/${post.id}/similar`, { cache: 'no-store' })
+        const data = await res.json()
+        const rows = (Array.isArray(data.similar) ? data.similar : []).filter((r: any) => r.currency === post.currency)
+        if (rows.length > 0) {
+          const entries = [
+            selfEntry,
+            ...rows.slice(0, 2).map((r: any) => ({
+              place: (r.city && r.city.trim()) || (r.country && r.country.trim()) || 'Unknown',
+              min: r.priceMin,
+              max: r.priceMax,
+              you: !!currentUserId && r.author?.id === currentUserId,
+              self: false,
+              near: !!r.near,
+            })),
+          ]
+          setPosterCompare({
+            title: `${post.productName} price by location (${post.currency})`,
+            label: [
+              ...entries.map(fmt),
+              ...(rows.length > 2 ? [`+${rows.length - 2} more`] : []),
+            ].join(' · '),
+          })
+        } else {
+          // category grid: city x month cells -> per-city min/max
+          const byCity = new Map<string, { min: number; max: number; count: number }>()
+          for (const c of Array.isArray(data.categoryPoints) ? data.categoryPoints : []) {
+            const cur = byCity.get(c.city)
+            if (cur) {
+              cur.min = Math.min(cur.min, c.min)
+              cur.max = Math.max(cur.max, c.max)
+              cur.count += c.authorIds?.length || 1
+            } else {
+              byCity.set(c.city, { min: c.min, max: c.max, count: c.authorIds?.length || 1 })
+            }
+          }
+          const cities = [...byCity.entries()].sort((a, b) =>
+            (a[0] === selfPlace ? 0 : 1) - (b[0] === selfPlace ? 0 : 1) || b[1].count - a[1].count)
+          if (cities.length > 0) {
+            const entries = [
+              selfEntry,
+              ...cities.slice(0, 2).map(([place, v]) => ({ place, min: v.min, max: v.max, you: false, self: false, near: false })),
+            ]
+            setPosterCompare({
+              title: `${post.category || 'Similar'} prices by location (${post.currency})`,
+              label: entries.map(fmt).join(' · ') + (cities.length > 2 ? ` · +${cities.length - 2} more` : ''),
+            })
+          } else {
+            setPosterCompare(null)
+          }
+        }
+      } catch {
+        posterCompareKeyRef.current = '' // allow a retry on next Share
+        setPosterCompare(null)
+      } finally {
+        setCompareHold(false)
+      }
+    })()
   }
 
   return (
@@ -403,21 +496,25 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           authorUsername: post.author?.username ?? null,
           date: new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           // v152: "also on the poster" - carry the card's compare strip onto
-          // the poster image, formatted exactly like the card's one-liner
+          // the poster image, formatted exactly like the card's one-liner.
+          // v153: when the card has NO strip, fall back to the fetched
+          // modal-grade compare (posterCompare) so the poster still carries
+          // the price-by-location line.
           compareTitle: compare && compare.entries.length > 1
             ? (compare.kind === 'product'
                 ? `${post.productName} price by location (${post.currency})`
                 : `${post.category || 'Similar'} prices by location (${post.currency})`)
-            : null,
+            : posterCompare?.title ?? null,
           compareLabel: compare && compare.entries.length > 1
             ? [
                 ...compare.entries.map((e) =>
                   `${e.you && !e.self ? 'You' : e.near ? `~${e.place}` : e.place}${e.you && e.self ? ' (You)' : ''} ${e.min === e.max ? e.min : `${e.min}-${e.max}`}`),
                 ...(compare.extra > 0 ? [`+${compare.extra} more`] : []),
               ].join(' · ')
-            : null,
+            : posterCompare?.label ?? null,
         }}
         linkUrl={shareLink}
+        holdBuild={compareHold}
       />
     </Card>
   )

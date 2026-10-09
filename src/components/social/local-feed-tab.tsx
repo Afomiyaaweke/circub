@@ -970,6 +970,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
                   onEdit={handleEditPost}
                   canEdit={!!currentUserId && p.authorId === currentUserId}
                   isOwnPost={!!currentUserId && p.authorId === currentUserId}
+                  currentUserId={currentUserId}
                   compare={cmp}
                 />
               )

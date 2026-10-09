@@ -23,6 +23,10 @@ interface SharePosterModalProps {
   onOpenChange: (open: boolean) => void
   target: SharePosterTarget | null
   linkUrl: string
+  // v153: keep the "Building your poster…" spinner up while the caller is
+  // still resolving optional compare data, so the preview never flashes a
+  // compare-less poster before the compare-carrying rebuild lands.
+  holdBuild?: boolean
 }
 
 /**
@@ -31,7 +35,7 @@ interface SharePosterModalProps {
  * to other social media - native share (with the PNG file on mobile),
  * WhatsApp, X, Telegram, Facebook, copy link and PNG download.
  */
-export function SharePosterModal({ open, onOpenChange, target, linkUrl }: SharePosterModalProps) {
+export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuild = false }: SharePosterModalProps) {
   const [posterUrl, setPosterUrl] = useState<string | null>(null)
   const [posterBlob, setPosterBlob] = useState<Blob | null>(null)
   const [building, setBuilding] = useState(false)
@@ -48,6 +52,9 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl }: ShareP
     setBuilding(true)
     setPosterUrl(null)
     setPosterBlob(null)
+    // v153: hold the spinner while the caller resolves compare data; the
+    // build starts when the hold lifts (this effect re-runs on the change).
+    if (holdBuild) return
     buildSharePoster(target, linkUrl)
       .then((blob) => {
         if (cancelled) return
@@ -64,7 +71,7 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl }: ShareP
       cancelled = true
       if (revoked) URL.revokeObjectURL(revoked)
     }
-  }, [open, target, linkUrl])
+  }, [open, target, linkUrl, holdBuild])
 
   // Native share row only when the browser can share (mobile mostly).
   useEffect(() => {
