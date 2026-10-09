@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   X,
   MapPin,
@@ -136,6 +136,13 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [linkResults, setLinkResults] = useState<any[]>([])
   const [linkSearching, setLinkSearching] = useState(false)
   const [linkBusyId, setLinkBusyId] = useState<string | null>(null)
+  // v145: when the post compares NOTHING (zero manual links + zero same-name
+  // businesses), the Compare block offers other businesses' posts as one-tap
+  // link suggestions instead of a dead-end sentence - linking one converts
+  // the row into a real compare row instantly.
+  const [suggest, setSuggest] = useState<any[]>([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const suggestForRef = useRef<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -152,6 +159,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       setShowLinkPicker(false)
       setLinkSearch('')
       setLinkResults([])
+      setSuggest([])
+      setSuggestLoading(false)
+      suggestForRef.current = null
       try {
         const postDataRes = await fetch(`/api/local-prices/${postId}`, { cache: 'no-store' })
         const postData = await postDataRes.json()
@@ -205,6 +215,52 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       cancelled = true
     }
   }, [postId])
+
+  // v145: one-tap link suggestions - only fetched while the post compares
+  // nothing (no manual links, no same-name auto rows). Nearest matches
+  // first (same currency, then same country, then same category); the
+  // moment any compare row exists the suggestions clear out.
+  useEffect(() => {
+    if (!post) return
+    if (links.length > 0 || similar.length > 0) {
+      setSuggest([])
+      suggestForRef.current = null
+      return
+    }
+    if (!currentUserId || currentUserId === 'guest') return
+    if (suggestForRef.current === post.id) return // already loaded for this post
+    suggestForRef.current = post.id
+    let dead = false
+    setSuggestLoading(true)
+    ;(async () => {
+      try {
+        const res = await fetch('/api/local-prices?limit=40', { cache: 'no-store' })
+        const data = await res.json()
+        const posts = Array.isArray(data.posts) ? data.posts : []
+        if (!dead) {
+          const self = post
+          const linkedIds = new Set(links.map((l) => l.post.id))
+          const pool = posts.filter(
+            (c: any) =>
+              c && c.id !== self.id && !linkedIds.has(c.id) && c.author && c.author.id !== self.author.id
+          )
+          const score = (c: any) =>
+            (c.currency === self.currency ? 0 : 2) +
+            (c.country === self.country ? 0 : 1) +
+            (c.category === self.category ? 0 : 1)
+          pool.sort((a: any, b: any) => score(a) - score(b))
+          setSuggest(pool.slice(0, 3))
+        }
+      } catch {
+        if (!dead) setSuggest([])
+      } finally {
+        if (!dead) setSuggestLoading(false)
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [post, links, similar, currentUserId])
 
   const handleVote = async (voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
     if (!post) return
@@ -644,11 +700,53 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 )}
 
                 {links.length === 0 && autoRows.length === 0 ? (
-                  <p className="text-xs text-muted-foreground" data-testid="detail-links-empty">
-                    {currentUserId
-                      ? 'No other business sells this here yet - when another business posts the same item it shows up here automatically, or search above and link one now.'
-                      : 'No linked businesses to compare yet.'}
-                  </p>
+                  <div data-testid="detail-links-empty" className="space-y-2">
+                    {currentUserId ? (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          {`No other business sells "${post.productName}" here yet. Link one and the prices compare instantly:`}
+                        </p>
+                        {suggestLoading && (
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin" /> Looking for businesses to link...
+                          </p>
+                        )}
+                        {!suggestLoading && suggest.length === 0 && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Nothing to link yet - when another business posts this item it compares here automatically.
+                          </p>
+                        )}
+                        {suggest.map((c) => (
+                          <div
+                            key={c.id}
+                            data-testid="detail-link-suggest"
+                            className="flex items-center justify-between gap-2 bg-accent/30 border border-dashed border-primary/40 rounded-md px-2.5 py-1.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-foreground truncate">{c.productName}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {c.author?.name ? `${c.author.name} · ` : ''}
+                                {[c.city, c.country].filter(Boolean).join(', ')} · {c.currency} {c.priceMin}
+                                {c.priceMin !== c.priceMax ? `-${c.priceMax}` : ''}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              data-testid="detail-link-suggest-add"
+                              disabled={linkBusyId === c.id}
+                              onClick={() => void handleAddLink(c.id)}
+                              className="h-6 px-2 text-[11px] bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 gap-1"
+                            >
+                              {linkBusyId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+                              Link
+                            </Button>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No linked businesses to compare yet.</p>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-1.5">
                     {/* the post you opened - pinned in FRONT of every linked
