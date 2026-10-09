@@ -25,6 +25,13 @@ interface LocalPriceCardProps {
   canDelete?: boolean
   canEdit?: boolean
   compact?: boolean
+  // v148: "be seen on each post" - one-line price-by-location compare
+  // strip (this post first, then the viewer's own posts as "You", then
+  // the rest cheapest-first) + a "You" badge on the viewer's own cards.
+  // Computed by the feed from the posts it ALREADY loaded - no requests.
+  isOwnPost?: boolean
+  compareEntries?: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean }> | null
+  compareExtra?: number
 }
 
 function formatPrice(value: number, currency: string) {
@@ -40,7 +47,7 @@ function formatPrice(value: number, currency: string) {
 // v117: photo and price strip are tappable (open the detail modal), the
 // tourist price section is gone, and Share points at the post's own deep
 // link so link previews show the post's photo.
-export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false }: LocalPriceCardProps) {
+export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, compareEntries = null, compareExtra = 0 }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
   // Share-to-social poster - the Share2 button opens the poster modal.
@@ -207,6 +214,39 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         )}
       </button>
 
+      {/* v148: the compare SEEN ON EACH POST - a one-line
+          "{product} price by location ({currency})" strip: this place
+          first ("(You)" on your own card), your other posts as "You",
+          then the other businesses cheapest-first. Tapping opens the
+          detail modal with the full month x location table. Rendered
+          from posts the feed already holds - zero extra requests. */}
+      {compareEntries && compareEntries.length > 1 && (
+        <button
+          type="button"
+          data-testid="card-compare"
+          onClick={() => onOpen?.(post.id)}
+          title={`${post.productName} price by location (${post.currency}) - tap for the full price table`}
+          className="mt-1.5 w-full text-left px-2.5 py-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 cursor-pointer transition-colors hover:border-primary/50"
+        >
+          <span className="block text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
+            {post.productName} price by location ({post.currency})
+          </span>
+          <span className="mt-0.5 flex items-center gap-x-2.5 gap-y-0.5 flex-wrap text-[10px]">
+            {compareEntries.map((e) => (
+              <span key={e.id} data-testid="card-compare-place" className={cn('font-medium', e.you ? 'text-primary' : 'text-foreground/80')}>
+                {e.you && !e.self ? 'You' : e.place}
+                {e.you && e.self ? ' (You)' : ''} {e.min === e.max ? e.min : `${e.min}-${e.max}`}
+              </span>
+            ))}
+            {compareExtra > 0 && (
+              <span data-testid="card-compare-more" className="text-muted-foreground">
+                +{compareExtra} more
+              </span>
+            )}
+          </span>
+        </button>
+      )}
+
       {post.localTip && !compact && (
         <div className="mt-2 flex gap-1.5">
           <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -269,6 +309,14 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           <div className="min-w-0">
             <p className="text-xs font-medium text-foreground truncate flex items-center gap-1">
               {post.author.name}
+              {isOwnPost && (
+                <span
+                  data-testid="card-you-badge"
+                  className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1.5 py-px"
+                >
+                  You
+                </span>
+              )}
               {post.author.verifiedLocal && <BadgeCheck className="w-3 h-3 text-primary shrink-0" />}
               {post.author.idVerified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
             </p>

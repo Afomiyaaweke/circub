@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, BarChart3, PenLine } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -223,6 +223,50 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     window.addEventListener('circub:feed-changed', onFeedChanged)
     return () => window.removeEventListener('circub:feed-changed', onFeedChanged)
   }, [fetchPosts])
+
+  // v148: "be seen on each post" - group the ALREADY-LOADED posts by exact
+  // product name (trim + lowercase, same rule the detail modal uses) so
+  // every card can show a one-line "price by location" compare strip with
+  // the viewer's own posts labeled "You". Zero extra requests: it reuses
+  // the posts the step-by-step feed already fetched, so the server load
+  // stays exactly what v147 made it (one small window per step).
+  const postsByName = useMemo(() => {
+    const m = new Map<string, LocalPricePost[]>()
+    for (const p of posts) {
+      const k = p.productName.trim().toLowerCase()
+      if (!k) continue
+      const arr = m.get(k)
+      if (arr) arr.push(p)
+      else m.set(k, [p])
+    }
+    return m
+  }, [posts])
+
+  // Compare entries for ONE card: this post first ("(You)" when it is the
+  // viewer's), then the viewer's own other same-name same-currency posts
+  // ("You"), then the rest cheapest-first. Capped at 3 entries; the card
+  // gets the overflow count separately. Empty when nothing compares.
+  const cardCompare = useCallback(
+    (self: LocalPricePost): { entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean }>; extra: number } | null => {
+      const group = postsByName.get(self.productName.trim().toLowerCase())
+      if (!group || group.length < 2) return null
+      const placeOf = (p: LocalPricePost) => (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
+      const isYou = (p: LocalPricePost) => !!currentUserId && p.authorId === currentUserId
+      const others = group.filter((p) => p.id !== self.id && p.currency === self.currency)
+      if (others.length === 0) return null
+      const youOthers = others.filter(isYou)
+      const rest = others.filter((p) => !isYou(p)).sort((a, b) => a.priceMax - b.priceMax)
+      const ordered = [...youOthers, ...rest]
+      return {
+        entries: [
+          { id: self.id, place: placeOf(self), min: self.priceMin, max: self.priceMax, you: isYou(self), self: true },
+          ...ordered.slice(0, 2).map((p) => ({ id: p.id, place: placeOf(p), min: p.priceMin, max: p.priceMax, you: isYou(p), self: false })),
+        ],
+        extra: Math.max(0, ordered.length - 2),
+      }
+    },
+    [postsByName, currentUserId]
+  )
 
   // "item, location" comma parsing - the location part after the comma
   // resolves against the feed's known cities/countries (whole text first,
@@ -877,9 +921,26 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         <>
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {posts.map((p) => (
-              <LocalPriceCard key={p.id} post={p} onOpen={setDetailPostId} onVote={handleVote} onAuthorClick={setProfileUserId} onMessage={onMessage} onDelete={handleDelete} canDelete={!!currentUserId && p.authorId === currentUserId} onEdit={handleEditPost} canEdit={!!currentUserId && p.authorId === currentUserId} />
-            ))}
+            {posts.map((p) => {
+              const cmp = cardCompare(p)
+              return (
+                <LocalPriceCard
+                  key={p.id}
+                  post={p}
+                  onOpen={setDetailPostId}
+                  onVote={handleVote}
+                  onAuthorClick={setProfileUserId}
+                  onMessage={onMessage}
+                  onDelete={handleDelete}
+                  canDelete={!!currentUserId && p.authorId === currentUserId}
+                  onEdit={handleEditPost}
+                  canEdit={!!currentUserId && p.authorId === currentUserId}
+                  isOwnPost={!!currentUserId && p.authorId === currentUserId}
+                  compareEntries={cmp?.entries ?? null}
+                  compareExtra={cmp?.extra ?? 0}
+                />
+              )
+            })}
           </div>
           <div ref={postsSentinelRef} />
           {loadingMore && (

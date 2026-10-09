@@ -363,6 +363,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   // /similar endpoint - not just the same city like the consensus panel.
   // Manual links always win: a post that is linked drops out here, so no
   // business is ever counted twice.
+  // v148: the VIEWER's own same-name posts sort FIRST among the
+  // same-currency rows (then cheapest-first), so the user is always seen
+  // on other businesses' compares - never cut by the 5-row cap.
   const autoRows = (() => {
     if (!post) return []
     const selfName = post.productName.trim().toLowerCase()
@@ -375,9 +378,38 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       seen.add(c.id)
       return true
     })
-    const same = rows.filter((r) => r.currency === post.currency).sort((a, b) => a.priceMax - b.priceMax)
+    const youRank = (r: SimilarPost) => (currentUserId && r.author?.id === currentUserId ? 0 : 1)
+    const same = rows
+      .filter((r) => r.currency === post.currency)
+      .sort((a, b) => {
+        const ay = youRank(a)
+        const by = youRank(b)
+        if (ay !== by) return ay - by
+        return a.priceMax - b.priceMax
+      })
     const rest = rows.filter((r) => r.currency !== post.currency)
     return [...same, ...rest].slice(0, 5)
+  })()
+  // v148: THIS business's own earlier posts of the same item (other
+  // months). v147 excluded same-author rows everywhere, which kept a
+  // business's month-by-month price history out of its own table - the
+  // "by date" dimension the user drew never filled for the most common
+  // case. They stay OUT of the compare rows/counts (those are "other
+  // businesses"), they only feed the table grid below.
+  const authorHistory = (() => {
+    if (!post) return []
+    const selfName = post.productName.trim().toLowerCase()
+    const linkedIds = new Set(links.map((l) => l.post.id))
+    const seen = new Set<string>()
+    return similar
+      .filter((c) => {
+        if (!c || c.id === post.id || linkedIds.has(c.id) || seen.has(c.id)) return false
+        if (!c.author || c.author.id !== post.author.id) return false
+        if (c.productName.trim().toLowerCase() !== selfName) return false
+        seen.add(c.id)
+        return true
+      })
+      .slice(0, 5)
   })()
   // Cheapest / average now run across BOTH sources: manually linked
   // businesses plus the automatic same-product rows. This post is the
@@ -418,27 +450,38 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       const [y, m] = key.split('-').map(Number)
       return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     }
-    type TablePt = { city: string; key: string; min: number; max: number }
+    type TablePt = { city: string; key: string; min: number; max: number; you: boolean }
     const pts: TablePt[] = []
-    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number }, currency: string) => {
+    // v148: "you" = the VIEWER contributed this data point (their own post,
+    // or their own earlier posts). You-columns get a chip in the header so
+    // the user is literally SEEN in the table on every post.
+    const youOf = (p: { authorId?: string; author?: { id?: string } | null }) =>
+      !!currentUserId && (p.authorId ?? p.author?.id) === currentUserId
+    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string } | null }, currency: string) => {
       if (!post || currency !== post.currency) return
       const key = monthKeyOf(p.createdAt)
       if (Number.isNaN(new Date(p.createdAt).getTime()) || Number.isNaN(new Date(`${key}-01T00:00:00`).getTime())) return
-      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax })
+      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax, you: youOf(p) })
     }
     push(post, post.currency)
     links.forEach((l) => push(l.post, l.post.currency))
     autoRows.forEach((a) => push(a, a.currency))
+    authorHistory.forEach((h) => push(h, h.currency))
     if (pts.length === 0) return null
-    // Columns: this business FIRST, then the others by most data points
-    // (name order as tie-break), capped at 4 so the grid stays readable.
+    // Columns: this business FIRST, then the VIEWER's own places (so the
+    // user is always seen), then the rest by most data points (name order
+    // as tie-break), capped at 4 so the grid stays readable.
     const counts = new Map<string, number>()
     pts.forEach((p) => counts.set(p.city, (counts.get(p.city) || 0) + 1))
+    const youCities = new Set(pts.filter((p) => p.you).map((p) => p.city))
     const selfCity = cityName(post)
     const cities = [...new Set(pts.map((p) => p.city))]
       .sort((x, y) => {
         if (x === selfCity) return -1
         if (y === selfCity) return 1
+        const xy = youCities.has(x) ? 0 : 1
+        const yy = youCities.has(y) ? 0 : 1
+        if (xy !== yy) return xy - yy
         const dc = (counts.get(y) || 0) - (counts.get(x) || 0)
         return dc !== 0 ? dc : x.localeCompare(y)
       })
@@ -458,7 +501,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         max: Math.max(...inCell.map((p) => p.max)),
       }
     }
-    return { cities, monthRows, cellOf, selfCity }
+    return { cities, monthRows, cellOf, selfCity, youCities }
   })()
 
   const handleAddLink = async (otherId: string) => {
@@ -754,6 +797,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 )}
                               >
                                 {c}
+                                {priceTable.youCities.has(c) && (
+                                  <span
+                                    data-testid="detail-price-table-you"
+                                    className="ml-1 align-middle text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1 py-px"
+                                  >
+                                    You
+                                  </span>
+                                )}
                               </th>
                             ))}
                           </tr>
@@ -1026,9 +1077,19 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                   <img src={a.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                                 )}
                                 <span className="min-w-0">
-                                  <span className="block text-xs font-medium text-foreground truncate">{a.productName}</span>
+                                  <span className="block text-xs font-medium text-foreground truncate items-center gap-1">
+                                    {currentUserId && a.author?.id === currentUserId && (
+                                      <span
+                                        data-testid="detail-compare-you"
+                                        className="mr-1 inline-block align-middle text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1 py-px"
+                                      >
+                                        You
+                                      </span>
+                                    )}
+                                    {a.productName}
+                                  </span>
                                   <span className="block text-[10px] text-muted-foreground truncate">
-                                    {a.author?.name ? `${a.author.name} · ` : ''}
+                                    {a.author?.name && a.author.id !== currentUserId ? `${a.author.name} · ` : ''}
                                     {[a.city, a.country].filter(Boolean).join(', ')}
                                   </span>
                                 </span>
