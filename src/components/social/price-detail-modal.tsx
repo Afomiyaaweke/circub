@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Clock,
   Navigation,
+  Scale,
   Store,
   Link2,
   Plus,
@@ -244,6 +245,36 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const linkCandidates = linkResults.filter(
     (c) => post && c.id !== post.id && !links.some((l) => l.post.id === c.id)
   )
+
+  // ---------------------------------------------------------------- compare
+  // v141: the detail section now COMPARES the linked businesses instead of
+  // just listing them. The post you opened is pinned first ("your business
+  // on the front"); deltas vs this post's headline price (priceMax - the
+  // same number the price-history block uses) are only computed when the
+  // currencies match - a percentage across two currencies would be fiction.
+  // Same-currency rows sort cheapest-first so the comparison reads at a
+  // glance, and the row with the lowest price earns the Cheapest badge.
+  const isOwnPost = !!currentUserId && !!post && post.author.id === currentUserId
+  const selfPrice = post ? post.priceMax : 0
+  const sameCurLinks = links.filter((l) => post && l.post.currency === post.currency)
+  const sortedLinks = [...links].sort((a, b) => {
+    const aSame = post && a.post.currency === post.currency ? 0 : 1
+    const bSame = post && b.post.currency === post.currency ? 0 : 1
+    if (aSame !== bSame) return aSame - bSame
+    if (aSame === 0) return a.post.priceMax - b.post.priceMax
+    return 0
+  })
+  // This post is the cheapest when it undercuts (or ties) every
+  // same-currency linked business; ties keep the badge on the front row.
+  const cheapestSelf =
+    sameCurLinks.length > 0 && sameCurLinks.every((l) => selfPrice <= l.post.priceMax)
+  const cheapestPrice =
+    sameCurLinks.length > 0 ? Math.min(selfPrice, ...sameCurLinks.map((l) => l.post.priceMax)) : 0
+  const avgPrice =
+    sameCurLinks.length > 0
+      ? (selfPrice + sameCurLinks.reduce((s, l) => s + l.post.priceMax, 0)) / (sameCurLinks.length + 1)
+      : 0
+  const deltaPct = (other: number) => (selfPrice > 0 ? ((other - selfPrice) / selfPrice) * 100 : 0)
 
   const handleAddLink = async (otherId: string) => {
     if (!post) return
@@ -569,14 +600,17 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 )}
               </div>
 
-              {/* Linked prices - symmetric links to other posts for the
-                  same item elsewhere: add via the picker, remove with the
-                  x, count in the header. Every link shows on BOTH posts. */}
+              {/* Compare businesses - v141 upgrade of the v99 linked-prices
+                  list: the post you opened is pinned FIRST ("your business
+                  on the front"), same-currency rows sort cheapest-first and
+                  carry a +% / -% delta vs this price, the lowest row gets
+                  the Cheapest badge, and tapping a business opens its post.
+                  Every link shows on BOTH posts. */}
               <div className="rounded-xl border border-border p-4" data-testid="detail-links-section">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                    <Link2 className="w-4 h-4 text-primary" />
-                    Linked prices
+                    <Scale className="w-4 h-4 text-primary" />
+                    Compare
                     <span
                       data-testid="detail-links-count"
                       className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5"
@@ -593,12 +627,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       className="h-7 px-2 text-xs gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Link a price post
+                      Link a business
                     </Button>
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground mb-2.5">
-                  The same item posted elsewhere - every link shows on both posts.
+                  Same item at other businesses - this one is first. Tap a business to open its price post.
                 </p>
 
                 {showLinkPicker && currentUserId && (
@@ -652,50 +686,126 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 {links.length === 0 ? (
                   <p className="text-xs text-muted-foreground" data-testid="detail-links-empty">
                     {currentUserId
-                      ? 'No linked price posts yet - search above and link the same item elsewhere.'
-                      : 'No linked price posts yet.'}
+                      ? 'No linked businesses yet - search above and link the same item elsewhere to compare prices.'
+                      : 'No linked businesses to compare yet.'}
                   </p>
                 ) : (
                   <div className="space-y-1.5">
-                    {links.map((l) => (
-                      <div
-                        key={l.linkId}
-                        data-testid="detail-link-row"
-                        className="flex items-center justify-between gap-2 bg-card border border-border rounded-md px-2.5 py-1.5"
-                      >
-                        <button
-                          className="flex items-center gap-2 min-w-0 text-left flex-1 hover:opacity-80"
-                          onClick={() => onOpenPost?.(l.post.id)}
-                          title="Open this linked price post"
-                          data-testid="detail-link-open"
-                        >
-                          {l.post.imageUrl && (
-                            <img src={l.post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
-                          )}
-                          <span className="min-w-0">
-                            <span className="block text-xs font-medium text-foreground truncate">{l.post.productName}</span>
-                            <span className="block text-[10px] text-muted-foreground truncate">
-                              {[l.post.city, l.post.country].filter(Boolean).join(', ')}
-                            </span>
-                          </span>
-                        </button>
-                        <span className="text-xs font-bold text-emerald-700 shrink-0">
-                          {l.post.currency} {l.post.priceMin}{l.post.priceMin !== l.post.priceMax ? `-${l.post.priceMax}` : ''}
-                        </span>
-                        {l.canRemove && (
-                          <button
-                            data-testid="detail-link-remove"
-                            onClick={() => void handleRemoveLink(l.post.id)}
-                            disabled={linkBusyId === l.post.id}
-                            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-50"
-                            aria-label="Remove this link"
-                            title="Remove this link"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                    {/* the post you opened - pinned in FRONT of every linked
+                        business, highlighted, and wearing the Cheapest badge
+                        when it undercuts (or ties) them all */}
+                    <div
+                      data-testid="detail-compare-self"
+                      className={cn(
+                        'flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5',
+                        cheapestSelf ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-primary/40 bg-primary/5'
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {post?.imageUrl && (
+                          <img src={post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                         )}
+                        <span className="min-w-0">
+                          <span className="block text-xs font-semibold text-foreground truncate">
+                            {isOwnPost ? 'Your business' : 'This business'}
+                          </span>
+                          <span className="block text-[10px] text-muted-foreground truncate">
+                            {[post?.city, post?.country].filter(Boolean).join(', ')}
+                          </span>
+                        </span>
                       </div>
-                    ))}
+                      {cheapestSelf && (
+                        <span
+                          data-testid="detail-compare-cheapest"
+                          className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
+                        >
+                          Cheapest
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-emerald-700 shrink-0">
+                        {post?.currency} {post?.priceMin}
+                        {post && post.priceMin !== post.priceMax ? `-${post.priceMax}` : ''}
+                      </span>
+                    </div>
+                    {sortedLinks.map((l) => {
+                      const sameCur = post && l.post.currency === post.currency
+                      const delta = sameCur ? deltaPct(l.post.priceMax) : 0
+                      return (
+                        <div
+                          key={l.linkId}
+                          data-testid="detail-link-row"
+                          className="flex items-center justify-between gap-2 bg-card border border-border rounded-md px-2.5 py-1.5"
+                        >
+                          <button
+                            className="flex items-center gap-2 min-w-0 text-left flex-1 hover:opacity-80"
+                            onClick={() => onOpenPost?.(l.post.id)}
+                            title="Open this business's price post"
+                            data-testid="detail-link-open"
+                          >
+                            {l.post.imageUrl && (
+                              <img src={l.post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                            )}
+                            <span className="min-w-0">
+                              <span className="block text-xs font-medium text-foreground truncate">{l.post.productName}</span>
+                              <span className="block text-[10px] text-muted-foreground truncate">
+                                {l.post.author?.name ? `${l.post.author.name} · ` : ''}
+                                {[l.post.city, l.post.country].filter(Boolean).join(', ')}
+                              </span>
+                            </span>
+                          </button>
+                          {sameCur && selfPrice > 0 && (
+                            <span
+                              data-testid="detail-compare-delta"
+                              className={cn(
+                                'text-[10px] font-semibold shrink-0 text-right w-14',
+                                delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                              )}
+                            >
+                              {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
+                            </span>
+                          )}
+                          {!sameCur && (
+                            <span
+                              data-testid="detail-compare-currency"
+                              className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground bg-accent rounded-full px-1.5 py-0.5 shrink-0"
+                            >
+                              {l.post.currency}
+                            </span>
+                          )}
+                          {sameCur && !cheapestSelf && l.post.priceMax === cheapestPrice && (
+                            <span
+                              data-testid="detail-compare-cheapest"
+                              className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
+                            >
+                              Cheapest
+                            </span>
+                          )}
+                          <span className="text-xs font-bold text-emerald-700 shrink-0">
+                            {l.post.currency} {l.post.priceMin}
+                            {l.post.priceMin !== l.post.priceMax ? `-${l.post.priceMax}` : ''}
+                          </span>
+                          {l.canRemove && (
+                            <button
+                              data-testid="detail-link-remove"
+                              onClick={() => void handleRemoveLink(l.post.id)}
+                              disabled={linkBusyId === l.post.id}
+                              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-destructive shrink-0 disabled:opacity-50"
+                              aria-label="Remove this link"
+                              title="Remove this link"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {/* the count the user asked for, spelled out in words */}
+                    <p data-testid="detail-compare-summary" className="text-[11px] text-muted-foreground pt-1">
+                      {`Linked to ${links.length} ${links.length === 1 ? 'business' : 'businesses'}`}
+                      {sameCurLinks.length > 0
+                        ? ` · cheapest ${formatPrice(cheapestPrice, post.currency)} · average ${formatPrice(Math.round(avgPrice), post.currency)}`
+                        : ''}
+                    </p>
                   </div>
                 )}
               </div>
