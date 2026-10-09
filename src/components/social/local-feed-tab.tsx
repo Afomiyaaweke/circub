@@ -19,6 +19,7 @@ import { CompassPriceTools } from './compass-price-tools'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/lib/i18n'
 import { authFetch } from '@/lib/auth-fetch'
+import { productNamesMatch } from '@/lib/product-name'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
 import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
@@ -224,49 +225,82 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     return () => window.removeEventListener('circub:feed-changed', onFeedChanged)
   }, [fetchPosts])
 
-  // v148: "be seen on each post" - group the ALREADY-LOADED posts by exact
-  // product name (trim + lowercase, same rule the detail modal uses) so
-  // every card can show a one-line "price by location" compare strip with
-  // the viewer's own posts labeled "You". Zero extra requests: it reuses
-  // the posts the step-by-step feed already fetched, so the server load
-  // stays exactly what v147 made it (one small window per step).
-  const postsByName = useMemo(() => {
-    const m = new Map<string, LocalPricePost[]>()
-    for (const p of posts) {
-      const k = p.productName.trim().toLowerCase()
-      if (!k) continue
-      const arr = m.get(k)
-      if (arr) arr.push(p)
-      else m.set(k, [p])
-    }
-    return m
-  }, [posts])
-
-  // Compare entries for ONE card: this post first ("(You)" when it is the
-  // viewer's), then the viewer's own other same-name same-currency posts
-  // ("You"), then the rest cheapest-first. Capped at 3 entries; the card
-  // gets the overflow count separately. Empty when nothing compares.
-  const cardCompare = useCallback(
-    (self: LocalPricePost): { entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean }>; extra: number } | null => {
-      const group = postsByName.get(self.productName.trim().toLowerCase())
-      if (!group || group.length < 2) return null
-      const placeOf = (p: LocalPricePost) => (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
-      const isYou = (p: LocalPricePost) => !!currentUserId && p.authorId === currentUserId
-      const others = group.filter((p) => p.id !== self.id && p.currency === self.currency)
-      if (others.length === 0) return null
-      const youOthers = others.filter(isYou)
-      const rest = others.filter((p) => !isYou(p)).sort((a, b) => a.priceMax - b.priceMax)
-      const ordered = [...youOthers, ...rest]
-      return {
-        entries: [
-          { id: self.id, place: placeOf(self), min: self.priceMin, max: self.priceMax, you: isYou(self), self: true },
-          ...ordered.slice(0, 2).map((p) => ({ id: p.id, place: placeOf(p), min: p.priceMin, max: p.priceMax, you: isYou(p), self: false })),
-        ],
-        extra: Math.max(0, ordered.length - 2),
+  // v149: per-card compare map - computed ONCE per loaded list (the old
+  // exact-name grouping left 65 of 67 real posts with nothing to show).
+  // For every card: exact product matches (normalized - Amharic folds +
+  // qualifier stripping via productNamesMatch), then near matches
+  // ("similar"), and when the product stands alone the same-CATEGORY
+  // grid takes over so every card carries a compare strip. Zero extra
+  // requests: it reuses the posts the step-by-step feed already fetched.
+  type CardEntry = { id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }
+  const compareByCard = useMemo(() => {
+    type Compare = { kind: 'product' | 'category'; entries: CardEntry[]; extra: number }
+    const map = new Map<string, Compare>()
+    const placeOf = (p: LocalPricePost) => (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
+    const isYou = (p: LocalPricePost) => !!currentUserId && p.authorId === currentUserId
+    for (const self of posts) {
+      const prod: LocalPricePost[] = []
+      const near: LocalPricePost[] = []
+      for (const p of posts) {
+        if (p.id === self.id || p.currency !== self.currency) continue
+        const m = productNamesMatch(self.productName, p.productName)
+        if (m === 'exact') prod.push(p)
+        else if (m === 'near') near.push(p)
       }
-    },
-    [postsByName, currentUserId]
-  )
+      if (prod.length + near.length > 0) {
+        const byYou = (a: LocalPricePost, b: LocalPricePost) =>
+          (isYou(a) ? 0 : 1) - (isYou(b) ? 0 : 1) || a.priceMax - b.priceMax
+        const ordered = [...prod.sort(byYou), ...near.sort(byYou)]
+        map.set(self.id, {
+          kind: 'product',
+          entries: [
+            { id: self.id, place: placeOf(self), min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false },
+            ...ordered.slice(0, 2).map((p) => ({
+              id: p.id, place: placeOf(p), min: p.priceMin, max: p.priceMax, you: isYou(p), self: false,
+              near: !prod.includes(p),
+            })),
+          ],
+          extra: Math.max(0, ordered.length - 2),
+        })
+        continue
+      }
+      // category fallback - same (normalized) category, same currency
+      const cat: LocalPricePost[] = []
+      for (const p of posts) {
+        if (p.id === self.id || p.currency !== self.currency) continue
+        if (productNamesMatch(self.category || '', p.category || '') !== null) cat.push(p)
+      }
+      if (cat.length === 0) continue
+      const byPlace = new Map<string, { place: string; min: number; max: number; count: number; you: boolean }>()
+      for (const p of cat) {
+        const place = placeOf(p)
+        const cur = byPlace.get(place)
+        if (cur) {
+          cur.min = Math.min(cur.min, p.priceMin)
+          cur.max = Math.max(cur.max, p.priceMax)
+          cur.count += 1
+          cur.you = cur.you || isYou(p)
+        } else {
+          byPlace.set(place, { place, min: p.priceMin, max: p.priceMax, count: 1, you: isYou(p) })
+        }
+      }
+      const selfPlace = placeOf(self)
+      const places = [...byPlace.values()].sort((a, b) =>
+        (a.place === selfPlace ? 0 : 1) - (b.place === selfPlace ? 0 : 1) ||
+        (b.you ? 0 : 1) - (a.you ? 0 : 1) ||
+        b.count - a.count || a.place.localeCompare(b.place)
+      )
+      map.set(self.id, {
+        kind: 'category',
+        entries: [
+          { id: `cat-self-${self.id}`, place: selfPlace, min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false },
+          ...places.slice(0, 2).map((v) => ({ id: `cat-${v.place}`, place: v.place, min: v.min, max: v.max, you: v.you, self: false, near: false })),
+        ],
+        extra: Math.max(0, places.length - 2),
+      })
+    }
+    return map
+  }, [posts, currentUserId])
 
   // "item, location" comma parsing - the location part after the comma
   // resolves against the feed's known cities/countries (whole text first,
@@ -922,7 +956,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {posts.map((p) => {
-              const cmp = cardCompare(p)
+              const cmp = compareByCard.get(p.id) ?? null
               return (
                 <LocalPriceCard
                   key={p.id}
@@ -936,8 +970,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
                   onEdit={handleEditPost}
                   canEdit={!!currentUserId && p.authorId === currentUserId}
                   isOwnPost={!!currentUserId && p.authorId === currentUserId}
-                  compareEntries={cmp?.entries ?? null}
-                  compareExtra={cmp?.extra ?? 0}
+                  compare={cmp}
                 />
               )
             })}

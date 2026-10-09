@@ -29,9 +29,15 @@ interface LocalPriceCardProps {
   // strip (this post first, then the viewer's own posts as "You", then
   // the rest cheapest-first) + a "You" badge on the viewer's own cards.
   // Computed by the feed from the posts it ALREADY loaded - no requests.
+  // v149: `compare.kind` - 'product' (exact/near same-product matches,
+  // near ones marked ~) or 'category' (the fallback when the product
+  // stands alone: same-category prices by location).
   isOwnPost?: boolean
-  compareEntries?: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean }> | null
-  compareExtra?: number
+  compare?: {
+    kind: 'product' | 'category'
+    entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }>
+    extra: number
+  } | null
 }
 
 function formatPrice(value: number, currency: string) {
@@ -47,7 +53,7 @@ function formatPrice(value: number, currency: string) {
 // v117: photo and price strip are tappable (open the detail modal), the
 // tourist price section is gone, and Share points at the post's own deep
 // link so link previews show the post's photo.
-export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, compareEntries = null, compareExtra = 0 }: LocalPriceCardProps) {
+export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, compare = null }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
   // Share-to-social poster - the Share2 button opens the poster modal.
@@ -214,33 +220,44 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         )}
       </button>
 
-      {/* v148: the compare SEEN ON EACH POST - a one-line
-          "{product} price by location ({currency})" strip: this place
-          first ("(You)" on your own card), your other posts as "You",
-          then the other businesses cheapest-first. Tapping opens the
-          detail modal with the full month x location table. Rendered
-          from posts the feed already holds - zero extra requests. */}
-      {compareEntries && compareEntries.length > 1 && (
+      {/* v148/v149: the compare SEEN ON EACH POST - a one-line
+          "price by location" strip: this place first ("(You)" on your
+          own card), your other posts as "You", then the other
+          businesses cheapest-first (near-name matches marked "~");
+          when the product stands alone the same-CATEGORY strip shows
+          instead. Tapping opens the detail modal with the full
+          month x location table. Zero extra requests. */}
+      {compare && compare.entries.length > 1 && (
         <button
           type="button"
           data-testid="card-compare"
+          data-kind={compare.kind}
           onClick={() => onOpen?.(post.id)}
-          title={`${post.productName} price by location (${post.currency}) - tap for the full price table`}
+          title={compare.kind === 'product'
+            ? `${post.productName} price by location (${post.currency}) - tap for the full price table`
+            : `${post.category || 'Similar'} prices by location (${post.currency}) - no exact match posted yet, tap for the category table`}
           className="mt-1.5 w-full text-left px-2.5 py-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 cursor-pointer transition-colors hover:border-primary/50"
         >
           <span className="block text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
-            {post.productName} price by location ({post.currency})
+            {compare.kind === 'product'
+              ? `${post.productName} price by location (${post.currency})`
+              : `${post.category || 'Similar'} prices by location (${post.currency})`}
           </span>
           <span className="mt-0.5 flex items-center gap-x-2.5 gap-y-0.5 flex-wrap text-[10px]">
-            {compareEntries.map((e) => (
-              <span key={e.id} data-testid="card-compare-place" className={cn('font-medium', e.you ? 'text-primary' : 'text-foreground/80')}>
-                {e.you && !e.self ? 'You' : e.place}
+            {compare.entries.map((e) => (
+              <span
+                key={e.id}
+                data-testid="card-compare-place"
+                data-near={e.near ? 'true' : undefined}
+                className={cn('font-medium', e.you ? 'text-primary' : 'text-foreground/80')}
+              >
+                {e.you && !e.self ? 'You' : e.near ? `~${e.place}` : e.place}
                 {e.you && e.self ? ' (You)' : ''} {e.min === e.max ? e.min : `${e.min}-${e.max}`}
               </span>
             ))}
-            {compareExtra > 0 && (
+            {compare.extra > 0 && (
               <span data-testid="card-compare-more" className="text-muted-foreground">
-                +{compareExtra} more
+                +{compare.extra} more
               </span>
             )}
           </span>

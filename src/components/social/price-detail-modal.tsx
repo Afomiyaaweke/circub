@@ -48,6 +48,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn, formatUnitSuffix } from '@/lib/utils'
+import { productNamesMatch } from '@/lib/product-name'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
 import { useToast } from '@/hooks/use-toast'
 import type {
@@ -90,6 +91,10 @@ interface LinkedPostRow {
 
 // v144: a business selling the SAME product anywhere (auto-compare source,
 // independent of manual links).
+// v149: `near` - the row matches after normalization ("ሀበሻ ቀሚስ" vs
+// "አበሻ ቀሚስ") = false, or is a SIMILAR item that still compares honestly
+// with a visible "similar" mark ("Personal training" vs "Personal training
+// (per session)") = true.
 interface SimilarPost {
   id: string
   productName: string
@@ -100,7 +105,18 @@ interface SimilarPost {
   country?: string | null
   imageUrl?: string | null
   createdAt: string
+  near?: boolean
   author?: { id: string; name?: string | null }
+}
+
+// v149: aggregated same-category price grid (server-side via /similar) used
+// as the compare-table fallback when nothing matches the product itself.
+interface CategoryPoint {
+  city: string
+  month: string // YYYY-MM
+  min: number
+  max: number
+  authorIds: string[]
 }
 
 const REPORT_OPTIONS = [
@@ -118,6 +134,19 @@ function formatPrice(value: number | null | undefined, currency: string) {
   return `${currency} ${value}`
 }
 
+// v149: module-level month helpers (the priceTable IIFE has its own; the
+// category fallback table needs them at outer scope).
+function monthKeyOfPublic(iso: string): string | null {
+  const t = new Date(iso)
+  if (Number.isNaN(t.getTime())) return null
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
+}
+function monthLabelOfPublic(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  if (!y || !m) return key
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+}
+
 export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, currentUserId, onOpenPost }: PriceDetailModalProps) {
   const [post, setPost] = useState<LocalPricePost | null>(null)
   const [consensus, setConsensus] = useState<LocalPriceConsensus | null>(null)
@@ -131,6 +160,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [links, setLinks] = useState<LinkedPostRow[]>([])
   // v144: businesses selling the SAME product anywhere (auto-compare rows).
   const [similar, setSimilar] = useState<SimilarPost[]>([])
+  // v149: same-category price grid for the compare-table fallback.
+  const [categoryPoints, setCategoryPoints] = useState<CategoryPoint[]>([])
   const [showLinkPicker, setShowLinkPicker] = useState(false)
   const [linkSearch, setLinkSearch] = useState('')
   const [linkResults, setLinkResults] = useState<any[]>([])
@@ -179,11 +210,22 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
         // v144: businesses selling the SAME product - ANY city, ANY country.
         // These render as the automatic compare rows even with zero links.
+        // v149: the response also carries the same-category price grid
+        // (categoryPoints) used as the table fallback when the product
+        // itself has nothing to compare with.
         try {
           const sRes = await fetch(`/api/local-prices/${postId}/similar`, { cache: 'no-store' })
           const sData = await sRes.json()
-          if (!cancelled) setSimilar(Array.isArray(sData.similar) ? sData.similar : [])
-        } catch { if (!cancelled) setSimilar([]) }
+          if (!cancelled) {
+            setSimilar(Array.isArray(sData.similar) ? sData.similar : [])
+            setCategoryPoints(Array.isArray(sData.categoryPoints) ? sData.categoryPoints : [])
+          }
+        } catch {
+          if (!cancelled) {
+            setSimilar([])
+            setCategoryPoints([])
+          }
+        }
 
         // Fetch consensus using the post's productName + country + city, excluding this post
         const cParams = new URLSearchParams()
@@ -358,37 +400,41 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     if (aSame === 0) return a.post.priceMax - b.post.priceMax
     return 0
   })
-  // v144: AUTO-compare - businesses selling the SAME product ANYWHERE
-  // (exact name match, case-insensitive, other authors only) from the
-  // /similar endpoint - not just the same city like the consensus panel.
-  // Manual links always win: a post that is linked drops out here, so no
-  // business is ever counted twice.
+  // v144: AUTO-compare - businesses selling the SAME product ANYWHERE from
+  // the /similar endpoint. Manual links always win: a linked post drops
+  // out here, so no business is ever counted twice.
   // v148: the VIEWER's own same-name posts sort FIRST among the
   // same-currency rows (then cheapest-first), so the user is always seen
-  // on other businesses' compares - never cut by the 5-row cap.
+  // on other businesses' compares - never cut by the row cap.
+  // v149: tiered matching (src/lib/product-name.ts) - exact after
+  // normalization first, then "similar" rows; cap raised 5 -> 8 so the
+  // similar tier cannot push exact matches out.
   const autoRows = (() => {
     if (!post) return []
-    const selfName = post.productName.trim().toLowerCase()
     const linkedIds = new Set(links.map((l) => l.post.id))
     const seen = new Set<string>()
     const rows = similar.filter((c) => {
       if (!c || c.id === post.id || linkedIds.has(c.id) || seen.has(c.id)) return false
       if (c.author && c.author.id === post.author.id) return false
-      if (c.productName.trim().toLowerCase() !== selfName) return false
+      if (!productNamesMatch(post.productName, c.productName)) return false
       seen.add(c.id)
       return true
     })
     const youRank = (r: SimilarPost) => (currentUserId && r.author?.id === currentUserId ? 0 : 1)
+    const nearRank = (r: SimilarPost) => (r.near ? 1 : 0)
     const same = rows
       .filter((r) => r.currency === post.currency)
       .sort((a, b) => {
+        const an = nearRank(a)
+        const bn = nearRank(b)
+        if (an !== bn) return an - bn
         const ay = youRank(a)
         const by = youRank(b)
         if (ay !== by) return ay - by
         return a.priceMax - b.priceMax
       })
     const rest = rows.filter((r) => r.currency !== post.currency)
-    return [...same, ...rest].slice(0, 5)
+    return [...same, ...rest].slice(0, 8)
   })()
   // v148: THIS business's own earlier posts of the same item (other
   // months). v147 excluded same-author rows everywhere, which kept a
@@ -396,16 +442,17 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   // "by date" dimension the user drew never filled for the most common
   // case. They stay OUT of the compare rows/counts (those are "other
   // businesses"), they only feed the table grid below.
+  // v149: near-name variants by the same business count as history too
+  // ("Personal training" vs "Personal training (per session)").
   const authorHistory = (() => {
     if (!post) return []
-    const selfName = post.productName.trim().toLowerCase()
     const linkedIds = new Set(links.map((l) => l.post.id))
     const seen = new Set<string>()
     return similar
       .filter((c) => {
         if (!c || c.id === post.id || linkedIds.has(c.id) || seen.has(c.id)) return false
         if (!c.author || c.author.id !== post.author.id) return false
-        if (c.productName.trim().toLowerCase() !== selfName) return false
+        if (!productNamesMatch(post.productName, c.productName)) return false
         seen.add(c.id)
         return true
       })
@@ -450,32 +497,37 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       const [y, m] = key.split('-').map(Number)
       return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     }
-    type TablePt = { city: string; key: string; min: number; max: number; you: boolean }
+    type TablePt = { city: string; key: string; min: number; max: number; you: boolean; near: boolean }
     const pts: TablePt[] = []
     // v148: "you" = the VIEWER contributed this data point (their own post,
     // or their own earlier posts). You-columns get a chip in the header so
     // the user is literally SEEN in the table on every post.
     const youOf = (p: { authorId?: string; author?: { id?: string } | null }) =>
       !!currentUserId && (p.authorId ?? p.author?.id) === currentUserId
-    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string } | null }, currency: string) => {
+    // v149: `near` pts (similar items) live in their own "~" columns and
+    // never merge into an exact column's cell.
+    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string } | null }, currency: string, near: boolean) => {
       if (!post || currency !== post.currency) return
       const key = monthKeyOf(p.createdAt)
       if (Number.isNaN(new Date(p.createdAt).getTime()) || Number.isNaN(new Date(`${key}-01T00:00:00`).getTime())) return
-      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax, you: youOf(p) })
+      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax, you: youOf(p), near })
     }
-    push(post, post.currency)
-    links.forEach((l) => push(l.post, l.post.currency))
-    autoRows.forEach((a) => push(a, a.currency))
-    authorHistory.forEach((h) => push(h, h.currency))
+    push(post, post.currency, false)
+    links.forEach((l) => push(l.post, l.post.currency, false))
+    autoRows.forEach((a) => push(a, a.currency, !!a.near))
+    authorHistory.forEach((h) => push(h, h.currency, false))
     if (pts.length === 0) return null
     // Columns: this business FIRST, then the VIEWER's own places (so the
     // user is always seen), then the rest by most data points (name order
-    // as tie-break), capped at 4 so the grid stays readable.
+    // as tie-break), capped at 4 so the grid stays readable. Exact columns
+    // first; similar items fill the remaining slots as "~City" columns.
+    const exactPts = pts.filter((p) => !p.near)
+    const nearPts = pts.filter((p) => p.near)
     const counts = new Map<string, number>()
     pts.forEach((p) => counts.set(p.city, (counts.get(p.city) || 0) + 1))
     const youCities = new Set(pts.filter((p) => p.you).map((p) => p.city))
     const selfCity = cityName(post)
-    const cities = [...new Set(pts.map((p) => p.city))]
+    const exactCities = [...new Set(exactPts.map((p) => p.city))]
       .sort((x, y) => {
         if (x === selfCity) return -1
         if (y === selfCity) return 1
@@ -486,22 +538,100 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         return dc !== 0 ? dc : x.localeCompare(y)
       })
       .slice(0, 4)
+    const nearOnly = [...new Set(nearPts.map((p) => p.city))]
+      .filter((c) => !exactCities.includes(c))
+      .sort((x, y) => {
+        const cx = nearPts.filter((p) => p.city === x).length
+        const cy = nearPts.filter((p) => p.city === y).length
+        return cy !== cx ? cy - cx : x.localeCompare(y)
+      })
+      .slice(0, Math.max(0, 4 - exactCities.length))
+    const cities: Array<{ name: string; display: string; near: boolean }> = [
+      ...exactCities.map((name) => ({ name, display: name, near: false })),
+      ...nearOnly.map((name) => ({ name, display: `~${name}`, near: true })),
+    ]
     // Rows: months oldest -> newest like a history table, most recent 6.
     const monthRows = [...new Set(pts.map((p) => p.key))]
       .sort()
       .slice(-6)
       .map((key) => ({ key, label: monthLabelOf(key) }))
     // One cell per month x location; several same-place same-month posts
-    // merge into the spanning range (min of mins - max of maxes).
-    const cellOf = (key: string, city: string) => {
-      const inCell = pts.filter((p) => p.key === key && p.city === city)
+    // merge into the spanning range (min of mins - max of maxes). Near
+    // columns pool only near points.
+    const cellOf = (key: string, city: string, near: boolean) => {
+      const pool = near ? nearPts : exactPts
+      const inCell = pool.filter((p) => p.key === key && p.city === city)
       if (inCell.length === 0) return null
       return {
         min: Math.min(...inCell.map((p) => p.min)),
         max: Math.max(...inCell.map((p) => p.max)),
       }
     }
-    return { cities, monthRows, cellOf, selfCity, youCities }
+    return { cities, monthRows, cellOf, selfCity, youCities, hasNear: nearOnly.length > 0 }
+  })()
+
+  // ---------------------------------------------------------------------
+  // v149: the CATEGORY fallback table - "{category} price by location and
+  // date". Rendered under the product table when the product grid is a
+  // lone column (nothing matches the product, exact or near): the same
+  // drawn shape, fed by every same-category same-currency post from the
+  // /similar endpoint's categoryPoints, so the compare output is never a
+  // dead end on a solo product.
+  const catTable = (() => {
+    if (!post || categoryPoints.length === 0 || !priceTable || priceTable.cities.length >= 2) return null
+    const selfKey = monthKeyOfPublic(post.createdAt)
+    if (!selfKey) return null
+    type CatPt = { city: string; key: string; min: number; max: number; you: boolean }
+    const pts: CatPt[] = [
+      { city: priceTable.selfCity, key: selfKey, min: post.priceMin, max: post.priceMax, you: isOwnPost },
+    ]
+    for (const c of categoryPoints) {
+      if (c.city === priceTable.selfCity && c.month === selfKey) continue // merged into the self point below
+      pts.push({
+        city: c.city,
+        key: c.month,
+        min: c.min,
+        max: c.max,
+        you: !!currentUserId && c.authorIds.includes(currentUserId),
+      })
+    }
+    // merge same city+month duplicates (incl. self + a category post)
+    const merged = new Map<string, CatPt>()
+    for (const p of pts) {
+      const k = `${p.city}||${p.key}`
+      const m = merged.get(k)
+      if (m) {
+        m.min = Math.min(m.min, p.min)
+        m.max = Math.max(m.max, p.max)
+        m.you = m.you || p.you
+      } else merged.set(k, { ...p })
+    }
+    const all = [...merged.values()]
+    const counts = new Map<string, number>()
+    all.forEach((p) => counts.set(p.city, (counts.get(p.city) || 0) + 1))
+    const youCats = new Set(all.filter((p) => p.you).map((p) => p.city))
+    const selfCity = priceTable.selfCity
+    const cities = [...new Set(all.map((p) => p.city))]
+      .sort((x, y) => {
+        if (x === selfCity) return -1
+        if (y === selfCity) return 1
+        const xy = youCats.has(x) ? 0 : 1
+        const yy = youCats.has(y) ? 0 : 1
+        if (xy !== yy) return xy - yy
+        const dc = (counts.get(y) || 0) - (counts.get(x) || 0)
+        return dc !== 0 ? dc : x.localeCompare(y)
+      })
+      .slice(0, 4)
+    const monthRows = [...new Set(all.map((p) => p.key))]
+      .sort()
+      .slice(-6)
+      .map((key) => ({ key, label: monthLabelOfPublic(key) }))
+    const cellOf = (key: string, city: string) => {
+      const inCell = all.filter((p) => p.key === key && p.city === city)
+      if (inCell.length === 0) return null
+      return { min: Math.min(...inCell.map((p) => p.min)), max: Math.max(...inCell.map((p) => p.max)) }
+    }
+    return { cities, monthRows, cellOf, youCats }
   })()
 
   const handleAddLink = async (otherId: string) => {
@@ -787,17 +917,18 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         <thead>
                           <tr className="border-y border-border bg-accent/40">
                             <th className="text-left font-medium text-muted-foreground px-3 py-1.5 whitespace-nowrap">Date</th>
-                            {priceTable.cities.map((c) => (
+                            {priceTable.cities.map((col) => (
                               <th
-                                key={c}
+                                key={col.near ? `~${col.name}` : col.name}
                                 data-testid="detail-price-table-city"
+                                data-near={col.near ? 'true' : undefined}
                                 className={cn(
                                   'text-right font-semibold px-3 py-1.5 whitespace-nowrap',
-                                  c === priceTable.selfCity ? 'text-primary' : 'text-foreground'
+                                  col.near ? 'text-muted-foreground italic' : col.name === priceTable.selfCity ? 'text-primary' : 'text-foreground'
                                 )}
                               >
-                                {c}
-                                {priceTable.youCities.has(c) && (
+                                {col.display}
+                                {priceTable.youCities.has(col.name) && (
                                   <span
                                     data-testid="detail-price-table-you"
                                     className="ml-1 align-middle text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1 py-px"
@@ -811,7 +942,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </thead>
                         <tbody>
                           {priceTable.monthRows.map((row) => {
-                            const cells = priceTable.cities.map((c) => priceTable.cellOf(row.key, c))
+                            const cells = priceTable.cities.map((col) => priceTable.cellOf(row.key, col.name, col.near))
                             const filled = cells.filter((v) => v !== null) as Array<{ min: number; max: number }>
                             const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
                             return (
@@ -821,11 +952,92 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 </td>
                                 {cells.map((v, i) =>
                                   v === null ? (
-                                    <td key={priceTable.cities[i]} className="px-3 py-1.5 text-right text-muted-foreground/40">-</td>
+                                    <td key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')} className="px-3 py-1.5 text-right text-muted-foreground/40">-</td>
                                   ) : (
                                     <td
-                                      key={priceTable.cities[i]}
+                                      key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')}
                                       data-testid="detail-price-table-cell"
+                                      data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
+                                      className={cn(
+                                        'px-3 py-1.5 text-right whitespace-nowrap',
+                                        priceTable.cities[i].near && 'italic text-muted-foreground',
+                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
+                                      )}
+                                    >
+                                      {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
+                                    </td>
+                                  )
+                                )}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {priceTable.hasNear && (
+                      <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-t border-border/40">
+                        ~ similar item - close to this product, not the exact same listing
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* v149: the category fallback table - when nothing matches
+                    the product (exact or near), the SAME drawn shape fed by
+                    every same-category same-currency post, so the compare
+                    output on a solo product is never a dead end. */}
+                {catTable && (
+                  <div className="mb-3 rounded-lg border border-dashed border-border bg-card overflow-hidden" data-testid="detail-category-table">
+                    <p className="text-xs font-semibold text-foreground px-3 pt-2.5" data-testid="detail-category-table-title">
+                      {`${post.category || 'Category'} price by location and date (${post.currency})`}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground px-3 pb-1.5">
+                      {`Price (${post.currency}) by Date - same category, no exact match for "${post.productName}" posted yet`}
+                    </p>
+                    <div className="overflow-x-auto scrollbar-thin">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-y border-border bg-accent/40">
+                            <th className="text-left font-medium text-muted-foreground px-3 py-1.5 whitespace-nowrap">Date</th>
+                            {catTable.cities.map((c) => (
+                              <th
+                                key={c}
+                                data-testid="detail-category-table-city"
+                                className={cn(
+                                  'text-right font-semibold px-3 py-1.5 whitespace-nowrap',
+                                  c === priceTable?.selfCity ? 'text-primary' : 'text-foreground'
+                                )}
+                              >
+                                {c}
+                                {catTable.youCats.has(c) && (
+                                  <span
+                                    data-testid="detail-category-table-you"
+                                    className="ml-1 align-middle text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1 py-px"
+                                  >
+                                    You
+                                  </span>
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {catTable.monthRows.map((row) => {
+                            const cells = catTable.cities.map((c) => catTable.cellOf(row.key, c))
+                            const filled = cells.filter((v) => v !== null) as Array<{ min: number; max: number }>
+                            const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
+                            return (
+                              <tr key={row.key} className="border-b border-border/40 last:border-0">
+                                <td data-testid="detail-category-table-month" className="px-3 py-1.5 text-muted-foreground whitespace-nowrap">
+                                  {row.label}
+                                </td>
+                                {cells.map((v, i) =>
+                                  v === null ? (
+                                    <td key={catTable.cities[i]} className="px-3 py-1.5 text-right text-muted-foreground/40">-</td>
+                                  ) : (
+                                    <td
+                                      key={catTable.cities[i]}
+                                      data-testid="detail-category-table-cell"
                                       data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
                                       className={cn(
                                         'px-3 py-1.5 text-right whitespace-nowrap',
@@ -842,6 +1054,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </tbody>
                       </table>
                     </div>
+                    <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-t border-border/40">
+                      Category average grid - post &ldquo;{post.productName}&rdquo; in another city or month to compare it directly.
+                    </p>
                   </div>
                 )}
 
@@ -1084,6 +1299,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                         className="mr-1 inline-block align-middle text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1 py-px"
                                       >
                                         You
+                                      </span>
+                                    )}
+                                    {a.near && (
+                                      <span
+                                        data-testid="detail-compare-near"
+                                        className="mr-1 inline-block align-middle text-[9px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 rounded-full px-1 py-px"
+                                      >
+                                        similar
                                       </span>
                                     )}
                                     {a.productName}
