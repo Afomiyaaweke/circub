@@ -22,7 +22,6 @@ import {
   Scale,
   Store,
   Link2,
-  Plus,
   Search,
   Loader2,
 } from 'lucide-react'
@@ -875,7 +874,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                     <Scale className="w-4 h-4 text-primary" />
-                    Compare
+                    Detail compare
                     <span
                       data-testid="detail-links-count"
                       className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5"
@@ -891,7 +890,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       onClick={() => setShowLinkPicker((v) => !v)}
                       className="h-7 px-2 text-xs gap-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Link2 className="w-3.5 h-3.5" />
                       Link a business
                     </Button>
                   )}
