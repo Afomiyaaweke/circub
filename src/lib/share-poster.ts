@@ -39,6 +39,11 @@ export type SharePosterTarget =
       authorName?: string | null
       authorUsername?: string | null
       date: string
+      // v152: the price-by-location compare strip (the same data the feed
+      // card shows) drawn onto the poster - pre-formatted by the caller as a
+      // title + one label line so the canvas code stays dumb.
+      compareTitle?: string | null
+      compareLabel?: string | null
     }
 
 /**
@@ -257,6 +262,35 @@ function drawChip(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   return w
 }
 
+// v152: the compare strip ON THE POSTER - "also on the poster". Two
+// placements: a dark chip pinned to the photo's bottom edge (photo layout)
+// or a title+label pair between the identity rows and the footer
+// (text-only layout). Mirrors the feed card's one-line strip.
+function drawCompareOnPhoto(ctx: CanvasRenderingContext2D, title: string, label: string, x: number, y: number, w: number) {
+  ctx.save()
+  ctx.fillStyle = 'rgba(4, 21, 12, 0.78)'
+  roundRect(ctx, x, y, w, 92, 20)
+  ctx.fill()
+  ctx.restore()
+  ctx.textAlign = 'left'
+  ctx.font = FONT(fitText(ctx, title, w - 48, 22, 14, '600'), '600')
+  ctx.fillStyle = '#4ade80'
+  ctx.fillText(title, x + 24, y + 34)
+  ctx.font = FONT(fitText(ctx, label, w - 48, 26, 14))
+  ctx.fillStyle = '#f0fdf4'
+  ctx.fillText(label, x + 24, y + 70)
+}
+
+function drawCompareText(ctx: CanvasRenderingContext2D, title: string, label: string, x: number, y: number, w: number) {
+  ctx.textAlign = 'left'
+  ctx.font = FONT(fitText(ctx, title, w, 24, 14, '600'), '600')
+  ctx.fillStyle = '#4ade80'
+  ctx.fillText(title, x, y)
+  ctx.font = FONT(fitText(ctx, label, w, 30, 14))
+  ctx.fillStyle = '#f0fdf4'
+  ctx.fillText(label, x, y + 42)
+}
+
 async function drawQr(ctx: CanvasRenderingContext2D, url: string, x: number, y: number, size: number) {
   try {
     const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#04150c', light: '#e8fff2' } })
@@ -394,6 +428,11 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       ctx.fillStyle = '#4ade80'
       ctx.fillText(range, contentX, priceY)
       ctx.restore()
+
+      // v152: compare strip pinned to the photo's bottom edge
+      if (target.compareTitle && target.compareLabel) {
+        drawCompareOnPhoto(ctx, target.compareTitle, target.compareLabel, contentX + 18, phY + phH - 112, contentW - 36)
+      }
     } else {
       // ---------- TEXT-ONLY LAYOUT (no photo / photo failed to load) ----------
       // Product name
@@ -454,6 +493,11 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         ctx.font = FONT(28, '600')
         ctx.fillStyle = 'rgba(187,247,208,0.7)'
         ctx.fillText(target.date, contentX, priceY + 156)
+      }
+
+      // v152: compare strip between the identity rows and the footer
+      if (target.compareTitle && target.compareLabel) {
+        drawCompareText(ctx, target.compareTitle, target.compareLabel, contentX, footerTop - 112, contentW)
       }
     }
   } else {

@@ -402,6 +402,20 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           authorName: post.author?.name ?? null,
           authorUsername: post.author?.username ?? null,
           date: new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          // v152: "also on the poster" - carry the card's compare strip onto
+          // the poster image, formatted exactly like the card's one-liner
+          compareTitle: compare && compare.entries.length > 1
+            ? (compare.kind === 'product'
+                ? `${post.productName} price by location (${post.currency})`
+                : `${post.category || 'Similar'} prices by location (${post.currency})`)
+            : null,
+          compareLabel: compare && compare.entries.length > 1
+            ? [
+                ...compare.entries.map((e) =>
+                  `${e.you && !e.self ? 'You' : e.near ? `~${e.place}` : e.place}${e.you && e.self ? ' (You)' : ''} ${e.min === e.max ? e.min : `${e.min}-${e.max}`}`),
+                ...(compare.extra > 0 ? [`+${compare.extra} more`] : []),
+              ].join(' · ')
+            : null,
         }}
         linkUrl={shareLink}
       />
