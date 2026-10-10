@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
+import { productMatchKey } from '@/lib/product-name'
 
 // Everything the linked-posts list needs on the OTHER post.
 const OTHER_POST_SELECT = {
@@ -18,23 +19,93 @@ const OTHER_POST_SELECT = {
   country: true,
   imageUrl: true,
   createdAt: true,
+  // v158: votes ride on every row - the compare ranks linked businesses by
+  // their helpful votes, so the counts must travel with the payload.
+  helpfulCount: true,
+  notAccurateCount: true,
   author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, verifiedLocal: true, isLocal: true, idVerified: true } },
 }
 
 async function linksFor(postId: string, meId: string | null) {
+  const self = await db.localPricePost.findUnique({
+    where: { id: postId },
+    select: { authorId: true, productName: true },
+  })
+  if (!self) return []
+  // v158: a link attaches to the BUSINESS, not the single post. The same-
+  // product posts of the same author (siblings) carry the same comparison
+  // set: opening any of them resolves the links of every sibling, deduped,
+  // so the linked businesses follow the business wherever the product is
+  // posted - and both sides of a link see it on all their product posts.
+  const siblings = await db.localPricePost.findMany({
+    where: { authorId: self.authorId, id: { not: postId } },
+    select: { id: true, productName: true },
+  })
+  const selfKey = productMatchKey(self.productName || '')
+  const siblingIds = (selfKey
+    ? siblings.filter((s) => productMatchKey(s.productName || '') === selfKey)
+    : []
+  ).map((s) => s.id)
+  const anchors = [postId, ...siblingIds]
   const rows = await db.pricePostLink.findMany({
-    where: { OR: [{ postAId: postId }, { postBId: postId }] },
+    where: { OR: [{ postAId: { in: anchors } }, { postBId: { in: anchors } }] },
     orderBy: { createdAt: 'desc' },
     include: { postA: { select: { authorId: true } }, postB: { select: { authorId: true } } },
   })
-  // Summary for the other side only (keeps the payload small).
+  // Summary for the other side only (keeps the payload small). Direct
+  // links win over business-carried duplicates; the opened post itself and
+  // the author's own posts never appear (own posts are the history table).
+  const seen = new Set<string>()
+  const picked: Array<{ linkId: string; createdBy: string; createdAt: Date; canRemove: boolean; via: 'direct' | 'business'; otherId: string }> = []
+  for (const directPass of [true, false]) {
+    for (const r of rows) {
+      const direct = r.postAId === postId || r.postBId === postId
+      if (direct !== directPass) continue
+      // The "other" post is whichever side is NOT one of this business's
+      // anchors; a link between two of the business's own posts is a
+      // self-link and never surfaces as a comparison row.
+      let otherId: string
+      if (anchors.includes(r.postAId) && !anchors.includes(r.postBId)) otherId = r.postBId
+      else if (anchors.includes(r.postBId) && !anchors.includes(r.postAId)) otherId = r.postAId
+      else continue
+      if (otherId === postId || seen.has(otherId)) continue
+      const other = await db.localPricePost.findUnique({ where: { id: otherId }, select: { authorId: true } })
+      if (!other || other.authorId === self.authorId) continue
+      seen.add(otherId)
+      const canRemove = !!meId && (r.createdBy === meId || r.postA.authorId === meId || r.postB.authorId === meId)
+      picked.push({ linkId: r.id, createdBy: r.createdBy, createdAt: r.createdAt, canRemove, via: direct ? 'direct' : 'business', otherId })
+    }
+  }
+  const otherPosts = await db.localPricePost.findMany({
+    where: { id: { in: picked.map((p) => p.otherId) } },
+    select: OTHER_POST_SELECT,
+  })
+  const postById = new Map(otherPosts.map((p) => [p.id, p]))
+  // v158: a business's votes = its helpful votes summed across ALL its
+  // posts - the "business with more votes" metric the compare ranks by.
+  const authorIds = [...new Set(otherPosts.map((p) => p.author?.id).filter((x): x is string => !!x))]
+  const votesByAuthor = new Map<string, number>()
+  if (authorIds.length > 0) {
+    const agg = await db.localPricePost.groupBy({
+      by: ['authorId'],
+      _sum: { helpfulCount: true },
+      where: { authorId: { in: authorIds } },
+    })
+    for (const v of agg) votesByAuthor.set(v.authorId, v._sum.helpfulCount ?? 0)
+  }
   const out: Array<object> = []
-  for (const r of rows) {
-    const otherId = r.postAId === postId ? r.postBId : r.postAId
-    const other = await db.localPricePost.findUnique({ where: { id: otherId }, select: OTHER_POST_SELECT })
+  for (const p of picked) {
+    const other = postById.get(p.otherId)
     if (!other) continue
-    const canRemove = !!meId && (r.createdBy === meId || r.postA.authorId === meId || r.postB.authorId === meId)
-    out.push({ linkId: r.id, createdBy: r.createdBy, createdAt: r.createdAt, canRemove, post: other })
+    out.push({
+      linkId: p.linkId,
+      createdBy: p.createdBy,
+      createdAt: p.createdAt,
+      canRemove: p.canRemove,
+      via: p.via,
+      authorVotes: votesByAuthor.get(other.author?.id ?? '') ?? other.helpfulCount ?? 0,
+      post: other,
+    })
   }
   return out
 }

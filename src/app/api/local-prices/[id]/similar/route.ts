@@ -26,6 +26,9 @@ const SIMILAR_SELECT = {
   country: true,
   imageUrl: true,
   createdAt: true,
+  // v158: votes ride on the auto rows too - the compare shows what each
+  // business has earned.
+  helpfulCount: true,
   author: { select: { id: true, name: true, username: true, avatarColor: true, verifiedLocal: true, idVerified: true } },
 }
 

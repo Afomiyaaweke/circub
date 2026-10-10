@@ -73,6 +73,12 @@ interface LinkedPostRow {
   createdBy: string
   createdAt: string
   canRemove: boolean
+  // v158: 'direct' = this exact post is on the link; 'business' = a
+  // same-product sibling post of the same business carries the link.
+  via?: 'direct' | 'business'
+  // v158: the linked business's total helpful votes (its posts summed),
+  // used to rank rows - more votes sits higher, right under this business.
+  authorVotes?: number
   post: {
     id: string
     productName: string
@@ -84,6 +90,7 @@ interface LinkedPostRow {
     country?: string | null
     imageUrl?: string | null
     createdAt: string
+    helpfulCount?: number
     author?: { id: string; name: string; verifiedLocal?: boolean; idVerified?: boolean }
   }
 }
@@ -105,6 +112,7 @@ interface SimilarPost {
   imageUrl?: string | null
   createdAt: string
   near?: boolean
+  helpfulCount?: number
   author?: { id: string; name?: string | null }
 }
 
@@ -392,11 +400,21 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const isOwnPost = !!currentUserId && !!post && post.author.id === currentUserId
   const selfPrice = post ? post.priceMax : 0
   const sameCurLinks = links.filter((l) => post && l.post.currency === post.currency)
+  // v158: linked businesses rank by their VOTES - the business with more
+  // helpful votes sits directly under this business ("on top with it");
+  // cheapest-first only breaks ties. Same-currency rows stay in front.
+  const rowVotes = (l: LinkedPostRow) =>
+    typeof l.authorVotes === 'number' ? l.authorVotes : (l.post.helpfulCount ?? 0)
   const sortedLinks = [...links].sort((a, b) => {
     const aSame = post && a.post.currency === post.currency ? 0 : 1
     const bSame = post && b.post.currency === post.currency ? 0 : 1
     if (aSame !== bSame) return aSame - bSame
-    if (aSame === 0) return a.post.priceMax - b.post.priceMax
+    if (aSame === 0) {
+      const av = rowVotes(a)
+      const bv = rowVotes(b)
+      if (av !== bv) return bv - av
+      return a.post.priceMax - b.post.priceMax
+    }
     return 0
   })
   // v144: AUTO-compare - businesses selling the SAME product ANYWHERE from
@@ -1247,6 +1265,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               Cheapest
                             </span>
                           )}
+                          <span
+                            data-testid="detail-compare-votes"
+                            className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground shrink-0"
+                            title="Helpful votes this business has earned"
+                          >
+                            <ThumbsUp className="w-3 h-3" />
+                            {rowVotes(l)}
+                          </span>
                           <span className="text-xs font-bold text-emerald-700 shrink-0">
                             {l.post.currency} {l.post.priceMin}
                             {l.post.priceMin !== l.post.priceMax ? `-${l.post.priceMax}` : ''}
@@ -1344,6 +1370,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                   Cheapest
                                 </span>
                               )}
+                              <span
+                                data-testid="detail-compare-votes"
+                                className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground shrink-0"
+                                title="Helpful votes this business has earned"
+                              >
+                                <ThumbsUp className="w-3 h-3" />
+                                {a.helpfulCount ?? 0}
+                              </span>
                               <span className="text-xs font-bold text-emerald-700 shrink-0">
                                 {a.currency} {a.priceMin}
                                 {a.priceMin !== a.priceMax ? `-${a.priceMax}` : ''}
