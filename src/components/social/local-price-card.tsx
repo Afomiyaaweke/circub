@@ -412,7 +412,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </Button>
       )}
 
-      {/* Footer: author left - Details / Save right (v151: Share moved into
+      {/* Footer: author left - Compare / Save right (v151: Share moved into
           the header 3-dot menu on every card) */}
       <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between gap-2">
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
@@ -447,9 +447,9 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </button>
         {!compact && (
           <div className="flex items-center gap-1 shrink-0">
-            <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} data-testid="card-compare-open" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0">
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Details</span>
+              <span className="hidden sm:inline">Compare</span>
             </Button>
             <Button size="sm" variant="outline" onClick={handleToggleSave} className={cn('shrink-0 h-7 w-7 p-0', saved ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')} title={saved ? 'Remove from bookmarks' : 'Save to bookmarks'}>
               <Bookmark className={cn('w-3.5 h-3.5', saved && 'fill-current')} />
