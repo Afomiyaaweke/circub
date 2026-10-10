@@ -42,6 +42,9 @@ const CATEGORY_SELECT = {
   country: true,
   createdAt: true,
   authorId: true,
+  // v159: the business name rides with every category row so a touched
+  // price cell can name the business behind it (touch a price -> see who).
+  author: { select: { name: true } },
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -76,6 +79,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // Category grid for the compare-table fallback: same currency, same
     // (normalized) category, NOT this post - aggregated to city x month
     // cells with the author ids so the client can mark the viewer's cells.
+    // v159: cells also carry the contributing BUSINESS NAMES (deduped),
+    // so touching a price in the compare table reveals who posted it.
     const catRows = await db.localPricePost.findMany({
       where: { id: { not: id }, currency: self.currency },
       orderBy: { createdAt: 'desc' },
@@ -84,7 +89,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     })
     const catSelfKey = productMatchKey(self.category || '')
     const monthOf = (iso: Date) => `${iso.getFullYear()}-${String(iso.getMonth() + 1).padStart(2, '0')}`
-    const cellMap = new Map<string, { city: string; month: string; min: number; max: number; authorIds: Set<string> }>()
+    const cellMap = new Map<string, { city: string; month: string; min: number; max: number; authorIds: Set<string>; names: Map<string, string> }>()
     for (const r of catRows) {
       if (!catSelfKey || productMatchKey(r.category || '') !== catSelfKey) continue
       if (r.currency !== self.currency) continue
@@ -96,14 +101,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         cell.min = Math.min(cell.min, r.priceMin)
         cell.max = Math.max(cell.max, r.priceMax)
         cell.authorIds.add(r.authorId)
+        if (r.author?.name) cell.names.set(r.authorId, r.author.name)
       } else {
-        cellMap.set(key, { city, month, min: r.priceMin, max: r.priceMax, authorIds: new Set([r.authorId]) })
+        const names = new Map<string, string>()
+        if (r.author?.name) names.set(r.authorId, r.author.name)
+        cellMap.set(key, { city, month, min: r.priceMin, max: r.priceMax, authorIds: new Set([r.authorId]), names })
       }
     }
     const categoryPoints = [...cellMap.values()]
       .sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : a.city.localeCompare(b.city)))
       .slice(-120)
-      .map((c) => ({ city: c.city, month: c.month, min: c.min, max: c.max, authorIds: [...c.authorIds] }))
+      .map((c) => ({ city: c.city, month: c.month, min: c.min, max: c.max, authorIds: [...c.authorIds], authors: [...c.names.values()] }))
 
     return NextResponse.json({
       similar,

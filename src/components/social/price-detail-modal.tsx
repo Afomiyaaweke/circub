@@ -118,12 +118,15 @@ interface SimilarPost {
 
 // v149: aggregated same-category price grid (server-side via /similar) used
 // as the compare-table fallback when nothing matches the product itself.
+// v159: `authors` - the contributing BUSINESS NAMES per cell, so touching
+// a price in the table can name who posted it.
 interface CategoryPoint {
   city: string
   month: string // YYYY-MM
   min: number
   max: number
   authorIds: string[]
+  authors?: string[]
 }
 
 const REPORT_OPTIONS = [
@@ -169,6 +172,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [similar, setSimilar] = useState<SimilarPost[]>([])
   // v149: same-category price grid for the compare-table fallback.
   const [categoryPoints, setCategoryPoints] = useState<CategoryPoint[]>([])
+  // v159: "touch a price, see the business" - the cell the user last touched
+  // in a compare table (which table it lives in, its label and businesses).
+  const [touchedCell, setTouchedCell] = useState<{ table: 'product' | 'category'; label: string; businesses: string[] } | null>(null)
   const [showLinkPicker, setShowLinkPicker] = useState(false)
   const [linkSearch, setLinkSearch] = useState('')
   const [linkResults, setLinkResults] = useState<any[]>([])
@@ -194,6 +200,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       // Reset the linked-prices panel - it belongs to the post being opened.
       setLinks([])
       setSimilar([])
+      setTouchedCell(null)
       setShowLinkPicker(false)
       setLinkSearch('')
       setLinkResults([])
@@ -514,25 +521,25 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       const [y, m] = key.split('-').map(Number)
       return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     }
-    type TablePt = { city: string; key: string; min: number; max: number; you: boolean; near: boolean }
+    type TablePt = { city: string; key: string; min: number; max: number; you: boolean; near: boolean; business: string }
     const pts: TablePt[] = []
     // v148: "you" = the VIEWER contributed this data point (their own post,
     // or their own earlier posts). You-columns get a chip in the header so
     // the user is literally SEEN in the table on every post.
     const youOf = (p: { authorId?: string; author?: { id?: string } | null }) =>
       !!currentUserId && (p.authorId ?? p.author?.id) === currentUserId
-    // v149: `near` pts (similar items) live in their own "~" columns and
-    // never merge into an exact column's cell.
-    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string } | null }, currency: string, near: boolean) => {
+    // v159: every point carries the BUSINESS behind it - touching a price
+    // cell names the business (or businesses) that posted that price.
+    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string; name?: string | null } | null }, currency: string, near: boolean, business: string) => {
       if (!post || currency !== post.currency) return
       const key = monthKeyOf(p.createdAt)
       if (Number.isNaN(new Date(p.createdAt).getTime()) || Number.isNaN(new Date(`${key}-01T00:00:00`).getTime())) return
-      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax, you: youOf(p), near })
+      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax, you: youOf(p), near, business })
     }
-    push(post, post.currency, false)
-    links.forEach((l) => push(l.post, l.post.currency, false))
-    autoRows.forEach((a) => push(a, a.currency, !!a.near))
-    authorHistory.forEach((h) => push(h, h.currency, false))
+    push(post, post.currency, false, post.author?.name || 'This business')
+    links.forEach((l) => push(l.post, l.post.currency, false, l.post.author?.name || 'A linked business'))
+    autoRows.forEach((a) => push(a, a.currency, !!a.near, a.author?.name || 'A business'))
+    authorHistory.forEach((h) => push(h, h.currency, false, post.author?.name || 'This business'))
     if (pts.length === 0) return null
     // Columns: this business FIRST, then the VIEWER's own places (so the
     // user is always seen), then the rest by most data points (name order
@@ -575,6 +582,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     // One cell per month x location; several same-place same-month posts
     // merge into the spanning range (min of mins - max of maxes). Near
     // columns pool only near points.
+    // v159: a cell also names every BUSINESS that contributed to it,
+    // insertion order (this business first), deduped.
     const cellOf = (key: string, city: string, near: boolean) => {
       const pool = near ? nearPts : exactPts
       const inCell = pool.filter((p) => p.key === key && p.city === city)
@@ -582,6 +591,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       return {
         min: Math.min(...inCell.map((p) => p.min)),
         max: Math.max(...inCell.map((p) => p.max)),
+        businesses: [...new Set(inCell.map((p) => p.business))],
       }
     }
     return { cities, monthRows, cellOf, selfCity, youCities, hasNear: nearOnly.length > 0 }
@@ -598,9 +608,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     if (!post || categoryPoints.length === 0 || !priceTable || priceTable.cities.length >= 2) return null
     const selfKey = monthKeyOfPublic(post.createdAt)
     if (!selfKey) return null
-    type CatPt = { city: string; key: string; min: number; max: number; you: boolean }
+    type CatPt = { city: string; key: string; min: number; max: number; you: boolean; businesses: string[] }
     const pts: CatPt[] = [
-      { city: priceTable.selfCity, key: selfKey, min: post.priceMin, max: post.priceMax, you: isOwnPost },
+      { city: priceTable.selfCity, key: selfKey, min: post.priceMin, max: post.priceMax, you: isOwnPost, businesses: [post.author?.name || 'This business'] },
     ]
     for (const c of categoryPoints) {
       if (c.city === priceTable.selfCity && c.month === selfKey) continue // merged into the self point below
@@ -610,6 +620,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         min: c.min,
         max: c.max,
         you: !!currentUserId && c.authorIds.includes(currentUserId),
+        // v159: the businesses behind this aggregated point (server-deduped
+        // names; fall back to a count-shaped label if names are missing).
+        businesses: (c.authors && c.authors.length > 0) ? c.authors : ['A local business'],
       })
     }
     // merge same city+month duplicates (incl. self + a category post)
@@ -621,6 +634,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         m.min = Math.min(m.min, p.min)
         m.max = Math.max(m.max, p.max)
         m.you = m.you || p.you
+        m.businesses = [...new Set([...m.businesses, ...p.businesses])]
       } else merged.set(k, { ...p })
     }
     const all = [...merged.values()]
@@ -643,10 +657,15 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       .sort()
       .slice(-6)
       .map((key) => ({ key, label: monthLabelOfPublic(key) }))
+    // v159: touched cells also name their businesses.
     const cellOf = (key: string, city: string) => {
       const inCell = all.filter((p) => p.key === key && p.city === city)
       if (inCell.length === 0) return null
-      return { min: Math.min(...inCell.map((p) => p.min)), max: Math.max(...inCell.map((p) => p.max)) }
+      return {
+        min: Math.min(...inCell.map((p) => p.min)),
+        max: Math.max(...inCell.map((p) => p.max)),
+        businesses: [...new Set(inCell.flatMap((p) => p.businesses))],
+      }
     }
     return { cities, monthRows, cellOf, youCats }
   })()
@@ -976,8 +995,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')}
                                       data-testid="detail-price-table-cell"
                                       data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
+                                      data-cell-businesses={v.businesses.join('|')}
+                                      onClick={() => setTouchedCell((cur) => cur && cur.table === 'product' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}` ? null : { table: 'product', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}`, businesses: v.businesses })}
+                                      title="Touch a price to see the business behind it"
                                       className={cn(
-                                        'px-3 py-1.5 text-right whitespace-nowrap',
+                                        'px-3 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
                                         priceTable.cities[i].near && 'italic text-muted-foreground',
                                         filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
                                       )}
@@ -992,6 +1014,15 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </tbody>
                       </table>
                     </div>
+                    {/* v159: touch a price -> the business behind it shows
+                        here, under the table that owns the touched cell. */}
+                    {touchedCell && touchedCell.table === 'product' && (
+                      <div data-testid="detail-cell-business" className="flex items-center gap-1.5 px-3 py-2 border-t border-border/40 bg-primary/5 text-[11px]">
+                        <Store className="w-3 h-3 text-primary shrink-0" />
+                        <span className="text-muted-foreground whitespace-nowrap">{touchedCell.label}</span>
+                        <span className="font-semibold text-foreground truncate">— {touchedCell.businesses.join(', ')}</span>
+                      </div>
+                    )}
                     {priceTable.hasNear && (
                       <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-t border-border/40">
                         ~ similar item - close to this product, not the exact same listing
@@ -1057,8 +1088,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       key={catTable.cities[i]}
                                       data-testid="detail-category-table-cell"
                                       data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
+                                      data-cell-businesses={v.businesses.join('|')}
+                                      onClick={() => setTouchedCell((cur) => cur && cur.table === 'category' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${catTable.cities[i]}` ? null : { table: 'category', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${catTable.cities[i]}`, businesses: v.businesses })}
+                                      title="Touch a price to see the business behind it"
                                       className={cn(
-                                        'px-3 py-1.5 text-right whitespace-nowrap',
+                                        'px-3 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
                                         filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
                                       )}
                                     >
@@ -1072,6 +1106,15 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </tbody>
                       </table>
                     </div>
+                    {/* v159: touch a price -> the business behind it shows
+                        here, under the category table too. */}
+                    {touchedCell && touchedCell.table === 'category' && (
+                      <div data-testid="detail-cell-business" className="flex items-center gap-1.5 px-3 py-2 border-t border-border/40 bg-primary/5 text-[11px]">
+                        <Store className="w-3 h-3 text-primary shrink-0" />
+                        <span className="text-muted-foreground whitespace-nowrap">{touchedCell.label}</span>
+                        <span className="font-semibold text-foreground truncate">— {touchedCell.businesses.join(', ')}</span>
+                      </div>
+                    )}
                     <p className="text-[10px] text-muted-foreground px-3 py-1.5 border-t border-border/40">
                       Category average grid - post &ldquo;{post.productName}&rdquo; in another city or month to compare it directly.
                     </p>

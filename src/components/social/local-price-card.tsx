@@ -38,7 +38,7 @@ interface LocalPriceCardProps {
   currentUserId?: string | null
   compare?: {
     kind: 'product' | 'category'
-    entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }>
+    entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }>
     extra: number
   } | null
 }
@@ -69,7 +69,11 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   // strip (the share poster reuses the same unified source, so all three
   // surfaces - card, modal, poster - agree). compareHold keeps the poster
   // modal on its spinner if Share is tapped while the fetch is in flight.
-  const [fetchedCompare, setFetchedCompare] = useState<{ kind: 'product' | 'category'; entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }>; extra: number } | null>(null)
+  const [fetchedCompare, setFetchedCompare] = useState<{ kind: 'product' | 'category'; entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }>; extra: number } | null>(null)
+  // v159: "show the business while touching the price on posters too" -
+  // tapping a price entry in the card's compare strip reveals the business
+  // behind that price (one at a time; tap again to hide).
+  const [revealedEntry, setRevealedEntry] = useState<string | null>(null)
   const [compareHold, setCompareHold] = useState(false)
   const compareKeyRef = useRef('')
   // v117: the share link is ALWAYS the post's own deep link (/?post=<id>).
@@ -127,7 +131,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         const data = await res.json()
         if (cancelled) return
         const selfPlace = (post.city && post.city.trim()) || (post.country && post.country.trim()) || 'Unknown'
-        const selfEntry = { id: post.id, place: selfPlace, min: post.priceMin, max: post.priceMax, you: isOwnPost, self: true, near: false }
+        const selfEntry = { id: post.id, place: selfPlace, min: post.priceMin, max: post.priceMax, you: isOwnPost, self: true, near: false, business: post.author?.name || undefined }
         const rows = (Array.isArray(data.similar) ? data.similar : []).filter((r: any) => r.currency === post.currency)
         if (rows.length > 0) {
           setFetchedCompare({
@@ -142,20 +146,22 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
                 you: !!currentUserId && r.author?.id === currentUserId,
                 self: false,
                 near: !!r.near,
+                business: r.author?.name || undefined,
               })),
             ],
             extra: Math.max(0, rows.length - 2),
           })
         } else {
-          const byCity = new Map<string, { min: number; max: number; count: number }>()
+          const byCity = new Map<string, { min: number; max: number; count: number; names: Set<string> }>()
           for (const c of Array.isArray(data.categoryPoints) ? data.categoryPoints : []) {
             const cur = byCity.get(c.city)
             if (cur) {
               cur.min = Math.min(cur.min, c.min)
               cur.max = Math.max(cur.max, c.max)
               cur.count += c.authorIds?.length || 1
+              for (const n of (c.authors || [])) cur.names.add(n)
             } else {
-              byCity.set(c.city, { min: c.min, max: c.max, count: c.authorIds?.length || 1 })
+              byCity.set(c.city, { min: c.min, max: c.max, count: c.authorIds?.length || 1, names: new Set(c.authors || []) })
             }
           }
           const cities = [...byCity.entries()].sort((a, b) =>
@@ -165,7 +171,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
               kind: 'category',
               entries: [
                 selfEntry,
-                ...cities.slice(0, 2).map(([place, v]) => ({ id: `cat-${place}`, place, min: v.min, max: v.max, you: false, self: false, near: false })),
+                ...cities.slice(0, 2).map(([place, v]) => ({ id: `cat-${place}`, place, min: v.min, max: v.max, you: false, self: false, near: false, business: v.names.size > 0 ? [...v.names].join(', ') : undefined })),
               ],
               extra: Math.max(0, cities.length - 2),
             })
@@ -348,10 +354,23 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
                 key={e.id}
                 data-testid="card-compare-place"
                 data-near={e.near ? 'true' : undefined}
-                className={cn('font-medium', e.you ? 'text-primary' : 'text-foreground/80')}
+                data-business={e.business || undefined}
+                onClick={(ev) => {
+                  // v159: touching a price entry names the business behind
+                  // it - right on the poster, no modal needed. Tap again to
+                  // hide; tapping the strip itself still opens the modal.
+                  if (!e.business) return
+                  ev.stopPropagation()
+                  setRevealedEntry((cur) => (cur === e.id ? null : e.id))
+                }}
+                title={e.business ? `${e.business} - touch to see the business behind this price` : undefined}
+                className={cn('font-medium', e.you ? 'text-primary' : 'text-foreground/80', e.business && 'cursor-pointer active:opacity-70')}
               >
                 {e.you && !e.self ? 'You' : e.near ? `~${e.place}` : e.place}
                 {e.you && e.self ? ' (You)' : ''} {e.min === e.max ? e.min : `${e.min}-${e.max}`}
+                {revealedEntry === e.id && e.business && (
+                  <span data-testid="card-compare-business" className="text-primary font-semibold"> · {e.business}</span>
+                )}
               </span>
             ))}
             {effectiveCompare.extra > 0 && (

@@ -232,12 +232,15 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // ("similar"), and when the product stands alone the same-CATEGORY
   // grid takes over so every card carries a compare strip. Zero extra
   // requests: it reuses the posts the step-by-step feed already fetched.
-  type CardEntry = { id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean }
+  // v159: entries carry the BUSINESS behind each price - touching a price
+  // entry on the card's strip reveals who posted it.
+  type CardEntry = { id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }
   const compareByCard = useMemo(() => {
     type Compare = { kind: 'product' | 'category'; entries: CardEntry[]; extra: number }
     const map = new Map<string, Compare>()
     const placeOf = (p: LocalPricePost) => (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
     const isYou = (p: LocalPricePost) => !!currentUserId && p.authorId === currentUserId
+    const businessOf = (p: LocalPricePost) => p.author?.name || undefined
     for (const self of posts) {
       const prod: LocalPricePost[] = []
       const near: LocalPricePost[] = []
@@ -254,10 +257,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         map.set(self.id, {
           kind: 'product',
           entries: [
-            { id: self.id, place: placeOf(self), min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false },
+            { id: self.id, place: placeOf(self), min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false, business: businessOf(self) },
             ...ordered.slice(0, 2).map((p) => ({
               id: p.id, place: placeOf(p), min: p.priceMin, max: p.priceMax, you: isYou(p), self: false,
-              near: !prod.includes(p),
+              near: !prod.includes(p), business: businessOf(p),
             })),
           ],
           extra: Math.max(0, ordered.length - 2),
@@ -271,7 +274,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         if (productNamesMatch(self.category || '', p.category || '') !== null) cat.push(p)
       }
       if (cat.length === 0) continue
-      const byPlace = new Map<string, { place: string; min: number; max: number; count: number; you: boolean }>()
+      const byPlace = new Map<string, { place: string; min: number; max: number; count: number; you: boolean; names: Set<string> }>()
       for (const p of cat) {
         const place = placeOf(p)
         const cur = byPlace.get(place)
@@ -280,8 +283,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           cur.max = Math.max(cur.max, p.priceMax)
           cur.count += 1
           cur.you = cur.you || isYou(p)
+          const b = businessOf(p)
+          if (b) cur.names.add(b)
         } else {
-          byPlace.set(place, { place, min: p.priceMin, max: p.priceMax, count: 1, you: isYou(p) })
+          const names = new Set<string>()
+          const b = businessOf(p)
+          if (b) names.add(b)
+          byPlace.set(place, { place, min: p.priceMin, max: p.priceMax, count: 1, you: isYou(p), names })
         }
       }
       const selfPlace = placeOf(self)
@@ -293,8 +301,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       map.set(self.id, {
         kind: 'category',
         entries: [
-          { id: `cat-self-${self.id}`, place: selfPlace, min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false },
-          ...places.slice(0, 2).map((v) => ({ id: `cat-${v.place}`, place: v.place, min: v.min, max: v.max, you: v.you, self: false, near: false })),
+          { id: `cat-self-${self.id}`, place: selfPlace, min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false, business: businessOf(self) },
+          ...places.slice(0, 2).map((v) => ({ id: `cat-${v.place}`, place: v.place, min: v.min, max: v.max, you: v.you, self: false, near: false, business: v.names.size > 0 ? [...v.names].join(', ') : undefined })),
         ],
         extra: Math.max(0, places.length - 2),
       })
