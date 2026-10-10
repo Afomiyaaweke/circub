@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, Eye, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store, Link2 } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store, Link2, Scale } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -412,8 +412,9 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </Button>
       )}
 
-      {/* Footer: author left - Compare / Save right (v151: Share moved into
-          the header 3-dot menu on every card) */}
+      {/* Footer: author left - Links / Compare / Save right (v156: the
+          linked-posts chip moved up beside Compare so the comparison actions
+          sit together; v151: Share moved into the header 3-dot menu) */}
       <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between gap-2">
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
           <Avatar className="w-7 h-7 border border-accent shrink-0 overflow-hidden">
@@ -447,8 +448,17 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         </button>
         {!compact && (
           <div className="flex items-center gap-1 shrink-0">
+            {/* Linked posts count (v156: moved from the votes row to sit next
+                to Compare - both open the detail view, where links are
+                managed). Only rendered when links exist. */}
+            {(post.linksCount ?? 0) > 0 && (
+              <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} data-testid="price-link-count" className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-primary" title="Linked price posts - the same item posted elsewhere">
+                <Link2 className="w-3.5 h-3.5" />
+                <span>{post.linksCount} link{(post.linksCount ?? 0) !== 1 ? 's' : ''}</span>
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} data-testid="card-compare-open" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1 h-7 px-2 shrink-0">
-              <Eye className="w-3.5 h-3.5" />
+              <Scale className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Compare</span>
             </Button>
             <Button size="sm" variant="outline" onClick={handleToggleSave} className={cn('shrink-0 h-7 w-7 p-0', saved ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')} title={saved ? 'Remove from bookmarks' : 'Save to bookmarks'}>
@@ -460,15 +470,6 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
 
       {!compact && (
         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-          {/* Links count - symmetric links to other posts for the same item
-              elsewhere; tapping opens the detail modal where links are
-              managed (add / remove). Only rendered when links exist. */}
-          {(post.linksCount ?? 0) > 0 && (
-            <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} data-testid="price-link-count" className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-primary" title="Linked price posts - the same item posted elsewhere">
-              <Link2 className="w-3.5 h-3.5" />
-              <span>{post.linksCount} link{(post.linksCount ?? 0) !== 1 ? 's' : ''}</span>
-            </Button>
-          )}
           <Button size="sm" variant={post.myVote === 'HELPFUL' ? 'default' : 'outline'} onClick={() => onVote?.(post.id, 'HELPFUL')} className={cn('h-7 px-2.5 text-xs gap-1.5', post.myVote === 'HELPFUL' ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'text-muted-foreground hover:text-primary')}>
             <ThumbsUp className="w-3.5 h-3.5" /><span>{post.helpfulCount}</span><span className="hidden sm:inline">Helpful</span>
           </Button>
