@@ -7,7 +7,7 @@
 //
 // Constraints that shaped it (all E2E-locked, see task101 suites):
 //   - landing-headline / landing-copy / landing-cta / landing-signup /
-//     landing-signin / landing-install / landing-demo / landing-version
+//     landing-signin / landing-install / landing-version
 //     all still exist and stay visible on desktop (L1-L4).
 //   - the hero is still the single <main> and must fit one viewport at
 //     1440x900 AND 375x812 (L5 / M5-pre) - the phone mockup is
@@ -60,7 +60,6 @@ export interface LandingStats {
 interface LandingPageProps {
   onSignUp: () => void
   onLogin: () => void
-  onViewDemo?: () => void
   stats?: LandingStats | null
 }
 
@@ -285,11 +284,9 @@ function PhoneMockup() {
  *   landing-signin   the nav's "Sign in" - opens login
  *   landing-install  the nav's PWA install button (Android one-tap,
  *                    iOS step-by-step; hides once standalone)
- *   landing-demo     hero text link - read-only demo view, every action
- *                    prompts sign-up
  *   landing-version  footer version marker
  */
-export function LandingPage({ onSignUp, onLogin, onViewDemo, stats = null }: LandingPageProps) {
+export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProps) {
   const { t } = useLanguage()
   const [posters, setPosters] = useState<Array<{ id: string; name: string; avatarColor: string; postsCount: number }>>([])
 
@@ -393,16 +390,6 @@ export function LandingPage({ onSignUp, onLogin, onViewDemo, stats = null }: Lan
                 </a>
               </Button>
             </div>
-
-            {onViewDemo && (
-              <button
-                data-testid="landing-demo"
-                onClick={onViewDemo}
-                className="mt-3 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
-              >
-                {t('landing.demo')}
-              </button>
-            )}
 
             <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
@@ -526,11 +513,6 @@ export function LandingPage({ onSignUp, onLogin, onViewDemo, stats = null }: Lan
             <p className="mt-2 flex-1 text-xs leading-relaxed text-muted-foreground">
               See what food, transport, hotels and services really cost - posted by people who live there.
             </p>
-            {onViewDemo && (
-              <button onClick={onViewDemo} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                Browse the demo <ArrowRight className="h-3 w-3" />
-              </button>
-            )}
           </div>
 
           {/* locals - the dark green hero card, like the mockup */}
