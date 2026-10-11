@@ -13,6 +13,14 @@
 // touches the email. This endpoint exists so accounts nobody ever comes back
 // for do not sit in the database forever.
 //
+// TARGETED MODE (v160): ?code=<SECRET>&name=<account name> hard-deletes TODAY
+// every account whose name matches EXACTLY - the escape hatch for probe
+// litter (e.g. the 66 Compass probe E2E accounts) that would otherwise sit
+// in the people directory until its 6-month retention lapses. Double guard:
+// the requested name must contain "probe" (case-insensitive) AND every
+// deleted account must carry the throwaway domain @circub.test, so the
+// targeted mode can never touch a genuine user even if the code leaks.
+//
 // The code mirrors the /api/seed protection: a shared secret in the query
 // string keeps random crawlers from mass-deleting users.
 import { NextRequest, NextResponse } from 'next/server'
@@ -29,6 +37,26 @@ async function run(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
   if (code !== CLEANUP_CODE) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Targeted name mode first - when given, retention is bypassed on purpose.
+  const name = req.nextUrl.searchParams.get('name')?.trim() || ''
+  if (name) {
+    if (!name.toLowerCase().includes('probe')) {
+      return NextResponse.json(
+        { error: 'Targeted mode only accepts probe account names' },
+        { status: 400 }
+      )
+    }
+    const { count } = await db.user.deleteMany({
+      where: { name, email: { endsWith: '@circub.test' } },
+    })
+    return NextResponse.json({
+      ok: true,
+      mode: 'targeted-name',
+      name,
+      deletedUsers: count,
+    })
   }
 
   const cutoff = new Date(Date.now() - RETENTION_MS)
