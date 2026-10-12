@@ -376,23 +376,45 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         py += 50
       }
 
-      // Photo - cover-cropped into a rounded card with a soft green frame
-      const phH = 400
+      // Photo - PROPORTIONAL card (v165: "make the shared poster also
+      // proportional image that show properly"). The old layout forced every
+      // photo into a fixed 896x400 strip, so portrait phone photos were
+      // cover-cropped down to a thin middle band - most of the image never
+      // showed. Now the card takes the photo's OWN aspect ratio: landscape
+      // photos stay full width with a natural height, portrait photos shrink
+      // the card's WIDTH (centered) so the whole image fits the vertical
+      // budget, and the cover-crop only trims rounding-level slivers because
+      // the card aspect matches the photo aspect. The height clamp keeps the
+      // price row + footer divider clear (priceY <= 1090 < divider 1106).
+      const aspect = photo.width / photo.height
       const phY = py + 6
+      let phW = contentW
+      let phH = Math.round(contentW / aspect)
+      const maxH = Math.max(300, Math.min(480, 1090 - 84 - phY))
+      if (phH > maxH) {
+        phH = maxH
+        phW = Math.min(contentW, Math.round(maxH * aspect))
+      }
+      if (phH < 220) {
+        // extreme panorama: give the card a sane height, cover-crop trims it
+        phH = 220
+        phW = contentW
+      }
+      const phX = contentX + (contentW - phW) / 2
       ctx.save()
-      roundRect(ctx, contentX, phY, contentW, phH, 28)
+      roundRect(ctx, phX, phY, phW, phH, 28)
       ctx.clip()
-      const scale = Math.max(contentW / photo.width, phH / photo.height)
-      const sw = contentW / scale
+      const scale = Math.max(phW / photo.width, phH / photo.height)
+      const sw = phW / scale
       const sh = phH / scale
-      ctx.drawImage(photo, (photo.width - sw) / 2, (photo.height - sh) / 2, sw, sh, contentX, phY, contentW, phH)
+      ctx.drawImage(photo, (photo.width - sw) / 2, (photo.height - sh) / 2, sw, sh, phX, phY, phW, phH)
       ctx.restore()
       ctx.save()
       ctx.shadowColor = 'rgba(34,197,94,0.55)'
       ctx.shadowBlur = 16
       ctx.strokeStyle = 'rgba(74,222,128,0.75)'
       ctx.lineWidth = 3
-      roundRect(ctx, contentX, phY, contentW, phH, 28)
+      roundRect(ctx, phX, phY, phW, phH, 28)
       ctx.stroke()
       ctx.restore()
 
@@ -404,14 +426,14 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         const chipW = ctx.measureText(byLine + handleText).width + 36
         ctx.save()
         ctx.fillStyle = 'rgba(4, 21, 12, 0.72)'
-        roundRect(ctx, contentX + 18, phY + 18, chipW, 46, 23)
+        roundRect(ctx, phX + 18, phY + 18, chipW, 46, 23)
         ctx.fill()
         ctx.restore()
         ctx.fillStyle = '#f0fdf4'
-        ctx.fillText(byLine, contentX + 36, phY + 49)
+        ctx.fillText(byLine, phX + 36, phY + 49)
         if (handleText) {
           ctx.fillStyle = '#4ade80'
-          ctx.fillText(handleText, contentX + 36 + ctx.measureText(byLine).width, phY + 49)
+          ctx.fillText(handleText, phX + 36 + ctx.measureText(byLine).width, phY + 49)
         }
       }
 
@@ -431,7 +453,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
 
       // v152: compare strip pinned to the photo's bottom edge
       if (target.compareTitle && target.compareLabel) {
-        drawCompareOnPhoto(ctx, target.compareTitle, target.compareLabel, contentX + 18, phY + phH - 112, contentW - 36)
+        drawCompareOnPhoto(ctx, target.compareTitle, target.compareLabel, phX + 18, phY + phH - 112, phW - 36)
       }
     } else {
       // ---------- TEXT-ONLY LAYOUT (no photo / photo failed to load) ----------
