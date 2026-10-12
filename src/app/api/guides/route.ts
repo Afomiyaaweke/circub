@@ -40,6 +40,22 @@ export async function GET(req: NextRequest) {
     else if (terms.length > 1) where.AND = terms.map((t) => ({ OR: termOr(t) }))
     if (language) where.guideLanguages = { contains: language }
     if (specialty) where.guideSpecialties = { contains: specialty }
+    // Role filter (v161): the directory's Guide / Vlogger / Local / Volunteer /
+    // Sales chips. Roles live comma-separated in guideRoles, so a plain
+    // `contains` on the slug is the whole filter - EXCEPT for `guide` itself:
+    // legacy members (guideRoles = null) read as guides everywhere else in the
+    // app, so the Guide chip must include them too.
+    const role = searchParams.get('role')?.trim().toLowerCase() || ''
+    if (role && (CIRCUB_ROLES as readonly string[]).includes(role)) {
+      if (role === 'guide') {
+        where.AND = [
+          ...(Array.isArray(where.AND) ? where.AND : []),
+          { OR: [{ guideRoles: { contains: 'guide' } }, { guideRoles: null }] },
+        ]
+      } else {
+        where.guideRoles = { contains: role }
+      }
+    }
 
     const guides = await db.user.findMany({
       where: caseInsensitiveWhere(where),

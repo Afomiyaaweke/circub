@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun } from '@/lib/roles'
+import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun, CIRCUB_ROLES } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -93,6 +93,9 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [search, setSearch] = useState('')
   const [language, setLanguage] = useState('')
   const [specialty, setSpecialty] = useState('')
+  // Role filter (v161): '' = all roles, otherwise a CIRCUB_ROLES slug wired
+  // to the chip row under the search pill and the /api/guides `role` param.
+  const [role, setRole] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
 
   // Near-me (GPS distance sort)
@@ -142,6 +145,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       if (search) params.set('search', search)
       if (language) params.set('language', language)
       if (specialty) params.set('specialty', specialty)
+      if (role) params.set('role', role)
       if (availableOnly) params.set('available', 'true')
       if (nearMe && myCoords) {
         params.set('lat', String(myCoords.lat))
@@ -153,7 +157,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       setGuides(next)
       hasGuidesRef.current = next.length > 0
     } catch { setGuides([]); hasGuidesRef.current = false } finally { setLoading(false) }
-  }, [search, language, specialty, availableOnly, nearMe, myCoords, meRolesKey])
+  }, [search, language, specialty, role, availableOnly, nearMe, myCoords, meRolesKey])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
@@ -511,6 +515,55 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className={cn('w-3.5 h-3.5', nearMe && 'animate-pulse')} />}
           {nearMe ? 'Nearest' : 'Near me'}
         </button>
+      </div>
+
+      {/* Role chips (v161): one tap slices the directory by Live Zone role
+          (Guide / Vlogger / Local / Volunteer / Sales). Counts come from the
+          currently loaded directory and only render while "All" is active -
+          inside a filtered view they would read as something they are not. */}
+      <div className="flex items-center gap-1.5 flex-wrap" data-testid="zone-role-filter">
+        <button
+          type="button"
+          data-testid="zone-role-chip"
+          data-role=""
+          data-active={role === '' ? 'true' : 'false'}
+          onClick={() => setRole('')}
+          className={cn(
+            'flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors cursor-pointer shrink-0',
+            role === ''
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-card text-muted-foreground border-border hover:border-primary/40'
+          )}
+        >
+          All roles
+          {role === '' && (
+            <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">{guides.length}</span>
+          )}
+        </button>
+        {CIRCUB_ROLES.map((r) => (
+          <button
+            key={r}
+            type="button"
+            data-testid="zone-role-chip"
+            data-role={r}
+            data-active={role === r ? 'true' : 'false'}
+            onClick={() => setRole(role === r ? '' : r)}
+            title={ROLE_META[r].blurb}
+            className={cn(
+              'flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors cursor-pointer shrink-0',
+              role === r
+                ? 'bg-primary/10 text-primary border-primary/30'
+                : 'bg-card text-muted-foreground border-border hover:border-primary/40'
+            )}
+          >
+            {ROLE_META[r].label}
+            {role === '' && (
+              <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
+                {guides.filter((g) => Array.isArray(g.guideRoles) && g.guideRoles.includes(r)).length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* AI Guide Match panel - opens from the AI button inside the search
