@@ -43,6 +43,26 @@ interface LocalPriceCardProps {
   } | null
 }
 
+// v164: one row of the "connected businesses" panel - what GET
+// /api/local-prices/<id>/links returns for the OTHER side of a link.
+// Same payload the detail modal's compare ranks, so the card panel and
+// the modal always agree on who is connected and by how much.
+interface LinkedBusinessRow {
+  linkId: string
+  via: 'direct' | 'business'
+  authorVotes?: number
+  post: {
+    id: string
+    productName: string
+    currency: string
+    priceMin: number
+    priceMax: number
+    city?: string | null
+    helpfulCount?: number
+    author?: { id: string; name: string } | null
+  }
+}
+
 function formatPrice(value: number, currency: string) {
   if (value >= 1000) return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
   return `${currency} ${value}`
@@ -74,6 +94,17 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   // tapping a price entry in the card's compare strip reveals the business
   // behind that price (one at a time; tap again to hide).
   const [revealedEntry, setRevealedEntry] = useState<string | null>(null)
+  // v164: "while touching the link after link show connected businesses" -
+  // the "N links" chip no longer just opens the detail modal; tapping it
+  // reveals WHO is connected: an inline panel of the linked businesses
+  // (name, price, delta vs this post, votes - ranked votes-first exactly
+  // like the modal's compare rows). Tap a business -> its post opens in
+  // the detail modal. Tap the chip again -> hide. Rows are fetched from
+  // the SAME business-level /links endpoint the modal uses, ONCE per card,
+  // then cached in component state.
+  const [linksOpen, setLinksOpen] = useState(false)
+  const [linkedRows, setLinkedRows] = useState<LinkedBusinessRow[] | null>(null)
+  const [linksLoading, setLinksLoading] = useState(false)
   const [compareHold, setCompareHold] = useState(false)
   const compareKeyRef = useRef('')
   // v117: the share link is ALWAYS the post's own deep link (/?post=<id>).
@@ -111,6 +142,49 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   const handleShare = () => {
     setShareOpen(true)
   }
+
+  // v164: the "N links" chip toggle - reveal / hide the connected
+  // businesses panel. Rows come from the SAME business-level endpoint the
+  // detail modal's compare ranks (GET /api/local-prices/<id>/links), fetched
+  // once per card and cached; the chip re-tap only toggles the panel.
+  const handleToggleLinks = () => {
+    if (linksOpen) {
+      setLinksOpen(false)
+      return
+    }
+    setLinksOpen(true)
+    if (linkedRows) return
+    setLinksLoading(true)
+    fetch(`/api/local-prices/${post.id}/links`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setLinkedRows(Array.isArray(d?.links) ? d.links : []))
+      .catch(() => setLinkedRows([]))
+      .finally(() => setLinksLoading(false))
+  }
+
+  // v164: connected businesses ranked EXACTLY like the modal's compare rows
+  // (v158): same-currency rows in front, then most helpful votes first,
+  // cheapest priceMax breaks ties. Delta = same math as the modal:
+  // ((other.priceMax - this.priceMax) / this.priceMax) * 100.
+  const sortedLinkedRows = (() => {
+    if (!linkedRows) return []
+    const votes = (l: LinkedBusinessRow) =>
+      typeof l.authorVotes === 'number' ? l.authorVotes : (l.post.helpfulCount ?? 0)
+    return [...linkedRows].sort((a, b) => {
+      const aSame = a.post.currency === post.currency ? 0 : 1
+      const bSame = b.post.currency === post.currency ? 0 : 1
+      if (aSame !== bSame) return aSame - bSame
+      if (aSame === 0) {
+        const av = votes(a)
+        const bv = votes(b)
+        if (av !== bv) return bv - av
+        return a.post.priceMax - b.post.priceMax
+      }
+      return 0
+    })
+  })()
+  const linkedDelta = (other: number) =>
+    post.priceMax > 0 ? ((other - post.priceMax) / post.priceMax) * 100 : 0
 
   // v154: modal-grade compare for strip-less cards. Same endpoint the detail
   // modal uses (/similar): product matches first (exact then near, same
@@ -468,10 +542,11 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         {!compact && (
           <div className="flex items-center gap-1 shrink-0">
             {/* Linked posts count (v156: moved from the votes row to sit next
-                to Compare - both open the detail view, where links are
-                managed). Only rendered when links exist. */}
+                to Compare). v164: tapping it no longer opens the detail modal
+                - it REVEALS the connected businesses inline (the panel under
+                the footer); tap again to hide. Only rendered when links exist. */}
             {(post.linksCount ?? 0) > 0 && (
-              <Button size="sm" variant="outline" onClick={() => onOpen?.(post.id)} data-testid="price-link-count" className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-primary" title="Linked price posts - the same item posted elsewhere">
+              <Button size="sm" variant="outline" onClick={handleToggleLinks} data-testid="price-link-count" className={cn('h-7 px-2.5 text-xs gap-1.5', linksOpen ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')} title="Connected businesses - tap to see who else sells this">
                 <Link2 className="w-3.5 h-3.5" />
                 <span>{post.linksCount} link{(post.linksCount ?? 0) !== 1 ? 's' : ''}</span>
               </Button>
@@ -486,6 +561,65 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           </div>
         )}
       </div>
+
+      {/* v164: connected businesses panel - the heart of "while touching the
+          link after link show connected businesses". Ranked like the modal's
+          compare (same currency first, then votes, then cheapest); every row
+          is tappable and opens that business's post in the detail modal.
+          Mobile-safe: flex-wrap + max-sm:basis-full keeps long business names
+          on their own line on phones (the v163 nowrap+truncate lesson). */}
+      {linksOpen && !compact && (
+        <div data-testid="card-links-businesses" className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2">
+          <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-primary mb-1">
+            <Link2 className="w-3 h-3 shrink-0" />
+            Connected businesses ({sortedLinkedRows.length})
+          </p>
+          {linksLoading ? (
+            <p className="text-xs text-muted-foreground py-1">Loading businesses…</p>
+          ) : sortedLinkedRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-1">No connected businesses yet</p>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {sortedLinkedRows.map((l) => {
+                const sameCur = l.post.currency === post.currency
+                const delta = sameCur ? linkedDelta(l.post.priceMax) : 0
+                const rowVotes = typeof l.authorVotes === 'number' ? l.authorVotes : (l.post.helpfulCount ?? 0)
+                const priceLabel = l.post.priceMin !== l.post.priceMax
+                  ? `${formatPrice(l.post.priceMin, l.post.currency)} - ${formatPrice(l.post.priceMax, l.post.currency)}`
+                  : formatPrice(l.post.priceMax, l.post.currency)
+                return (
+                  <button
+                    key={l.linkId}
+                    data-testid="card-links-business"
+                    data-business={l.post.author?.name || ''}
+                    onClick={() => onOpen?.(l.post.id)}
+                    className="w-full text-left flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md px-1.5 py-1 hover:bg-primary/10 active:bg-primary/15 transition-colors"
+                    title={`Open ${l.post.author?.name || 'this business'}'s post`}
+                  >
+                    <Store className="w-3.5 h-3.5 shrink-0 text-primary" />
+                    <span className="text-xs font-medium text-foreground min-w-0 max-sm:basis-full">{l.post.author?.name || 'A business'}</span>
+                    <span className="text-[10px] text-muted-foreground">{priceLabel}</span>
+                    {sameCur && (
+                      <span
+                        data-testid="card-links-business-delta"
+                        className={cn(
+                          'text-[10px] font-semibold shrink-0',
+                          delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                        )}
+                      >
+                        {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground ml-auto shrink-0">
+                      <ThumbsUp className="w-3 h-3" />{rowVotes}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {!compact && (
         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
