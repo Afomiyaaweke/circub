@@ -53,15 +53,29 @@ export async function GET(req: NextRequest) {
     const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0
     // _count.linksA/linksB -> the "N links" chip on each card (symmetric
     // PricePostLink rows; every link touches exactly one of the two sides).
-    const rows = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: limit + 1, skip: offset })
-    const hasMore = rows.length > limit
-    const posts = rows.slice(0, limit)
-    const result = posts.map((p) => {
+    // v166: "the more links, the more visible" - the feed lifts posts with
+    // more links above posts with fewer. The full candidate window (this
+    // API never serves more than 100 rows) is fetched in the base order,
+    // scored with the SAME per-post "N links" count the card chip shows
+    // (linksA + linksB), re-ranked, then sliced per page - so the lift is
+    // globally correct across pagination windows instead of per-page only.
+    const rows = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: 101 })
+    const scored = rows.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       const { linksA, linksB } = (p as any)._count || { linksA: 0, linksB: 0 }
       return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote, linksCount: (linksA || 0) + (linksB || 0) }
     })
-    return NextResponse.json({ posts: result, hasMore }, { headers: cacheHeaders() })
+    // Visibility lift: linked posts rise, ties and unlinked posts keep the
+    // base order (newest-first for the feed, most-voted for popular).
+    // Profile listings (authorId) stay purely recency-ordered.
+    if (sort === 'popular') {
+      scored.sort((a, b) => b.helpfulCount - a.helpfulCount || b.linksCount - a.linksCount || b.createdAt.getTime() - a.createdAt.getTime())
+    } else if (!authorId) {
+      scored.sort((a, b) => b.linksCount - a.linksCount || b.createdAt.getTime() - a.createdAt.getTime())
+    }
+    const hasMore = scored.length > offset + limit
+    const posts = scored.slice(offset, offset + limit)
+    return NextResponse.json({ posts, hasMore }, { headers: cacheHeaders() })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }
 

@@ -137,6 +137,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       db.localPricePost.findUnique({ where: { id: linkedId } }),
     ])
     if (!a || !b) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    // v166: "link your own post only, not everyone's" - a link is created
+    // FROM the opened post, so its author must be the one linking. The
+    // target stays open ("to any business you like"): any other post on
+    // circub can be linked. The other owner gets the same power from their
+    // side - they link THEIR post to yours from their own modal.
+    if (a.authorId !== me.id) {
+      return NextResponse.json({ error: 'You can only link your own posts' }, { status: 403 })
+    }
     // Normalize the pair (postAId < postBId) so the unique constraint blocks
     // duplicates regardless of which side the link was created from.
     const [postAId, postBId] = [id, linkedId].sort()

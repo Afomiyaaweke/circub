@@ -919,15 +919,18 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {totalCompare}
                     </span>
                   </h3>
-                  {currentUserId && (
+                  {/* v166: linking is OWNER-ONLY - you connect YOUR post to
+                      any business you like; nobody else can attach links to
+                      your post (the server rejects non-owners too). */}
+                  {isOwnPost && (
                     <Button
                       size="sm"
                       variant="outline"
                       data-testid="detail-link-picker-toggle"
                       onClick={() => setShowLinkPicker((v) => !v)}
                       className="h-7 w-7 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                      title="Link a business"
-                      aria-label="Link a business"
+                      title="Link a business to your post"
+                      aria-label="Link a business to your post"
                     >
                       <Link2 className="w-3.5 h-3.5" />
                     </Button>
@@ -1121,8 +1124,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   </div>
                 )}
 
-                {showLinkPicker && currentUserId && (
+                {showLinkPicker && isOwnPost && (
                   <div className="mb-3 rounded-lg border border-border bg-accent/30 p-2.5 space-y-2" data-testid="detail-link-picker">
+                    <p className="text-[11px] font-medium text-primary">
+                      You&apos;re linking YOUR post - connect it to any business you like. Every link lifts both posts up the feed.
+                    </p>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                       <Input
@@ -1171,7 +1177,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
 
                 {links.length === 0 && autoRows.length === 0 ? (
                   <div data-testid="detail-links-empty" className="space-y-2">
-                    {currentUserId ? (
+                    {/* v166: link suggestions are owner-only - a non-owner
+                        just reads the plain empty state. */}
+                    {isOwnPost ? (
                       <>
                         <p className="text-xs text-muted-foreground">
                           {`No other business sells "${post.productName}" here yet. Link one and the prices compare instantly:`}
