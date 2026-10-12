@@ -1147,9 +1147,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     <div className="space-y-1.5 max-h-44 overflow-y-auto scrollbar-thin">
                       {linkCandidates.slice(0, 6).map((c) => (
                         <div key={c.id} data-testid="detail-link-cand" className="flex items-center justify-between gap-2 gap-y-1 flex-wrap bg-card border border-border rounded-md px-2.5 py-1.5">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{c.productName}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">
+                          <div className="min-w-0 max-sm:basis-full">
+                            <p className="text-xs font-medium text-foreground line-clamp-2">{c.productName}</p>
+                            <p className="text-[10px] text-muted-foreground line-clamp-2">
                               {[c.city, c.country].filter(Boolean).join(', ')} · {c.currency} {c.priceMin}{c.priceMin !== c.priceMax ? `-${c.priceMax}` : ''}
                             </p>
                           </div>
@@ -1190,11 +1190,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                           <div
                             key={c.id}
                             data-testid="detail-link-suggest"
-                            className="flex items-center justify-between gap-2 bg-accent/30 border border-dashed border-primary/40 rounded-md px-2.5 py-1.5"
+                            className="flex items-center justify-between gap-2 gap-y-1 flex-wrap bg-accent/30 border border-dashed border-primary/40 rounded-md px-2.5 py-1.5"
                           >
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium text-foreground truncate">{c.productName}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">
+                            <div className="min-w-0 max-sm:basis-full">
+                              <p className="text-xs font-medium text-foreground line-clamp-2">{c.productName}</p>
+                              <p className="text-[10px] text-muted-foreground line-clamp-2">
                                 {c.author?.name ? `${c.author.name} · ` : ''}
                                 {[c.city, c.country].filter(Boolean).join(', ')} · {c.currency} {c.priceMin}
                                 {c.priceMin !== c.priceMax ? `-${c.priceMax}` : ''}
@@ -1237,7 +1237,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                           <span className="block text-xs font-semibold text-foreground truncate">
                             {isOwnPost ? 'Your business' : 'This business'}
                           </span>
-                          <span className="block text-[10px] text-muted-foreground truncate">
+                          <span className="block text-[10px] text-muted-foreground line-clamp-2">
                             {[post?.city, post?.country].filter(Boolean).join(', ')}
                           </span>
                         </span>
@@ -1274,8 +1274,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               <img src={l.post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                             )}
                             <span className="min-w-0">
-                              <span className="block text-xs font-medium text-foreground truncate">{l.post.productName}</span>
-                              <span className="block text-[10px] text-muted-foreground truncate">
+                              <span className="block text-xs font-medium text-foreground line-clamp-2">{l.post.productName}</span>
+                              <span className="block text-[10px] text-muted-foreground line-clamp-2">
                                 {l.post.author?.name ? `${l.post.author.name} · ` : ''}
                                 {[l.post.city, l.post.country].filter(Boolean).join(', ')}
                               </span>
@@ -1361,7 +1361,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                   <img src={a.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                                 )}
                                 <span className="min-w-0">
-                                  <span className="block text-xs font-medium text-foreground truncate items-center gap-1">
+                                  <span className="block text-xs font-medium text-foreground line-clamp-2 items-center gap-1">
                                     {currentUserId && a.author?.id === currentUserId && (
                                       <span
                                         data-testid="detail-compare-you"
@@ -1380,7 +1380,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                     )}
                                     {a.productName}
                                   </span>
-                                  <span className="block text-[10px] text-muted-foreground truncate">
+                                  <span className="block text-[10px] text-muted-foreground line-clamp-2">
                                     {a.author?.name && a.author.id !== currentUserId ? `${a.author.name} · ` : ''}
                                     {[a.city, a.country].filter(Boolean).join(', ')}
                                   </span>
@@ -1510,9 +1510,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         {consensus.contributingPosts.slice(0, 5).map((cp) => (
                           <div
                             key={cp.id}
-                            className="flex items-center justify-between gap-2 text-xs bg-card border border-border/50 rounded-md px-3 py-1.5"
+                            className="flex items-center justify-between gap-2 gap-y-1 flex-wrap text-xs bg-card border border-border/50 rounded-md px-2 py-1.5 sm:px-3"
                           >
-                            <div className="flex items-center gap-2 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0 max-sm:basis-full">
                               <Avatar className="w-5 h-5">
                                 <AvatarFallback className="bg-primary/15 text-primary text-[10px] font-semibold">
                                   {cp.author.name.charAt(0).toUpperCase()}
