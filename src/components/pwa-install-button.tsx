@@ -59,7 +59,7 @@ export function PwaInstallButton({
       setInstalled(true)
       setPromptEvent(null)
       toast({
-        title: 'circub installed',
+        title: 'circubawd installed',
         description: 'Look for the green C icon on your home screen.',
       })
     }
@@ -79,7 +79,7 @@ export function PwaInstallButton({
         const choice = await promptEvent.userChoice
         if (choice.outcome === 'accepted') {
           toast({
-            title: 'Installing circub…',
+            title: 'Installing circubawd…',
             description: 'It will appear on your home screen in seconds.',
           })
         }
@@ -116,7 +116,7 @@ export function PwaInstallButton({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-primary" />
-              Install the circub app
+              Install the circubawd app
             </DialogTitle>
             <DialogDescription>
               Free, takes seconds · full-screen app with its own icon on your home screen.

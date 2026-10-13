@@ -3,9 +3,9 @@ import type { Metadata } from 'next'
 import { ContactClient } from './contact-client'
 
 export const metadata: Metadata = {
-  title: 'Contact Us · circub',
+  title: 'Contact Us · circubawd',
   description:
-    'Get in touch with the circub team - send us a message, reach support at support@tenetbid.com, or call +251 956 140 291.',
+    'Get in touch with the circubawd team - send us a message, reach support at support@tenetbid.com, or call +251 956 140 291.',
 }
 
 export default function ContactPage() {

@@ -2,7 +2,7 @@
 // the saves are per-device (browser localStorage). This is intentionally
 // simple so guests can save items too (they don't have a DB user account).
 
-const STORAGE_KEY = 'circub_saved_items'
+const STORAGE_KEY = 'circubawd_saved_items'
 
 export interface SavedItem {
   id: string

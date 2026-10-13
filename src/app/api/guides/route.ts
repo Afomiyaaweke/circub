@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { guideDistanceKm } from '@/lib/geo'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
-import { guideRolesOrLegacy, CIRCUB_ROLES } from '@/lib/roles'
+import { guideRolesOrLegacy, circubawd_ROLES } from '@/lib/roles'
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     // legacy members (guideRoles = null) read as guides everywhere else in the
     // app, so the Guide chip must include them too.
     const role = searchParams.get('role')?.trim().toLowerCase() || ''
-    if (role && (CIRCUB_ROLES as readonly string[]).includes(role)) {
+    if (role && (circubawd_ROLES as readonly string[]).includes(role)) {
       if (role === 'guide') {
         where.AND = [
           ...(Array.isArray(where.AND) ? where.AND : []),
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
     } else if (typeof body.guideRoles === 'string') {
       roleInput = body.guideRoles.split(',').map((r) => r.trim().toLowerCase()).filter(Boolean)
     }
-    const roles = [...new Set(roleInput)].filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
+    const roles = [...new Set(roleInput)].filter((r) => (circubawd_ROLES as readonly string[]).includes(r))
     if (roles.length === 0) {
       return NextResponse.json({ error: 'Pick at least one role: guide, vlogger, local, volunteer or sales' }, { status: 400 })
     }

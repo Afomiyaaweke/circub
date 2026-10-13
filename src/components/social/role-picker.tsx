@@ -5,11 +5,11 @@
 // (guide-register-modal). The sign-up answer is stored on User.guideRoles and
 // arrives prefilled here when the member later joins the Live Zone program.
 import { CheckCircle2, Video, Compass, Users, Heart, ShoppingBag } from 'lucide-react'
-import { CIRCUB_ROLES, ROLE_META, type CircubRole } from '@/lib/roles'
+import { circubawd_ROLES, ROLE_META, type circubawdRole } from '@/lib/roles'
 import { useLanguage } from '@/lib/i18n'
 
 // Chip icons per role (Video/Compass double as section icons elsewhere).
-export const ROLE_ICONS: Record<CircubRole, React.ComponentType<{ className?: string }>> = {
+export const ROLE_ICONS: Record<circubawdRole, React.ComponentType<{ className?: string }>> = {
   vlogger: Video,
   guide: Compass,
   local: Users,
@@ -18,8 +18,8 @@ export const ROLE_ICONS: Record<CircubRole, React.ComponentType<{ className?: st
 }
 
 interface RolePickerProps {
-  roles: CircubRole[]
-  onToggle: (role: CircubRole) => void
+  roles: circubawdRole[]
+  onToggle: (role: circubawdRole) => void
   // data-testids default to the Live Zone modal's long-standing values; the
   // sign-up modal overrides them so E2E selectors never collide.
   sectionTestId?: string
@@ -35,13 +35,13 @@ export function RolePicker({
   // Role labels/blurbs translate through i18n with the English ROLE_META copy
   // as fallback, so the question reads natively in every app language.
   const { t } = useLanguage()
-  const roleLabel = (role: CircubRole) => t(`roles.${role}` as never) || ROLE_META[role].label
-  const roleBlurb = (role: CircubRole) => t(`roles.${role}Blurb` as never) || ROLE_META[role].blurb
+  const roleLabel = (role: circubawdRole) => t(`roles.${role}` as never) || ROLE_META[role].label
+  const roleBlurb = (role: circubawdRole) => t(`roles.${role}Blurb` as never) || ROLE_META[role].blurb
   return (
     <div className="space-y-2" data-testid={sectionTestId}>
       <label className="text-xs text-muted-foreground font-medium">{t("roles.question")}</label>
       <div className="grid grid-cols-2 gap-2">
-        {CIRCUB_ROLES.map((role) => {
+        {circubawd_ROLES.map((role) => {
           const Icon = ROLE_ICONS[role]
           const active = roles.includes(role)
           return (

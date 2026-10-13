@@ -145,7 +145,7 @@ export function Header({
         <div className="flex items-center gap-2 shrink-0 min-w-0">
           <img
             src="/logo-mark.png"
-            alt="circub"
+            alt="circubawd"
             className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
           />
           <div className="min-w-0 hidden xl:block">

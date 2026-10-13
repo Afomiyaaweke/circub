@@ -8,10 +8,10 @@
 //
 // One coordinator owns the interplay between our overlays and the history
 // stack. Every open overlay pushes ONE same-document entry carrying a
-// circubOverlay marker; a popstate closes the TOP registered overlay (last
+// circubawdOverlay marker; a popstate closes the TOP registered overlay (last
 // opened = top, so nesting unwinds in reverse order). An overlay closed by
 // the UI (X, Done, back arrow) TOMBSTONES its entry (replaceState with a
-// circubDead marker) instead of calling history.back() - a programmatic
+// circubawdDead marker) instead of calling history.back() - a programmatic
 // back() at close time races with the Next.js App Router's own history
 // patching and behaves differently between dev and prod builds, while a
 // tombstone is just a state swap on the entry we are already on. Device
@@ -43,8 +43,8 @@ const popstateClosed = new Set<symbol>()
 let bound = false
 
 type HistoryState = {
-  circubOverlay?: number
-  circubDead?: number
+  circubawdOverlay?: number
+  circubawdDead?: number
   [k: string]: unknown
 }
 
@@ -56,14 +56,14 @@ function currentState(): HistoryState | null {
   }
 }
 
-// Remove a stale circubOverlay marker from the CURRENT entry (the Next.js
+// Remove a stale circubawdOverlay marker from the CURRENT entry (the Next.js
 // boot-merge quirk). structuredClone drops `undefined` values, so the key
 // disappears from the stored state.
 function depolluteCurrent() {
   const st = currentState()
-  if (st && st.circubOverlay !== undefined && st.circubDead === undefined) {
+  if (st && st.circubawdOverlay !== undefined && st.circubawdDead === undefined) {
     try {
-      window.history.replaceState({ ...st, circubOverlay: undefined }, '')
+      window.history.replaceState({ ...st, circubawdOverlay: undefined }, '')
     } catch {
       /* state write refused - the stale marker is harmless */
     }
@@ -74,9 +74,9 @@ function depolluteCurrent() {
 // (chained history.back()) by the next device backs that land on them.
 function tombstoneCurrent() {
   const st = currentState()
-  if (st && st.circubOverlay !== undefined && st.circubDead === undefined) {
+  if (st && st.circubawdOverlay !== undefined && st.circubawdDead === undefined) {
     try {
-      window.history.replaceState({ ...st, circubOverlay: undefined, circubDead: 1 }, '')
+      window.history.replaceState({ ...st, circubawdOverlay: undefined, circubawdDead: 1 }, '')
     } catch {
       /* state write refused - worst case one dead back press remains */
     }
@@ -98,14 +98,14 @@ function ensureBound() {
     }
     // Nothing of ours is open - only clean up markers our overlays left.
     const st = (event.state as HistoryState) ?? currentState()
-    if (st && st.circubDead !== undefined) {
+    if (st && st.circubawdDead !== undefined) {
       // Tombstoned entry: consume it and keep going (chains if several).
       try {
         window.history.back()
       } catch {
         /* traversal refused - nothing else to do */
       }
-    } else if (st && st.circubOverlay !== undefined) {
+    } else if (st && st.circubawdOverlay !== undefined) {
       // Stale marker merged onto a base entry by Next.js' boot replaceState:
       // scrub it so later flows start clean. The press is eaten (rare).
       depolluteCurrent()
@@ -129,7 +129,7 @@ export function useBackClose(active: boolean, onClose: CloseFn) {
     depolluteCurrent()
     let pushed = false
     try {
-      window.history.pushState({ circubOverlay: stack.length + 1 }, '')
+      window.history.pushState({ circubawdOverlay: stack.length + 1 }, '')
       pushed = true
     } catch {
       /* pushState unavailable (rare sandboxed contexts) - degrade to no-op */

@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "circub - real local prices & guides",
-  "short_name": "circub",
+  "name": "circubawd - real local prices & guides",
+  "short_name": "circubawd",
   "description": "Know what things actually cost while you travel, from the locals. Real local prices, AI price scanner, tour guide discovery, bookings and star ratings.",
   "start_url": "/",
   "scope": "/",
@@ -20,7 +20,7 @@
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "/screenshots/narrow.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "circub - real local prices, budget planner, ask a local" },
-    { "src": "/screenshots/wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "circub - know what things actually cost while you travel" }
+    { "src": "/screenshots/narrow.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow", "label": "circubawd - real local prices, budget planner, ask a local" },
+    { "src": "/screenshots/wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "circubawd - know what things actually cost while you travel" }
   ]
 }

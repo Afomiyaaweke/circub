@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun, CIRCUB_ROLES } from '@/lib/roles'
+import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun, circubawd_ROLES } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -93,7 +93,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [search, setSearch] = useState('')
   const [language, setLanguage] = useState('')
   const [specialty, setSpecialty] = useState('')
-  // Role filter (v161): '' = all roles, otherwise a CIRCUB_ROLES slug wired
+  // Role filter (v161): '' = all roles, otherwise a circubawd_ROLES slug wired
   // to the chip row under the search pill and the /api/guides `role` param.
   const [role, setRole] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
@@ -540,7 +540,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">{guides.length}</span>
           )}
         </button>
-        {CIRCUB_ROLES.map((r) => (
+        {circubawd_ROLES.map((r) => (
           <button
             key={r}
             type="button"
@@ -885,8 +885,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     ? `${window.location.origin}/g/${g.username}`
                     : `${window.location.origin}/?guide=${g.id}`
                   const rls = guideRolesOrLegacy((g as any).guideRoles)
-                  const shareTitle = `${g.name} - ${roleListLabel(rls)} on circub`
-                  const shareText = `Check out ${g.name}, a ${roleNoun(rls[0])} on circub`
+                  const shareTitle = `${g.name} - ${roleListLabel(rls)} on circubawd`
+                  const shareText = `Check out ${g.name}, a ${roleNoun(rls[0])} on circubawd`
                   try {
                     if (navigator.share) {
                       await navigator.share({ title: shareTitle, text: shareText, url })

@@ -1,6 +1,6 @@
 // v144: other businesses selling the SAME product - ANY city, ANY country.
 // The detail modal's Compare section renders these as the automatic
-// "Other businesses on circub" rows, so a price post compares itself even
+// "Other businesses on circubawd" rows, so a price post compares itself even
 // when nothing has been manually linked and even when the other business
 // is in a different city.
 // v149: real-world titles broke the exact-match rule (65 of 67 prod posts

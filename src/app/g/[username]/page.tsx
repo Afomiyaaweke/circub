@@ -3,7 +3,7 @@
 // A shareable, works-logged-out page per registered tour guide that travelers
 // can paste anywhere (WhatsApp, Instagram bio, flyers). Shows the guide's
 // profile, star rating, languages/specialties, hourly rate, their tour
-// videos (YouTube / Instagram embeds) and a clear "book on circub" CTA.
+// videos (YouTube / Instagram embeds) and a clear "book on circubawd" CTA.
 // Queries the DB directly server-side and exposes ONLY public fields -
 // never email, never the verification document.
 // ============================================================================
@@ -55,15 +55,15 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   const { username } = await params
   try {
     const data = await getGuide(username)
-    if (!data) return { title: 'Not found · circub' }
+    if (!data) return { title: 'Not found · circubawd' }
     const { user, ratingCount } = data
     const roles = guideRolesOrLegacy(user.guideRoles)
-    const title = `${user.name} · ${roleListLabel(roles)}${user.location ? ` in ${user.location}` : ''} · circub`
+    const title = `${user.name} · ${roleListLabel(roles)}${user.location ? ` in ${user.location}` : ''} · circubawd`
     const description = user.guideBio || user.headline || user.bio ||
-      `Meet ${user.name}, a ${roleNoun(roles[0])} on circub.${ratingCount > 0 ? ` Rated ${user.rating?.toFixed(1)} by ${ratingCount} traveler${ratingCount !== 1 ? 's' : ''}.` : ''}`
+      `Meet ${user.name}, a ${roleNoun(roles[0])} on circubawd.${ratingCount > 0 ? ` Rated ${user.rating?.toFixed(1)} by ${ratingCount} traveler${ratingCount !== 1 ? 's' : ''}.` : ''}`
     return { title, description }
   } catch {
-    return { title: 'Local on circub' }
+    return { title: 'Local on circubawd' }
   }
 }
 
@@ -87,7 +87,7 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
           <p className="mt-2 text-sm text-muted-foreground">
             No registered local uses <span className="font-semibold">@{normalizeUsername(username)}</span> - the link may be mistyped or they stepped away from the program.
           </p>
-          <Button asChild className="mt-5 rounded-full"><Link href="/">Open circub</Link></Button>
+          <Button asChild className="mt-5 rounded-full"><Link href="/">Open circubawd</Link></Button>
         </div>
       </main>
     )
@@ -119,7 +119,7 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Compass className="w-4 h-4 text-primary shrink-0" />
-              <span data-testid="guide-page-eyebrow" className="text-[11px] font-semibold uppercase tracking-wider text-primary">{roleListLabel(roles)} on circub</span>
+              <span data-testid="guide-page-eyebrow" className="text-[11px] font-semibold uppercase tracking-wider text-primary">{roleListLabel(roles)} on circubawd</span>
               {user.guideAvailable && (
                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Available now</Badge>
               )}
@@ -201,15 +201,15 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
           <Button asChild className="rounded-full gap-2" data-testid="guide-page-book">
             <Link href="/">
               {roles.includes('guide')
-                ? <><CalendarCheck className="w-4 h-4" />Book this guide on circub</>
-                : <><CalendarCheck className="w-4 h-4" />Meet {user.name.split(' ')[0]} on circub</>
+                ? <><CalendarCheck className="w-4 h-4" />Book this guide on circubawd</>
+                : <><CalendarCheck className="w-4 h-4" />Meet {user.name.split(' ')[0]} on circubawd</>
               }
             </Link>
           </Button>
           <CopyLinkButton
             url={shareUrl}
-            title={`${user.name} · ${roleListLabel(roles)} on circub`}
-            text={`Check out ${user.name}, a ${roleNoun(roles[0])} on circub`}
+            title={`${user.name} · ${roleListLabel(roles)} on circubawd`}
+            text={`Check out ${user.name}, a ${roleNoun(roles[0])} on circubawd`}
           />
         </div>
 
@@ -234,8 +234,8 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
 
         {/* footer CTA */}
         <div className="mt-10 text-center">
-          <p className="text-xs text-muted-foreground mb-3">Real prices, real locals, real guides - all on circub.</p>
-          <Button asChild variant="outline" className="rounded-full"><Link href="/">Open circub</Link></Button>
+          <p className="text-xs text-muted-foreground mb-3">Real prices, real locals, real guides - all on circubawd.</p>
+          <Button asChild variant="outline" className="rounded-full"><Link href="/">Open circubawd</Link></Button>
         </div>
       </div>
     </main>

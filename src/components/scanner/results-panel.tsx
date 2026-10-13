@@ -180,7 +180,7 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
 
       {sources.length > 0 && <SourcesList sources={sources} />}
 
-      {/* Local price posts from the circub DB - real prices from locals,
+      {/* Local price posts from the circubawd DB - real prices from locals,
           ranked by the scan location (city > country > elsewhere). Posts
           inside the user's location get a "Near you" badge so the location
           comparison is obvious at a glance. */}

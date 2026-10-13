@@ -25,7 +25,7 @@ export const LANGUAGES: AppLanguage[] = [
   { code: 'zh', label: '中文' },
 ]
 
-const STORAGE_KEY = 'circub.lang'
+const STORAGE_KEY = 'circubawd.lang'
 
 // ---------------------------------------------------------------------------
 // Dictionary keys
@@ -65,7 +65,7 @@ const en = {
   'filter.country': 'Country',
   'filter.city': 'City',
 
-  'reg.joinTitle': 'Join circub',
+  'reg.joinTitle': 'Join circubawd',
   'reg.joinSubtitle': 'Create your free account in seconds. Choose between a personal profile or a company page.',
   'reg.personal': 'Personal',
   'reg.personalSub': 'Travelers & locals',
@@ -93,7 +93,7 @@ const en = {
   'reg.signInLink': 'Sign in',
 
   'login.welcomeBack': 'Welcome back',
-  'login.signInTo': 'Sign in to your circub account.',
+  'login.signInTo': 'Sign in to your circubawd account.',
   'login.signInBtn': 'Sign in',
   'login.signingIn': 'Signing in...',
   'login.email': 'Email',
@@ -147,7 +147,7 @@ const am: Partial<Record<DictKey, string>> = {
   'filter.allCountries': 'ሁሉም ሀገራት',
   'filter.allCities': 'ሁሉም ከተሞች',
   'filter.allPeople': 'ሁሉም ሰዎች',
-  'reg.joinTitle': 'circub ይቀላቀሉ',
+  'reg.joinTitle': 'circubawd ይቀላቀሉ',
   'reg.joinSubtitle': 'ነጻ መለያዎን በአንድ ያህል ይፍጠሩ። የግል መገለጫ ወይም የኩባንያ ገጽ ይምረጡ።',
   'reg.personal': 'የግል',
   'reg.personalSub': 'ጎብኚዎች እና አካባቢው ሰዎች',
@@ -194,7 +194,7 @@ const sw: Partial<Record<DictKey, string>> = {
   'filter.allCountries': 'Nchi zote',
   'filter.allCities': 'Miji yote',
   'filter.allPeople': 'Watu wote',
-  'reg.joinTitle': 'Jiunge na circub',
+  'reg.joinTitle': 'Jiunge na circubawd',
   'reg.joinSubtitle': 'Fungua akaunti yako ya bure kwa sekunde. Chagua wasifu wa binafsi au ukurasa wa kampuni.',
   'reg.personal': 'Binafsi',
   'reg.company': 'Kampuni',
@@ -239,7 +239,7 @@ const ar: Partial<Record<DictKey, string>> = {
   'filter.allCountries': 'كل الدول',
   'filter.allCities': 'كل المدن',
   'filter.allPeople': 'كل الأشخاص',
-  'reg.joinTitle': 'انضم إلى circub',
+  'reg.joinTitle': 'انضم إلى circubawd',
   'reg.joinSubtitle': 'أنشئ حسابك المجاني في ثوانٍ. اختر بين ملف شخصي أو صفحة شركة.',
   'reg.personal': 'شخصي',
   'reg.company': 'شركة',
@@ -284,7 +284,7 @@ const fr: Partial<Record<DictKey, string>> = {
   'filter.allCountries': 'Tous les pays',
   'filter.allCities': 'Toutes les villes',
   'filter.allPeople': 'Toutes les personnes',
-  'reg.joinTitle': 'Rejoindre circub',
+  'reg.joinTitle': 'Rejoindre circubawd',
   'reg.joinSubtitle': 'Créez votre compte gratuit en quelques secondes. Choisissez entre un profil personnel ou une page entreprise.',
   'reg.personal': 'Personnel',
   'reg.company': 'Entreprise',
@@ -329,7 +329,7 @@ const zh: Partial<Record<DictKey, string>> = {
   'filter.allCountries': '所有国家',
   'filter.allCities': '所有城市',
   'filter.allPeople': '所有人',
-  'reg.joinTitle': '加入 circub',
+  'reg.joinTitle': '加入 circubawd',
   'reg.joinSubtitle': '几秒钟创建免费账号。可选择个人资料或企业主页。',
   'reg.personal': '个人',
   'reg.company': '企业',

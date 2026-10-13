@@ -164,7 +164,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
                     <AvatarFallback className="bg-primary/40 text-white text-[10px] font-semibold">{(current.author?.name || '?').charAt(0).toUpperCase()}</AvatarFallback>
                   )}
                 </Avatar>
-                <span className="text-xs font-semibold text-white drop-shadow truncate">{current.author?.name || 'Circub'}</span>
+                <span className="text-xs font-semibold text-white drop-shadow truncate">{current.author?.name || 'circubawd'}</span>
                 <span className="text-[10px] text-white/80 drop-shadow flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{timeLeftLabel(current.expiresAt)}</span>
                 <button onClick={() => setViewerIndex(-1)} className="ml-auto p-1 rounded-full bg-black/40 text-white hover:bg-black/60" aria-label="Close story">
                   <X className="w-3.5 h-3.5" />
@@ -192,7 +192,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
                       </>
                     )
                   })()}
-                  <span className="text-[9px] uppercase tracking-widest text-white/60 mt-2">circub · shared as a story</span>
+                  <span className="text-[9px] uppercase tracking-widest text-white/60 mt-2">circubawd · shared as a story</span>
                 </div>
               )}
               {current.caption && current.imageUrl && (

@@ -1,6 +1,6 @@
-# circub - https://circub.vercel.app
+# circubawd - https://circub.vercel.app
 # Everything on this site is open to crawling. AI answer engines are
-# explicitly welcome: circub WANTS to be quoted by ChatGPT search,
+# explicitly welcome: circubawd WANTS to be quoted by ChatGPT search,
 # Perplexity, Google AI Overviews, Claude, Copilot and friends.
 
 # Classic search engines

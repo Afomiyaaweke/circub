@@ -1,11 +1,11 @@
-# circub
+# circubawd
 
-> circub is a free web app where locals post real, current prices for everyday
+> circubawd is a free web app where locals post real, current prices for everyday
 > things - food, transport, hotels, services - and travelers see what things
 > actually cost before and while they travel. Installable as a mobile app
 > (PWA) on Android, iOS and desktop; no app store needed.
 
-circub ("know before you go") is built on one idea: the most reliable price
+circubawd ("know before you go") is built on one idea: the most reliable price
 information comes from people who actually live there. Locals post prices for
 products, services, restaurants and transport in their own city and currency.
 The community votes and rates posts, so accurate prices rise to the top.
@@ -13,7 +13,7 @@ Travelers build a trip list and see what their budget covers in each place,
 scan any item with the AI price scanner (PriceLens), or ask a local directly
 when a price is not posted yet.
 
-## What you can do with circub
+## What you can do with circubawd
 
 - **Post real prices** (free account): name an item, its price, currency and
   place - optional photo - so the next traveler isn't guessing.

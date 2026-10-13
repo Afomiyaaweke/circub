@@ -1,4 +1,4 @@
-// Shared types for circub (LinkedIn-style + Local Price Posts)
+// Shared types for circubawd (LinkedIn-style + Local Price Posts)
 export interface User {
   id: string
   name: string
@@ -365,7 +365,7 @@ export interface BudgetResponse {
     cheapest: BudgetResponse['cheapest']
     error?: string
   }>
-  // Where to find the items near the requested location - real circub
+  // Where to find the items near the requested location - real circubawd
   // price-post clusters first, then AI-suggested markets/areas/shop types.
   places?: Array<{
     name: string

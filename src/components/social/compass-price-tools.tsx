@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * Circub Compass - the price tools behind the brand.
+ * circubawd Compass - the price tools behind the brand.
  *
- * Three views over the REAL price posts on circub (the public
+ * Three views over the REAL price posts on circubawd (the public
  * /api/local-prices feed - the same posts the Local tab shows; no synthetic
  * numbers anywhere):
  *
@@ -692,7 +692,7 @@ export function CompassPriceTools() {
           <h3 className="text-sm font-bold text-foreground">Know the price before you go</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Research what people paid, compare locations and plan the budget for your next market
-            trip - from real posts on circub.
+            trip - from real posts on circubawd.
           </p>
         </div>
       </div>

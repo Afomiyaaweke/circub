@@ -8,9 +8,9 @@ import { formatUnitSuffix } from '@/lib/utils'
  *
  * Draws a social-media-ready 1080x1350 PNG poster for a feed post or a
  * local price post: dark futuristic background, neon-green glows and grid,
- * glowing frame, circub logo + wordmark, the shared content big in the
+ * glowing frame, circubawd logo + wordmark, the shared content big in the
  * middle, and a QR code + link at the bottom so anyone who sees it on
- * WhatsApp / X / Telegram / printed flyers can land on circub.
+ * WhatsApp / X / Telegram / printed flyers can land on circubawd.
  *
  * Pure canvas (no DOM) so it can run inside a modal on demand; logo and QR
  * are loaded asynchronously, everything else is drawn synchronously.
@@ -69,12 +69,12 @@ export function posterShareText(target: SharePosterTarget, url: string): string 
     return `Check this price on circub: ${target.productName}${place ? ` in ${place}` : ''} - ${range}${handle ? ` by${handle}` : ''}`
   }
   const trimmed = target.content.length > 140 ? target.content.slice(0, 140) + '…' : target.content
-  if (handle) return `${trimmed} —${handle} on circub`
-  return `${trimmed} — ${target.authorName} on circub`
+  if (handle) return `${trimmed} —${handle} on circubawd`
+  return `${trimmed} — ${target.authorName} on circubawd`
 }
 
 export function posterFileName(target: SharePosterTarget): string {
-  return `circub-${target.kind}-poster.png`
+  return `circubawd-${target.kind}-poster.png`
 }
 
 const W = 1080
@@ -236,7 +236,7 @@ async function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.textAlign = 'left'
   ctx.fillStyle = '#f0fdf4'
   ctx.font = FONT(58)
-  ctx.fillText('circub', x + logoSize + 22, y - 6)
+  ctx.fillText('circubawd', x + logoSize + 22, y - 6)
   ctx.font = FONT(26, '600')
   ctx.fillStyle = '#4ade80'
   ctx.fillText('REAL LOCAL PRICES', x + logoSize + 24, y + 34)
@@ -561,14 +561,14 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
 
   // Footer: QR + call to action + link. v117: price-post shares point at the
   // post's own deep link (/?post=<id>), so the QR opens that exact price
-  // detail on circub - spell that out on the CTA.
+  // detail on circubawd - spell that out on the CTA.
   await drawQr(ctx, linkUrl, W - contentX - qrSize, footerTop, qrSize)
   const qrTextW = contentW - (qrSize + 30)
   const footerHandle = target.authorUsername?.trim()
   let cta = footerHandle ? `Scan to see @${footerHandle}'s shop` : 'Scan for real local prices'
   try {
     const lu = new URL(linkUrl, window.location.origin)
-    if (lu.searchParams.has('post')) cta = 'Scan to open this price on circub'
+    if (lu.searchParams.has('post')) cta = 'Scan to open this price on circubawd'
   } catch {
     /* keep the default CTA */
   }
@@ -578,14 +578,14 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
   ctx.fillText(cta, contentX, footerTop + rowCta)
   try {
     const u = new URL(linkUrl, window.location.origin)
-    const linkText = `${u.host}${u.pathname !== '/' ? u.pathname : ''}` || 'circub.app'
+    const linkText = `${u.host}${u.pathname !== '/' ? u.pathname : ''}` || 'circubawd.app'
     ctx.font = FONT(fitText(ctx, linkText, qrTextW, 32, 20, '600'), '600')
     ctx.fillStyle = '#4ade80'
     ctx.fillText(linkText, contentX, footerTop + rowLink)
   } catch {
     ctx.font = FONT(32, '600')
     ctx.fillStyle = '#4ade80'
-    ctx.fillText('circub.app', contentX, footerTop + rowLink)
+    ctx.fillText('circubawd.app', contentX, footerTop + rowLink)
   }
   ctx.font = FONT(26, '600')
   ctx.fillStyle = 'rgba(187,247,208,0.6)'

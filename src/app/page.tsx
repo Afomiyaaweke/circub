@@ -53,8 +53,8 @@ export async function generateMetadata({
         ? `${post.currency} ${post.priceMin.toLocaleString("en-US")}${formatUnitSuffix(post.unit)}`
         : `${post.currency} ${post.priceMin.toLocaleString("en-US")} - ${post.priceMax.toLocaleString("en-US")}${formatUnitSuffix(post.unit)}`;
     const kind = post.postType === "SERVICE" ? "service" : "product";
-    const title = `${post.productName} - ${range} · real local price on circub`;
-    const description = `Locals report this ${kind}${place ? ` in ${place}` : ""} costs ${range}. See the full price details, GPS directions and community votes on circub.`;
+    const title = `${post.productName} - ${range} · real local price on circubawd`;
+    const description = `Locals report this ${kind}${place ? ` in ${place}` : ""} costs ${range}. See the full price details, GPS directions and community votes on circubawd.`;
     // Uploaded photos are data: URLs (crawler-invisible) - the image route
     // serves them as real bytes. Posts without a photo keep the sitewide
     // og:image from the root layout.
@@ -67,7 +67,7 @@ export async function generateMetadata({
         title,
         description,
         url: `/?post=${postId}`,
-        siteName: "circub",
+        siteName: "circubawd",
         type: "website",
         images: image ? [{ url: image }] : undefined,
       },

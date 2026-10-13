@@ -15,7 +15,7 @@ import { TagInput } from '@/components/ui/tag-input'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
 import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
-import { guideRolesOrLegacy, roleListLabel, roleNoun, toggleCircubRole, type CircubRole } from '@/lib/roles'
+import { guideRolesOrLegacy, roleListLabel, roleNoun, togglecircubawdRole, type circubawdRole } from '@/lib/roles'
 import { RolePicker } from '@/components/social/role-picker'
 import type { User } from '@/lib/types'
 
@@ -30,7 +30,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
   // Live Zone roles: vlogger / guide / local / volunteer / sales (multi-select).
   // Legacy members (no stored roles) read as ['guide']; members who answered
   // the role question at sign-up arrive with their picks prefilled.
-  const [roles, setRoles] = useState<CircubRole[]>(['guide'])
+  const [roles, setRoles] = useState<circubawdRole[]>(['guide'])
   const [license, setLicense] = useState('')
   const [languages, setLanguages] = useState<string[]>([])
   const [specialties, setSpecialties] = useState<string[]>([])
@@ -72,8 +72,8 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     }
   }, [open, user])
 
-  const toggleRole = (role: CircubRole) => {
-    setRoles((prev) => toggleCircubRole(prev, role))
+  const toggleRole = (role: circubawdRole) => {
+    setRoles((prev) => togglecircubawdRole(prev, role))
   }
 
   const handleDocPick = async (file: File) => {

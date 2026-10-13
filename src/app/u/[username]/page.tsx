@@ -1,6 +1,6 @@
 // ============================================================================
 // /u/[username] - the shareable public profile.
-// This is where a profile's unique ID lands: circub.app/u/<username>.
+// This is where a profile's unique ID lands: circubawd.app/u/<username>.
 // Works logged-out (that is the point of sharing), queries the DB directly
 // server-side and exposes ONLY public fields - never email, never the
 // verification document (that lives exclusively behind GET /api/verification
@@ -73,10 +73,10 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   const { username } = await params
   try {
     const data = await getProfile(username)
-    if (!data) return { title: 'Profile not found · circub' }
+    if (!data) return { title: 'Profile not found · circubawd' }
     const { user } = data
-    const title = `${user.name} (@${user.username}) · circub`
-    const description = user.headline || user.bio || `See ${user.name}'s profile, posts and local price knowledge on circub.`
+    const title = `${user.name} (@${user.username}) · circubawd`
+    const description = user.headline || user.bio || `See ${user.name}'s profile, posts and local price knowledge on circubawd.`
     // v117: profile picture as the link-preview image. Uploaded avatars are
     // base64 data: URLs (crawlers cannot fetch them), so og:image points at
     // /api/users/<id>/image which serves the real bytes.
@@ -88,7 +88,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
         title,
         description,
         url: `/u/${user.username}`,
-        siteName: 'circub',
+        siteName: 'circubawd',
         type: 'profile',
         images: image ? [{ url: image }] : undefined,
       },
@@ -100,7 +100,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
       },
     }
   } catch {
-    return { title: 'Profile · circub' }
+    return { title: 'Profile · circubawd' }
   }
 }
 
@@ -124,7 +124,7 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
           <p className="mt-2 text-sm text-muted-foreground">
             No one uses <span className="font-semibold">@{normalizeUsername(username)}</span> here yet - the link may be mistyped or the profile was removed.
           </p>
-          <Button asChild className="mt-5 rounded-full"><Link href="/">Open circub</Link></Button>
+          <Button asChild className="mt-5 rounded-full"><Link href="/">Open circubawd</Link></Button>
         </div>
       </main>
     )
@@ -223,7 +223,7 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
         {/* footer CTA */}
         <div className="mt-10 text-center">
           <p className="text-xs text-muted-foreground mb-3">Know what things actually cost - from the locals.</p>
-          <Button asChild className="rounded-full"><Link href="/">Open circub</Link></Button>
+          <Button asChild className="rounded-full"><Link href="/">Open circubawd</Link></Button>
         </div>
       </div>
     </main>

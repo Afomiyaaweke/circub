@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { startGoogleSignIn } from '@/lib/google-signin'
 import { normalizeUsername, validateUsername } from '@/lib/username'
-import { toggleCircubRole, type CircubRole } from '@/lib/roles'
+import { togglecircubawdRole, type circubawdRole } from '@/lib/roles'
 import { RolePicker } from '@/components/social/role-picker'
 import { useLanguage } from '@/lib/i18n'
 import { AtSign, Check, Loader2 } from 'lucide-react'
@@ -41,7 +41,7 @@ const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+']
 // starting picks per account kind - locals for personal accounts, sellers for
 // company pages - changeable with one tap, stored on User.guideRoles and
 // prefilled later in the Live Zone join modal.
-const defaultRoles = (tab: 'PERSONAL' | 'COMPANY'): CircubRole[] =>
+const defaultRoles = (tab: 'PERSONAL' | 'COMPANY'): circubawdRole[] =>
   tab === 'COMPANY' ? ['sales'] : ['local']
 
 export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }: RegisterModalProps) {
@@ -63,7 +63,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   // Shared
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  // Username: the shareable profile handle (circub.app/u/<username>).
+  // Username: the shareable profile handle (circubawd.app/u/<username>).
   // Auto-suggested from the name / company name until the user edits it.
   const [username, setUsername] = useState('')
   const [usernameTouched, setUsernameTouched] = useState(false)
@@ -73,7 +73,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   // before an account can be created.
   const [agreed, setAgreed] = useState(false)
   // "I am joining as *" - the Live Zone roles picked at sign-up.
-  const [roles, setRoles] = useState<CircubRole[]>(() => defaultRoles('PERSONAL'))
+  const [roles, setRoles] = useState<circubawdRole[]>(() => defaultRoles('PERSONAL'))
   const [submitting, setSubmitting] = useState(false)
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -106,7 +106,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
       fetch(`/api/users/check-username?u=${encodeURIComponent(check.username)}`)
         .then((r) => r.json())
         .then((d) => {
-          if (d?.available) { setUStatus('available'); setUMsg('circub.app/u/' + d.username + ' is free') }
+          if (d?.available) { setUStatus('available'); setUMsg('circubawd.app/u/' + d.username + ' is free') }
           else { setUStatus('error'); setUMsg(d?.error || 'That username is already taken - please pick another') }
         })
         .catch(() => { setUStatus('idle'); setUMsg('') })
@@ -236,7 +236,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
-            Join circub
+            Join circubawd
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {t("reg.joinSubtitle")}
@@ -293,7 +293,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         <div className="mb-5">
           <RolePicker
             roles={roles}
-            onToggle={(role) => setRoles((prev) => toggleCircubRole(prev, role))}
+            onToggle={(role) => setRoles((prev) => togglecircubawdRole(prev, role))}
             sectionTestId="register-roles-section"
             chipPrefix="register-role-chip"
           />
@@ -421,7 +421,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               {uMsg ? (
                 <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', (uStatus === 'checking' || uStatus === 'idle') && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
-                <p className="text-[10px] text-muted-foreground">Your unique ID - people find and share your profile at circub.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
+                <p className="text-[10px] text-muted-foreground">Your unique ID - people find and share your profile at circubawd.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
               )}
             </div>
             <Field

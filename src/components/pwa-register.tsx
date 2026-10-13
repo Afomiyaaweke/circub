@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 /**
- * Registers the circub service worker (production only).
+ * Registers the circubawd service worker (production only).
  *
  * Update flow (keeps MOBILE and WEB on the same build):
  *  1. sw.js is network-first for navigations, so every open loads the latest

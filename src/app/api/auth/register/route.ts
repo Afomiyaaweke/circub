@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
 import { validateUsername } from '@/lib/username'
-import { CIRCUB_ROLES } from '@/lib/roles'
+import { circubawd_ROLES } from '@/lib/roles'
 import { isPastRetention } from '@/lib/deactivation'
 
 interface RegisterBody {
@@ -12,7 +12,7 @@ interface RegisterBody {
   // Shared
   email: string
   password: string
-  // Shareable profile handle (circub.app/u/<username>) - required, unique
+  // Shareable profile handle (circubawd.app/u/<username>) - required, unique
   username?: string
   // Personal
   name?: string
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       const picked = [...new Set(
         body.guideRoles
           .map((r) => String(r || '').trim().toLowerCase())
-          .filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
+          .filter((r) => (circubawd_ROLES as readonly string[]).includes(r))
       )]
       if (picked.length > 0) guideRoles = picked.join(',')
     }
@@ -260,7 +260,7 @@ async function applyRegistrationFields(userId: string, body: RegisterBody) {
     const picked = [...new Set(
       body.guideRoles
         .map((r) => String(r || '').trim().toLowerCase())
-        .filter((r) => (CIRCUB_ROLES as readonly string[]).includes(r))
+        .filter((r) => (circubawd_ROLES as readonly string[]).includes(r))
     )]
     if (picked.length > 0) guideRoles = picked.join(',')
   }

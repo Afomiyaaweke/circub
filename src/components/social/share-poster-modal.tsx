@@ -31,7 +31,7 @@ interface SharePosterModalProps {
 
 /**
  * Share-to-social poster dialog (Task 77): renders the green futuristic
- * circub poster for a feed post or price post, then offers one-tap routes
+ * circubawd poster for a feed post or price post, then offers one-tap routes
  * to other social media - native share (with the PNG file on mobile),
  * WhatsApp, X, Telegram, Facebook, copy link and PNG download.
  */
@@ -115,7 +115,7 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuil
     try {
       const blob = await getBlob()
       const file = blob ? new File([blob], fileBase, { type: 'image/png' }) : undefined
-      const payload: ShareData = { title: 'circub', text, url: linkUrl }
+      const payload: ShareData = { title: 'circubawd', text, url: linkUrl }
       if (file && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ ...payload, files: [file] })
       } else {
@@ -148,7 +148,7 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuil
             Share poster
           </DialogTitle>
           <DialogDescription>
-            A ready-made circub poster you can post on WhatsApp, X, Telegram, Facebook or stories.
+            A ready-made circubawd poster you can post on WhatsApp, X, Telegram, Facebook or stories.
           </DialogDescription>
         </DialogHeader>
 
@@ -165,7 +165,7 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuil
             <img
               data-testid="share-poster-preview"
               src={posterUrl}
-              alt="circub share poster"
+              alt="circubawd share poster"
               className="max-h-[380px] w-auto rounded-lg shadow-lg"
             />
           )}
