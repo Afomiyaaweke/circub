@@ -1,5 +1,5 @@
 // ============================================================================
-// USERNAME - the shareable profile handle (circubawd.app/u/<username>).
+// USERNAME - the shareable profile handle (circubAwd.app/u/<username>).
 // One source of truth for normalization + validation, used by the register
 // API, the profile PATCH endpoint, the availability-check endpoint and both
 // UIs (sign-up modal + Edit profile). Always stored lowercase, [a-z0-9_].

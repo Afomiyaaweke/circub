@@ -69,15 +69,15 @@ interface LandingPageProps {
 // actually reads on the page.
 const FAQ_ITEMS = [
   {
-    q: "What is circubawd?",
-    a: "circubawd is a free community platform where locals post real prices for products, services, restaurants and transport, and travelers see what things actually cost before and while they travel. The community votes and rates posts, so accurate prices rise to the top.",
+    q: "What is circubAwd?",
+    a: "circubAwd is a free community platform where locals post real prices for products, services, restaurants and transport, and travelers see what things actually cost before and while they travel. The community votes and rates posts, so accurate prices rise to the top.",
   },
   {
-    q: "How much does circubawd cost?",
-    a: "circubawd is completely free - for travelers and for locals. Creating an account, posting prices, asking locals, and installing the mobile app all cost nothing.",
+    q: "How much does circubAwd cost?",
+    a: "circubAwd is completely free - for travelers and for locals. Creating an account, posting prices, asking locals, and installing the mobile app all cost nothing.",
   },
   {
-    q: "How do I install the circubawd app on my phone?",
+    q: "How do I install the circubAwd app on my phone?",
     a: "Open circub.vercel.app in your phone's browser. On Android tap 'Get the mobile app' and confirm, or use Chrome's menu > Install app. On iPhone tap the share button in Safari and choose 'Add to Home Screen'. The app opens full-screen with its own icon, like a native app.",
   },
   {
@@ -85,8 +85,8 @@ const FAQ_ITEMS = [
     a: "Every price is posted by a real community member with a name and place. Other users vote and leave star ratings on posts, and repeat posts of the same item are shown together - so current, accurate prices surface while stale ones sink.",
   },
   {
-    q: "Which countries and cities does circubawd cover?",
-    a: "circubawd is community-driven: it covers every place where locals have posted prices, and it grows city by city as people contribute. If your destination is not covered yet, you can ask a local guide directly.",
+    q: "Which countries and cities does circubAwd cover?",
+    a: "circubAwd is community-driven: it covers every place where locals have posted prices, and it grows city by city as people contribute. If your destination is not covered yet, you can ask a local guide directly.",
   },
 ]
 
@@ -203,7 +203,7 @@ function PhoneMockup() {
           <div className="flex items-center justify-between px-4 pb-2 pt-4">
             <div className="flex items-center gap-1.5">
               <div className="grid h-5 w-5 place-items-center rounded-md bg-primary text-[10px] font-bold text-primary-foreground">C</div>
-              <span className="text-xs font-bold text-foreground">circubawd</span>
+              <span className="text-xs font-bold text-foreground">circubAwd</span>
             </div>
             <InitialAvatar name="M" color="amber" className="h-5 w-5 text-[9px]" />
           </div>
@@ -275,8 +275,8 @@ function PhoneMockup() {
 
 /**
  * v139 landing - one scroll, eleven moments:
- * nav / hero+phone / real stats / what is circubawd / 3 steps / roles /
- * what circubawd does / Top score / stories / FAQ / CTA band + footer.
+ * nav / hero+phone / real stats / what is circubAwd / 3 steps / roles /
+ * what circubAwd does / Top score / stories / FAQ / CTA band + footer.
  *
  * Entry points (unchanged semantics, E2E-locked):
  *   landing-cta      the CTA band's "Join for free" - opens sign-up
@@ -312,9 +312,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       {/* ============================== NAV ============================== */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <a href="#" className="flex items-center gap-2" aria-label="circubawd home">
+          <a href="#" className="flex items-center gap-2" aria-label="circubAwd home">
             <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">C</div>
-            <span className="text-lg font-bold tracking-tight text-foreground">circubawd</span>
+            <span className="text-lg font-bold tracking-tight text-foreground">circubAwd</span>
           </a>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex" aria-label="Landing sections">
@@ -436,21 +436,21 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         </section>
       )}
 
-      {/* ============================== WHAT IS circubawd (seo-about) ============================== */}
+      {/* ============================== WHAT IS circubAwd (seo-about) ============================== */}
       <section aria-labelledby="seo-about-h" data-testid="seo-about" className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
         <div className="mx-auto max-w-2xl">
           <h2 id="seo-about-h" className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            What is circubawd?
+            What is circubAwd?
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            circubawd is a free community where locals post real prices for
+            circubAwd is a free community where locals post real prices for
             everyday things - street food, taxi rides, hotels, haircuts,
             repairs - and travelers see what things actually cost before and
             while they travel. Prices are posted in the local currency by
             people who live there, and the community votes and rates them, so
             the most accurate prices rise to the top. You can also ask a local
             directly when you can&apos;t find a price, or book a local guide.
-            circubawd works in any browser and installs as a full-screen mobile
+            circubAwd works in any browser and installs as a full-screen mobile
             app on Android and iPhone - no app store needed.
           </p>
         </div>
@@ -462,7 +462,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           <div className="text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Transparency in 3 steps</p>
             <h2 id="how-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              How circubawd works in 3 simple steps
+              How circubAwd works in 3 simple steps
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
               No spreadsheets, no yearly membership, no cost. Just you and a
@@ -499,7 +499,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         <SectionHeading
           eyebrow="Both sides of every trip"
           title="A platform where both visitors and neighbors thrive"
-          sub="circubawd works for everyone who touches a city - explore it, share it, or earn from what you already know."
+          sub="circubAwd works for everyone who touches a city - explore it, share it, or earn from what you already know."
         />
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -585,7 +585,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         </div>
       </section>
 
-      {/* ============================== WHAT circubawd DOES (seo-features, exactly 6 h3 cards) ============================== */}
+      {/* ============================== WHAT circubAwd DOES (seo-features, exactly 6 h3 cards) ============================== */}
       <section
         id="features"
         aria-labelledby="seo-features-h"
@@ -596,7 +596,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           <div className="text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Peace of mind</p>
             <h2 id="seo-features-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              What circubawd does
+              What circubAwd does
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
               Everything you need to spend with complete peace of mind, in any
@@ -627,7 +627,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               Top score
             </h2>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-              The most active contributors on circubawd right now, ranked by
+              The most active contributors on circubAwd right now, ranked by
               prices posted. Every real price you share moves you up the
               board - and helps an entire city spend smarter.
             </p>
@@ -680,7 +680,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
               {
-                quote: "I stopped guessing what things cost. I check circubawd before I book anything - it saved me real money in my first week abroad.",
+                quote: "I stopped guessing what things cost. I check circubAwd before I book anything - it saved me real money in my first week abroad.",
                 name: "Selam",
                 role: "Traveler",
                 color: "teal",
@@ -797,7 +797,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             <div>
               <div className="flex items-center gap-2">
                 <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">C</div>
-                <span className="text-lg font-bold tracking-tight text-foreground">circubawd</span>
+                <span className="text-lg font-bold tracking-tight text-foreground">circubAwd</span>
               </div>
               <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted-foreground">
                 Real prices, shared by people who live there. Free forever,
@@ -823,7 +823,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </div>
           </div>
           <div className="mt-8 flex items-center justify-center gap-2 border-t border-border/60 pt-5 text-[11px] text-muted-foreground">
-            <span>&copy; {new Date().getFullYear()} circubawd</span>
+            <span>&copy; {new Date().getFullYear()} circubAwd</span>
             <span aria-hidden="true">&middot;</span>
             <span data-testid="landing-version">{APP_VERSION}</span>
           </div>

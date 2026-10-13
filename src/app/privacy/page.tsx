@@ -3,8 +3,8 @@ import { LegalPage } from '@/components/social/legal-page'
 import { PRIVACY_DOC } from '@/lib/legal-content'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy - circubawd',
-  description: 'How circubawd (Tenetbid) collects, uses, shares, and protects your information.',
+  title: 'Privacy Policy - circubAwd',
+  description: 'How circubAwd (Tenetbid) collects, uses, shares, and protects your information.',
 }
 
 export default function PrivacyPage() {

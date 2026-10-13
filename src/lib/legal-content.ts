@@ -1,4 +1,4 @@
-// Legal documents - Privacy Policy and Terms of Service (Tenetbid / circubawd).
+// Legal documents - Privacy Policy and Terms of Service (Tenetbid / circubAwd).
 // Content provided by the client (circub-privacy-policy.docx / circub-terms-of-service.docx,
 // extracted verbatim). Rendered by src/components/social/legal-page.tsx at /privacy and /terms.
 
@@ -16,9 +16,9 @@ export interface LegalDoc {
 }
 
 export const PRIVACY_DOC: LegalDoc = {
-  title: 'circubawd Privacy Policy',
+  title: 'circubAwd Privacy Policy',
   updated: 'September 16, 2026',
-  intro: 'This Privacy Policy explains how Tenetbid (“circubawd,” “we,” “us,” or “our”) collects, uses, shares, and protects information when you use the circubawd platform (the “Service”), where locals share real prices for products, services, restaurants, transport, and other local knowledge, and travelers browse that information or message locals directly.',
+  intro: 'This Privacy Policy explains how Tenetbid (“circubAwd,” “we,” “us,” or “our”) collects, uses, shares, and protects information when you use the circubAwd platform (the “Service”), where locals share real prices for products, services, restaurants, transport, and other local knowledge, and travelers browse that information or message locals directly.',
   sections: [
     {
       title: '1. What Information Do We Collect?',
@@ -71,9 +71,9 @@ export const PRIVACY_DOC: LegalDoc = {
       items: [
         'Other users: your username, profile info, posted content, and messages are visible to the users you interact with. Price listings and public content may be visible to all users of the platform.',
         'Service providers: hosting, analytics, customer support, payment processing, and identity verification partners who help us operate the Service.',
-        'Business transfers: if circubawd is involved in a merger, acquisition, or asset sale.',
-        'Affiliates: with companies under common control with circubawd.',
-        'Legal & safety: where required by law, or to protect the rights, safety, or property of circubawd, our users, or the public.',
+        'Business transfers: if circubAwd is involved in a merger, acquisition, or asset sale.',
+        'Affiliates: with companies under common control with circubAwd.',
+        'Legal & safety: where required by law, or to protect the rights, safety, or property of circubAwd, our users, or the public.',
         'Aggregated/anonymized data: we may share or license aggregated, de-identified price and travel-trend data (e.g. with research partners or business customers) that does not identify you.',
         'We do not sell your personal information to advertisers.',
       ],
@@ -92,7 +92,7 @@ export const PRIVACY_DOC: LegalDoc = {
     {
       title: '6. AI-Based Features',
       items: [
-        'circubawd may offer AI-powered features, such as:',
+        'circubAwd may offer AI-powered features, such as:',
         'Automated summarization of local price trends',
         'Smart suggestions when submitting a price or writing a message',
         'Content moderation to detect spam or fraudulent listings',
@@ -108,7 +108,7 @@ export const PRIVACY_DOC: LegalDoc = {
     {
       title: '8. International Transfers',
       items: [
-        'Because circubawd connects travelers and locals across countries, your information may be processed in countries other than your own. Where required, we use safeguards such as:',
+        'Because circubAwd connects travelers and locals across countries, your information may be processed in countries other than your own. Where required, we use safeguards such as:',
         'Standard Contractual Clauses (SCCs)',
         'Binding Corporate Rules (BCRs)',
       ],
@@ -160,7 +160,7 @@ export const PRIVACY_DOC: LegalDoc = {
     {
       title: '14. Children\'s Privacy',
       items: [
-        'circubawd is not intended for users under 16 (or the minimum age required in your jurisdiction). We do not knowingly collect personal information from children. If you believe a child has provided us information, contact us so we can remove it.',
+        'circubAwd is not intended for users under 16 (or the minimum age required in your jurisdiction). We do not knowingly collect personal information from children. If you believe a child has provided us information, contact us so we can remove it.',
       ],
     },
     {
@@ -187,33 +187,33 @@ export const PRIVACY_DOC: LegalDoc = {
       ],
     },
   ],
-  footer: 'This policy is effective as of September 16, 2026 and applies to all users of the circubawd platform.',
+  footer: 'This policy is effective as of September 16, 2026 and applies to all users of the circubAwd platform.',
 }
 
 export const TERMS_DOC: LegalDoc = {
-  title: 'circubawd Terms of Service',
+  title: 'circubAwd Terms of Service',
   updated: 'September 16, 2026',
-  intro: 'Welcome to circubawd. These Terms of Service (“Terms”) govern your access to and use of the circubawd website and app (the “Service”), operated by Tenetbid (“circubawd,” “we,” “us”). By creating an account or using the Service, you agree to these Terms.',
+  intro: 'Welcome to circubAwd. These Terms of Service (“Terms”) govern your access to and use of the circubAwd website and app (the “Service”), operated by Tenetbid (“circubAwd,” “we,” “us”). By creating an account or using the Service, you agree to these Terms.',
   sections: [
     {
-      title: '1. Who Can Use circubawd',
+      title: '1. Who Can Use circubAwd',
       items: [
-        'You must be at least 16 years old (or the age of digital consent in your country, if higher) to use circubawd. By using the Service, you confirm you meet this requirement and that all information you provide is accurate.',
+        'You must be at least 16 years old (or the age of digital consent in your country, if higher) to use circubAwd. By using the Service, you confirm you meet this requirement and that all information you provide is accurate.',
       ],
     },
     {
       title: '2. The Service',
       items: [
-        'circubawd is a community platform where:',
+        'circubAwd is a community platform where:',
         'Locals post real, first-hand prices for products, services, restaurants, transport, and other local knowledge.',
         'Travelers browse this information and can message locals directly when they need more specific or up-to-date guidance.',
-        'circubawd does not itself sell products, set prices, or guarantee transactions between users.',
+        'circubAwd does not itself sell products, set prices, or guarantee transactions between users.',
       ],
     },
     {
       title: '3. Accuracy of Content  No Guarantee',
       items: [
-        'Prices, listings, and other content on circubawd are submitted by users, not verified by circubawd as accurate, current, or complete. You use this information at your own risk. Prices can change quickly and vary by season, negotiation, or location. circubawd is not responsible for losses arising from reliance on user-submitted content.',
+        'Prices, listings, and other content on circubAwd are submitted by users, not verified by circubAwd as accurate, current, or complete. You use this information at your own risk. Prices can change quickly and vary by season, negotiation, or location. circubAwd is not responsible for losses arising from reliance on user-submitted content.',
       ],
     },
     {
@@ -229,7 +229,7 @@ export const TERMS_DOC: LegalDoc = {
       items: [
         'By posting content (price listings, photos, reviews, messages, etc.), you:',
         'Confirm you have the right to post it',
-        'Grant circubawd a non-exclusive, worldwide, royalty-free license to host, display, distribute, and use that content to operate and promote the Service (including in aggregated/anonymized data products described in our Privacy Policy)',
+        'Grant circubAwd a non-exclusive, worldwide, royalty-free license to host, display, distribute, and use that content to operate and promote the Service (including in aggregated/anonymized data products described in our Privacy Policy)',
         'Remain responsible for the accuracy and legality of what you post',
         'We may remove content that violates these Terms or applicable law, at our discretion.',
       ],
@@ -241,7 +241,7 @@ export const TERMS_DOC: LegalDoc = {
         'Post false, misleading, or fraudulent price information',
         'Harass, threaten, or scam other users through messaging',
         'Impersonate another person or misrepresent your identity or location',
-        'Scrape, copy, or resell circubawd\'s data without permission',
+        'Scrape, copy, or resell circubAwd\'s data without permission',
         'Use the Service for any illegal purpose',
         'Attempt to bypass verification or security measures',
       ],
@@ -249,25 +249,25 @@ export const TERMS_DOC: LegalDoc = {
     {
       title: '7. Messaging Between Users',
       items: [
-        'circubawd facilitates messaging between travelers and locals but is not a party to, and does not mediate, arrangements made between users. Exercise caution when meeting people or making arrangements based on conversations that start on circubawd  never share sensitive financial information, and meet in safe public places if meeting in person.',
+        'circubAwd facilitates messaging between travelers and locals but is not a party to, and does not mediate, arrangements made between users. Exercise caution when meeting people or making arrangements based on conversations that start on circubAwd  never share sensitive financial information, and meet in safe public places if meeting in person.',
       ],
     },
     {
       title: '8. Payments (If Applicable)',
       items: [
-        'If circubawd enables in-app payments (e.g. tips or paid local consultations), separate payment terms and applicable fees will be disclosed at the time of transaction. circubawd is not responsible for the outcome of any paid arrangement between users.',
+        'If circubAwd enables in-app payments (e.g. tips or paid local consultations), separate payment terms and applicable fees will be disclosed at the time of transaction. circubAwd is not responsible for the outcome of any paid arrangement between users.',
       ],
     },
     {
       title: '9. Intellectual Property',
       items: [
-        'The circubawd name, logo, app, and platform design are owned by Tenetbid and protected by intellectual property laws. You may not use our branding without written permission.',
+        'The circubAwd name, logo, app, and platform design are owned by Tenetbid and protected by intellectual property laws. You may not use our branding without written permission.',
       ],
     },
     {
       title: '10. Disclaimers',
       items: [
-        'THE SERVICE AND ALL CONTENT ARE PROVIDED “AS IS” WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING ACCURACY, RELIABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. circubawd does not guarantee uninterrupted or error-free operation of the Service.',
+        'THE SERVICE AND ALL CONTENT ARE PROVIDED “AS IS” WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING ACCURACY, RELIABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. circubAwd does not guarantee uninterrupted or error-free operation of the Service.',
       ],
     },
     {
@@ -279,7 +279,7 @@ export const TERMS_DOC: LegalDoc = {
     {
       title: '12. Indemnification',
       items: [
-        'You agree to indemnify and hold circubawd harmless from claims, damages, or expenses arising from your use of the Service, your content, or your violation of these Terms.',
+        'You agree to indemnify and hold circubAwd harmless from claims, damages, or expenses arising from your use of the Service, your content, or your violation of these Terms.',
       ],
     },
     {
@@ -314,5 +314,5 @@ export const TERMS_DOC: LegalDoc = {
       ],
     },
   ],
-  footer: 'These Terms are effective as of September 16, 2026 and apply to all users of the circubawd platform.',
+  footer: 'These Terms are effective as of September 16, 2026 and apply to all users of the circubAwd platform.',
 }

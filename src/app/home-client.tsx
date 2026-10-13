@@ -1,6 +1,6 @@
 'use client'
 
-// v117: the interactive circubawd app shell, moved here from page.tsx so the
+// v117: the interactive circubAwd app shell, moved here from page.tsx so the
 // page itself can be a server component and generate per-post Open Graph
 // metadata for shared price-post links (/?post=<id>). Everything behaves
 // exactly as before - plus one addition: a ?post= deep link (what every
@@ -37,7 +37,7 @@ import type { User, TabKey } from '@/lib/types'
 // localStorage key for the cached session user - enables instant repeat loads
 // (dashboard paints immediately, then revalidates against /api/auth/me).
 // Guests are never cached: guest mode is intentionally per-visit only.
-const ME_CACHE_KEY = 'circubawd.me.v1'
+const ME_CACHE_KEY = 'circubAwd.me.v1'
 
 // Synchronously read the cached session user, if any, so the very first
 // render already knows whether to paint the dashboard shell or the landing
@@ -71,7 +71,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // revalidation has completed - it no longer gates the first paint.
   // Blocking every visit (most of which are anonymous) behind a network
   // round-trip just to find out "you're not logged in" was the single
-  // biggest chunk of the "Loading circubawd..." delay, so we render
+  // biggest chunk of the "Loading circubAwd..." delay, so we render
   // optimistically from cache/guest state immediately and let the
   // real auth check settle in the background.
   const [authChecked, setAuthChecked] = useState(false)

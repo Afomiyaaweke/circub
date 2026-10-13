@@ -63,7 +63,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   // Shared
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  // Username: the shareable profile handle (circubawd.app/u/<username>).
+  // Username: the shareable profile handle (circubAwd.app/u/<username>).
   // Auto-suggested from the name / company name until the user edits it.
   const [username, setUsername] = useState('')
   const [usernameTouched, setUsernameTouched] = useState(false)
@@ -106,7 +106,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
       fetch(`/api/users/check-username?u=${encodeURIComponent(check.username)}`)
         .then((r) => r.json())
         .then((d) => {
-          if (d?.available) { setUStatus('available'); setUMsg('circubawd.app/u/' + d.username + ' is free') }
+          if (d?.available) { setUStatus('available'); setUMsg('circubAwd.app/u/' + d.username + ' is free') }
           else { setUStatus('error'); setUMsg(d?.error || 'That username is already taken - please pick another') }
         })
         .catch(() => { setUStatus('idle'); setUMsg('') })
@@ -236,7 +236,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
-            Join circubawd
+            Join circubAwd
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {t("reg.joinSubtitle")}
@@ -421,7 +421,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               {uMsg ? (
                 <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', (uStatus === 'checking' || uStatus === 'idle') && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
-                <p className="text-[10px] text-muted-foreground">Your unique ID - people find and share your profile at circubawd.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
+                <p className="text-[10px] text-muted-foreground">Your unique ID - people find and share your profile at circubAwd.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
               )}
             </div>
             <Field

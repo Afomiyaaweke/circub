@@ -2,7 +2,7 @@
 //
 // The exact trim+lowercase rule left 65 of 67 production posts with no
 // compare at all: qualifiers ("Personal training (per session)" vs
-// "Personal training"), word order, and - the big one for circubawd -
+// "Personal training"), word order, and - the big one for circubAwd -
 // Amharic spelling variants that are the SAME word colloquially
 // ("አበሻ ቀሚስ" vs "ሀበሻ ቀሚስ" - both "habesha kemis"). This matcher folds
 // all of that into a canonical key and returns a tiered verdict:

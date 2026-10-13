@@ -1,0 +1,38 @@
+▲ Next.js 16.3.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://21.0.1.126:3000
+- Environments: .env
+✓ Ready in 290ms
+✓ Running next.config.ts took 32ms
+- Experiments (use with caution):
+  · optimizePackageImports
+
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`LocalPricePost`.`id` FROM `main`.`LocalPricePost` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`LocalPricePost`.`id`, `main`.`LocalPricePost`.`country` FROM `main`.`LocalPricePost` WHERE 1=1 LIMIT ? OFFSET ?
+ GET / 200 in 620ms (next.js: 192ms, application-code: 428ms)
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`LocalPricePost`.`id` FROM `main`.`LocalPricePost` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`LocalPricePost`.`id`, `main`.`LocalPricePost`.`country` FROM `main`.`LocalPricePost` WHERE 1=1 LIMIT ? OFFSET ?
+ GET / 200 in 112ms (next.js: 3ms, application-code: 109ms)
+ GET /api/top-posters 200 in 112ms (next.js: 79ms, application-code: 32ms)
+prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`avatarColor`, `main`.`User`.`postsCount` FROM `main`.`User` WHERE `main`.`User`.`postsCount` > ? ORDER BY `main`.`User`.`postsCount` DESC LIMIT ? OFFSET ?
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+ GET /api/auth/me 401 in 107ms (next.js: 89ms, application-code: 18ms)
+ GET /api/auth/config 200 in 40ms (next.js: 32ms, application-code: 8ms)
+ GET /api/auth/config 200 in 6ms (next.js: 1.8ms, application-code: 4ms)
+prisma:query SELECT `main`.`LocalPricePost`.`id`, `main`.`LocalPricePost`.`postType`, `main`.`LocalPricePost`.`productName`, `main`.`LocalPricePost`.`description`, `main`.`LocalPricePost`.`country`, `main`.`LocalPricePost`.`city`, `main`.`LocalPricePost`.`neighborhood`, `main`.`LocalPricePost`.`market`, `main`.`LocalPricePost`.`latitude`, `main`.`LocalPricePost`.`longitude`, `main`.`LocalPricePost`.`currency`, `main`.`LocalPricePost`.`priceMin`, `main`.`LocalPricePost`.`priceMax`, `main`.`LocalPricePost`.`recommendedPrice`, `main`.`LocalPricePost`.`touristPrice`, `main`.`LocalPricePost`.`personalPrice`, `main`.`LocalPricePost`.`localTip`, `main`.`LocalPricePost`.`unit`, `main`.`LocalPricePost`.`quantity`, `main`.`LocalPricePost`.`contactPhone`, `main`.`LocalPricePost`.`contactEmail`, `main`.`LocalPricePost`.`contactWhatsApp`, `main`.`LocalPricePost`.`ownsShop`, `main`.`LocalPricePost`.`category`, `main`.`LocalPricePost`.`imageUrl`, `main`.`LocalPricePost`.`authorId`, `main`.`LocalPricePost`.`helpfulCount`, `main`.`LocalPricePost`.`notAccurateCount`, `main`.`LocalPricePost`.`createdAt`, `main`.`LocalPricePost`.`updatedAt`, COALESCE(`aggr_selection_0_PricePostLink`.`_aggr_count_linksA`, 0) AS `_aggr_count_linksA`, COALESCE(`aggr_selection_1_PricePostLink`.`_aggr_count_linksB`, 0) AS `_aggr_count_linksB` FROM `main`.`LocalPricePost` LEFT JOIN (SELECT `main`.`PricePostLink`.`postAId`, COUNT(*) AS `_aggr_count_linksA` FROM `main`.`PricePostLink` WHERE 1=1 GROUP BY `main`.`PricePostLink`.`postAId`) AS `aggr_selection_0_PricePostLink` ON (`main`.`LocalPricePost`.`id` = `aggr_selection_0_PricePostLink`.`postAId`) LEFT JOIN (SELECT `main`.`PricePostLink`.`postBId`, COUNT(*) AS `_aggr_count_linksB` FROM `main`.`PricePostLink` WHERE 1=1 GROUP BY `main`.`PricePostLink`.`postBId`) AS `aggr_selection_1_PricePostLink` ON (`main`.`LocalPricePost`.`id` = `aggr_selection_1_PricePostLink`.`postBId`) WHERE 1=1 ORDER BY `main`.`LocalPricePost`.`createdAt` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`username`, `main`.`User`.`avatarColor`, `main`.`User`.`profilePicture`, `main`.`User`.`isLocal`, `main`.`User`.`verifiedLocal`, `main`.`User`.`idVerified`, `main`.`User`.`rating`, `main`.`User`.`helpfulVotes`, `main`.`User`.`localPostCount`, `main`.`User`.`headline`, `main`.`User`.`location`, `main`.`User`.`expertiseTags` FROM `main`.`User` WHERE `main`.`User`.`id` IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`LocalPriceVote`.`id`, `main`.`LocalPriceVote`.`userId`, `main`.`LocalPriceVote`.`postId`, `main`.`LocalPriceVote`.`voteType`, `main`.`LocalPriceVote`.`createdAt` FROM `main`.`LocalPriceVote` WHERE `main`.`LocalPriceVote`.`postId` IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) LIMIT ? OFFSET ?
+ GET /api/local-prices?limit=5&_cb=1791889153894 200 in 56ms (next.js: 38ms, application-code: 19ms)
+ GET /contact 200 in 106ms (next.js: 13ms, application-code: 93ms)
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`LocalPricePost`.`id` FROM `main`.`LocalPricePost` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`LocalPricePost`.`id`, `main`.`LocalPricePost`.`country` FROM `main`.`LocalPricePost` WHERE 1=1 LIMIT ? OFFSET ?
+ GET / 200 in 127ms (next.js: 7ms, application-code: 121ms)
+prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`avatarColor`, `main`.`User`.`postsCount` FROM `main`.`User` WHERE `main`.`User`.`postsCount` > ? ORDER BY `main`.`User`.`postsCount` DESC LIMIT ? OFFSET ?
+ GET /api/top-posters 200 in 17ms (next.js: 4ms, application-code: 13ms)
+ GET /api/auth/me 401 in 24ms (next.js: 4ms, application-code: 20ms)
+ GET /api/auth/config 200 in 10ms (next.js: 2.0ms, application-code: 8ms)
+ GET /api/auth/config 200 in 11ms (next.js: 3ms, application-code: 8ms)

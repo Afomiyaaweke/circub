@@ -17,14 +17,14 @@ const geistSans = Geist({
 // localhost and social cards / search results break silently.
 export const metadata: Metadata = {
   metadataBase: new URL("https://circub.vercel.app"),
-  title: "circubawd · Know what things actually cost while you travel, from the locals",
+  title: "circubAwd · Know what things actually cost while you travel, from the locals",
   description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
-  keywords: ["circubawd", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge"],
-  authors: [{ name: "circubawd Team" }],
+  keywords: ["circubAwd", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge"],
+  authors: [{ name: "circubAwd Team" }],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "circubawd",
+    title: "circubAwd",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
@@ -57,23 +57,23 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "circubawd · Know what things actually cost while you travel, from the locals",
+    title: "circubAwd · Know what things actually cost while you travel, from the locals",
     description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
     url: "/",
-    siteName: "circubawd",
+    siteName: "circubAwd",
     type: "website",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "circubawd - know what things actually cost while you travel, from the locals",
+        alt: "circubAwd - know what things actually cost while you travel, from the locals",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "circubawd · Know what things actually cost while you travel, from the locals",
+    title: "circubAwd · Know what things actually cost while you travel, from the locals",
     description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
     images: ["/og-image.png"],
   },
@@ -81,7 +81,7 @@ export const metadata: Metadata = {
 
 // v114 AI/SEO: sitewide structured data. Three schema.org entities so both
 // classic search engines and AI answer engines (ChatGPT search, Perplexity,
-// Google AI Overviews, Copilot) can quote circubawd accurately: the site
+// Google AI Overviews, Copilot) can quote circubAwd accurately: the site
 // itself, the installable application, and the organization behind it.
 // Facts only - no invented ratings, no invented numbers.
 const SITE_JSON_LD = {
@@ -90,7 +90,7 @@ const SITE_JSON_LD = {
     {
       "@type": "WebSite",
       "@id": "https://circub.vercel.app/#website",
-      "name": "circubawd",
+      "name": "circubAwd",
       "url": "https://circub.vercel.app/",
       "inLanguage": "en",
       "description":
@@ -99,7 +99,7 @@ const SITE_JSON_LD = {
     {
       "@type": "WebApplication",
       "@id": "https://circub.vercel.app/#app",
-      "name": "circubawd",
+      "name": "circubAwd",
       "url": "https://circub.vercel.app/",
       "applicationCategory": "TravelApplication",
       "operatingSystem": "Any (installable web app - Android, iOS, desktop)",
@@ -127,7 +127,7 @@ const SITE_JSON_LD = {
     {
       "@type": "Organization",
       "@id": "https://circub.vercel.app/#org",
-      "name": "circubawd",
+      "name": "circubAwd",
       "url": "https://circub.vercel.app/",
       "logo": "https://circub.vercel.app/logo.png",
       "email": "support@tenetbid.com",

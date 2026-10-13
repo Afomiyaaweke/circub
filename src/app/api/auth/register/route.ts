@@ -12,7 +12,7 @@ interface RegisterBody {
   // Shared
   email: string
   password: string
-  // Shareable profile handle (circubawd.app/u/<username>) - required, unique
+  // Shareable profile handle (circubAwd.app/u/<username>) - required, unique
   username?: string
   // Personal
   name?: string

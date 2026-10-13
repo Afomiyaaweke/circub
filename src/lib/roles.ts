@@ -1,11 +1,11 @@
 // ============================================================================
-// circubawd Live Zone roles.
+// circubAwd Live Zone roles.
 // The SAME role question ("I am joining as *") is asked while a member
 // registers (register-modal) and again inside the Live Zone join modal,
 // where the sign-up answer arrives prefilled:
 //   guide     - shows travelers around (tours, bookings, hourly rate)
 //   vlogger   - films the real side of their city (videos front and center)
-//   local     - shares prices, places and tips (the original circubawd local)
+//   local     - shares prices, places and tips (the original circubAwd local)
 //   volunteer - helps out and meets travelers, no charge expected
 //   sales     - sells real products to travelers (souvenirs, goods, crafts)
 // Stored comma-separated on User.guideRoles (e.g. "guide,vlogger").
@@ -51,7 +51,7 @@ export function roleListLabel(roles: circubawdRole[]): string {
   return roles.map((r) => ROLE_META[r].label).join(' · ')
 }
 
-// Noun for sentences like "Meet X, a seller on circubawd" - falls back to the
+// Noun for sentences like "Meet X, a seller on circubAwd" - falls back to the
 // lowercased label ("guide", "vlogger", ...) when no special noun is set.
 export function roleNoun(role: circubawdRole): string {
   return ROLE_META[role].noun ?? ROLE_META[role].label.toLowerCase()

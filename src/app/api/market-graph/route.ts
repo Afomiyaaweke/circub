@@ -6,7 +6,7 @@ export const runtime = 'nodejs'
 // ============================================================================
 // MARKET GRAPH API - the data behind the market graph panel.
 // Given a location (country + optional city) and an optional item query it
-// aggregates REAL local price posts on circubawd into three chart-ready series:
+// aggregates REAL local price posts on circubAwd into three chart-ready series:
 //
 //   items[]  - "what things cost here": top products at the picked place,
 //              each with post count + min/typical/max in that item's
@@ -176,7 +176,7 @@ export async function GET(req: NextRequest) {
     // elsewhere" is exactly the tourist question), so it ignores the place
     // filter on purpose - only the items series is scoped to the picked
     // market. Without an item query it doubles as the worldwide market
-    // overview (where circubawd has prices at all).
+    // overview (where circubAwd has prices at all).
     const postsForPlaces = await db.localPricePost.findMany({
       where: q ? { productName: { contains: q } } : {},
       select: {

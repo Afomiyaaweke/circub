@@ -26,8 +26,8 @@ export const maxDuration = 60
 //   - per-item and combined price ranges (best / typical / priciest)
 //   - the SAFE budget = priciest realistic total + 10% buffer
 //   - a verdict against the money the user says they have
-//   - where to find the items near the location (circubawd posts + AI guide)
-// Sources, in order of trust: local price posts on circubawd > AI/web estimate
+//   - where to find the items near the location (circubAwd posts + AI guide)
+// Sources, in order of trust: local price posts on circubAwd > AI/web estimate
 // > keyword rough guess. A requested currency converts the numbers through
 // rough USD-based market rates.
 // ============================================================================
@@ -254,7 +254,7 @@ async function computeItem(
   const recommended = ceilMoney(totalHigh * 1.1)
 
   const parts: string[] = []
-  if (matched.length > 0) parts.push(`${matched.length} local price post${matched.length !== 1 ? 's' : ''} on circubawd`)
+  if (matched.length > 0) parts.push(`${matched.length} local price post${matched.length !== 1 ? 's' : ''} on circubAwd`)
   if (hint || (estimateSummary && source === 'ai')) parts.push('an AI price estimate')
   if (source === 'rough') parts.push('typical market prices (rough guess)')
 
@@ -339,7 +339,7 @@ async function suggestPlaces(
   const places: NonNullable<BudgetResponse['places']> = []
   const seen = new Set<string>()
 
-  // 1) Real clusters from circubawd price posts - ranked by post count.
+  // 1) Real clusters from circubAwd price posts - ranked by post count.
   const groups = new Map<string, { label: string; count: number; items: Set<string>; best: LocalPriceMatch | null }>()
   for (const m of matchedAcrossItems) {
     const label = [m.city, m.country].filter(Boolean).join(', ') || m.country || 'Unknown place'
@@ -355,7 +355,7 @@ async function suggestPlaces(
     seen.add(g.label.toLowerCase())
     places.push({
       name: g.label,
-      detail: `${g.count} circubawd price post${g.count !== 1 ? 's' : ''} here - ${[...g.items].slice(0, 3).join(', ')}${g.best ? ` from ${fmtMoney(g.best.currency, g.best.priceMin)}` : ''}`,
+      detail: `${g.count} circubAwd price post${g.count !== 1 ? 's' : ''} here - ${[...g.items].slice(0, 3).join(', ')}${g.best ? ` from ${fmtMoney(g.best.currency, g.best.priceMin)}` : ''}`,
       source: 'circub',
       forItems: [...g.items].slice(0, 4),
     })
@@ -380,7 +380,7 @@ async function suggestPlaces(
         places.push({ name, detail: detail || 'Suggested by the local shopping guide.', source: 'ai', forItems: items.map((i) => i.name).slice(0, 4) })
       }
     } catch {
-      // AI guide is best-effort - circubawd places and the generic hint remain.
+      // AI guide is best-effort - circubAwd places and the generic hint remain.
     }
   }
 
@@ -388,7 +388,7 @@ async function suggestPlaces(
   if (allowAiGuide && places.length === 0 && (location?.city || location?.country)) {
     places.push({
       name: `Local markets in ${placeName}`,
-      detail: 'No circubawd posts or guide entries yet for these items - try the busiest market area and ask vendors to compare offers.',
+      detail: 'No circubAwd posts or guide entries yet for these items - try the busiest market area and ask vendors to compare offers.',
       source: 'generic',
       forItems: items.map((i) => i.name).slice(0, 4),
     })
@@ -519,7 +519,7 @@ export async function POST(req: NextRequest) {
     ]
     const parts: string[] = []
     const localCount = okItems.filter((it) => it.source === 'local').length
-    if (localCount > 0) parts.push(`local price posts on circubawd for ${localCount} item${localCount !== 1 ? 's' : ''}`)
+    if (localCount > 0) parts.push(`local price posts on circubAwd for ${localCount} item${localCount !== 1 ? 's' : ''}`)
     if (okItems.some((it) => it.source === 'ai')) parts.push('an AI price estimate')
     if (okItems.some((it) => it.source === 'rough')) parts.push('typical market prices (rough guess)')
     note = `Safe budget = priciest realistic total for the whole list + 10% buffer, from ${parts.join(' + ') || 'market data'} for ${locationLabel(location)}.`

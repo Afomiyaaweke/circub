@@ -29,7 +29,7 @@ const SUPPORT_EMAIL = 'support@tenetbid.com'
 
 // Quick-pick reasons - one tap fills the textarea (still editable).
 const QUICK_REASONS = [
-  'I no longer need circubawd',
+  'I no longer need circubAwd',
   'Privacy concerns',
   'I found another platform',
   'Too many notifications',
@@ -55,7 +55,7 @@ export function DeactivateAccountModal({
   const { toast } = useToast()
 
   const mailBody = [
-    `Hi circubawd team,`,
+    `Hi circubAwd team,`,
     ``,
     `I want to deactivate my account.`,
     `Account: ${user?.name || ''} (${user?.email || ''})`,
@@ -75,7 +75,7 @@ export function DeactivateAccountModal({
     if (reason.trim().length < 3) {
       toast({
         title: 'Please tell us why',
-        description: 'A short reason helps the team improve circubawd.',
+        description: 'A short reason helps the team improve circubAwd.',
         variant: 'destructive',
       })
       return

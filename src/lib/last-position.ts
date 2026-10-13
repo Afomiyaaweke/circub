@@ -18,7 +18,7 @@ export interface LastPosition {
   section: ProfileSection | null
 }
 
-const KEY = 'circubawd.position.v1'
+const KEY = 'circubAwd.position.v1'
 
 let moduleTab: TabKey | null = null
 let moduleSection: ProfileSection | null = null

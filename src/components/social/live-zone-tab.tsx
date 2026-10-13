@@ -885,8 +885,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     ? `${window.location.origin}/g/${g.username}`
                     : `${window.location.origin}/?guide=${g.id}`
                   const rls = guideRolesOrLegacy((g as any).guideRoles)
-                  const shareTitle = `${g.name} - ${roleListLabel(rls)} on circubawd`
-                  const shareText = `Check out ${g.name}, a ${roleNoun(rls[0])} on circubawd`
+                  const shareTitle = `${g.name} - ${roleListLabel(rls)} on circubAwd`
+                  const shareText = `Check out ${g.name}, a ${roleNoun(rls[0])} on circubAwd`
                   try {
                     if (navigator.share) {
                       await navigator.share({ title: shareTitle, text: shareText, url })

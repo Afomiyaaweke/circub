@@ -187,7 +187,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // Full-tab Edit Profile view (Instagram-style) - replaces the old modal
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
-  // Username: the shareable profile handle (circubawd.app/u/<username>).
+  // Username: the shareable profile handle (circubAwd.app/u/<username>).
   const [username, setUsername] = useState('')
   const [uStatus, setUStatus] = useState<'idle' | 'checking' | 'available' | 'error'>('idle')
   const [uMsg, setUMsg] = useState('')
@@ -556,7 +556,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     const link = profileLink(handle)
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: `${me.name} on circubawd`, url: link })
+        await navigator.share({ title: `${me.name} on circubAwd`, url: link })
         return
       }
       await navigator.clipboard.writeText(link)
@@ -747,7 +747,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             Sign up free to make it yours.
           </p>
           <div className="flex flex-col gap-2">
-            <Button onClick={onSignUp} className="bg-primary hover:bg-primary/90 text-primary-foreground">Join circubawd - it's free</Button>
+            <Button onClick={onSignUp} className="bg-primary hover:bg-primary/90 text-primary-foreground">Join circubAwd - it's free</Button>
             <Button variant="outline" onClick={() => setGuestSaved((v) => !v)} className="gap-1.5">
               <Bookmark className="w-4 h-4" />{guestSaved ? 'Hide' : 'View'} your saved items
             </Button>
@@ -824,7 +824,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {uMsg ? (
                 <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
-                <p className="text-[10px] text-muted-foreground">Your unique ID - your profile lives at <span className="font-semibold">circubawd.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
+                <p className="text-[10px] text-muted-foreground">Your unique ID - your profile lives at <span className="font-semibold">circubAwd.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
               )}
             </div>
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Briefcase className="w-3.5 h-3.5" />Headline</label><Input placeholder="e.g. Verified Local · Traveler · Food enthusiast" value={headline} onChange={(e) => setHeadline(e.target.value)} /></div>
@@ -1014,7 +1014,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   <ShieldCheck className="w-7 h-7 text-blue-500 shrink-0" />
                   <div>
                     <h2 className="text-sm font-bold text-foreground">Get the verified badge</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Upload a photo of your ID card or passport. Once verified, a blue check shows next to your name across circubawd - trust at a glance.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">Upload a photo of your ID card or passport. Once verified, a blue check shows next to your name across circubAwd - trust at a glance.</p>
                   </div>
                 </div>
 
@@ -1336,7 +1336,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                       <span className="text-base font-semibold text-white/95 drop-shadow">{stories[viewerIndex].pricePost.productName}</span>
                     </>
                   )}
-                  <span className="text-[9px] uppercase tracking-widest text-white/60 mt-2">circubawd price story</span>
+                  <span className="text-[9px] uppercase tracking-widest text-white/60 mt-2">circubAwd price story</span>
                 </div>
               )}
               {/* caption */}

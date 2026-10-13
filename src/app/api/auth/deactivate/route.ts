@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const reason = sanitizeInput(String(body.reason || ''), 2000)
     if (!reason || reason.length < 3) {
       return NextResponse.json(
-        { error: 'Please tell us why you are leaving (at least a few words) - it helps us improve circubawd.' },
+        { error: 'Please tell us why you are leaving (at least a few words) - it helps us improve circubAwd.' },
         { status: 400 }
       )
     }
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.contactMessage.create({
         data: {
-          name: me.name || 'circubawd user',
+          name: me.name || 'circubAwd user',
           email: me.email,
           subject: 'Account deactivation request',
           message: [

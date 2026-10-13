@@ -435,7 +435,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
             <button
               onClick={() => onOpenChange(false)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
-              title="Go back to circubawd"
+              title="Go back to circubAwd"
               aria-label="Go back"
             >
               <ArrowLeft className="h-4 w-4" />

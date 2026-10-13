@@ -8,7 +8,7 @@
 //                     afomiyaaweke20@gmail.com - the owner's own inbox, so
 //                     every "contact us" message lands there once a
 //                     RESEND_API_KEY is configured.
-//   RESEND_FROM       the verified sender, e.g. "circubawd <support@tenetbid.com>".
+//   RESEND_FROM       the verified sender, e.g. "circubAwd <support@tenetbid.com>".
 //                     Defaults to Resend's sandbox sender, which only delivers
 //                     to the Resend account's own address until a domain is
 //                     verified (register the Resend account with
@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: process.env.RESEND_FROM || 'circubawd <onboarding@resend.dev>',
+            from: process.env.RESEND_FROM || 'circubAwd <onboarding@resend.dev>',
             to: [toEmail],
             reply_to: email,
-            subject: subject ? `[circubawd Contact] ${subject}` : '[circubawd Contact] New message',
+            subject: subject ? `[circubAwd Contact] ${subject}` : '[circubAwd Contact] New message',
             text: [
-              `New message from the circubawd /contact page:`,
+              `New message from the circubAwd /contact page:`,
               ``,
               `Name: ${name}`,
               `Email: ${email}`,

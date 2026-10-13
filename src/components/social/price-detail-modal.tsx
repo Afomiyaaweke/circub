@@ -905,7 +905,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   the Cheapest badge, and tapping a business opens its post.
                   Every link shows on BOTH posts. v143: businesses selling
                   the SAME product also compare automatically ("Other
-                  businesses on circubawd") - no manual link needed, and manual
+                  businesses on circubAwd") - no manual link needed, and manual
                   links never double-count a business. */}
               <div className="rounded-xl border border-border p-4" data-testid="detail-links-section">
                 <div className="flex items-center justify-between gap-2 mb-1">
@@ -950,7 +950,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {`${post.productName} price by location and date (${post.currency})`}
                     </p>
                     <p className="text-[10px] text-muted-foreground px-2 pb-1.5 sm:px-3">
-                      {`Price (${post.currency}) by Date - the same item at every business posting it on circubawd`}
+                      {`Price (${post.currency}) by Date - the same item at every business posting it on circubAwd`}
                     </p>
                     <div className="overflow-x-auto scrollbar-thin">
                       <table className="w-full text-xs border-collapse">
@@ -1348,7 +1348,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     {autoRows.length > 0 && (
                       <div className="pt-1.5">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pb-1">
-                          Other businesses on circubawd
+                          Other businesses on circubAwd
                         </p>
                         {autoRows.map((a) => {
                           const sameCur = post && a.currency === post.currency

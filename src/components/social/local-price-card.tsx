@@ -110,7 +110,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   // v117: the share link is ALWAYS the post's own deep link (/?post=<id>).
   // That page renders per-post Open Graph tags (post photo, name, price
   // range via /api/local-prices/<id>/image) so WhatsApp / X / Telegram /
-  // Facebook previews show THE POST'S IMAGE - and on circubawd it auto-opens
+  // Facebook previews show THE POST'S IMAGE - and on circubAwd it auto-opens
   // the price detail modal for the recipient.
   const shareLink = typeof window === 'undefined'
     ? 'https://circub.vercel.app'

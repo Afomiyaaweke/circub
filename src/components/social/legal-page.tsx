@@ -13,7 +13,7 @@ export function LegalPage({ doc, otherHref, otherLabel }: { doc: LegalDoc; other
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to circubawd
+          Back to circubAwd
         </Link>
 
         <div className="mt-6 rounded-xl border border-border bg-card shadow-sm p-5 sm:p-10">
@@ -30,7 +30,7 @@ export function LegalPage({ doc, otherHref, otherLabel }: { doc: LegalDoc; other
           <div className="mt-5 p-3.5 rounded-lg border border-emerald-200 bg-emerald-50 text-xs sm:text-sm text-emerald-900 flex items-start gap-2">
             <FileText className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
             <p className="leading-relaxed">
-              By creating an account or using circubawd you confirm that you have read and agree to this
+              By creating an account or using circubAwd you confirm that you have read and agree to this
               document and our <Link href={otherHref} className="font-semibold underline underline-offset-2 hover:text-emerald-700">{otherLabel}</Link>.
             </p>
           </div>

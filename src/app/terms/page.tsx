@@ -3,8 +3,8 @@ import { LegalPage } from '@/components/social/legal-page'
 import { TERMS_DOC } from '@/lib/legal-content'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service - circubawd',
-  description: 'The terms that govern your use of the circubawd platform (Tenetbid).',
+  title: 'Terms of Service - circubAwd',
+  description: 'The terms that govern your use of the circubAwd platform (Tenetbid).',
 }
 
 export default function TermsPage() {
