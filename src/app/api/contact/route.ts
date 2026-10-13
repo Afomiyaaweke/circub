@@ -4,12 +4,16 @@
 // Delivery (Resend REST API, plain fetch - no SDK dependency):
 //   RESEND_API_KEY    required to send. Without it the message is still
 //                     stored and the response reports emailed: false.
-//   CONTACT_TO_EMAIL  the team inbox. Defaults to support@tenetbid.com
-//                     (the address the /contact page advertises).
+//   CONTACT_TO_EMAIL  the team inbox. v174: defaults to
+//                     afomiyaaweke20@gmail.com - the owner's own inbox, so
+//                     every "contact us" message lands there once a
+//                     RESEND_API_KEY is configured.
 //   RESEND_FROM       the verified sender, e.g. "Circub <support@tenetbid.com>".
 //                     Defaults to Resend's sandbox sender, which only delivers
 //                     to the Resend account's own address until a domain is
-//                     verified.
+//                     verified (register the Resend account with
+//                     afomiyaaweke20@gmail.com and sandbox delivery reaches
+//                     exactly that inbox).
 // Email failure NEVER fails the request - the message is always persisted
 // first, so nothing a visitor writes is lost. reply_to is the visitor so the
 // team can answer straight from their inbox.
@@ -17,7 +21,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { checkRateLimit, sanitizeInput } from '@/lib/session'
 
-const CONTACT_INBOX_FALLBACK = 'support@tenetbid.com'
+const CONTACT_INBOX_FALLBACK = 'afomiyaaweke20@gmail.com'
 
 export async function POST(req: NextRequest) {
   try {
@@ -110,7 +114,7 @@ export async function POST(req: NextRequest) {
       console.warn(
         `Contact message ${saved.id} stored but NOT emailed: RESEND_API_KEY is not set. ` +
           `Add RESEND_API_KEY (+ optionally CONTACT_TO_EMAIL, RESEND_FROM) in the ` +
-          `hosting environment to deliver contact messages to the team inbox.`
+          `hosting environment to deliver contact messages to ${CONTACT_INBOX_FALLBACK}.`
       )
     }
 
