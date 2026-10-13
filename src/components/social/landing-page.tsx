@@ -70,7 +70,7 @@ interface LandingPageProps {
 const FAQ_ITEMS = [
   {
     q: "What is circubAwd?",
-    a: "circubAwd is a free community platform where locals post real prices for products, services, restaurants and transport, and travelers see what things actually cost before and while they travel. The community votes and rates posts, so accurate prices rise to the top.",
+    a: "circubAwd is a free community platform that helps you find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers. The community votes and rates posts, so accurate prices rise to the top.",
   },
   {
     q: "How much does circubAwd cost?",
@@ -105,7 +105,7 @@ const FEATURES = [
   {
     icon: Wallet,
     title: "Real local prices",
-    body: "Locals post what things actually cost - food, transport, hotels, services - in their own city and currency.",
+    body: "Locals and businesses post what things actually cost - food, transport, hotels, services - in their own city and currency.",
   },
   {
     icon: Camera,
@@ -124,42 +124,42 @@ const FEATURES = [
   },
   {
     icon: TrendingUp,
-    title: "Trip budget planner",
-    body: "List what you'll buy and see what to set aside per place - and where your budget covers the whole list.",
+    title: "Proforma planner",
+    body: "List what you'll buy and get an itemized proforma - what to set aside per place, built from real local prices.",
   },
   {
     icon: BadgeCheck,
-    title: "Community trust",
-    body: "Votes and star ratings surface accurate prices; verification marks highlight established locals.",
+    title: "Registered sales",
+    body: "Register as a Sales seller and sell your stuff to buyers already looking - your name and ratings behind every post.",
   },
 ]
 
 const STEPS = [
   {
     icon: Search,
-    title: "Search or snap any price",
+    title: "Find local businesses",
     items: [
-      "Browse real prices by city, category and currency",
-      "Snap a photo with PriceLens to price anything",
-      "See the typical range before you spend",
+      "Search businesses and prices by city, category and currency",
+      "See the name and star ratings behind every price",
+      "Compare real offers side by side before you spend",
     ],
   },
   {
-    icon: Users,
-    title: "Compare local consensus",
+    icon: Wallet,
+    title: "Plan with a proforma",
     items: [
-      "Votes and star ratings rank accurate prices",
-      "Repeat posts of the same item sit side by side",
-      "Stale prices sink, fresh ones rise",
+      "List the things you need to buy or get done",
+      "Turn real local prices into an itemized estimate",
+      "See where your budget covers the list, place by place",
     ],
   },
   {
-    icon: MessageCircle,
-    title: "Ask or book trusted locals",
+    icon: Store,
+    title: "Sell through registered sales",
     items: [
-      "Message a local when a price is missing",
-      "Book guides by city, language and specialty",
-      "Plan the whole trip with the budget planner",
+      "Register as a Sales seller in minutes",
+      "Post your stuff with photos and real prices",
+      "Reach buyers while they are already looking to buy",
     ],
   },
 ]
@@ -210,7 +210,7 @@ function PhoneMockup() {
           {/* search pill */}
           <div className="mx-3 mb-2 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5">
             <Search className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">Search prices in your city</span>
+            <span className="text-[10px] text-muted-foreground">Find local businesses near you</span>
           </div>
           {/* price card 1 */}
           <div className="mx-3 mb-2 rounded-xl border border-border bg-card p-2.5">
@@ -355,7 +355,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
               <Plane className="h-3 w-3" />
-              Real prices. Shared by people who live there.
+              Real prices. Real businesses. Real registered sellers.
             </div>
 
             <h1
@@ -370,9 +370,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </p>
 
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Join the community that shows what things really cost where you live - street
-              food, taxi rides, hotels, repairs - posted in the local currency by people who
-              actually live there.
+              Find the local businesses behind real prices, plan what you will buy with an
+              itemized proforma, and sell your stuff through registered Sales sellers -
+              everything posted in the local currency by people who actually live there.
             </p>
 
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
@@ -443,15 +443,17 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             What is circubAwd?
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            circubAwd is a free community where locals post real prices for
-            everyday things - street food, taxi rides, hotels, haircuts,
-            repairs - and travelers see what things actually cost before and
-            while they travel. Prices are posted in the local currency by
-            people who live there, and the community votes and rates them, so
-            the most accurate prices rise to the top. You can also ask a local
-            directly when you can&apos;t find a price, or book a local guide.
-            circubAwd works in any browser and installs as a full-screen mobile
-            app on Android and iPhone - no app store needed.
+            circubAwd is a free community that helps you find local businesses -
+            street food spots, taxi rides, hotels, salons, repairs - with real,
+            current prices posted in the local currency by people who live
+            there. Planning something? Build a proforma: list the items you
+            need and the budget planner turns real local prices into an
+            itemized cost estimate, place by place. Selling? Register as a
+            Sales seller and post your products where buyers are already
+            looking - your name and ratings travel with every post. The
+            community votes and rates posts, so the most accurate prices rise
+            to the top. circubAwd works in any browser and installs as a
+            full-screen mobile app on Android and iPhone - no app store needed.
           </p>
         </div>
       </section>
@@ -460,13 +462,13 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       <section id="how" aria-labelledby="how-h" className="border-t border-border/60 bg-card/40">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
           <div className="text-center">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Transparency in 3 steps</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Buy, plan, sell - in 3 steps</p>
             <h2 id="how-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               How circubAwd works in 3 simple steps
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              No spreadsheets, no yearly membership, no cost. Just you and a
-              world of prices locals already know.
+              No spreadsheets, no membership, no cost. Find a business, plan a
+              proforma, or start selling - three steps, all free.
             </p>
           </div>
 
@@ -497,9 +499,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       {/* ============================== ROLES ============================== */}
       <section aria-labelledby="roles-h" className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
         <SectionHeading
-          eyebrow="Both sides of every trip"
-          title="A platform where both visitors and neighbors thrive"
-          sub="circubAwd works for everyone who touches a city - explore it, share it, or earn from what you already know."
+          eyebrow="Buy, plan, and sell in one place"
+          title="Find businesses, plan your proforma, sell with trust"
+          sub="circubAwd works for everyone who touches a city - explore it, plan what you will spend, or earn from what you already sell."
         />
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -521,9 +523,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               <Store className="h-5 w-5" />
             </div>
             <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] opacity-80">For locals</p>
-            <h3 className="mt-1 text-base font-semibold">Post prices &amp; build reputation</h3>
+            <h3 className="mt-1 text-base font-semibold">Put your business on the map</h3>
             <p className="mt-2 flex-1 text-xs leading-relaxed opacity-90">
-              Every price you post helps neighbors and travelers - and builds your name on the board.
+              Post your business with real prices - neighbors and travelers find you, and every post builds your name.
             </p>
             <Button
               onClick={onSignUp}
@@ -554,10 +556,10 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
               <BadgeCheck className="h-5 w-5" />
             </div>
-            <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">For vendors</p>
-            <h3 className="mt-1 text-base font-semibold text-foreground">Post your product for free</h3>
+            <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">For sellers</p>
+            <h3 className="mt-1 text-base font-semibold text-foreground">Sell through registered sales</h3>
             <p className="mt-2 flex-1 text-xs leading-relaxed text-muted-foreground">
-              List what you sell with photos and real prices, where people are already looking.
+              Register as a Sales seller, list your stuff with photos and real prices, and reach people already looking to buy.
             </p>
             <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               List what you sell <ArrowRight className="h-3 w-3" />
@@ -686,7 +688,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                 color: "teal",
               },
               {
-                quote: "I post prices for my street food spot. Travelers find me, neighbors trust me, and my name is on the Top score board.",
+                quote: "I registered as a Sales seller and posted my street food spot with real prices. Travelers find me, neighbors trust me, and my name is on the Top score board.",
                 name: "Daniel",
                 role: "Local cook",
                 color: "orange",
@@ -759,11 +761,11 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         <div className="rounded-3xl bg-primary px-6 py-12 text-center text-primary-foreground shadow-lg sm:px-10">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] opacity-80">Join the community</p>
           <h2 id="cta-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight sm:text-3xl">
-            Travel smarter with real prices in your pocket.
+            Find local businesses. Plan with a proforma. Sell with trust.
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed opacity-90 sm:text-base">
-            Join for free, post what things really cost where you live, and
-            help every visitor spend like a local.
+            Join free, put your business on the map, build a proforma for
+            anything you need, or start selling through registered sales.
           </p>
           <div className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
             <Button

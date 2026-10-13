@@ -18,8 +18,8 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   metadataBase: new URL("https://circub.vercel.app"),
   title: "circubAwd · Know what things actually cost while you travel, from the locals",
-  description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
-  keywords: ["circubAwd", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge"],
+  description: "Find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers - free on circubAwd.",
+  keywords: ["circubAwd", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge", "find local businesses", "proforma", "registered sales"],
   authors: [{ name: "circubAwd Team" }],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "circubAwd · Know what things actually cost while you travel, from the locals",
-    description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
+    description: "Find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers - free on circubAwd.",
     url: "/",
     siteName: "circubAwd",
     type: "website",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "circubAwd · Know what things actually cost while you travel, from the locals",
-    description: "Locals post real prices for products, services, restaurants, transport and more. Travelers get verified, up-to-date local knowledge · and can ask a local directly when they can't find what they need.",
+    description: "Find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers - free on circubAwd.",
     images: ["/og-image.png"],
   },
 };

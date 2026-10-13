@@ -36,3 +36,4 @@ prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`ava
  GET /api/auth/me 401 in 24ms (next.js: 4ms, application-code: 20ms)
  GET /api/auth/config 200 in 10ms (next.js: 2.0ms, application-code: 8ms)
  GET /api/auth/config 200 in 11ms (next.js: 3ms, application-code: 8ms)
+[?25h

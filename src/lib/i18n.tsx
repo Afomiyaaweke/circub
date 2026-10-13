@@ -51,8 +51,8 @@ const en = {
   'header.personal': 'Personal',
   'header.language': 'Language',
 
-  'landing.headline': 'Know the real price before you land.',
-  'landing.copy': 'Prices. Places. Products. People.',
+  'landing.headline': 'Find local businesses. Plan. Sell.',
+  'landing.copy': 'Businesses. Proformas. Registered sales.',
   'landing.cta': 'Post a real price',
   'landing.signUpFree': 'Sign up free',
   'landing.signIn': 'Sign in',

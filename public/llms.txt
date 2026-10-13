@@ -1,9 +1,10 @@
 # circubAwd
 
-> circubAwd is a free web app where locals post real, current prices for everyday
-> things - food, transport, hotels, services - and travelers see what things
-> actually cost before and while they travel. Installable as a mobile app
-> (PWA) on Android, iOS and desktop; no app store needed.
+> circubAwd is a free web app that helps you find local businesses with real,
+> current prices for everyday things - food, transport, hotels, services -
+> plan what you'll buy with an itemized proforma, and sell your stuff through
+> registered Sales sellers. Installable as a mobile app (PWA) on Android, iOS
+> and desktop; no app store needed.
 
 circubAwd ("know before you go") is built on one idea: the most reliable price
 information comes from people who actually live there. Locals post prices for
