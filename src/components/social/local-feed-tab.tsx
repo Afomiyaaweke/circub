@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, PenLine, ClipboardList } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, PenLine, ClipboardList, Sheet } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
 import { PriceStoriesStrip } from './price-stories-strip'
 import { CreatePricePostModal } from './create-price-post-modal'
+import { BulkPostModal } from './bulk-post-modal'
 import { CATEGORIES, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
@@ -70,6 +71,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const [city, setCity] = useState('All cities')
   const [category, setCategory] = useState(ALL_CATEGORIES)
   const [modalOpen, setModalOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [marketOpen, setMarketOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
@@ -366,6 +368,17 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     setModalOpen(true)
   }
 
+  // Bulk post (v173): spreadsheet-style multi-post publishing. Same guest
+  // gate as the single composer - guests bounce to the Register modal.
+  const openBulk = () => {
+    if (isGuest) {
+      if (onRequireSignUp) onRequireSignUp()
+      toast({ title: 'Sign up to post', description: 'Create a free account to post local prices. It takes 10 seconds.' })
+      return
+    }
+    setBulkOpen(true)
+  }
+
   const handleEditPost = (post: LocalPricePost) => {
     setEditPost(post)
     setEditModalOpen(true)
@@ -583,9 +596,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             </div>
             <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
           </div>
-          <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm shrink-0 h-9 sm:h-10 px-3 sm:px-4">
-            <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button onClick={openBulk} variant="outline" className="gap-1.5 shadow-sm h-9 sm:h-10 px-3 sm:px-4" title="Post many prices at once from a spreadsheet" data-testid="bulk-post-open">
+              <Sheet className="w-4 h-4 text-emerald-600" /> <span className="text-xs sm:text-sm">Bulk post</span>
+            </Button>
+            <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm h-9 sm:h-10 px-3 sm:px-4">
+              <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -993,6 +1011,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       )}
 
       <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={() => { setPostPrefill(null); handleCreated() }} prefill={postPrefill} />
+      <BulkPostModal open={bulkOpen} onOpenChange={setBulkOpen} onCreated={handleCreated} />
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} onOpenPost={setDetailPostId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} onMessage={onMessage} currentUserId={currentUserId} />
