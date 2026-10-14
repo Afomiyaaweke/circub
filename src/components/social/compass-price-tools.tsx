@@ -107,9 +107,9 @@ interface PlaceGroup {
 type TabKey = 'research' | 'compare' | 'budget'
 
 const TABS: { key: TabKey; label: string; icon: typeof SearchCheck }[] = [
-  { key: 'research', label: 'Research', icon: SearchCheck },
-  { key: 'compare', label: 'Compare by location', icon: Scale },
-  { key: 'budget', label: 'Plan my budget', icon: Wallet },
+  { key: 'research', label: 'Find', icon: SearchCheck },
+  { key: 'compare', label: 'Compare', icon: Scale },
+  { key: 'budget', label: 'Plan', icon: Wallet },
 ]
 
 const LIST_CHIP_LIMIT = 8 // shopping-list choices (most-posted products)
@@ -689,10 +689,10 @@ export function CompassPriceTools() {
           <Compass className="w-4 h-4 text-primary" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-foreground">Know the price before you go</h3>
+          <h3 className="text-sm font-bold text-foreground">Your proforma</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Research what people paid, compare locations and plan the budget for your next market
-            trip - from real posts on circubAwd.
+            Find what things cost from real posts, compare places side by side, and get the best
+            result for your list - built entirely from real prices on circubAwd.
           </p>
         </div>
       </div>
@@ -1173,16 +1173,21 @@ export function CompassPriceTools() {
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     Tap a location name to make it your shopping location.
                   </p>
-                  <div className="mt-3 rounded-xl bg-emerald-500/10 border border-border p-3.5 flex items-start gap-2">
+                  <div
+                    className="mt-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3.5 flex items-start gap-2"
+                    data-testid="compass-best-result"
+                  >
                     <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <p className="text-xs sm:text-sm text-foreground">
+                      <b className="text-emerald-700 dark:text-emerald-400">Best result:</b>{' '}
                       {bestPlace && bestPlace.key === myPlace ? (
                         <>
-                          <b>{bestPlace.short}</b> is the cheapest of the locations you picked.
+                          your list is cheapest in <b>{bestPlace.short}</b> - the place you are
+                          shopping in. Compare more locations to beat it.
                         </>
                       ) : bestPlace && savings > 0 ? (
                         <>
-                          Among these locations your list is cheapest in <b>{bestPlace.short}</b>, about{' '}
+                          your list is cheapest in <b>{bestPlace.short}</b>, about{' '}
                           <b>{money(savings, cur)}</b> less than {myShort}.
                         </>
                       ) : (
@@ -1438,7 +1443,10 @@ export function CompassPriceTools() {
                       className="mt-1.5 text-sm text-foreground"
                       data-testid="compass-budget-locate-best"
                     >
-                      Best price within your {money(budgetNum, cur)} budget:{' '}
+                      <span className="inline-block rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white mr-1">
+                        Best result
+                      </span>{' '}
+                      Within your {money(budgetNum, cur)} budget the best price is{' '}
                       <b>{budgetBest.short}</b> - the typical total there is{' '}
                       <b className="text-emerald-600 dark:text-emerald-400">
                         {money(budgetBest.total, cur)}

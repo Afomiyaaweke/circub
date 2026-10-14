@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, BarChart3, PenLine } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, PenLine, ClipboardList } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -609,8 +609,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
                 INSIDE the search bar - saves a whole row, and the camera menu
                 drops from the pill's right edge so it always fits the screen. */}
             <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} />
-            <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Market graph - prices by item and location" data-testid="market-open-compact">
-              <BarChart3 className="w-4 h-4 text-emerald-600" />
+            <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Proforma - find, compare and get the best result" data-testid="market-open-compact">
+              <ClipboardList className="w-4 h-4 text-emerald-600" />
             </Button>
           </div>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
@@ -665,11 +665,11 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           onClick={openMarket}
           disabled={searchingByImage}
           className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
-          title="Open the market graph - what things cost by item and place, from real price posts"
+          title="Open the proforma - find prices, compare places and get the best result, from real price posts"
           data-testid="market-open"
         >
-          <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Market graph</span>
+          <ClipboardList className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Proforma</span>
         </Button>
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
@@ -696,13 +696,12 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           </p>
         )}
 
-        {/* Market graph - v97: the Know-the-price-before-you-go compass
-            card (research / compare by location / plan my budget - all
-            written by the user) IS the market graph's content. Everything
-            that used to sit on the graph - the old chart content and the
-            camera-search compare + budget panels (both removed in v95)
-            - is gone. /api/market-graph still serves the chart data for
-            API consumers; one commit reverts if any of it is wanted. */}
+        {/* Proforma panel - v171: the market graph is re-framed as the
+            PROFORMA: the one place the whole concept sums up - find what
+            things cost (search or camera), compare place by place, and get
+            the best result: the cheapest real total for your list. The
+            v97 tools (research / compare / budget) ARE that flow; only the
+            naming and the best-result verdicts are new. */}
         {marketOpen && (
           <MarketGraphPanel onClose={() => setMarketOpen(false)}>
             <div className="w-full min-w-0" data-testid="market-compass-host">

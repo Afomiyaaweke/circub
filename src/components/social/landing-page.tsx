@@ -125,7 +125,7 @@ const FEATURES = [
   {
     icon: TrendingUp,
     title: "Proforma planner",
-    body: "List what you'll buy and get an itemized proforma - what to set aside per place, built from real local prices.",
+    body: "List what you'll buy, compare real local prices place by place, and get the best result - an itemized proforma of what to set aside.",
   },
   {
     icon: BadgeCheck,

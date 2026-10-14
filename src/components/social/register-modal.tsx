@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { User, Building2, Mail, Lock, MapPin, Briefcase, Globe, X, Sparkles, UserCircle, ArrowRight, Phone, MessageCircle } from 'lucide-react'
 import {
   Dialog,
@@ -72,6 +72,17 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
   // Legal gate: the Terms of Service + Privacy Policy must be confirmed
   // before an account can be created.
   const [agreed, setAgreed] = useState(false)
+  // v171: terms-gate nudge - clicking "Continue with Google" with the box
+  // unticked used to fire only a transient toast, so the button looked dead
+  // (users reported "sign in with google is not working"). The terms row now
+  // scrolls into view, glows red and carries an inline hint.
+  const [termsNudge, setTermsNudge] = useState(false)
+  const termsRef = useRef<HTMLLabelElement>(null)
+  const nudgeTerms = () => {
+    setTermsNudge(true)
+    termsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    window.setTimeout(() => setTermsNudge(false), 3000)
+  }
   // "I am joining as *" - the Live Zone roles picked at sign-up.
   const [roles, setRoles] = useState<circubawdRole[]>(() => defaultRoles('PERSONAL'))
   const [submitting, setSubmitting] = useState(false)
@@ -446,7 +457,11 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
         {/* Footer */}
         <div className="mt-6 space-y-3">
           {/* Legal confirmation - required before the account can be created */}
-          <label className="flex items-start gap-2.5 cursor-pointer select-none rounded-lg border border-border bg-accent/40 p-3">
+          <label
+            ref={termsRef}
+            data-testid="register-terms-row"
+            className={'flex items-start gap-2.5 cursor-pointer select-none rounded-lg border p-3 transition-all duration-300 ' + (termsNudge ? 'border-red-400 ring-2 ring-red-300 bg-red-50 dark:bg-red-950/30' : 'border-border bg-accent/40')}
+          >
             <input
               type="checkbox"
               checked={agreed}
@@ -460,6 +475,11 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">Privacy Policy</a>.
             </span>
           </label>
+          {termsNudge && (
+            <p data-testid="register-terms-nudge" className="text-xs text-red-600 dark:text-red-400 -mt-1.5">
+              Tick this box, then tap Continue with Google again - Google sign-in needs your agreement first.
+            </p>
+          )}
           <Button
             onClick={handleSubmit}
             disabled={submitting || !agreed}
@@ -489,6 +509,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                       description: 'Agree to the Terms of Service and Privacy Policy before continuing with Google.',
                       variant: 'destructive',
                     })
+                    nudgeTerms()
                     return
                   }
                   if (googleConfigured === false) {

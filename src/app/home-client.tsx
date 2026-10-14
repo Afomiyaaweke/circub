@@ -155,17 +155,24 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Show a clear toast when NextAuth redirects back with ?error=google
-  // (Google OAuth couldn't start because the client secret is missing on the server).
-  // Without this, the user just sees the landing page with no feedback.
+  // Show a clear toast when NextAuth redirects back with ?error=<code>
+  // (the OAuth roundtrip failed somewhere). v171: the message is now honest
+  // and differentiated - only `Configuration` claims a server misconfiguration
+  // (it is the only code that means that); every other code (OAuthCallback,
+  // OAuthSignin, AccessDenied, Callback, google, ...) gets a try-again
+  // message, because the live config is verified healthy and a failed
+  // roundtrip is almost always transient or a cancelled consent.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const err = params.get('error')
-    if (err === 'google' || err === 'OAuthCallback' || err === 'Configuration') {
+    if (err) {
+      const misconfigured = err === 'Configuration'
       toast({
         title: 'Google sign-in failed',
-        description: 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.',
+        description: misconfigured
+          ? 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.'
+          : 'Google sign-in could not be completed. Please try again, or use email + password.',
         variant: 'destructive',
       })
       // Clean the URL so the toast doesn't re-fire on refresh.

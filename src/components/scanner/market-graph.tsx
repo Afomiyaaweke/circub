@@ -1,15 +1,13 @@
 'use client'
 
 /**
- * Market graph panel - since v95 this is the ONE place the price tools
- * live: everything the camera search used to carry (Compare by location +
- * Plan my budget) renders ON the market graph, and the old chart content
- * (item bars, place bars, the before-vs-now line, the query controls) is
- * gone. The /api/market-graph endpoint still serves the chart data for API
- * consumers - the panel itself is the tools hub, and one commit reverts if
- * the graphs are wanted back.
+ * Proforma panel - since v95 this is the ONE place the price tools live;
+ * v171 names it for what it is: the PROFORMA - the whole concept summed up
+ * (find what things cost, compare place by place, get the best result).
+ * The /api/market-graph endpoint still serves chart data for API consumers;
+ * the panel itself is the proforma hub.
  */
-import { BarChart3, X } from 'lucide-react'
+import { ClipboardList, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import type { ReactNode } from 'react'
 
@@ -17,14 +15,17 @@ export function MarketGraphPanel({ onClose, children }: { onClose: () => void; c
   return (
     <Card className="w-full p-3 sm:p-4 shadow-sm border-emerald-500/40 space-y-3" data-testid="market-panel">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-          <BarChart3 className="w-4 h-4 text-emerald-600" /> Market graph
-          <span className="relative flex h-2 w-2" title="Live from real price posts" data-testid="market-live-dot">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-        </p>
-        <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close market graph" data-testid="market-close">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+            <ClipboardList className="w-4 h-4 text-emerald-600" /> Proforma
+            <span className="relative flex h-2 w-2" title="Live from real price posts" data-testid="market-live-dot">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Find. Compare. Get the best result.</p>
+        </div>
+        <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground" aria-label="Close proforma" data-testid="market-close">
           <X className="w-4 h-4" />
         </button>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react'
 import {
   Dialog,
@@ -29,6 +29,19 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   // Legal gate: the Terms of Service + Privacy Policy must be confirmed
   // before signing in.
   const [agreed, setAgreed] = useState(false)
+  // v171: the terms gate made the Google button look DEAD - clicking it with
+  // the checkbox unticked fired only a transient toast (easy to miss) and
+  // nothing else, so users reported "sign in with google is not working".
+  // The nudge makes the requirement UNMISSABLE: the terms row scrolls into
+  // view, glows red for a moment and says what it needs - the toast stays as
+  // reinforcement for screen readers and users looking elsewhere.
+  const [termsNudge, setTermsNudge] = useState(false)
+  const termsRef = useRef<HTMLLabelElement>(null)
+  const nudgeTerms = () => {
+    setTermsNudge(true)
+    termsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    window.setTimeout(() => setTermsNudge(false), 3000)
+  }
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -99,6 +112,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
         description: 'Agree to the Terms of Service and Privacy Policy before continuing with Google.',
         variant: 'destructive',
       })
+      nudgeTerms()
       return
     }
     if (googleConfigured === false) {
@@ -215,7 +229,11 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
             {fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
           </div>
 
-          <label className="flex items-start gap-2.5 cursor-pointer select-none rounded-lg border border-border bg-accent/40 p-3">
+          <label
+            ref={termsRef}
+            data-testid="login-terms-row"
+            className={'flex items-start gap-2.5 cursor-pointer select-none rounded-lg border p-3 transition-all duration-300 ' + (termsNudge ? 'border-red-400 ring-2 ring-red-300 bg-red-50 dark:bg-red-950/30' : 'border-border bg-accent/40')}
+          >
             <input
               type="checkbox"
               checked={agreed}
@@ -229,6 +247,11 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">Privacy Policy</a>.
             </span>
           </label>
+          {termsNudge && (
+            <p data-testid="login-terms-nudge" className="text-xs text-red-600 dark:text-red-400 -mt-1.5">
+              Tick this box, then tap Continue with Google again - Google sign-in needs your agreement first.
+            </p>
+          )}
 
           <Button
             onClick={handleSubmit}
