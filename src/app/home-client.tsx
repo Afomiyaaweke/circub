@@ -9,6 +9,7 @@
 // immediately instead of a bare feed.
 
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { AlertTriangle, X } from 'lucide-react'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage, type LandingStats } from '@/components/social/landing-page'
@@ -156,30 +157,53 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   }, [])
 
   // Show a clear toast when NextAuth redirects back with ?error=<code>
-  // (the OAuth roundtrip failed somewhere). v171: the message is now honest
+  // (the OAuth roundtrip failed somewhere). v171: the message is honest
   // and differentiated - only `Configuration` claims a server misconfiguration
   // (it is the only code that means that); every other code (OAuthCallback,
   // OAuthSignin, AccessDenied, Callback, google, ...) gets a try-again
   // message, because the live config is verified healthy and a failed
   // roundtrip is almost always transient or a cancelled consent.
+  // v171 RACE FIX: the mount effect used to fire before the Toaster had
+  // subscribed, so the toast silently vanished (the URL was cleaned but
+  // NOTHING was ever displayed - a second "dead" Google button report).
+  // The message now lands in state and renders as a persistent inline
+  // banner over whatever is on screen (landing or app shell).
+  const [oauthErrorMsg, setOauthErrorMsg] = useState<string | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const err = params.get('error')
     if (err) {
       const misconfigured = err === 'Configuration'
-      toast({
-        title: 'Google sign-in failed',
-        description: misconfigured
-          ? 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.'
-          : 'Google sign-in could not be completed. Please try again, or use email + password.',
-        variant: 'destructive',
-      })
-      // Clean the URL so the toast doesn't re-fire on refresh.
+      setOauthErrorMsg(misconfigured
+        ? 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.'
+        : 'Google sign-in could not be completed. Please try again, or use email + password.')
+      // Clean the URL so the banner doesn't re-fire on refresh.
       const url = window.location.origin + window.location.pathname
       window.history.replaceState({}, '', url)
     }
-  }, [toast])
+  }, [])
+
+  const oauthErrorBanner = oauthErrorMsg ? (
+    <div
+      role="alert"
+      data-testid="oauth-error-banner"
+      className="fixed top-3 left-1/2 -translate-x-1/2 z-[70] w-[92%] max-w-md rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/90 shadow-lg p-3.5 flex items-start gap-2.5"
+    >
+      <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-red-900 dark:text-red-100">Google sign-in failed</p>
+        <p className="text-xs text-red-800 dark:text-red-200/90 mt-0.5 leading-relaxed">{oauthErrorMsg}</p>
+      </div>
+      <button
+        onClick={() => setOauthErrorMsg(null)}
+        aria-label="Dismiss"
+        className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 shrink-0"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  ) : null
 
   // Demo mode has ZERO write access: every attempt (post, vote, like,
   // message, guide registration...) is intercepted client-side and answered
@@ -426,6 +450,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   if (!me) {
     return (
       <>
+        {oauthErrorBanner}
         <LandingPage
           stats={stats}
           onSignUp={() => setRegisterOpen(true)}
@@ -475,6 +500,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // Logged-in → dashboard
   return (
     <div className="min-h-screen flex flex-col bg-background pb-[46px] lg:pb-0">
+      {oauthErrorBanner}
       <div className="sticky top-0 z-40">
         <Header
         activeTab={activeTab}
