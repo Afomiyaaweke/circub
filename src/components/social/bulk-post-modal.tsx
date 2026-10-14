@@ -1,11 +1,14 @@
 'use client'
 
-// BULK POST (v173): publish a whole spreadsheet of prices in one go.
-// Paste rows straight from Excel / Google Sheets (TSV) or type them into the
-// grid - every row becomes its own local price post with product, price,
-// location, contact and (optionally) an image URL.
+// BULK POST (v173 -> v174): publish a whole spreadsheet of prices in one go.
+// Three ways in: paste rows straight from Excel / Google Sheets (TSV), paste
+// a messy free-form price list (WhatsApp style: emoji bullets, dotted prices,
+// bare phone lines - parsed server-side by /api/local-prices/bulk/parse), or
+// upload a Word / PDF / Excel / CSV file and have it parsed for you. Every
+// source lands in the same editable grid so the user reviews and corrects
+// everything BEFORE anything is posted.
 import { useMemo, useState } from 'react'
-import { Sheet, Plus, Trash2, Copy, Upload, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Sheet, Plus, Trash2, Copy, Upload, CheckCircle2, AlertTriangle, FileText, FileUp, Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -46,6 +49,37 @@ interface GridRow {
 }
 
 const emptyRow = (): GridRow => ({ productName: '', price: '', city: '', country: '', contact: '', imageUrl: '' })
+
+// Sample price list (text mode) - the real-world shape this parses: a
+// company header, audience banners, emoji bullet rows with dotted prices
+// and bare phone-number contact lines. Loads in one tap so parsing can be
+// tried in seconds.
+const SAMPLE = `✨✨Benol pharmaceutical plc
+Big discount for
+📞 Wholesales
+📞 Clinics and Hospitals
+
+👉 Vicryl 2 round ..950
+👉 Vicryl 2/0 round ..950
+👉 Vicryl 3 round..950
+👉 Vicryl 3/0 cutting..950
+👉 Vicryl 5/0 cutting...1250
+👉 Vicryl 6/0 round..1250
+👉 Prolene 2/0 round..3400
+👉 Prolene 3/0 round..3400
+👉 Prolene 4/0 round..3400
+👉 Prolene 5/0 round..3400
+👉 Prolene 6/0 round..3400
+👉 Nylon 9/0...6200
+👉 Nylon 10/0..6200
+👉 Silk 0 round..620
+👉 Silk 1 cutting..550
+
+With fast delivery 🚚🚚🚚
+Contact
+📞 0911967478
+📞 0973555577
+📞 0999111110`
 
 // Two paste templates - the column layout a user copies into their sheet.
 // The Simple template covers the everyday case; the Full template adds
@@ -190,6 +224,12 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<BulkResult | null>(null)
   const [pasteHint, setPasteHint] = useState<string | null>(null)
+  // v174 source modes: sheet = TSV/CSV grid paste (v173 behavior), text =
+  // free-form price list parsed server-side, file = upload docx/pdf/xlsx/csv.
+  const [mode, setMode] = useState<'sheet' | 'text' | 'file'>('sheet')
+  const [parsing, setParsing] = useState(false)
+  const [parsedCompany, setParsedCompany] = useState('')
+  const [fileName, setFileName] = useState('')
 
   const problems = useMemo(() => rows.map((r) => rowProblem(r, defCountry)), [rows, defCountry])
   const readyCount = problems.filter((p) => p === null).length
@@ -199,6 +239,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
     setPaste(`${t.header}\n${t.example}`)
     setPasteHint('Template loaded - paste your own rows under the header, or edit them in the grid after parsing.')
     setResult(null)
+    setParsedCompany('')
   }
 
   const copyTemplate = async (key: keyof typeof TEMPLATES) => {
@@ -212,6 +253,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
   const doParse = () => {
     const { rows: parsed, mapped } = parsePaste(paste)
+    setParsedCompany('')
     if (!parsed.length) {
       setPasteHint('Nothing recognizable in the paste - each line needs at least a product and a price.')
       setRows([])
@@ -224,6 +266,93 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
         ? `Detected a header row - ${parsed.length} row${parsed.length !== 1 ? 's' : ''} loaded with columns mapped by name.`
         : `No header found - read as Product, Price, City, Contact, Image URL - ${parsed.length} row${parsed.length !== 1 ? 's' : ''} loaded.`
     )
+  }
+
+  // v174: fill the grid from a parsed price list (text or file). The grid is
+  // the PREVIEW - nothing is posted until the user checks it and submits.
+  const applyParsed = (data: any, source: 'text' | 'file') => {
+    const parsedRows: { productName: unknown; price: unknown }[] = Array.isArray(data?.rows) ? data.rows : []
+    if (!parsedRows.length) {
+      setRows([])
+      setParsedCompany('')
+      setPasteHint(
+        source === 'file' && data?.fileName
+          ? `No products with prices found in ${data.fileName} - scanned PDFs and photos are not readable, paste the text instead.`
+          : 'No product + price lines found - each line needs a product name ending in a number, like "Vicryl 2 round ..950".'
+      )
+      return
+    }
+    const contacts: string[] = Array.isArray(data.contacts) ? data.contacts : []
+    const contactStr = contacts.join(' / ')
+    setRows(
+      parsedRows.map((r) => ({
+        productName: String(r.productName || ''),
+        price: String(r.price || ''),
+        city: '',
+        country: '',
+        contact: contactStr,
+        imageUrl: '',
+      }))
+    )
+    setParsedCompany(String(data.company || ''))
+    if (data.currencyHint && currency === 'USD') setCurrency(data.currencyHint)
+    setPasteHint(
+      `Parsed ${parsedRows.length} product${parsedRows.length !== 1 ? 's' : ''}` +
+        (data.company ? ` from ${data.company}` : '') +
+        (contacts.length ? ` - ${contacts.length} contact${contacts.length !== 1 ? 's' : ''} detected` : '') +
+        (data.currencyHint ? ` - prices look like ${data.currencyHint}` : '') +
+        (data.ignored ? ` - ${data.ignored} line${data.ignored !== 1 ? 's' : ''} skipped` : '') +
+        '. Check the rows below before posting.'
+    )
+    setResult(null)
+  }
+
+  const doParseText = async () => {
+    if (parsing) return
+    if (!paste.trim()) {
+      setPasteHint('Paste the price list text first - products with prices, contact numbers, a company header, any format.')
+      return
+    }
+    setParsing(true)
+    try {
+      const res = await authFetch('/api/local-prices/bulk/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: paste }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not parse the text')
+      applyParsed(data, 'text')
+    } catch (e) {
+      toast({ title: 'Parse failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  const onFilePicked = async (f?: File | null) => {
+    if (!f || parsing) return
+    if (f.size > 4 * 1024 * 1024) {
+      setFileName(f.name)
+      setPasteHint('That file is over 4 MB - paste its text into the Price list text tab instead.')
+      return
+    }
+    setFileName(f.name)
+    setParsing(true)
+    setPasteHint(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      const res = await authFetch('/api/local-prices/bulk/parse', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not read that file')
+      applyParsed(data, 'file')
+    } catch (e) {
+      setPasteHint((e as Error).message)
+      toast({ title: 'Could not read the file', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setParsing(false)
+    }
   }
 
   const updateRow = (idx: number, patch: Partial<GridRow>) => {
@@ -250,6 +379,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
           country: r.country.trim() || defCountry.trim(),
           ...contactOf(r.contact),
           imageUrl: r.imageUrl.trim(),
+          description: parsedCompany ? `Sold by ${parsedCompany}` : '',
         }))
       const res = await authFetch('/api/local-prices/bulk', {
         method: 'POST',
@@ -287,38 +417,97 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             Bulk post from a spreadsheet
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Paste rows from Excel or Google Sheets - every row becomes its own price post with product, price, location, contact and (optional) image. Up to 50 rows per batch.
+            Paste rows from Excel or Google Sheets, paste a messy price list, or upload a Word / PDF / Excel file - every row becomes its own price post with product, price, location, contact and (optional) image. Check everything in the preview grid before posting. Up to 50 rows per batch.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Step 1 - paste / template */}
+          {/* Source picker (v174) */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border w-fit" data-testid="bulk-source">
+            <button type="button" onClick={() => setMode('sheet')} data-testid="bulk-source-sheet" className={`h-7 px-3 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${mode === 'sheet' ? 'bg-background shadow-sm text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
+              <Sheet className="w-3.5 h-3.5" /> Sheet rows
+            </button>
+            <button type="button" onClick={() => setMode('text')} data-testid="bulk-source-text" className={`h-7 px-3 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${mode === 'text' ? 'bg-background shadow-sm text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
+              <FileText className="w-3.5 h-3.5" /> Price list text
+            </button>
+            <button type="button" onClick={() => setMode('file')} data-testid="bulk-source-file" className={`h-7 px-3 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${mode === 'file' ? 'bg-background shadow-sm text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
+              <FileUp className="w-3.5 h-3.5" /> Upload file
+            </button>
+          </div>
+
+          {/* Step 1 - get the rows in */}
           <div className="space-y-2" data-testid="bulk-paste-section">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">1. Pick a template or paste your rows</p>
-              <div className="flex items-center gap-1.5">
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => applyTemplate('simple')} data-testid="bulk-template-simple">
-                  Simple template
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => applyTemplate('full')} data-testid="bulk-template-full">
-                  Full template
-                </Button>
-                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyTemplate('full')} data-testid="bulk-template-copy" title="Copy the template to the clipboard">
-                  <Copy className="w-3 h-3 mr-1" /> Copy
-                </Button>
-              </div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {mode === 'sheet' && '1. Pick a template or paste your rows'}
+                {mode === 'text' && '1. Paste the price list text - any format'}
+                {mode === 'file' && '1. Upload a Word, PDF, Excel or CSV file'}
+              </p>
+              {mode === 'sheet' && (
+                <div className="flex items-center gap-1.5">
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => applyTemplate('simple')} data-testid="bulk-template-simple">
+                    Simple template
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => applyTemplate('full')} data-testid="bulk-template-full">
+                    Full template
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyTemplate('full')} data-testid="bulk-template-copy" title="Copy the template to the clipboard">
+                    <Copy className="w-3 h-3 mr-1" /> Copy
+                  </Button>
+                </div>
+              )}
             </div>
-            <Textarea
-              data-testid="bulk-paste-input"
-              value={paste}
-              onChange={(e) => setPaste(e.target.value)}
-              placeholder={'Product\tPrice\tCity\tContact\tImage URL\nCoffee beans 1kg\t12\tAddis Ababa\t+251911000000\t\nHandwoven basket\t25\tAddis Ababa\t+251911000000\t'}
-              className="font-mono text-xs min-h-[110px] bg-card"
-            />
+            {mode !== 'file' && (
+              <Textarea
+                data-testid="bulk-paste-input"
+                value={paste}
+                onChange={(e) => setPaste(e.target.value)}
+                placeholder={mode === 'sheet'
+                  ? 'Product\tPrice\tCity\tContact\tImage URL\nCoffee beans 1kg\t12\tAddis Ababa\t+251911000000\t\nHandwoven basket\t25\tAddis Ababa\t+251911000000\t'
+                  : 'Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\nBenol pharmaceutical plc\n👉 Vicryl 2 round ..950\n👉 Silk 1 cutting..550\nContact\n0911967478'}
+                className="font-mono text-xs min-h-[110px] bg-card"
+              />
+            )}
+            {mode === 'file' && (
+              <div
+                data-testid="bulk-file-drop"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void onFilePicked(e.dataTransfer.files?.[0])
+                }}
+                className="rounded-xl border-2 border-dashed border-border bg-muted/30 p-6 flex flex-col items-center justify-center gap-2 text-center"
+              >
+                <FileUp className="w-7 h-7 text-primary" />
+                <p className="text-sm font-medium text-foreground">{fileName || 'Drop a file here, or choose one'}</p>
+                <p className="text-xs text-muted-foreground">Word (.docx), PDF, Excel (.xlsx / .xls) or CSV up to 4 MB - read in memory, never stored.</p>
+                <label className="inline-flex items-center justify-center h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium cursor-pointer hover:bg-primary/90 transition-colors">
+                  {parsing ? 'Reading file...' : 'Choose file'}
+                  <input
+                    type="file"
+                    accept=".docx,.pdf,.xlsx,.xls,.csv,.txt"
+                    className="hidden"
+                    data-testid="bulk-file-input"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      void onFilePicked(f)
+                    }}
+                  />
+                </label>
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap">
-              <Button type="button" onClick={doParse} className="h-8 gap-1.5" data-testid="bulk-parse">
-                <Upload className="w-3.5 h-3.5" /> Parse rows
-              </Button>
+              {mode !== 'file' && (
+                <Button type="button" onClick={mode === 'sheet' ? doParse : doParseText} disabled={parsing} className="h-8 gap-1.5" data-testid="bulk-parse">
+                  <Upload className="w-3.5 h-3.5" /> {parsing ? 'Parsing...' : mode === 'sheet' ? 'Parse rows' : 'Parse & preview'}
+                </Button>
+              )}
+              {mode === 'text' && (
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setPaste(SAMPLE)} data-testid="bulk-sample" title="Load a real-world sample price list to try the parser">
+                  <Sparkles className="w-3.5 h-3.5" /> Load sample
+                </Button>
+              )}
               {pasteHint && <p className="text-xs text-muted-foreground flex-1 min-w-[200px]" data-testid="bulk-paste-hint">{pasteHint}</p>}
             </div>
           </div>
@@ -326,7 +515,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
           {/* Step 2 - grid */}
           {rows.length > 0 && (
             <div className="space-y-2" data-testid="bulk-grid-section">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">2. Check the rows</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">2. Check the rows before posting</p>
               <div className="overflow-x-auto rounded-lg border border-border" data-testid="bulk-grid">
                 <div className="min-w-[760px]">
                   <div className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_36px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
