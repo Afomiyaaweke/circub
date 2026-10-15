@@ -201,10 +201,27 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       // and dispatch the auth-expired event which shows the register modal.
       // But for a better UX, let's check first.
     }
-    if (!productName.trim() || !location.trim() || !priceMin || !priceMax || !currency) {
+    // v178: ONE price is enough. The composer used to demand BOTH a min and
+    // a max, so a user who knows a single price had to type it twice before
+    // the button would work. Now either box alone publishes - the missing
+    // side mirrors the filled one (min=max, exactly how the bulk poster
+    // stores a single price) and both filled still gives a real range.
+    const minFilled = priceMin.trim() !== ''
+    const maxFilled = priceMax.trim() !== ''
+    if (!productName.trim() || !location.trim() || currency.trim() === '' || (!minFilled && !maxFilled)) {
       toast({
         title: 'Missing required fields',
-        description: 'Please fill in product name, location (City, Country), currency, and price range.',
+        description: 'Please fill in product name, location (City, Country), currency, and at least one price.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const numMin = minFilled ? Number(priceMin) : Number(priceMax)
+    const numMax = maxFilled ? Number(priceMax) : Number(priceMin)
+    if (!Number.isFinite(numMin) || !Number.isFinite(numMax) || numMin < 0 || numMax < numMin) {
+      toast({
+        title: 'Price range invalid',
+        description: 'Prices must be numbers, and the max cannot be smaller than the min.',
         variant: 'destructive',
       })
       return
@@ -223,14 +240,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       return
     }
 
-    if (Number(priceMax) < Number(priceMin)) {
-      toast({
-        title: 'Price range invalid',
-        description: 'Maximum price must be greater than or equal to minimum.',
-        variant: 'destructive',
-      })
-      return
-    }
+
 
     setSaving(true)
     try {
@@ -248,8 +258,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           latitude: gpsLat,
           longitude: gpsLng,
           currency,
-          priceMin: Number(priceMin),
-          priceMax: Number(priceMax),
+          priceMin: numMin,
+          priceMax: numMax,
           localTip,
           contactPhone,
           contactEmail,
@@ -299,7 +309,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 md:p-8 gap-0">
+      {/* v178: the unvarianted max-w-3xl was silently beaten by the dialog
+          base's sm:max-w-lg (512px) in the cascade - the same squeeze the
+          bulk modal had before v177. sm:max-w-3xl wins the same variant key,
+          and below lg (1024px) the composer takes the FULL SCREEN with the
+          exact recipe the bulk modal shipped (all !important so the base
+          positioning can never win). */}
+      <DialogContent className="sm:max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 md:p-8 gap-0 max-lg:top-0! max-lg:bottom-0! max-lg:left-0! max-lg:right-0! max-lg:translate-x-0! max-lg:translate-y-0! max-lg:w-full! max-lg:max-w-none! max-lg:h-dvh! max-lg:max-h-none! max-lg:rounded-none! max-lg:border-0!">
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -465,9 +481,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
               <DollarSign className="w-4 h-4 text-primary" />
               Price information
             </div>
+            {/* v178: ONE price is enough - fill the min box alone and the
+                max mirrors it on save; both boxes still give a real range. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Typical min price *</label>
+                <label className="text-xs text-muted-foreground font-medium">Price (min) *</label>
                 <Input
                   type="number"
                   placeholder="1500"
@@ -477,7 +495,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-medium">Typical max price *</label>
+                <label className="text-xs text-muted-foreground font-medium">Price max (optional)</label>
                 <Input
                   type="number"
                   placeholder="2200"
@@ -502,6 +520,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                 </Select>
               </div>
             </div>
+            <p className="text-[11px] text-muted-foreground/80">Got one price? Fill the min box only - the max will match it on publish.</p>
 
             {/* v124: marketplace details - the measuring unit stays the one
                 dropdown, and the pack size is a number the user writes.
@@ -661,8 +680,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           </label>
         </div>
 
-        {/* Footer - pinned to the bottom of the sheet while scrolling */}
-        <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 mt-6 flex items-center justify-end gap-3 pt-4 px-4 sm:px-6 md:px-8 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 md:pb-8 bg-background/95 backdrop-blur-sm border-t border-border">
+        {/* Footer - pinned to the bottom of the sheet while scrolling.
+            On phones the Publish button takes the full row (a real tap
+            target) and Cancel wraps above it - same pattern as the bulk
+            modal since v177. */}
+        <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 mt-6 flex flex-wrap items-center justify-end gap-3 pt-4 px-4 sm:px-6 md:px-8 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 md:pb-8 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             variant="outline"
             onClick={handleCancel}
@@ -674,7 +696,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           <Button
             onClick={handleSave}
             disabled={saving || uploading}
-            className="px-6 bg-primary hover:bg-primary/90 gap-1.5"
+            className="px-6 bg-primary hover:bg-primary/90 gap-1.5 max-lg:basis-full max-lg:justify-center"
           >
             <Plus className="w-4 h-4" />
             {saving ? 'Publishing...' : 'Publish Price & Listing'}

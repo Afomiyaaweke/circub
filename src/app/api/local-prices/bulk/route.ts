@@ -122,7 +122,12 @@ export async function POST(req: NextRequest) {
         const phone = sanitizeInput(str(row.contactPhone) || defPhone, 50) || null
         const email = sanitizeInput(str(row.contactEmail) || defEmail, 200) || null
         const whatsapp = sanitizeInput(str(row.contactWhatsApp) || defWhatsApp, 200) || null
-        const imageUrl = str(row.imageUrl).slice(0, 2000) || null
+        // v178: a row image can now be an UPLOADED PHOTO - a base64 data URL
+        // from /api/upload (the per-row Photo picker compresses to ~900px so
+        // a batch stays under the request limit). Data URLs get a 2 MB cap;
+        // pasted http(s) links keep the old 2000-char trim.
+        const rawImage = str(row.imageUrl)
+        const imageUrl = (rawImage.startsWith('data:image/') ? rawImage.slice(0, 2_000_000) : rawImage.slice(0, 2000)) || null
         const gpsLat = row.latitude != null ? Number(row.latitude) : null
         const gpsLng = row.longitude != null ? Number(row.longitude) : null
         const hasGps = gpsLat != null && gpsLng != null && isValidGps(gpsLat, gpsLng)

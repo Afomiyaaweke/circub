@@ -106,8 +106,18 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
 
   const handleSave = async () => {
     if (!post) return
-    if (!productName.trim() || !location.trim() || !priceMin || !priceMax) {
-      toast({ title: 'Missing required fields', description: 'Name, location (City, Country), min price, and max price are required.', variant: 'destructive' })
+    // v178: ONE price is enough - the missing side mirrors the filled one
+    // (min=max), same rule as the create composer and the bulk poster.
+    const minFilled = priceMin.trim() !== ''
+    const maxFilled = priceMax.trim() !== ''
+    if (!productName.trim() || !location.trim() || (!minFilled && !maxFilled)) {
+      toast({ title: 'Missing required fields', description: 'Name, location (City, Country), and at least one price are required.', variant: 'destructive' })
+      return
+    }
+    const numMin = minFilled ? Number(priceMin) : Number(priceMax)
+    const numMax = maxFilled ? Number(priceMax) : Number(priceMin)
+    if (!Number.isFinite(numMin) || !Number.isFinite(numMax) || numMin < 0 || numMax < numMin) {
+      toast({ title: 'Price range invalid', description: 'Prices must be numbers, and the max cannot be smaller than the min.', variant: 'destructive' })
       return
     }
     // The single input must carry a country (the API stores city + country
@@ -132,8 +142,8 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           latitude: gpsLat,
           longitude: gpsLng,
           currency: currency.trim(),
-          priceMin: Number(priceMin),
-          priceMax: Number(priceMax),
+          priceMin: numMin,
+          priceMax: numMax,
           localTip: localTip.trim() || null,
           contactPhone: contactPhone.trim() || null,
           contactEmail: contactEmail.trim() || null,
@@ -156,7 +166,10 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin p-6 sm:p-8 gap-0">
+      {/* v178: below lg (1024px) the editor takes the FULL SCREEN with the
+          same recipe as the bulk modal (v177) and the create composer - all
+          !important so the dialog base positioning can never win. */}
+      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin p-6 sm:p-8 gap-0 max-lg:top-0! max-lg:bottom-0! max-lg:left-0! max-lg:right-0! max-lg:translate-x-0! max-lg:translate-y-0! max-lg:w-full! max-lg:max-w-none! max-lg:h-dvh! max-lg:max-h-none! max-lg:rounded-none! max-lg:border-0! max-lg:p-4!">
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -234,10 +247,13 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           {/* Prices */}
           <div className="space-y-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
             <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><DollarSign className="w-4 h-4 text-primary" />Price</p>
+            {/* v178: ONE price is enough - fill the min box alone and the
+                max mirrors it on save. */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Min price *</label><Input type="number" placeholder="1500" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} /></div>
-              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Max price *</label><Input type="number" placeholder="2200" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} /></div>
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Price (min) *</label><Input type="number" placeholder="1500" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} /></div>
+              <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Price max (optional)</label><Input type="number" placeholder="2200" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} /></div>
             </div>
+            <p className="text-[10px] text-muted-foreground/80">Got one price? Fill the min box only - the max will match it on save.</p>
             <div className="space-y-1"><label className="text-[10px] text-muted-foreground">Currency</label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
@@ -307,10 +323,11 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-border">
+        {/* Footer - on phones the Save button takes the full row and Cancel
+            wraps above it, same as the create composer. */}
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 gap-1.5">
+          <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 gap-1.5 max-lg:basis-full max-lg:justify-center">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <><Save className="w-4 h-4" />Save changes</>}
           </Button>
         </div>

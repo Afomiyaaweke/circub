@@ -12,8 +12,8 @@
 // upload a Word / PDF / Excel / CSV file and have it parsed for you. Every
 // source lands in the same editable grid so the user reviews and corrects
 // everything BEFORE anything is posted.
-import { useMemo, useState } from 'react'
-import { Sheet, Plus, Trash2, Copy, Upload, CheckCircle2, AlertTriangle, FileText, FileUp, Sparkles, XCircle } from 'lucide-react'
+import { useMemo, useState, useRef } from 'react'
+import { Sheet, Plus, Trash2, Copy, Upload, CheckCircle2, AlertTriangle, FileText, FileUp, Sparkles, XCircle, ImagePlus, Loader2, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
+import { compressImage } from '@/lib/image-compress'
 import { splitLocationInput } from '@/lib/location'
 import { CategorySelect } from './category-select'
 
@@ -420,6 +421,41 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
   const removeRow = (idx: number) => setRows((prev) => prev.filter((_, i) => i !== idx))
 
+  // v178: a real PHOTO input on every row - tap Photo, pick an image from
+  // the device, it compresses (tighter than the single composer: a batch
+  // carries many photos and they all ride in the same JSON post body),
+  // uploads via /api/upload and lands on the row as a data URL with a
+  // thumbnail preview. The URL box stays for pasted links.
+  const imgFileRef = useRef<HTMLInputElement>(null)
+  const [imgTarget, setImgTarget] = useState<number | null>(null)
+  const [uploadingImg, setUploadingImg] = useState(false)
+
+  const pickRowImage = (idx: number) => {
+    setImgTarget(idx)
+    imgFileRef.current?.click()
+  }
+
+  const onRowImagePicked = async (f?: File | null) => {
+    if (!f || imgTarget == null || uploadingImg) return
+    const target = imgTarget
+    setUploadingImg(true)
+    try {
+      const compressed = await compressImage(f, 900, 0.72)
+      const fd = new FormData()
+      fd.append('file', compressed)
+      const res = await authFetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Upload failed')
+      updateRow(target, { imageUrl: String(data.url || '') })
+      toast({ title: 'Photo attached', description: `Row ${target + 1} will post with this photo.` })
+    } catch (e) {
+      toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setUploadingImg(false)
+      setImgTarget(null)
+    }
+  }
+
   // v176: delete EVERY row in one tap (two taps to confirm). Resets the
   // company banner and any post result with it - a clean slate for the
   // next batch.
@@ -442,27 +478,40 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       toast({ title: 'Nothing ready to post', description: 'Every row needs a product name, a numeric price and a country (row or default).' })
       return
     }
+    const payloadRows = rows
+      .map((r) => ({ row: r, problem: rowProblem(r, defCountry) }))
+      .filter((x) => x.problem === null)
+      .map(({ row: r }) => ({
+        productName: r.productName.trim(),
+        price: r.price.trim(),
+        city: r.city.trim(),
+        country: r.country.trim() || defCountry.trim(),
+        ...contactOf(r.contact),
+        imageUrl: r.imageUrl.trim(),
+        description: parsedCompany ? `Sold by ${parsedCompany}` : '',
+      }))
+    const reqBody = JSON.stringify({
+      rows: payloadRows,
+      defaults: { currency, category, postType: 'PRODUCT', country: defCountry.trim() },
+    })
+    // v178: attached photos ride in the JSON body as base64 data URLs and
+    // the serverless body limit is ~4.5 MB - a batch whose photos add up
+    // past ~3.8 MB is stopped HERE with an explanation instead of a generic
+    // network failure after the fact.
+    if (reqBody.length > 3.8 * 1024 * 1024) {
+      toast({
+        title: 'Batch too large to send',
+        description: 'The attached photos add up to more than the server accepts. Remove some row photos (tap the X on a thumbnail) or use image links instead, then post again.',
+        variant: 'destructive',
+      })
+      return
+    }
     setSaving(true)
     try {
-      const payloadRows = rows
-        .map((r) => ({ row: r, problem: rowProblem(r, defCountry) }))
-        .filter((x) => x.problem === null)
-        .map(({ row: r }) => ({
-          productName: r.productName.trim(),
-          price: r.price.trim(),
-          city: r.city.trim(),
-          country: r.country.trim() || defCountry.trim(),
-          ...contactOf(r.contact),
-          imageUrl: r.imageUrl.trim(),
-          description: parsedCompany ? `Sold by ${parsedCompany}` : '',
-        }))
       const res = await authFetch('/api/local-prices/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rows: payloadRows,
-          defaults: { currency, category, postType: 'PRODUCT', country: defCountry.trim() },
-        }),
+        body: reqBody,
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error || 'Bulk post failed')
@@ -503,7 +552,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             Bulk post from a spreadsheet
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Paste rows from Excel or Google Sheets, paste a messy price list, or upload a Word / PDF / Excel file - every row becomes its own price post with product, price, location, contact and (optional) image. Check everything in the preview grid before posting. Up to 50 rows per batch.
+            Paste rows from Excel or Google Sheets, paste a messy price list, or upload a Word / PDF / Excel file - every row becomes its own price post with product, price, location, contact and an optional photo (tap Photo on a row to attach one). Check everything in the preview grid before posting. Up to 50 rows per batch.
           </DialogDescription>
         </DialogHeader>
 
@@ -607,11 +656,11 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                     the same rows stack as labeled cards - no horizontal
                     scrolling, every field full width with its own label. */}
                 <div className="min-w-0 lg:min-w-[760px]">
-                  <div className="hidden lg:grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <span>Product *</span><span>Price *</span><span>City</span><span>Country</span><span>Contact</span><span>Image URL</span><span>Delete</span>
+                  <div className="hidden lg:grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(160px,2fr)_64px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span>Product *</span><span>Price *</span><span>City</span><span>Country</span><span>Contact</span><span>Image</span><span>Delete</span>
                   </div>
                   {rows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-1 gap-1.5 px-2 py-2 lg:py-1 lg:items-center border-t border-border lg:grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px]" data-testid="bulk-row">
+                    <div key={idx} className="grid grid-cols-1 gap-1.5 px-2 py-2 lg:py-1 lg:items-center border-t border-border lg:grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(160px,2fr)_64px]" data-testid="bulk-row">
                       <div>
                         <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Product *</span>
                         <Input value={row.productName} onChange={(e) => updateRow(idx, { productName: e.target.value })} className="h-8 text-xs" placeholder="Product name" data-testid={`bulk-cell-product-${idx}`} />
@@ -632,9 +681,42 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                         <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Contact</span>
                         <Input value={row.contact} onChange={(e) => updateRow(idx, { contact: e.target.value })} className="h-8 text-xs" placeholder="Phone / email" data-testid={`bulk-cell-contact-${idx}`} />
                       </div>
-                      <div>
-                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Image URL</span>
-                        <Input value={row.imageUrl} onChange={(e) => updateRow(idx, { imageUrl: e.target.value })} className="h-8 text-xs" placeholder="https:// (optional)" data-testid={`bulk-cell-image-${idx}`} />
+                      <div className="min-w-0">
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Image</span>
+                        {/* v178: a real photo input on every row - tap Photo to
+                            pick an image from the device (compressed and
+                            uploaded on the spot, thumbnail + X to remove),
+                            and the URL box still accepts pasted links. While a
+                            data-URL photo is attached the box is disabled so
+                            a stray keystroke can not wipe the upload. */}
+                        <div className="flex items-center gap-1.5">
+                          {row.imageUrl ? (
+                            <span className="relative shrink-0" data-testid={`bulk-image-thumb-${idx}`}>
+                              <img src={row.imageUrl} alt="" className="w-8 h-8 rounded-md object-cover border border-border" />
+                              <button
+                                type="button"
+                                onClick={() => updateRow(idx, { imageUrl: '' })}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive flex items-center justify-center"
+                                title="Remove this photo"
+                                data-testid={`bulk-image-remove-${idx}`}
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </span>
+                          ) : null}
+                          <Button type="button" variant="outline" size="sm" className="h-8 px-2 text-[11px] gap-1 shrink-0" onClick={() => pickRowImage(idx)} disabled={uploadingImg} data-testid={`bulk-image-pick-${idx}`} title="Pick a photo for this row">
+                            {uploadingImg && imgTarget === idx ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImagePlus className="w-3 h-3" />}
+                            {uploadingImg && imgTarget === idx ? '...' : 'Photo'}
+                          </Button>
+                          <Input
+                            value={row.imageUrl.startsWith('data:') ? '' : row.imageUrl}
+                            onChange={(e) => updateRow(idx, { imageUrl: e.target.value })}
+                            disabled={row.imageUrl.startsWith('data:')}
+                            className="h-8 text-xs min-w-0 flex-1"
+                            placeholder={row.imageUrl.startsWith('data:') ? 'Photo attached' : 'or link'}
+                            data-testid={`bulk-cell-image-${idx}`}
+                          />
+                        </div>
                       </div>
                       <button onClick={() => removeRow(idx)} className="h-7 px-2 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 text-[11px] font-medium flex items-center justify-center gap-1 whitespace-nowrap justify-self-start" title="Delete this row" data-testid={`bulk-remove-row-${idx}`}>
                         <Trash2 className="w-3 h-3" /> Delete
@@ -648,6 +730,19 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   ))}
                 </div>
               </div>
+              {/* v178: the shared per-row photo picker - one hidden file
+                  input, opened with the tapped row's index as the target. */}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                ref={imgFileRef}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  void onRowImagePicked(f)
+                }}
+              />
               <div className="flex items-center gap-2">
                 <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setRows((prev) => [...prev, emptyRow()])} data-testid="bulk-add-row">
                   <Plus className="w-3 h-3 mr-1" /> Add row
