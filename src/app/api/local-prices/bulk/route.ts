@@ -14,7 +14,11 @@ import { isValidGps } from '@/lib/location'
 //     productName, price | priceMin+priceMax, city?, country?, contactPhone?,
 //     contactEmail?, contactWhatsApp?, imageUrl?, description?
 //   }, ...],
-//   defaults: { currency, category?, postType?, country?, city?, alsoStory? }
+//   defaults: { currency, category?, postType?, country?, city?, alsoStory?,
+//               ownsShop?, shopOwnerName? }
+// v183: the batch can declare WHO sells the items - ownsShop marks every row
+// as a first-party shop-owner post (amber badge) and shopOwnerName is the
+// shop/business name rendered on the card + detail modal beside the badge.
 // }
 // - Hard cap 50 rows per call (one paste = one batch).
 // - Per-row validation: a bad row never blocks the good ones - the response
@@ -93,6 +97,10 @@ export async function POST(req: NextRequest) {
     const defEmail = str(d.contactEmail)
     const defWhatsApp = str(d.contactWhatsApp)
     const alsoStory = d.alsoStory === true
+    // v183: batch-level shop ownership. Strict boolean like the single-post
+    // route (no string leakage); the name is trimmed + capped at 100 chars.
+    const defOwnsShop = d.ownsShop === true || d.ownsShop === 'true'
+    const defShopOwnerName = sanitizeInput(str(d.shopOwnerName), 100)
 
     const created: { id: string; productName: string }[] = []
     const failed: { row: number; error: string }[] = []
@@ -146,6 +154,8 @@ export async function POST(req: NextRequest) {
             contactEmail: email,
             contactWhatsApp: whatsapp,
             category: defCategory,
+            ownsShop: defOwnsShop,
+            shopOwnerName: defShopOwnerName || null,
             imageUrl,
             latitude: hasGps ? Math.round(gpsLat * 1e6) / 1e6 : null,
             longitude: hasGps ? Math.round(gpsLng * 1e6) / 1e6 : null,

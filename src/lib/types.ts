@@ -170,6 +170,8 @@ export interface LocalPricePost {
   contactEmail?: string | null
   contactWhatsApp?: string | null
   ownsShop?: boolean
+  // v183: shop/business name this price is sold under (bulk batch default)
+  shopOwnerName?: string | null
   category: string
   imageUrl?: string | null
   // v122: marketplace details from the unified composer - what the price

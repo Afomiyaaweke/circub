@@ -816,6 +816,16 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         Shop owner
                       </Badge>
                     )}
+                    {/* v183: the shop/business name this price is sold under */}
+                    {post.shopOwnerName && (
+                      <span
+                        data-testid="detail-shop-owner-name"
+                        title={`Sold by ${post.shopOwnerName}`}
+                        className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 truncate max-w-[200px]"
+                      >
+                        {post.shopOwnerName}
+                      </span>
+                    )}
                     <Badge variant="outline" className="text-[10px]">
                       {post.category}
                     </Badge>

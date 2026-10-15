@@ -409,6 +409,11 @@ model LocalPricePost {
   // (shop owner posts are badged differently and are first-party prices)
   ownsShop          Boolean  @default(false)
 
+  // v183: the shop/business name this price is sold under. Bulk posters name
+  // their shop once per batch (auto-filled from the list header, editable);
+  // the card + detail modal render it beside the Shop owner badge.
+  shopOwnerName     String?
+
   // Categorization
   category          String   @default("Other")
   imageUrl          String?

@@ -282,6 +282,18 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
               Shop owner
             </Badge>
           )}
+          {/* v183: the shop/business name the item is sold under (bulk batch
+              attribution) - amber to pair with the badge, truncated so a long
+              company name never pushes the timestamp off the row. */}
+          {post.shopOwnerName && (
+            <span
+              data-testid="card-shop-owner-name"
+              title={`Sold by ${post.shopOwnerName}`}
+              className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100/70 text-amber-700 truncate max-w-[110px] sm:max-w-[160px] shrink-0"
+            >
+              {post.shopOwnerName}
+            </span>
+          )}
           <span className="text-[10px] text-muted-foreground truncate">{post.category}</span>
           {/* Freshness - how old this price is (amber warning once outside the history's Current window) */}
           <span className={cn('ml-auto flex items-center gap-0.5 shrink-0 text-[10px] px-1 rounded', freshnessClasses[freshnessLevel(post.createdAt)])} title={freshnessTitle(post.createdAt)}>

@@ -58,8 +58,12 @@ const EMOJI_RE = /\p{Extended_Pictographic}/gu
 
 // An organization-ish line: company suffix or sector word. Tighter than
 // "any noise line" so banners like "Big discount for" never become the name.
+// v183: tech + general retail shops join the club - the user's own case was
+// a tech shop header ("... Technology / Electronics / Computer / Gadget /
+// Store / Shop ...") that the pharma/trading-era list silently ignored, so
+// the shop owner name never surfaced on the posted rows.
 const COMPANY_RE =
-  /\b(plc|ltd|llc|inc|gmbh|co\.?|company|pharmaceutical|pharmacies?|pharma|trading|enterprises?|enterprise|importers?|exporters?|distributors?|suppliers?|general business|group)\b/i
+  /\b(plc|ltd|llc|inc|gmbh|co\.?|company|pharmaceutical|pharmacies?|pharma|trading|enterprises?|enterprise|importers?|exporters?|distributors?|suppliers?|general business|group|technolog\w*|tech|electronics?|computers?|laptops?|gadgets?|phones?|mobile|stores?|shops?|wholesal\w*|retail\w*|mart|agro|furniture|cosmetics?|fashion|hardware|stationery|auto)\b/i
 
 // Contact keywords - a line saying "call"/"contact"/"whatsapp" next to a
 // number is a contact line, not a product called "Call".

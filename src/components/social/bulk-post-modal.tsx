@@ -276,6 +276,11 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   const [mode, setMode] = useState<'sheet' | 'text' | 'file'>('sheet')
   const [parsing, setParsing] = useState(false)
   const [parsedCompany, setParsedCompany] = useState('')
+  // v183: the shop owner name this whole batch is sold under. Auto-filled
+  // from the parsed list header (company line), editable before posting;
+  // it rides defaults.ownsShop + defaults.shopOwnerName so every row in the
+  // batch shows the amber Shop owner badge + the name on the card/detail.
+  const [shopOwnerName, setShopOwnerName] = useState('')
   const [fileName, setFileName] = useState('')
   // v176: two-tap guard for Delete all - the first tap arms it, the second
   // (within 4s) wipes the grid. Prevents one accidental click from throwing
@@ -291,6 +296,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
     setPasteHint('Template loaded - paste your own rows under the header, or edit them in the grid after parsing.')
     setResult(null)
     setParsedCompany('')
+    setShopOwnerName('')
   }
 
   const copyTemplate = async (key: keyof typeof TEMPLATES) => {
@@ -305,6 +311,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   const doParse = () => {
     const { rows: parsed, mapped } = parsePaste(paste)
     setParsedCompany('')
+    setShopOwnerName('')
     if (!parsed.length) {
       setPasteHint('Nothing recognizable in the paste - each line needs at least a product and a price.')
       setRows([])
@@ -326,6 +333,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
     if (!parsedRows.length) {
       setRows([])
       setParsedCompany('')
+      setShopOwnerName('')
       setPasteHint(
         source === 'file' && data?.fileName
           ? `No products with prices found in ${data.fileName} - scanned PDFs and photos are not readable, paste the text instead.`
@@ -346,6 +354,10 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       }))
     )
     setParsedCompany(String(data.company || ''))
+    // v183: the detected company header IS the shop owner name - prefill the
+    // editable input so the batch posts with a proper attribution instead of
+    // a hidden "Sold by ..." description line.
+    setShopOwnerName(String(data.company || ''))
     // v175: currency + country from the parse hints. The parser infers the
     // country from the contact numbers (Ethiopian phones are the one signal
     // always present in real price lists) and the currency from words like
@@ -468,6 +480,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
     setDeleteAllArmed(false)
     setRows([])
     setParsedCompany('')
+    setShopOwnerName('')
     setResult(null)
     setPasteHint('All rows deleted - paste, parse or upload again to build a new batch.')
   }
@@ -488,11 +501,24 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
         country: r.country.trim() || defCountry.trim(),
         ...contactOf(r.contact),
         imageUrl: r.imageUrl.trim(),
-        description: parsedCompany ? `Sold by ${parsedCompany}` : '',
+        // v183: when the batch carries a shop owner name it is stored in its
+        // own field (defaults.shopOwnerName) and rendered on the card - the
+        // old "Sold by ..." description trick stays only as a fallback for a
+        // cleared name, so old posts keep working and nothing double-renders.
+        description: shopOwnerName.trim() ? '' : parsedCompany ? `Sold by ${parsedCompany}` : '',
       }))
     const reqBody = JSON.stringify({
       rows: payloadRows,
-      defaults: { currency, category, postType: 'PRODUCT', country: defCountry.trim() },
+      defaults: {
+        currency,
+        category,
+        postType: 'PRODUCT',
+        country: defCountry.trim(),
+        // v183: naming the shop on the batch = declaring first-party
+        // ownership - every posted row gets the Shop owner badge.
+        ownsShop: Boolean(shopOwnerName.trim()),
+        shopOwnerName: shopOwnerName.trim(),
+      },
     })
     // v178: attached photos ride in the JSON body as base64 data URLs and
     // the serverless body limit is ~4.5 MB - a batch whose photos add up
@@ -525,6 +551,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
         setPaste('')
         setFileName('')
         setParsedCompany('')
+        setShopOwnerName('')
         setPasteHint('Batch posted - the grid is cleared. Paste, parse or upload the next list to post another batch.')
       }
       toast({
@@ -782,6 +809,25 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 <label className="text-[11px] text-muted-foreground block mb-1">Default country (rows without one)</label>
                 <Input value={defCountry} onChange={(e) => setDefCountry(e.target.value)} className="h-8 text-xs" placeholder="e.g. Ethiopia" data-testid="bulk-default-country" />
               </div>
+            </div>
+            {/* v183: shop owner name - one line for the whole batch. Parsed
+                company headers prefill it; whatever it says is who every card
+                in the batch is sold by (shown beside the Shop owner badge). */}
+            <div>
+              <label className="text-[11px] text-muted-foreground block mb-1" htmlFor="bulk-shop-owner-name">Shop owner name (shown on every card)</label>
+              <Input
+                id="bulk-shop-owner-name"
+                value={shopOwnerName}
+                onChange={(e) => setShopOwnerName(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="e.g. Hilina Tech Trading PLC - auto-filled from the list header"
+                data-testid="bulk-shop-owner-name"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1" data-testid="bulk-shop-owner-hint">
+                {shopOwnerName.trim()
+                  ? `Every row will post as first-party stock from ${shopOwnerName.trim()} with the Shop owner badge.`
+                  : 'Leave empty to post without a shop attribution (no Shop owner badge).'}
+              </p>
             </div>
             <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
               <p className="text-xs text-muted-foreground" data-testid="bulk-status">
