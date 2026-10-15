@@ -496,7 +496,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 gap-0" data-testid="bulk-modal">
+      <DialogContent className="max-w-4xl sm:max-w-4xl sm:max-h-[92vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 gap-0 max-lg:top-0! max-lg:bottom-0! max-lg:left-0! max-lg:right-0! max-lg:translate-x-0! max-lg:translate-y-0! max-lg:w-full! max-lg:max-w-none! max-lg:h-dvh! max-lg:max-h-none! max-lg:rounded-none! max-lg:border-0!" data-testid="bulk-modal">
         <DialogHeader className="mb-4">
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
             <Sheet className="w-5 h-5 text-primary" />
@@ -509,7 +509,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
         <div className="space-y-5">
           {/* Source picker (v174) */}
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border w-fit" data-testid="bulk-source">
+          <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border w-fit max-w-full" data-testid="bulk-source">
             <button type="button" onClick={() => setMode('sheet')} data-testid="bulk-source-sheet" className={`h-7 px-3 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${mode === 'sheet' ? 'bg-background shadow-sm text-foreground border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
               <Sheet className="w-3.5 h-3.5" /> Sheet rows
             </button>
@@ -603,23 +603,44 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             <div className="space-y-2" data-testid="bulk-grid-section">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">2. Check the rows before posting</p>
               <div className="overflow-x-auto rounded-lg border border-border" data-testid="bulk-grid">
-                <div className="min-w-[760px]">
-                  <div className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {/* Desktop (lg+): the spreadsheet grid. Mobile + tablet (< lg):
+                    the same rows stack as labeled cards - no horizontal
+                    scrolling, every field full width with its own label. */}
+                <div className="min-w-0 lg:min-w-[760px]">
+                  <div className="hidden lg:grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     <span>Product *</span><span>Price *</span><span>City</span><span>Country</span><span>Contact</span><span>Image URL</span><span>Delete</span>
                   </div>
                   {rows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px] gap-1.5 px-2 py-1 items-center border-t border-border" data-testid="bulk-row">
-                      <Input value={row.productName} onChange={(e) => updateRow(idx, { productName: e.target.value })} className="h-8 text-xs" placeholder="Product name" data-testid={`bulk-cell-product-${idx}`} />
-                      <Input value={row.price} onChange={(e) => updateRow(idx, { price: e.target.value })} className="h-8 text-xs" placeholder="12 or 12-15" data-testid={`bulk-cell-price-${idx}`} />
-                      <Input value={row.city} onChange={(e) => updateRow(idx, { city: e.target.value })} className="h-8 text-xs" placeholder="City" data-testid={`bulk-cell-city-${idx}`} />
-                      <Input value={row.country} onChange={(e) => updateRow(idx, { country: e.target.value })} className="h-8 text-xs" placeholder="Country" data-testid={`bulk-cell-country-${idx}`} />
-                      <Input value={row.contact} onChange={(e) => updateRow(idx, { contact: e.target.value })} className="h-8 text-xs" placeholder="Phone / email" data-testid={`bulk-cell-contact-${idx}`} />
-                      <Input value={row.imageUrl} onChange={(e) => updateRow(idx, { imageUrl: e.target.value })} className="h-8 text-xs" placeholder="https:// (optional)" data-testid={`bulk-cell-image-${idx}`} />
-                      <button onClick={() => removeRow(idx)} className="h-7 px-2 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 text-[11px] font-medium flex items-center justify-center gap-1 whitespace-nowrap" title="Delete this row" data-testid={`bulk-remove-row-${idx}`}>
+                    <div key={idx} className="grid grid-cols-1 gap-1.5 px-2 py-2 lg:py-1 lg:items-center border-t border-border lg:grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px]" data-testid="bulk-row">
+                      <div>
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Product *</span>
+                        <Input value={row.productName} onChange={(e) => updateRow(idx, { productName: e.target.value })} className="h-8 text-xs" placeholder="Product name" data-testid={`bulk-cell-product-${idx}`} />
+                      </div>
+                      <div>
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Price *</span>
+                        <Input value={row.price} onChange={(e) => updateRow(idx, { price: e.target.value })} className="h-8 text-xs" placeholder="12 or 12-15" data-testid={`bulk-cell-price-${idx}`} />
+                      </div>
+                      <div>
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">City</span>
+                        <Input value={row.city} onChange={(e) => updateRow(idx, { city: e.target.value })} className="h-8 text-xs" placeholder="City" data-testid={`bulk-cell-city-${idx}`} />
+                      </div>
+                      <div>
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Country</span>
+                        <Input value={row.country} onChange={(e) => updateRow(idx, { country: e.target.value })} className="h-8 text-xs" placeholder="Country" data-testid={`bulk-cell-country-${idx}`} />
+                      </div>
+                      <div>
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Contact</span>
+                        <Input value={row.contact} onChange={(e) => updateRow(idx, { contact: e.target.value })} className="h-8 text-xs" placeholder="Phone / email" data-testid={`bulk-cell-contact-${idx}`} />
+                      </div>
+                      <div>
+                        <span className="lg:hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Image URL</span>
+                        <Input value={row.imageUrl} onChange={(e) => updateRow(idx, { imageUrl: e.target.value })} className="h-8 text-xs" placeholder="https:// (optional)" data-testid={`bulk-cell-image-${idx}`} />
+                      </div>
+                      <button onClick={() => removeRow(idx)} className="h-7 px-2 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 text-[11px] font-medium flex items-center justify-center gap-1 whitespace-nowrap justify-self-start" title="Delete this row" data-testid={`bulk-remove-row-${idx}`}>
                         <Trash2 className="w-3 h-3" /> Delete
                       </button>
                       {problems[idx] && (
-                        <p className="col-span-7 text-[11px] text-red-600 flex items-center gap-1 -mt-0.5" data-testid={`bulk-row-error-${idx}`}>
+                        <p className="col-span-full text-[11px] text-red-600 flex items-center gap-1 -mt-0.5" data-testid={`bulk-row-error-${idx}`}>
                           <AlertTriangle className="w-3 h-3 shrink-0" /> {problems[idx]}
                         </p>
                       )}
@@ -671,13 +692,13 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               <p className="text-xs text-muted-foreground" data-testid="bulk-status">
                 {rows.length ? `${readyCount} of ${rows.length} row${rows.length !== 1 ? 's' : ''} ready to post` : 'Parse or add rows to begin'}
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 max-lg:w-full">
                 <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={close}>Close</Button>
                 <Button
                   type="button"
                   onClick={submit}
                   disabled={saving || !readyCount}
-                  className="h-9 px-4 gap-1.5 text-sm font-semibold"
+                  className="h-9 px-4 gap-1.5 text-sm font-semibold max-lg:basis-full max-lg:justify-center"
                   data-testid="bulk-submit"
                 >
                   <CheckCircle2 className="w-4 h-4" />
