@@ -5,13 +5,13 @@ import { MapPin, Plus, Search, Sparkles, PackageOpen, X, Loader2, BadgeCheck, Pe
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
 import { PriceStoriesStrip } from './price-stories-strip'
 import { CreatePricePostModal } from './create-price-post-modal'
 import { BulkPostModal } from './bulk-post-modal'
-import { CATEGORIES, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
+import { CATEGORIES, CATEGORY_GROUPS, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
 import { LocalProfileModal } from './local-profile-modal'
@@ -664,7 +664,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             >
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
-            <SelectContent><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{categoryFilterOptions(filterValues.categories).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent className="max-h-[320px]"><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{CATEGORY_GROUPS.map((g) => <SelectGroup key={g.group}><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{g.group}</SelectLabel>{g.items.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>)}{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).length > 0 && <SelectGroup><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Older categories</SelectLabel>{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>}</SelectContent>
           </Select>
         </div>
         <Button

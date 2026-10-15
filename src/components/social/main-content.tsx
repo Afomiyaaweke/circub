@@ -15,12 +15,14 @@ import { Card } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { CATEGORIES, ALL_CATEGORIES } from '@/lib/categories'
+import { CATEGORY_GROUPS, ALL_CATEGORIES } from '@/lib/categories'
 import { useLanguage } from '@/lib/i18n'
 import { AddProductModal } from './add-product-modal'
 import { ProductCard } from './product-card'
@@ -210,9 +212,14 @@ export function MainContent({
             <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[320px]">
             <SelectItem value={ALL_CATEGORIES}>{t('filter.allCategories')}</SelectItem>
-            {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {CATEGORY_GROUPS.map((g) => (
+              <SelectGroup key={g.group}>
+                <SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{g.group}</SelectLabel>
+                {g.items.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectGroup>
+            ))}
           </SelectContent>
         </Select>
         {activeTab === 'feed' && (

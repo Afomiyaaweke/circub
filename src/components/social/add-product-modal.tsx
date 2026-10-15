@@ -22,9 +22,10 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
-import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
+import { matchCategoryLoose } from '@/lib/categories'
 import { MEASURE_UNITS } from '@/lib/product-units'
 import { ComparePreview } from './compare-preview'
+import { CategorySelect } from './category-select'
 
 interface AddProductModalProps {
   open: boolean
@@ -321,18 +322,8 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
               <label className="text-xs text-muted-foreground font-medium">
                 Category
               </label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* v182: the same main -> sub picker the price composer uses */}
+              <CategorySelect value={category} onChange={setCategory} />
             </div>
 
             {/* Row 4 - gender */}

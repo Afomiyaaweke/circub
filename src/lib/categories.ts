@@ -3,6 +3,8 @@
 // dropdowns all render THIS array. Full flat alphabetical list (user's
 // spec, verbatim) - no grouping, no headers, 'Other' kept last so it reads
 // as the catch-all rather than a letter of the alphabet.
+// v182: the stored value is still this canonical SUB category - only the
+// MAIN grouping above it changed (see CATEGORY_GROUPS).
 export const CATEGORIES: string[] = [
   'Accommodation',
   'Agriculture & Farming',
@@ -37,28 +39,31 @@ export const CATEGORIES: string[] = [
   'Other',
 ]
 
-// v175: the two-level picker - the user picks a MAIN category (the group)
-// first, then the SUB category (the canonical value every surface stores,
-// filters and compares on). Every canonical category above lives in EXACTLY
-// ONE group, so the stored value, the flat filter dropdowns, the legacy
-// aliases and the /similar category tables all keep working unchanged -
-// only the choosing UX gains the main -> sub step.
+// v182: SEVEN main categories, exactly as the user asked ('make the
+// categories one and subcategories one like food drug material wearable
+// property - that but 7, and have subcategory'). The user named five of the
+// seven (Food, Drug, Material, Wearable, Property); Electronics and
+// Services complete the set. EVERY canonical sub category above lives in
+// EXACTLY ONE main, so the stored value, the legacy aliases, the /similar
+// category tables and the compare strips all keep working unchanged - the
+// stored post value is and stays the SUB; the main is derived from it.
 export const CATEGORY_GROUPS: { group: string; items: string[] }[] = [
-  { group: 'Food & Drink', items: ['Food & Groceries', 'Bakery & Sweets', 'Restaurants', 'Coffee & Cafés'] },
-  { group: 'Shopping', items: ['Clothing & Apparel', 'Electronics', 'Jewelry & Accessories', 'Baby & Kids Products', 'Pet Supplies', 'Sports & Fitness Gear', 'Books & Stationery', 'Handicrafts', 'Furniture & Home Decor', 'Textiles & Fabrics'] },
-  { group: 'Health & Beauty', items: ['Beauty & Personal Care', 'Fitness & Wellness Centers', 'Pharmacy & Drug Store', 'Hospitals & Clinics', 'Biomedical & Medical Supplies'] },
-  { group: 'Home & Property', items: ['Accommodation', 'Real Estate', 'Construction & Home Repair', 'Movers & Relocation'] },
-  { group: 'Services', items: ['Services', 'Education & Tutoring', 'Legal & Financial Services', 'Events & Entertainment'] },
-  { group: 'Transport & Farming', items: ['Transportation', 'Automotive', 'Agriculture & Farming'] },
-  { group: 'Other', items: ['Other'] },
+  { group: 'Food', items: ['Food & Groceries', 'Bakery & Sweets', 'Restaurants', 'Coffee & Cafés'] },
+  { group: 'Drug & Health', items: ['Pharmacy & Drug Store', 'Hospitals & Clinics', 'Biomedical & Medical Supplies', 'Beauty & Personal Care', 'Fitness & Wellness Centers'] },
+  { group: 'Materials', items: ['Construction & Home Repair', 'Textiles & Fabrics', 'Agriculture & Farming', 'Handicrafts', 'Pet Supplies'] },
+  { group: 'Wearables', items: ['Clothing & Apparel', 'Jewelry & Accessories', 'Sports & Fitness Gear', 'Baby & Kids Products'] },
+  { group: 'Property', items: ['Real Estate', 'Accommodation', 'Furniture & Home Decor', 'Movers & Relocation'] },
+  { group: 'Electronics', items: ['Electronics', 'Books & Stationery'] },
+  { group: 'Services', items: ['Services', 'Education & Tutoring', 'Legal & Financial Services', 'Events & Entertainment', 'Transportation', 'Automotive', 'Other'] },
 ]
 
 // The main category a canonical sub belongs to. Unknown values (legacy
-// strings that predate the canonical list) fall back to the Other group so
-// the picker always renders a valid pair.
+// strings that predate the canonical list) fall back to Services, the
+// catch-all main that hosts 'Other', so the picker always renders a valid
+// main -> sub pair.
 export function groupOfCategory(category: string): string {
   for (const g of CATEGORY_GROUPS) if (g.items.includes(category)) return g.group
-  return 'Other'
+  return 'Services'
 }
 
 // The subcategories of a main category.
@@ -70,6 +75,26 @@ export function subcategoriesOf(group: string): string[] {
 // Kept here so the value string has a single source of truth (the APIs
 // compare against it to mean "no filter").
 export const ALL_CATEGORIES = 'All categories'
+
+/**
+ * v182: every value a category filter query must match. Filtering by a MAIN
+ * category name (e.g. 'Food') expands to ALL of its subs; filtering by a
+ * canonical sub matches itself plus its legacy aliases, so old posts stay
+ * visible either way. The API routes pass the result straight into
+ * Prisma's `{ in: ... }`.
+ */
+export function expandCategoryFilter(category: string): string[] {
+  const values = new Set<string>([category])
+  const group = CATEGORY_GROUPS.find((g) => g.group === category)
+  if (group) {
+    for (const sub of group.items) {
+      values.add(sub)
+      for (const a of CATEGORY_ALIASES[sub] || []) values.add(a)
+    }
+  }
+  for (const a of CATEGORY_ALIASES[category] || []) values.add(a)
+  return Array.from(values)
+}
 
 // Older posts in the database carry the pre-v82 short category names. When a
 // user filters by a new umbrella category the API also matches these legacy
