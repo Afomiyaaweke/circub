@@ -26,8 +26,30 @@ export interface ParsedPriceList {
   contacts: string[]
   rows: ParsedPriceRow[]
   currencyHint: string
+  countryHint: string
   ignored: number
   totalLines: number
+}
+
+// v175: infer the country from the phone numbers. A price list whose
+// contacts are Ethiopian mobile numbers (09/07 + 8 digits, or +251) is
+// Ethiopian - the phones are the ONE signal always present in real price
+// lists (the words "birr" or "ETB" usually are not), and every bulk row
+// needs a country before the Post button turns on.
+function phoneCountry(raw: string): string {
+  const d = raw.replace(/\D/g, '')
+  if (!d) return ''
+  // Ethiopia: +251 followed by 9 digits, or the local 10-digit 09/07 form
+  if (/^(251[79]\d{8}|0?[79]\d{8})$/.test(d)) return 'Ethiopia'
+  if (d.startsWith('254')) return 'Kenya'
+  if (d.startsWith('255')) return 'Tanzania'
+  if (d.startsWith('256')) return 'Uganda'
+  if (d.startsWith('250')) return 'Rwanda'
+  if (d.startsWith('233')) return 'Ghana'
+  if (d.startsWith('234')) return 'Nigeria'
+  if (d.startsWith('27')) return 'South Africa'
+  if (d.startsWith('971')) return 'United Arab Emirates'
+  return ''
 }
 
 // Emoji + symbol bullets (👉 ✨ 📞 🚚 ...) - Unicode property escape runs on
@@ -104,6 +126,7 @@ export function parsePriceListText(text: string): ParsedPriceList {
   const rows: ParsedPriceRow[] = []
   let company = ''
   let currencyHint = ''
+  let countryHint = ''
   let ignored = 0
 
   const addContact = (v: string) => {
@@ -180,11 +203,28 @@ export function parsePriceListText(text: string): ParsedPriceList {
     else if (/\$|\busd\b/i.test(text)) currencyHint = 'USD'
   }
 
+  // Country hint from the contact numbers (Ethiopia first - the market this
+  // flow is built for). A currency hint can also name the country.
+  for (const c of contacts) {
+    const co = phoneCountry(c)
+    if (co) { countryHint = co; break }
+  }
+  if (!countryHint) {
+    if (currencyHint === 'ETB') countryHint = 'Ethiopia'
+    else if (currencyHint === 'KES') countryHint = 'Kenya'
+    else if (currencyHint === 'UGX') countryHint = 'Uganda'
+    else if (currencyHint === 'TZS') countryHint = 'Tanzania'
+    else if (currencyHint === 'RWF') countryHint = 'Rwanda'
+    else if (currencyHint === 'GHS') countryHint = 'Ghana'
+    else if (currencyHint === 'NGN') countryHint = 'Nigeria'
+  }
+
   return {
     company,
     contacts,
     rows: rows.slice(0, 50),
     currencyHint,
+    countryHint,
     ignored,
     totalLines: lines.length,
   }

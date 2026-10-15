@@ -24,6 +24,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { identifyPhoto, type IdentifyCompareResult } from '@/lib/photo-identify'
 import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
+import { CategorySelect } from './category-select'
 import { MEASURE_UNITS } from '@/lib/product-units'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import { ComparePreview } from './compare-preview'
@@ -541,21 +542,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             )}
           </div>
 
-          {/* Category */}
+          {/* Category - v175: main category first, then the subcategory */}
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground font-medium">Category</label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-full" data-testid="category-select">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CategorySelect value={category} onChange={setCategory} />
+            <p className="text-[11px] text-muted-foreground/80">
+              Pick a main category first, then the subcategory inside it.
+            </p>
           </div>
 
           {/* Local tip */}

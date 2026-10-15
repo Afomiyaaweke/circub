@@ -29,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { splitLocationInput } from '@/lib/location'
+import { CategorySelect } from './category-select'
 
 interface BulkPostModalProps {
   open: boolean
@@ -37,7 +38,47 @@ interface BulkPostModalProps {
 }
 
 const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'GBP', 'AED', 'NGN', 'TZS', 'RWF', 'GHS', 'ZAR', 'CAD']
-const CATEGORIES = ['Food & Groceries', 'Services', 'Electronics', 'Clothing & Fashion', 'Home & Furniture', 'Health & Beauty', 'Transport', 'Other']
+
+// v175: a currency owned by exactly ONE country tells us the country - a
+// parsed price list in birr is Ethiopian, in KES Kenyan, and so on. Filling
+// the Default country automatically is what un-sticks the Post button: it
+// used to stay disabled (looking "missing") because every parsed row lacked
+// a country. Ambiguous currencies (USD, EUR) are deliberately absent.
+const CURRENCY_COUNTRY: Record<string, string> = {
+  ETB: 'Ethiopia',
+  KES: 'Kenya',
+  UGX: 'Uganda',
+  TZS: 'Tanzania',
+  RWF: 'Rwanda',
+  GHS: 'Ghana',
+  NGN: 'Nigeria',
+  ZAR: 'South Africa',
+  MYR: 'Malaysia',
+  INR: 'India',
+  CNY: 'China',
+  GBP: 'United Kingdom',
+  AED: 'United Arab Emirates',
+  CAD: 'Canada',
+}
+
+// The inverse: a country inferable from the phones picks its own currency
+// so a parsed Ethiopian list lands on ETB without the user touching it.
+const COUNTRY_CURRENCY: Record<string, string> = {
+  Ethiopia: 'ETB',
+  Kenya: 'KES',
+  Uganda: 'UGX',
+  Tanzania: 'TZS',
+  Rwanda: 'RWF',
+  Ghana: 'GHS',
+  Nigeria: 'NGN',
+  'South Africa': 'ZAR',
+  'United Arab Emirates': 'AED',
+  India: 'INR',
+  China: 'CNY',
+  'United Kingdom': 'GBP',
+  Canada: 'CAD',
+  Malaysia: 'MYR',
+}
 
 interface GridRow {
   productName: string
@@ -295,7 +336,16 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       }))
     )
     setParsedCompany(String(data.company || ''))
-    if (data.currencyHint && currency === 'USD') setCurrency(data.currencyHint)
+    // v175: currency + country from the parse hints. The parser infers the
+    // country from the contact numbers (Ethiopian phones are the one signal
+    // always present in real price lists) and the currency from words like
+    // "birr"; each fills the other's gap. Filling the Default country is
+    // what un-sticks the Post button - it used to stay disabled (looking
+    // "missing") because every parsed row lacked a country.
+    const hintCur = String(data.currencyHint || '') || COUNTRY_CURRENCY[String(data.countryHint || '')] || ''
+    if (hintCur && currency === 'USD') setCurrency(hintCur)
+    const hintCountry = CURRENCY_COUNTRY[hintCur] || String(data.countryHint || '')
+    if (hintCountry && !defCountry.trim()) setDefCountry(hintCountry)
     setPasteHint(
       `Parsed ${parsedRows.length} product${parsedRows.length !== 1 ? 's' : ''}` +
         (data.company ? ` from ${data.company}` : '') +
@@ -560,10 +610,13 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               </div>
               <div>
                 <label className="text-[11px] text-muted-foreground block mb-1">Category</label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="bulk-category"><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <CategorySelect
+                  value={category}
+                  onChange={setCategory}
+                  mainTestid="bulk-category-main"
+                  subTestid="bulk-category"
+                  triggerClassName="h-8 text-xs"
+                />
               </div>
               <div>
                 <label className="text-[11px] text-muted-foreground block mb-1">Default country (rows without one)</label>
@@ -580,14 +633,19 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   type="button"
                   onClick={submit}
                   disabled={saving || !readyCount}
-                  className="h-8 gap-1.5"
+                  className="h-9 px-4 gap-1.5 text-sm font-semibold"
                   data-testid="bulk-submit"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-4 h-4" />
                   {saving ? 'Posting...' : `Post ${readyCount || 'all'} as ${readyCount === 1 ? 'post' : 'posts'}`}
                 </Button>
               </div>
             </div>
+            {rows.length > 0 && readyCount === 0 && !saving && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium" data-testid="bulk-submit-hint">
+                Nothing is postable yet - fix the red row errors above, usually by filling the Default country here (or each row&apos;s Country cell). The Post button turns on as soon as one row is ready.
+              </p>
+            )}
             {result && (
               <div className="rounded-lg border border-border bg-card p-2.5 text-xs space-y-1" data-testid="bulk-result">
                 <p className="font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">

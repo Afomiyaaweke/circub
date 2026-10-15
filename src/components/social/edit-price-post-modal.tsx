@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
-import { CATEGORIES } from '@/lib/categories'
+import { CategorySelect } from './category-select'
 import { MEASURE_UNITS } from '@/lib/product-units'
 import { compressImage } from '@/lib/image-compress'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
@@ -28,7 +28,8 @@ interface EditPricePostModalProps {
 }
 
 const CURRENCIES = ['USD', 'ETB', 'EUR', 'KES', 'UGX', 'MYR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS']
-// CATEGORIES comes from @/lib/categories - the full flat alphabetical list.
+// CategorySelect comes from ./category-select - main category, then the
+// subcategory (v175); the stored value is still the canonical category.
 
 export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPricePostModalProps) {
   const [productName, setProductName] = useState('')
@@ -258,13 +259,10 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
             </div>
           </div>
 
-          {/* Category */}
+          {/* Category - v175: main category first, then the subcategory */}
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground font-medium">Category</label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
+            <CategorySelect value={category} onChange={setCategory} />
           </div>
 
           {/* Local tip */}
