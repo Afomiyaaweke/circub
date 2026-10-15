@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, Camera, X, Loader2, BadgeCheck, PenLine, ClipboardList, Sheet } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Sheet } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,11 +26,9 @@ import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
 import type { LocalPricePost } from '@/lib/types'
 
-// Camera scan + camera search are LIVE - clicking either entry point opens the
-// camera/search flow (AI identifies the item, then compares the AI price
-// estimate against real local price posts). Flip to true to hold them behind
-// a "Soon" badge again (e.g. while the AI backend is unavailable).
-const SCAN_COMING_SOON = false
+// v180: the camera-search entry points were REMOVED per user request
+// ("remove this" on the Camera search pill). The visual-search API route
+// and the results panel below stay in place but nothing links to them.
 
 // v147 step-by-step feed loading - how many price posts one request fetches.
 // The reader scrolls, the bottom sentinel asks for the next 10; the server
@@ -623,10 +621,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
             </div>
-            {/* Phone: Camera search + Scan collapse into compact icon buttons
-                INSIDE the search bar - saves a whole row, and the camera menu
-                drops from the pill's right edge so it always fits the screen. */}
-            <PhotoSearchButton compact className="sm:hidden ml-1 shrink-0" onImage={handleImageSearch} loading={searchingByImage} onInitiate={kickLocation} />
+            {/* Phone: the Proforma shortcut collapses INTO the search bar -
+                it drops from the pill's right edge so it always fits the
+                screen. (v180: the camera-search entry was removed.) */}
             <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Proforma - find, compare and get the best result" data-testid="market-open-compact">
               <ClipboardList className="w-4 h-4 text-emerald-600" />
             </Button>
@@ -670,12 +667,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             <SelectContent><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{categoryFilterOptions(filterValues.categories).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <PhotoSearchButton
-          className="hidden sm:block"
-          onImage={handleImageSearch}
-          loading={searchingByImage}
-          onInitiate={kickLocation}
-        />
         <Button
           type="button"
           variant="outline"
@@ -1019,47 +1010,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   )
 }
 
-// v95: the camera search is ONLY the camera search - tapping it goes
-// straight to the photo capture/upload. The Compare-by-location and
-// Plan-my-budget actions moved ONTO the market graph panel, so the old
-// dropdown menu is gone.
-function PhotoSearchButton({ onImage, loading, onInitiate, compact, className }: { onImage: (file: File) => void; loading: boolean; onInitiate?: () => void; compact?: boolean; className?: string }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const { toast } = useToast()
-  return (
-    <>
-      <input type="file" accept="image/*" ref={inputRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) onImage(f); if (inputRef.current) inputRef.current.value = '' }} className="hidden" />
-      <div className={`relative shrink-0 ${className || ''}`}>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (SCAN_COMING_SOON) {
-              toast({ title: 'Camera search is coming soon', description: 'Camera search will be available in a future update.' })
-              return
-            }
-            // Start resolving the user's location NOW (user gesture - required
-            // for the geolocation permission prompt) so it is ready by the time
-            // the photo is chosen, enabling the location-based price compare.
-            onInitiate?.()
-            inputRef.current?.click()
-          }}
-          disabled={loading}
-          className={compact
-            ? 'bg-card border-primary/30 h-9 w-9 px-0 justify-center'
-            : 'bg-card border-primary/30 gap-1.5 h-9 px-3 text-xs'}
-          title="Search by photo - AI identifies the product and compares real local prices"
-        >
-          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Camera className="w-3.5 h-3.5 text-primary" />}
-          {!compact && <><span className="hidden sm:inline">Camera search</span><span className="sm:hidden">Search</span></>}
-          {!compact && SCAN_COMING_SOON && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">Soon</span>}
-        </Button>
-      </div>
-    </>
-  )
-}
-
+// v95: the camera search was ONLY the camera search; v180 REMOVED the
+// entry entirely (PhotoSearchButton + the 'Soon' pill) per user request -
+// the visual-search API and result panel stay in place but nothing links
+// to them any more.
 // One matching local price card inside the camera-search results panel.
 function LocalMatchCard({ post, onOpen }: { post: any; onOpen: (id: string) => void }) {
   return (
