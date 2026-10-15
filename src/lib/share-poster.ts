@@ -4,13 +4,18 @@ import QRCode from 'qrcode'
 import { formatUnitSuffix } from '@/lib/utils'
 
 /**
- * Green futuristic share poster (Task 77).
+ * Light minimal share poster (Task 77, reskinned v181).
  *
  * Draws a social-media-ready 1080x1350 PNG poster for a feed post or a
- * local price post: dark futuristic background, neon-green glows and grid,
- * glowing frame, circubAwd logo + wordmark, the shared content big in the
- * middle, and a QR code + link at the bottom so anyone who sees it on
+ * local price post: soft white-to-mint background, one thin green hairline
+ * frame, circubAwd logo + wordmark, the shared content big in the middle,
+ * and a QR code + link at the bottom so anyone who sees it on
  * WhatsApp / X / Telegram / printed flyers can land on circubAwd.
+ *
+ * v181 ('make this template less dark, more light and simple'): the old
+ * dark-neon skin (near-black green gradient, neon glows, scan lines,
+ * perspective grid, glowing double frame, corner accents) is replaced by
+ * a clean light theme - brand green stays as the single accent color.
  *
  * Pure canvas (no DOM) so it can run inside a modal on demand; logo and QR
  * are loaded asynchronously, everything else is drawn synchronously.
@@ -139,7 +144,7 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
   // Simple map-pin path (no emoji fonts needed on headless browsers).
   ctx.save()
-  ctx.fillStyle = '#4ade80'
+  ctx.fillStyle = '#16a34a'
   ctx.beginPath()
   ctx.arc(x, y - s * 0.9, s * 0.72, Math.PI * 0.95, Math.PI * 0.05)
   ctx.lineTo(x, y)
@@ -147,98 +152,50 @@ function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, s: number)
   ctx.fill()
   ctx.beginPath()
   ctx.arc(x, y - s * 0.95, s * 0.28, 0, Math.PI * 2)
-  ctx.fillStyle = '#052e16'
+  ctx.fillStyle = '#ffffff'
   ctx.fill()
   ctx.restore()
 }
 
 async function drawBackground(ctx: CanvasRenderingContext2D) {
+  // v181: light minimal backdrop - a soft white-to-mint gradient. The old
+  // dark skin's neon glows, scan lines and perspective grid are gone.
   const grad = ctx.createLinearGradient(0, 0, W, H)
-  grad.addColorStop(0, '#071510')
-  grad.addColorStop(0.5, '#0a241a')
-  grad.addColorStop(1, '#061209')
+  grad.addColorStop(0, '#ffffff')
+  grad.addColorStop(0.55, '#f5fbf7')
+  grad.addColorStop(1, '#ecf7f0')
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, W, H)
 
-  // Neon glows
-  const glow1 = ctx.createRadialGradient(140, 180, 0, 140, 180, 520)
-  glow1.addColorStop(0, 'rgba(34,197,94,0.28)')
-  glow1.addColorStop(1, 'rgba(34,197,94,0)')
-  ctx.fillStyle = glow1
+  // One whisper-soft mint wash top-left so the white isn't sterile
+  const wash = ctx.createRadialGradient(180, 160, 0, 180, 160, 640)
+  wash.addColorStop(0, 'rgba(34,197,94,0.07)')
+  wash.addColorStop(1, 'rgba(34,197,94,0)')
+  ctx.fillStyle = wash
   ctx.fillRect(0, 0, W, H)
-  const glow2 = ctx.createRadialGradient(950, 1180, 0, 950, 1180, 560)
-  glow2.addColorStop(0, 'rgba(74,222,128,0.20)')
-  glow2.addColorStop(1, 'rgba(74,222,128,0)')
-  ctx.fillStyle = glow2
-  ctx.fillRect(0, 0, W, H)
-
-  // Futuristic horizontal scan lines
-  ctx.strokeStyle = 'rgba(134,239,172,0.05)'
-  ctx.lineWidth = 1
-  for (let y = 80; y < H; y += 56) {
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(W, y)
-    ctx.stroke()
-  }
-  // Faint perspective grid on the lower third
-  ctx.strokeStyle = 'rgba(74,222,128,0.07)'
-  for (let i = -6; i <= 6; i++) {
-    ctx.beginPath()
-    ctx.moveTo(W / 2 + i * 70, H * 0.72)
-    ctx.lineTo(W / 2 + i * 260, H)
-    ctx.stroke()
-  }
 }
 
 function drawFrame(ctx: CanvasRenderingContext2D) {
-  ctx.save()
-  ctx.shadowColor = 'rgba(34,197,94,0.8)'
-  ctx.shadowBlur = 26
-  ctx.strokeStyle = '#22c55e'
-  ctx.lineWidth = 3
+  // v181: one thin soft-green hairline - the glow, the double border and
+  // the corner accents are gone (light + simple).
+  ctx.strokeStyle = '#bbf7d0'
+  ctx.lineWidth = 2
   roundRect(ctx, INSET, INSET, W - INSET * 2, H - INSET * 2, 34)
   ctx.stroke()
-  ctx.shadowBlur = 0
-  ctx.strokeStyle = 'rgba(134,239,172,0.18)'
-  ctx.lineWidth = 1
-  roundRect(ctx, INSET + 14, INSET + 14, W - (INSET + 14) * 2, H - (INSET + 14) * 2, 26)
-  ctx.stroke()
-  ctx.restore()
-  // Corner accents
-  ctx.strokeStyle = '#4ade80'
-  ctx.lineWidth = 5
-  const c = 56
-  const corners: Array<[number, number, number, number]> = [
-    [INSET + 6, INSET + 6 + c, INSET + 6, INSET + 6],
-    [INSET + 6, INSET + 6, INSET + 6 + c, INSET + 6],
-    [W - INSET - 6 - c, H - INSET - 6, W - INSET - 6, H - INSET - 6],
-    [W - INSET - 6, H - INSET - 6, W - INSET - 6, H - INSET - 6 - c],
-  ]
-  for (const [x1, y1, x2, y2] of corners) {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-  }
 }
 
 async function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number) {
   const logo = await loadImage('/logo.png')
   const logoSize = 92
   if (logo) {
-    ctx.save()
-    ctx.shadowColor = 'rgba(34,197,94,0.7)'
-    ctx.shadowBlur = 22
     ctx.drawImage(logo, x, y - logoSize + 8, logoSize, logoSize)
-    ctx.restore()
   }
   ctx.textAlign = 'left'
-  ctx.fillStyle = '#f0fdf4'
+  ctx.fillStyle = '#052e16'
   ctx.font = FONT(58)
   ctx.fillText('circubAwd', x + logoSize + 22, y - 6)
   ctx.font = FONT(26, '600')
-  ctx.fillStyle = '#4ade80'
+  ctx.fillStyle = '#16a34a'
   ctx.fillText('REAL LOCAL PRICES', x + logoSize + 24, y + 34)
 }
 
@@ -248,14 +205,14 @@ function drawChip(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   const w = ctx.measureText(text).width + padX * 2
   const h = 56
   ctx.save()
-  ctx.strokeStyle = 'rgba(74,222,128,0.65)'
+  ctx.strokeStyle = 'rgba(22,163,74,0.35)'
   ctx.lineWidth = 2
-  ctx.fillStyle = 'rgba(34,197,94,0.12)'
+  ctx.fillStyle = '#ecfdf5'
   roundRect(ctx, x, y, w, h, h / 2)
   ctx.fill()
   ctx.stroke()
   ctx.restore()
-  ctx.fillStyle = '#86efac'
+  ctx.fillStyle = '#15803d'
   ctx.textAlign = 'left'
   ctx.font = FONT(30, '600')
   ctx.fillText(text, x + padX, y + 38)
@@ -263,46 +220,46 @@ function drawChip(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
 }
 
 // v152: the compare strip ON THE POSTER - "also on the poster". Two
-// placements: a dark chip pinned to the photo's bottom edge (photo layout)
+// placements: a white chip pinned to the photo's bottom edge (photo layout)
 // or a title+label pair between the identity rows and the footer
 // (text-only layout). Mirrors the feed card's one-line strip.
 function drawCompareOnPhoto(ctx: CanvasRenderingContext2D, title: string, label: string, x: number, y: number, w: number) {
   ctx.save()
-  ctx.fillStyle = 'rgba(4, 21, 12, 0.78)'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.93)'
   roundRect(ctx, x, y, w, 92, 20)
   ctx.fill()
   ctx.restore()
   ctx.textAlign = 'left'
   ctx.font = FONT(fitText(ctx, title, w - 48, 22, 14, '600'), '600')
-  ctx.fillStyle = '#4ade80'
+  ctx.fillStyle = '#16a34a'
   ctx.fillText(title, x + 24, y + 34)
   ctx.font = FONT(fitText(ctx, label, w - 48, 26, 14))
-  ctx.fillStyle = '#f0fdf4'
+  ctx.fillStyle = '#052e16'
   ctx.fillText(label, x + 24, y + 70)
 }
 
 function drawCompareText(ctx: CanvasRenderingContext2D, title: string, label: string, x: number, y: number, w: number) {
   ctx.textAlign = 'left'
   ctx.font = FONT(fitText(ctx, title, w, 24, 14, '600'), '600')
-  ctx.fillStyle = '#4ade80'
+  ctx.fillStyle = '#16a34a'
   ctx.fillText(title, x, y)
   ctx.font = FONT(fitText(ctx, label, w, 30, 14))
-  ctx.fillStyle = '#f0fdf4'
+  ctx.fillStyle = '#1f2937'
   ctx.fillText(label, x, y + 42)
 }
 
 async function drawQr(ctx: CanvasRenderingContext2D, url: string, x: number, y: number, size: number) {
   try {
-    const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#04150c', light: '#e8fff2' } })
+    const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#0b3b1e', light: '#ffffff' } })
     const img = await loadImage(dataUrl)
     if (!img) return
     ctx.save()
-    ctx.shadowColor = 'rgba(34,197,94,0.55)'
-    ctx.shadowBlur = 18
-    ctx.fillStyle = '#e8fff2'
+    ctx.fillStyle = '#ffffff'
     roundRect(ctx, x, y, size, size, 18)
     ctx.fill()
-    ctx.shadowBlur = 0
+    ctx.strokeStyle = '#d3f1df'
+    ctx.lineWidth = 2
+    ctx.stroke()
     const pad = 8
     ctx.drawImage(img, x + pad, y + pad, size - pad * 2, size - pad * 2)
     ctx.restore()
@@ -338,17 +295,17 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
 
   // Divider above the footer
   const div = ctx.createLinearGradient(contentX, 0, W - contentX, 0)
-  div.addColorStop(0, 'rgba(74,222,128,0)')
-  div.addColorStop(0.5, 'rgba(74,222,128,0.8)')
-  div.addColorStop(1, 'rgba(74,222,128,0)')
+  div.addColorStop(0, 'rgba(22,163,74,0)')
+  div.addColorStop(0.5, 'rgba(22,163,74,0.35)')
+  div.addColorStop(1, 'rgba(22,163,74,0)')
   ctx.fillStyle = div
-  ctx.fillRect(contentX, footerTop - 44, contentW, 3)
+  ctx.fillRect(contentX, footerTop - 44, contentW, 2)
 
   ctx.textAlign = 'left'
 
   if (target.kind === 'price') {
     ctx.font = FONT(34, '600')
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#16a34a'
     ctx.fillText('PRICE CHECK', contentX, 336)
     ctx.font = FONT(34, '600')
     const chipText = (target.category || 'Local price').toUpperCase()
@@ -358,7 +315,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       // ---------- v117 PHOTO LAYOUT: the post's image is the hero ----------
       // Product name - up to 2 lines above the photo
       ctx.font = FONT(56)
-      ctx.fillStyle = '#f0fdf4'
+      ctx.fillStyle = '#052e16'
       const nameLines = wrapLines(ctx, target.productName, contentW, 2)
       let py = 402
       for (const line of nameLines) {
@@ -371,7 +328,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       if (place) {
         drawPin(ctx, contentX + 14, py - 10, 26)
         ctx.font = FONT(30, '600')
-        ctx.fillStyle = '#bbf7d0'
+        ctx.fillStyle = '#15803d'
         ctx.fillText(place, contentX + 44, py)
         py += 50
       }
@@ -409,14 +366,10 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       const sh = phH / scale
       ctx.drawImage(photo, (photo.width - sw) / 2, (photo.height - sh) / 2, sw, sh, phX, phY, phW, phH)
       ctx.restore()
-      ctx.save()
-      ctx.shadowColor = 'rgba(34,197,94,0.55)'
-      ctx.shadowBlur = 16
-      ctx.strokeStyle = 'rgba(74,222,128,0.75)'
-      ctx.lineWidth = 3
+      ctx.strokeStyle = 'rgba(22,163,74,0.4)'
+      ctx.lineWidth = 2
       roundRect(ctx, phX, phY, phW, phH, 28)
       ctx.stroke()
-      ctx.restore()
 
       // Who posted it - a readable chip pinned to the photo's top-left
       if (target.authorName) {
@@ -425,31 +378,27 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         ctx.font = FONT(28)
         const chipW = ctx.measureText(byLine + handleText).width + 36
         ctx.save()
-        ctx.fillStyle = 'rgba(4, 21, 12, 0.72)'
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)'
         roundRect(ctx, phX + 18, phY + 18, chipW, 46, 23)
         ctx.fill()
         ctx.restore()
-        ctx.fillStyle = '#f0fdf4'
+        ctx.fillStyle = '#052e16'
         ctx.fillText(byLine, phX + 36, phY + 49)
         if (handleText) {
-          ctx.fillStyle = '#4ade80'
+          ctx.fillStyle = '#16a34a'
           ctx.fillText(handleText, phX + 36 + ctx.measureText(byLine).width, phY + 49)
         }
       }
 
-      // Price range - the glowing number right under the photo
+      // Price range - the hero number right under the photo
       const range = target.priceMin === target.priceMax
         ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}${formatUnitSuffix(target.unit)}`
         : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}${formatUnitSuffix(target.unit)}`
       const priceY = Math.max(phY + phH + 84, 1040)
       const psize = fitText(ctx, range, contentW, 76, 48)
       ctx.font = FONT(psize)
-      ctx.save()
-      ctx.shadowColor = 'rgba(74,222,128,0.9)'
-      ctx.shadowBlur = 30
-      ctx.fillStyle = '#4ade80'
+      ctx.fillStyle = '#16a34a'
       ctx.fillText(range, contentX, priceY)
-      ctx.restore()
 
       // v152: compare strip pinned to the photo's bottom edge
       if (target.compareTitle && target.compareLabel) {
@@ -459,7 +408,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       // ---------- TEXT-ONLY LAYOUT (no photo / photo failed to load) ----------
       // Product name
       ctx.font = FONT(72)
-      ctx.fillStyle = '#f0fdf4'
+      ctx.fillStyle = '#052e16'
       const nameLines = wrapLines(ctx, target.productName, contentW, 3)
       let y = 440
       for (const line of nameLines) {
@@ -472,26 +421,22 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       if (place) {
         drawPin(ctx, contentX + 16, y + 6, 30)
         ctx.font = FONT(40, '600')
-        ctx.fillStyle = '#bbf7d0'
+        ctx.fillStyle = '#15803d'
         ctx.fillText(place, contentX + 52, y + 16)
         y += 72
       }
 
-      // Price range - the hero element, glowing
+      // Price range - the hero element
       const range = target.priceMin === target.priceMax
         ? `${target.currency} ${target.priceMin.toLocaleString('en-US')}`
         : `${target.currency} ${target.priceMin.toLocaleString('en-US')} - ${target.priceMax.toLocaleString('en-US')}`
       ctx.font = FONT(128)
       const size = fitText(ctx, range, contentW, 128, 56)
       ctx.font = FONT(size)
-      ctx.save()
-      ctx.shadowColor = 'rgba(74,222,128,0.9)'
-      ctx.shadowBlur = 34
-      ctx.fillStyle = '#4ade80'
+      ctx.fillStyle = '#16a34a'
       ctx.fillText(range, contentX, Math.max(y + 120, 780))
-      ctx.restore()
       ctx.font = FONT(34, '600')
-      ctx.fillStyle = 'rgba(187,247,208,0.85)'
+      ctx.fillStyle = '#6b7280'
       ctx.fillText('typical local price range', contentX, Math.max(y + 120, 780) + 56)
       if (target.authorName) {
         // Shop identity rows - who posted this, their @handle and the date.
@@ -505,15 +450,15 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         const combined = byLine + handleText
         const idSize = fitText(ctx, combined, contentW, 34, 24)
         ctx.font = FONT(idSize)
-        ctx.fillStyle = '#f0fdf4'
+        ctx.fillStyle = '#111827'
         ctx.fillText(byLine, contentX, priceY + 108)
         if (uname) {
           ctx.font = FONT(idSize, '600')
-          ctx.fillStyle = '#4ade80'
+          ctx.fillStyle = '#16a34a'
           ctx.fillText(handleText, contentX + ctx.measureText(byLine).width, priceY + 108)
         }
         ctx.font = FONT(28, '600')
-        ctx.fillStyle = 'rgba(187,247,208,0.7)'
+        ctx.fillStyle = '#6b7280'
         ctx.fillText(target.date, contentX, priceY + 156)
       }
 
@@ -524,33 +469,33 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     }
   } else {
     ctx.font = FONT(34, '600')
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#16a34a'
     ctx.fillText('COMMUNITY POST', contentX, 336)
 
     // Author chip
     ctx.beginPath()
     ctx.arc(contentX + 34, 428, 34, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(34,197,94,0.25)'
+    ctx.fillStyle = '#dcfce7'
     ctx.fill()
-    ctx.strokeStyle = '#4ade80'
+    ctx.strokeStyle = '#bbf7d0'
     ctx.lineWidth = 2
     ctx.stroke()
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#15803d'
     ctx.font = FONT(36)
     ctx.textAlign = 'center'
     ctx.fillText(target.authorName.charAt(0).toUpperCase(), contentX + 34, 441)
     ctx.textAlign = 'left'
     ctx.font = FONT(44, '600')
-    ctx.fillStyle = '#f0fdf4'
+    ctx.fillStyle = '#052e16'
     ctx.fillText(target.authorName, contentX + 92, 418)
     ctx.font = FONT(28, '600')
-    ctx.fillStyle = 'rgba(187,247,208,0.7)'
+    ctx.fillStyle = '#6b7280'
     const postHandle = target.authorUsername?.trim()
     ctx.fillText(postHandle ? `@${postHandle} · ${target.date}` : target.date, contentX + 92, 456)
 
     // Content
     ctx.font = FONT(46)
-    ctx.fillStyle = '#dcfce7'
+    ctx.fillStyle = '#1f2937'
     const lines = wrapLines(ctx, target.content, contentW, 9)
     let y = 560
     for (const line of lines) {
@@ -574,21 +519,21 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
   }
   const ctaSize = fitText(ctx, cta, qrTextW, 44, 28, '600')
   ctx.font = FONT(ctaSize, '600')
-  ctx.fillStyle = '#f0fdf4'
+  ctx.fillStyle = '#052e16'
   ctx.fillText(cta, contentX, footerTop + rowCta)
   try {
     const u = new URL(linkUrl, window.location.origin)
     const linkText = `${u.host}${u.pathname !== '/' ? u.pathname : ''}` || 'circubAwd.app'
     ctx.font = FONT(fitText(ctx, linkText, qrTextW, 32, 20, '600'), '600')
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#16a34a'
     ctx.fillText(linkText, contentX, footerTop + rowLink)
   } catch {
     ctx.font = FONT(32, '600')
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#16a34a'
     ctx.fillText('circubAwd.app', contentX, footerTop + rowLink)
   }
   ctx.font = FONT(26, '600')
-  ctx.fillStyle = 'rgba(187,247,208,0.6)'
+  ctx.fillStyle = '#6b7280'
   ctx.fillText('Know what things actually cost · before you travel', contentX, footerTop + rowTag)
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'))

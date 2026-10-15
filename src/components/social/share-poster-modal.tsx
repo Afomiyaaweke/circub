@@ -30,10 +30,10 @@ interface SharePosterModalProps {
 }
 
 /**
- * Share-to-social poster dialog (Task 77): renders the green futuristic
- * circubAwd poster for a feed post or price post, then offers one-tap routes
- * to other social media - native share (with the PNG file on mobile),
- * WhatsApp, X, Telegram, Facebook, copy link and PNG download.
+ * Share-to-social poster dialog (Task 77, light skin v181): renders the
+ * light minimal circubAwd poster for a feed post or price post, then offers
+ * one-tap routes to other social media - native share (with the PNG file on
+ * mobile), WhatsApp, X, Telegram, Facebook, copy link and PNG download.
  */
 export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuild = false }: SharePosterModalProps) {
   const [posterUrl, setPosterUrl] = useState<string | null>(null)
