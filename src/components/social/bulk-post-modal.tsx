@@ -1,6 +1,11 @@
 'use client'
 
-// BULK POST (v173 -> v174): publish a whole spreadsheet of prices in one go.
+// BULK POST (v173 -> v176): publish a whole spreadsheet of prices in one go.
+// v176: DELETE is now as visible as POST - every row carries a labeled
+// Delete button (the old icon-only trash was unfindable, the user asked for
+// "delete and post"), a two-tap Delete all wipes the whole draft, and a
+// fully successful batch auto-clears the grid so the same rows can never be
+// posted twice by accident.
 // Three ways in: paste rows straight from Excel / Google Sheets (TSV), paste
 // a messy free-form price list (WhatsApp style: emoji bullets, dotted prices,
 // bare phone lines - parsed server-side by /api/local-prices/bulk/parse), or
@@ -8,7 +13,7 @@
 // source lands in the same editable grid so the user reviews and corrects
 // everything BEFORE anything is posted.
 import { useMemo, useState } from 'react'
-import { Sheet, Plus, Trash2, Copy, Upload, CheckCircle2, AlertTriangle, FileText, FileUp, Sparkles } from 'lucide-react'
+import { Sheet, Plus, Trash2, Copy, Upload, CheckCircle2, AlertTriangle, FileText, FileUp, Sparkles, XCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -271,6 +276,10 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   const [parsing, setParsing] = useState(false)
   const [parsedCompany, setParsedCompany] = useState('')
   const [fileName, setFileName] = useState('')
+  // v176: two-tap guard for Delete all - the first tap arms it, the second
+  // (within 4s) wipes the grid. Prevents one accidental click from throwing
+  // away 50 reviewed rows.
+  const [deleteAllArmed, setDeleteAllArmed] = useState(false)
 
   const problems = useMemo(() => rows.map((r) => rowProblem(r, defCountry)), [rows, defCountry])
   const readyCount = problems.filter((p) => p === null).length
@@ -411,6 +420,22 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
   const removeRow = (idx: number) => setRows((prev) => prev.filter((_, i) => i !== idx))
 
+  // v176: delete EVERY row in one tap (two taps to confirm). Resets the
+  // company banner and any post result with it - a clean slate for the
+  // next batch.
+  const deleteAllRows = () => {
+    if (!deleteAllArmed) {
+      setDeleteAllArmed(true)
+      window.setTimeout(() => setDeleteAllArmed(false), 4000)
+      return
+    }
+    setDeleteAllArmed(false)
+    setRows([])
+    setParsedCompany('')
+    setResult(null)
+    setPasteHint('All rows deleted - paste, parse or upload again to build a new batch.')
+  }
+
   const submit = async () => {
     if (saving) return
     if (!readyCount) {
@@ -442,6 +467,17 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error || 'Bulk post failed')
       setResult({ count: data.count || 0, failedCount: data.failedCount || 0, failed: data.failed || [] })
+      // v176: when the WHOLE batch landed, clear the grid - the posted rows
+      // are live on the feed now and keeping them in the grid made a second
+      // tap of Post duplicate the entire batch. A partial failure keeps the
+      // rows so the failed ones (now easy to spot and Delete) can be fixed.
+      if (!(data.failedCount > 0)) {
+        setRows([])
+        setPaste('')
+        setFileName('')
+        setParsedCompany('')
+        setPasteHint('Batch posted - the grid is cleared. Paste, parse or upload the next list to post another batch.')
+      }
       toast({
         title: `${data.count} price${data.count !== 1 ? 's' : ''} posted`,
         description: data.failedCount ? `${data.failedCount} row${data.failedCount !== 1 ? 's' : ''} could not be posted - see the details in the dialog.` : 'The whole batch is live on the feed.',
@@ -568,19 +604,19 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">2. Check the rows before posting</p>
               <div className="overflow-x-auto rounded-lg border border-border" data-testid="bulk-grid">
                 <div className="min-w-[760px]">
-                  <div className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_36px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <span>Product *</span><span>Price *</span><span>City</span><span>Country</span><span>Contact</span><span>Image URL</span><span />
+                  <div className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px] gap-1.5 px-2 py-1.5 bg-muted/50 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span>Product *</span><span>Price *</span><span>City</span><span>Country</span><span>Contact</span><span>Image URL</span><span>Delete</span>
                   </div>
                   {rows.map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_36px] gap-1.5 px-2 py-1 items-center border-t border-border" data-testid="bulk-row">
+                    <div key={idx} className="grid grid-cols-[minmax(140px,2fr)_90px_minmax(110px,1.4fr)_minmax(110px,1.4fr)_minmax(130px,1.6fr)_minmax(150px,2fr)_64px] gap-1.5 px-2 py-1 items-center border-t border-border" data-testid="bulk-row">
                       <Input value={row.productName} onChange={(e) => updateRow(idx, { productName: e.target.value })} className="h-8 text-xs" placeholder="Product name" data-testid={`bulk-cell-product-${idx}`} />
                       <Input value={row.price} onChange={(e) => updateRow(idx, { price: e.target.value })} className="h-8 text-xs" placeholder="12 or 12-15" data-testid={`bulk-cell-price-${idx}`} />
                       <Input value={row.city} onChange={(e) => updateRow(idx, { city: e.target.value })} className="h-8 text-xs" placeholder="City" data-testid={`bulk-cell-city-${idx}`} />
                       <Input value={row.country} onChange={(e) => updateRow(idx, { country: e.target.value })} className="h-8 text-xs" placeholder="Country" data-testid={`bulk-cell-country-${idx}`} />
                       <Input value={row.contact} onChange={(e) => updateRow(idx, { contact: e.target.value })} className="h-8 text-xs" placeholder="Phone / email" data-testid={`bulk-cell-contact-${idx}`} />
                       <Input value={row.imageUrl} onChange={(e) => updateRow(idx, { imageUrl: e.target.value })} className="h-8 text-xs" placeholder="https:// (optional)" data-testid={`bulk-cell-image-${idx}`} />
-                      <button onClick={() => removeRow(idx)} className="w-7 h-7 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center" title="Remove this row" data-testid={`bulk-remove-row-${idx}`}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <button onClick={() => removeRow(idx)} className="h-7 px-2 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 text-[11px] font-medium flex items-center justify-center gap-1 whitespace-nowrap" title="Delete this row" data-testid={`bulk-remove-row-${idx}`}>
+                        <Trash2 className="w-3 h-3" /> Delete
                       </button>
                       {problems[idx] && (
                         <p className="col-span-7 text-[11px] text-red-600 flex items-center gap-1 -mt-0.5" data-testid={`bulk-row-error-${idx}`}>
@@ -591,9 +627,17 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   ))}
                 </div>
               </div>
-              <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setRows((prev) => [...prev, emptyRow()])} data-testid="bulk-add-row">
-                <Plus className="w-3 h-3 mr-1" /> Add row
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setRows((prev) => [...prev, emptyRow()])} data-testid="bulk-add-row">
+                  <Plus className="w-3 h-3 mr-1" /> Add row
+                </Button>
+                {rows.length > 0 && (
+                  <Button type="button" variant="outline" size="sm" onClick={deleteAllRows} data-testid="bulk-delete-all" title="Delete every row in the grid" className={`h-7 text-xs gap-1.5 ${deleteAllArmed ? 'border-destructive bg-destructive/10 text-destructive font-semibold' : 'text-destructive/80 hover:text-destructive hover:bg-destructive/10'}`}>
+                    {deleteAllArmed ? <XCircle className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
+                    {deleteAllArmed ? 'Tap again to delete all' : 'Delete all'}
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
