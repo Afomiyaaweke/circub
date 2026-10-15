@@ -514,6 +514,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
         onEditProfile={handleEditProfile}
         onOpenNetwork={() => openProfileSection('network')}
         onDeactivateAccount={() => setDeactivateOpen(true)}
+        onOpenPost={(postId) => setLocalPriceId(postId)}
       />
       </div>
 

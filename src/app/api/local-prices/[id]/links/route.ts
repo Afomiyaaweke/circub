@@ -154,6 +154,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (e?.code === 'P2002') return NextResponse.json({ error: 'These posts are already linked' }, { status: 409 })
       throw e
     }
+    // v179: tell the other business owner their business was just linked.
+    // Only when the link crosses businesses (linking two of your own posts
+    // notifies nobody). A notification must never fail the link itself.
+    if (b.authorId !== me.id) {
+      await db.notification.create({
+        data: {
+          userId: b.authorId,
+          actorId: me.id,
+          type: 'business_link',
+          message: 'linked their business to yours',
+          postName: a.productName || b.productName,
+          postId: b.id,
+          otherPostId: a.id,
+        },
+      }).catch(() => {})
+    }
     const links = await linksFor(id, me.id)
     return NextResponse.json({ links, count: links.length }, { status: 201 })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
@@ -170,11 +186,30 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const linkedId = typeof body.linkedId === 'string' ? body.linkedId.trim() : ''
     if (!linkedId) return NextResponse.json({ error: 'Missing linkedId' }, { status: 400 })
     const [postAId, postBId] = [id, linkedId].sort()
-    const row = await db.pricePostLink.findUnique({ where: { postAId_postBId: { postAId, postBId } }, include: { postA: { select: { authorId: true } }, postB: { select: { authorId: true } } } })
+    const row = await db.pricePostLink.findUnique({ where: { postAId_postBId: { postAId, postBId } }, include: { postA: { select: { authorId: true, productName: true } }, postB: { select: { authorId: true, productName: true } } } })
     if (!row) return NextResponse.json({ error: 'Link not found' }, { status: 404 })
     const allowed = row.createdBy === me.id || row.postA.authorId === me.id || row.postB.authorId === me.id
     if (!allowed) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     await db.pricePostLink.delete({ where: { id: row.id } })
+    // v179: everyone involved except the actor learns the link is gone -
+    // the link creator and the owner of the other business. One row each,
+    // deduped, and a notification problem never blocks the unlink.
+    const recipients = [...new Set([row.createdBy, row.postA.authorId, row.postB.authorId])].filter((uid) => uid !== me.id)
+    for (const uid of recipients) {
+      const ownPost = row.postA.authorId === uid ? row.postA : row.postB
+      const otherPost = ownPost === row.postA ? row.postB : row.postA
+      await db.notification.create({
+        data: {
+          userId: uid,
+          actorId: me.id,
+          type: 'business_unlink',
+          message: 'removed the link with your business',
+          postName: ownPost.productName || otherPost.productName,
+          postId: ownPost === row.postA ? postAId : postBId,
+          otherPostId: ownPost === row.postA ? postBId : postAId,
+        },
+      }).catch(() => {})
+    }
     const links = await linksFor(id, me.id)
     return NextResponse.json({ success: true, links, count: links.length })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }

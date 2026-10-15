@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX, Globe } from 'lucide-react'
+import { NotificationBell } from '@/components/social/notification-bell'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -21,6 +22,7 @@ interface HeaderProps {
   onEditProfile: () => void
   onOpenNetwork: () => void
   onDeactivateAccount: () => void
+  onOpenPost?: (postId: string) => void
 }
 
 // Bookmark and Network live inside the Profile tab now (Instagram-style) -
@@ -104,6 +106,7 @@ export function Header({
   onEditProfile,
   onOpenNetwork,
   onDeactivateAccount,
+  onOpenPost,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -222,6 +225,8 @@ export function Header({
           </div>
         ) : (
           <div className="flex items-center gap-1 sm:gap-2">
+            {/* v179: business link / unlink notifications - badge + panel */}
+            <NotificationBell me={user} onOpenPost={onOpenPost} />
             <LanguageMenu />
             <ThemeToggle />
             <div className="relative" ref={menuRef}>

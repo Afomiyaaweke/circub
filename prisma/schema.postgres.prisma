@@ -129,6 +129,10 @@ model User {
   msgsReceived   Message[]    @relation("MsgReceiver")
   stories        Story[]
 
+  // v179: business link / unlink notifications (header bell)
+  notifsReceived Notification[] @relation("NotificationRecipient")
+  notifsActed    Notification[] @relation("NotificationActor")
+
   @@index([accountType])
   @@index([isLocal, verifiedLocal])
   @@index([isGuide, guideAvailable])
@@ -333,6 +337,30 @@ model PricePostLink {
   @@unique([postAId, postBId])
   @@index([postAId])
   @@index([postBId])
+}
+
+// =====================================================
+// NOTIFICATIONS - v179 business link / unlink alerts
+// =====================================================
+// One row per event delivered to a business owner: someone linked their
+// business to yours, or removed that link. type drives the i18n render,
+// message is the English fallback, actor powers the name + avatar chip.
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorId     String
+  actor       User     @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  type        String   // 'business_link' | 'business_unlink'
+  message     String
+  postName    String?  // snapshot of the business product name involved
+  postId      String?  // the recipient's post involved in the link
+  otherPostId String?  // the actor's post that did the linking / unlinking
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, read])
 }
 
 // =====================================================
