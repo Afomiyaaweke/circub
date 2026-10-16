@@ -31,6 +31,12 @@ export async function GET(req: NextRequest) {
     if (authorId) where.authorId = authorId
     if (country) where.country = { contains: country }
     if (city) where.city = { contains: city }
+    // v187: poster-type filter - 'shop' = posts by shop owners (ownsShop true,
+    // the amber badge), 'shared' = ordinary shared prices (everything else,
+    // including legacy rows posted before the flag existed), no param = all.
+    const owner = searchParams.get('owner')?.trim() || ''
+    if (owner === 'shop') where.ownsShop = true
+    else if (owner === 'shared') where.ownsShop = { not: true }
     if (category && category !== 'All categories') {
       // v182: a MAIN category name ('Food') expands to all of its subs; a
       // canonical sub also matches its legacy short names still in old posts

@@ -68,6 +68,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const [country, setCountry] = useState('All countries')
   const [city, setCity] = useState('All cities')
   const [category, setCategory] = useState(ALL_CATEGORIES)
+  // v187: poster-type filter - 'all' shows everything, 'shop' only posts by
+  // shop owners (the amber badge), 'shared' only ordinary shared prices.
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'shop' | 'shared'>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [marketOpen, setMarketOpen] = useState(false)
@@ -141,6 +144,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       if (country && country !== 'All countries') params.set('country', country)
       if (city && city !== 'All cities') params.set('city', city)
       if (category && category !== ALL_CATEGORIES) params.set('category', category)
+      if (ownerFilter !== 'all') params.set('owner', ownerFilter)
       // Posts default to most recent (API default) - no sort dropdown in the UI.
       // cache:'no-store' keeps the BROWSER from caching, but the API also sets
       // a CDN edge cache (s-maxage=30 + stale-while-revalidate=60) - a normal
@@ -161,7 +165,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       setServerHasMore(!!data.hasMore)
       hasPostsRef.current = next.length > 0
     } catch { setPosts([]); hasPostsRef.current = false; setServerHasMore(false) } finally { setLoading(false) }
-  }, [search, country, city, category])
+  }, [search, country, city, category, ownerFilter])
 
   useEffect(() => {
     const t = setTimeout(fetchPosts, 250)
@@ -181,6 +185,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       if (country && country !== 'All countries') params.set('country', country)
       if (city && city !== 'All cities') params.set('city', city)
       if (category && category !== ALL_CATEGORIES) params.set('category', category)
+      if (ownerFilter !== 'all') params.set('owner', ownerFilter)
       params.set('limit', String(FEED_STEP))
       params.set('offset', String(postsCountRef.current))
       const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
@@ -195,7 +200,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       loadingMoreRef.current = false
       setLoadingMore(false)
     }
-  }, [search, country, city, category])
+  }, [search, country, city, category, ownerFilter])
 
   // Single source of truth for the offset of the next step.
   useEffect(() => {
@@ -703,6 +708,32 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             </SelectTrigger>
             <SelectContent className="max-h-[320px]"><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{CATEGORY_GROUPS.map((g) => <SelectGroup key={g.group}><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{g.group}</SelectLabel>{g.items.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>)}{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).length > 0 && <SelectGroup><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Older categories</SelectLabel>{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>}</SelectContent>
           </Select>
+        </div>
+        {/* v187: small poster-type filter - three tiny segments beside the
+            search pill: shop owner posts / just shared prices / all. The
+            active segment goes emerald like the other active filters. */}
+        <div className="inline-flex items-center rounded-lg border border-input bg-card shadow-xs overflow-hidden shrink-0 basis-full sm:basis-auto" data-testid="poster-type-filter">
+          {([
+            { v: 'all' as const, label: t('filter.posterAll'), testid: 'type-filter-all' },
+            { v: 'shop' as const, label: t('filter.posterShop'), testid: 'type-filter-shop' },
+            { v: 'shared' as const, label: t('filter.posterShared'), testid: 'type-filter-shared' },
+          ]).map((seg, i) => (
+            <button
+              key={seg.v}
+              type="button"
+              data-testid={seg.testid}
+              onClick={() => setOwnerFilter(seg.v)}
+              className={
+                'h-9 px-2.5 sm:px-3 text-xs whitespace-nowrap transition-colors ' +
+                (i > 0 ? 'border-l border-input ' : '') +
+                (ownerFilter === seg.v
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold'
+                  : 'text-muted-foreground hover:bg-accent')
+              }
+            >
+              {seg.label}
+            </button>
+          ))}
         </div>
         <Button
           type="button"
