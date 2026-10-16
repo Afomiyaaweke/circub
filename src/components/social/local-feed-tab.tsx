@@ -113,7 +113,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     locationCompare: { scope: 'city' | 'country'; place: string; count: number; min: number; max: number; currency: string } | null
     location: { city?: string | null; country?: string | null } | null
   } | null>(null)
-  const [filterValues, setFilterValues] = useState<{ countries: string[]; cities: string[]; categories: string[] }>({ countries: [], cities: [], categories: [] })
+  // v184: locations carries cities GROUPED under their real countries
+  // (built from live post pairs by the filters API) for the ONE location
+  // dropdown that replaces the old country + city pair.
+  const [filterValues, setFilterValues] = useState<{ countries: string[]; cities: string[]; categories: string[]; locations: Array<{ country: string; cities: string[] }> }>({ countries: [], cities: [], categories: [], locations: [] })
   const { toast } = useToast()
 
   useEffect(() => {
@@ -121,7 +124,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   }, [])
 
   useEffect(() => {
-    fetch('/api/local-prices/filters').then((r) => r.json()).then((data) => setFilterValues({ countries: data.countries || [], cities: data.cities || [], categories: data.categories || [] })).catch(() => {})
+    fetch('/api/local-prices/filters').then((r) => r.json()).then((data) => setFilterValues({ countries: data.countries || [], cities: data.cities || [], categories: data.categories || [], locations: data.locations || [] })).catch(() => {})
   }, [])
 
   // Background refreshes keep the current list mounted: replacing the whole
@@ -346,6 +349,23 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       setSearchLocHint(loc)
     }
   }, [searchLocPart, filterValues])
+
+  // v184: ONE location picker replaces the country + city pair. The value
+  // is prefixed ("country:X" / "city:Y") so a country pick and a city pick
+  // can never collide; picking one always clears the other - they must
+  // never AND into zero results (the same contract the comma-search
+  // parser below keeps). Country picks keep working: every country with
+  // posts is a selectable row, its cities indented right under it.
+  const locValue = country !== 'All countries' ? 'country:' + country : city !== 'All cities' ? 'city:' + city : 'all'
+  const locActive = locValue !== 'all'
+  const setLocPick = (v: string) => {
+    if (v === 'all') { setCountry('All countries'); setCity('All cities') }
+    else if (v.startsWith('country:')) { setCountry(v.slice('country:'.length)); setCity('All cities') }
+    else if (v.startsWith('city:')) { setCity(v.slice('city:'.length)); setCountry('All countries') }
+  }
+  // Cities whose posts carry no country land in an "Other cities" tail
+  // group so they stay reachable after the flat city list disappears.
+  const orphanCities = useMemo(() => filterValues.cities.filter((c) => !filterValues.locations.some((g) => g.cities.includes(c))), [filterValues])
 
   // On publish: refetch WITHOUT the skeleton flash, then glide up to the top
   // so the fresh post is the first thing on screen instead of the user
@@ -629,29 +649,34 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             </Button>
           </div>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          <Select value={country} onValueChange={setCountry}>
+          {/* v184: the country + city selects are ONE picker now - countries
+              as bold green rows, their cities indented underneath, all in a
+              single dropdown ("make this in one"). */}
+          <Select value={locValue} onValueChange={setLocPick}>
             <SelectTrigger
+              data-testid="location-filter"
               className={
-                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[150px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (country !== 'All countries' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
+                'flex-1 basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                (locActive ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
               }
             >
-              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All countries" />
+              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All locations" />
             </SelectTrigger>
-            <SelectContent><SelectItem value="All countries">{t('filter.allCountries')}</SelectItem>{filterValues.countries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          <Select value={city} onValueChange={setCity}>
-            <SelectTrigger
-              data-testid="city-filter"
-              className={
-                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[112px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (city !== 'All cities' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
-              }
-            >
-              <SelectValue placeholder="All cities" />
-            </SelectTrigger>
-            <SelectContent><SelectItem value="All cities">{t('filter.allCities')}</SelectItem>{filterValues.cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            <SelectContent className="max-h-[320px]">
+              <SelectItem value="all">{t('filter.allLocations')}</SelectItem>
+              {filterValues.locations.map((g) => (
+                <SelectGroup key={g.country}>
+                  <SelectItem value={'country:' + g.country} className="font-semibold text-emerald-700 dark:text-emerald-400">{g.country}</SelectItem>
+                  {g.cities.map((c) => <SelectItem key={g.country + ':' + c} value={'city:' + c} className="pl-8 text-muted-foreground">{c}</SelectItem>)}
+                </SelectGroup>
+              ))}
+              {orphanCities.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Other cities</SelectLabel>
+                  {orphanCities.map((c) => <SelectItem key={c} value={'city:' + c} className="pl-8">{c}</SelectItem>)}
+                </SelectGroup>
+              )}
+            </SelectContent>
           </Select>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           <Select value={category} onValueChange={setCategory}>
