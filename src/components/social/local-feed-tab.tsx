@@ -365,7 +365,19 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   }
   // Cities whose posts carry no country land in an "Other cities" tail
   // group so they stay reachable after the flat city list disappears.
-  const orphanCities = useMemo(() => filterValues.cities.filter((c) => !filterValues.locations.some((g) => g.cities.includes(c))), [filterValues])
+  // v185: match case-insensitively - the API now merges 'addis ababa' into
+  // the grouped 'Addis Ababa', so a raw casing variant must not resurface
+  // as an orphan duplicate.
+  const orphanCities = useMemo(() => {
+    const norm = (s: string) => s.trim().toLowerCase()
+    const grouped = new Set(filterValues.locations.flatMap((g) => g.cities.map(norm)))
+    const seen = new Map<string, string>()
+    for (const c of filterValues.cities) {
+      const k = norm(c)
+      if (!grouped.has(k) && !seen.has(k)) seen.set(k, c)
+    }
+    return Array.from(seen.values())
+  }, [filterValues])
 
   // On publish: refetch WITHOUT the skeleton flash, then glide up to the top
   // so the fresh post is the first thing on screen instead of the user

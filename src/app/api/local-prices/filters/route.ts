@@ -12,21 +12,39 @@ export async function GET() {
     // mapping from the actual (country, city) pairs on live posts so a city
     // always renders inside the country it truly belongs to; countries with
     // no city (country-only posts) keep appearing as empty groups.
-    const byCountry = new Map<string, Set<string>>()
+    // v185: real-world data is messy - prod carries 'ethiopia', 'Ethiopia'
+    // AND 'ኢትዮጵያ' as separate country strings. Inside ONE dropdown that
+    // reads as three Ethopias, so group CASE-INSENSITIVELY (display the
+    // most-posted casing; cities dedupe the same way). Picking the merged
+    // row is still safe: the feed API wraps its where in
+    // caseInsensitiveWhere, so country=Ethiopia matches 'ethiopia' posts
+    // on both Postgres and SQLite. Genuinely different strings stay
+    // separate ('Ethiopia, Addis Ababa', 'ኢትዮጵያ', 'Addis Ababa'-as-country).
+    const byCountry = new Map<string, { counts: Map<string, number>; cities: Map<string, Map<string, number>> }>()
     const orphanCities = new Set<string>()
+    const topCase = (m: Map<string, number>) =>
+      Array.from(m.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
     for (const p of posts) {
       const k = (p.country || '').trim()
       const c = (p.city || '').trim()
       if (c) cities.add(c)
       if (k) {
-        if (!byCountry.has(k)) byCountry.set(k, new Set())
-        if (c) byCountry.get(k)!.add(c)
+        const key = k.toLowerCase()
+        let g = byCountry.get(key)
+        if (!g) { g = { counts: new Map(), cities: new Map() }; byCountry.set(key, g) }
+        g.counts.set(k, (g.counts.get(k) || 0) + 1)
+        if (c) {
+          const ck = c.toLowerCase()
+          let cm = g.cities.get(ck)
+          if (!cm) { cm = new Map(); g.cities.set(ck, cm) }
+          cm.set(c, (cm.get(c) || 0) + 1)
+        }
       } else if (c) {
         orphanCities.add(c)
       }
     }
-    const locations = Array.from(byCountry.entries())
-      .map(([country, set]) => ({ country, cities: Array.from(set).sort((a, b) => a.localeCompare(b)) }))
+    const locations = Array.from(byCountry.values())
+      .map((g) => ({ country: topCase(g.counts), cities: Array.from(g.cities.values()).map((cm) => topCase(cm)).sort((a, b) => a.localeCompare(b)) }))
       .sort((a, b) => a.country.localeCompare(b.country))
     return NextResponse.json(
       {
