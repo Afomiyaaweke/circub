@@ -136,8 +136,16 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // Skeletons only for the first load, or when the previous load came back
   // empty - after that the old cards stay on screen until the new data lands.
   const hasPostsRef = useRef(false)
+  // v188: monotonic request sequence - a SLOWER older response (edge cache
+  // hits are fast, origin is slow, so taps CAN answer out of order) must
+  // never overwrite the list of a newer request. Also: tapping one of the
+  // poster-type buttons is an EXPLICIT user action, so it fetches fresh
+  // (unique _ buster) instead of riding the 30-90s CDN edge cache.
+  const fetchSeqRef = useRef(0)
+  const ownerTapRef = useRef(false)
   const fetchPosts = useCallback(async (opts?: { fresh?: boolean }) => {
     if (!hasPostsRef.current) setLoading(true)
+    const seq = ++fetchSeqRef.current
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
@@ -160,6 +168,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       params.set('offset', '0')
       const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
       const data = await res.json()
+      // v188: only the LATEST request may paint - a stale response arriving
+      // after a newer tap is dropped, so the list always matches the
+      // highlighted button.
+      if (seq !== fetchSeqRef.current) return
       const next = data.posts || []
       setPosts(next)
       setServerHasMore(!!data.hasMore)
@@ -168,7 +180,12 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   }, [search, country, city, category, ownerFilter])
 
   useEffect(() => {
-    const t = setTimeout(fetchPosts, 250)
+    // v188: a poster-type button tap is an explicit action - it must show
+    // what is live NOW, not another visitor's cached window, so the tap's
+    // fetch carries the fresh _ buster (ownerTapRef set in the onClick).
+    const freshTap = ownerTapRef.current
+    ownerTapRef.current = false
+    const t = setTimeout(() => fetchPosts({ fresh: freshTap }), 250)
     return () => clearTimeout(t)
   }, [fetchPosts])
 
@@ -179,6 +196,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     if (loadingMoreRef.current) return
     loadingMoreRef.current = true
     setLoadingMore(true)
+    const seq = ++fetchSeqRef.current
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
@@ -191,6 +209,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
       const data = await res.json()
       const next: LocalPricePost[] = data.posts || []
+      // v188: a full reload (filter tap / publish) started after this step
+      // began - the step's rows belong to a superseded request, drop them.
+      if (seq !== fetchSeqRef.current) return
       setPosts((prev) => {
         const seen = new Set(prev.map((p) => p.id))
         return [...prev, ...next.filter((p) => !seen.has(p.id))]
@@ -722,7 +743,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
               key={seg.v}
               type="button"
               data-testid={seg.testid}
-              onClick={() => setOwnerFilter(seg.v)}
+              onClick={() => { ownerTapRef.current = true; setOwnerFilter(seg.v) }}
               className={
                 'h-9 px-2.5 sm:px-3 text-xs whitespace-nowrap transition-colors ' +
                 (i > 0 ? 'border-l border-input ' : '') +
@@ -1027,13 +1048,22 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       ) : posts.length === 0 ? (
         <Card className="p-6 sm:p-10 text-center shadow-sm">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3"><PackageOpen className="w-6 h-6 text-primary" /></div>
-          <h3 className="font-semibold text-foreground">No local price posts found</h3>
+          <h3 className="font-semibold text-foreground">{ownerFilter !== 'all' ? (ownerFilter === 'shop' ? 'No shop owner posts here yet' : 'No shared prices here yet') : 'No local price posts found'}</h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
             {searchResults && searchResults.localMatches.length > 0
               ? `The camera search found ${searchResults.localMatches.length} matching price${searchResults.localMatches.length !== 1 ? 's' : ''} - see the results panel above. Or adjust your filters below.`
-              : 'No posts match your filters. Try adjusting search or filters · or be the first to post a local price!'}
+              : ownerFilter !== 'all'
+                ? (ownerFilter === 'shop'
+                    ? 'Nothing posted by a shop owner matches right now. Shared prices are still on the feed - tap All posts to see everything.'
+                    : 'No shared prices match right now. Shop owner posts are still on the feed - tap All posts to see everything.')
+                : 'No posts match your filters. Try adjusting search or filters · or be the first to post a local price!'}
           </p>
-          <Button onClick={() => openComposer(null)} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
+          <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2">
+            {ownerFilter !== 'all' && (
+              <Button variant="outline" onClick={() => { ownerTapRef.current = true; setOwnerFilter('all') }} className="gap-1.5" data-testid="empty-reset-poster-filter">Show all posts</Button>
+            )}
+            <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
+          </div>
         </Card>
       ) : (
         <>
