@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUser } from '@/lib/session'
+import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { isValidGps } from '@/lib/location'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +53,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.contactEmail === 'string') updates.contactEmail = body.contactEmail.trim() || null
     if (typeof body.contactWhatsApp === 'string') updates.contactWhatsApp = body.contactWhatsApp.trim() || null
     if (body.ownsShop !== undefined) updates.ownsShop = body.ownsShop === true || body.ownsShop === 'true'
+    // v189: the shop name rides with the ownership choice (same column the
+    // bulk poster fills). Un-ticking the box clears the name with it.
+    if (body.shopOwnerName !== undefined)
+      updates.shopOwnerName = sanitizeInput(String(body.shopOwnerName || ''), 100) || null
     if (typeof body.category === 'string') updates.category = body.category
     if (typeof body.imageUrl === 'string') updates.imageUrl = body.imageUrl || null
     // v122: marketplace details editable after publishing too.

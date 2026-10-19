@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles, Store } from 'lucide-react'
+import { Plus, X, Upload, MapPin, Lightbulb, Tag, DollarSign, Camera, Sparkles, Store, FileText, Loader2, ListX } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,33 @@ const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'JPY
 // CATEGORIES (full flat alphabetical list) now lives in @/lib/categories -
 // the single source shared by every picker and filter.
 
+// v189: same currency inference the bulk poster uses (v175) - a parsed price
+// list whose contact numbers are Ethiopian gets ETB as the default currency
+// when the list itself does not name one ("birr" etc). Ambiguous currencies
+// (USD, EUR) are deliberately absent.
+const COUNTRY_CURRENCY: Record<string, string> = {
+  Ethiopia: 'ETB',
+  Kenya: 'KES',
+  Uganda: 'UGX',
+  Tanzania: 'TZS',
+  Rwanda: 'RWF',
+  Ghana: 'GHS',
+  Nigeria: 'NGN',
+  'South Africa': 'ZAR',
+  'United Arab Emirates': 'AED',
+  India: 'INR',
+  China: 'CNY',
+  'United Kingdom': 'GBP',
+  Canada: 'CAD',
+  Malaysia: 'MYR',
+}
+
+// One parsed row of the pasted price list (the /bulk/parse endpoint's shape).
+interface ParsedListRow {
+  productName: string
+  price: string
+}
+
 export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }: CreatePricePostModalProps) {
   const [postType, setPostType] = useState<'PRODUCT' | 'SERVICE'>('PRODUCT')
   const [productName, setProductName] = useState('')
@@ -77,8 +104,21 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [contactWhatsApp, setContactWhatsApp] = useState('')
   // Does the poster OWN the shop/business this price belongs to? Owners get
   // a "Shop owner" badge on the published post - travelers know the price
-  // comes first-hand from the business itself.
+  // comes first-hand from the business itself. v189: the choice is a real
+  // CHECKBOX ("check point") - ticked = own shop, unticked = just sharing.
   const [ownsShop, setOwnsShop] = useState(false)
+  // v189: the shop name shown on the posts beside the badge (same column the
+  // bulk poster fills). Revealed when the ownership box is ticked; the parsed
+  // list's company header prefills it.
+  const [shopOwnerName, setShopOwnerName] = useState('')
+  // v189: "Price list text" - paste a whole price list (WhatsApp style) and
+  // the SAME parser the bulk post uses pulls out every product + price line.
+  // One parsed row just fills the form; several parsed rows publish as
+  // several separate price posts (through the bulk endpoint) on Publish.
+  const [priceListText, setPriceListText] = useState('')
+  const [parsingList, setParsingList] = useState(false)
+  const [listRows, setListRows] = useState<ParsedListRow[]>([])
+  const [listHint, setListHint] = useState<string | null>(null)
   // "Make it story while posting a new price": ON by default - publishing
   // also shares the price as a 24h story banner in the feed's stories strip.
   const [alsoStory, setAlsoStory] = useState(true)
@@ -126,6 +166,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setPriceMax('')
     setLocalTip('')
     setOwnsShop(false)
+    setShopOwnerName('')
+    setPriceListText('')
+    setListRows([])
+    setListHint(null)
     setAlsoStory(true)
     setQuantity('')
     setUnit('')
@@ -193,6 +237,80 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setComparing(false)
   }
 
+  // v189: parse the pasted price list with the SAME server parser the bulk
+  // poster uses (/api/local-prices/bulk/parse - WhatsApp bullets, dotted
+  // prices, company headers, phone lines). The FIRST parsed row prefills the
+  // form (name, price, contacts, currency/country hints); ALL rows stay in
+  // the review list - several rows publish as several separate price posts.
+  const parsePriceList = async () => {
+    if (parsingList) return
+    if (!priceListText.trim()) {
+      setListHint('Paste the price list text first - one product per line ending in its price, plus any contact numbers and a company header.')
+      return
+    }
+    setParsingList(true)
+    try {
+      const res = await authFetch('/api/local-prices/bulk/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: priceListText }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not parse the text')
+      const parsedRows: { productName: unknown; price: unknown }[] = Array.isArray(data?.rows) ? data.rows : []
+      const mapped: ParsedListRow[] = parsedRows.map((r) => ({ productName: String(r.productName || ''), price: String(r.price ?? '') }))
+      if (!mapped.length) {
+        setListRows([])
+        setListHint('No product + price lines found - each line needs a product name ending in a number, like "Vicryl 2 round ..950".')
+        return
+      }
+      setListRows(mapped)
+      // The first row fills the form so a one-item list behaves like a
+      // normal single post (photo, GPS pin and the story banner still apply).
+      const first = mapped[0]
+      setProductName(first.productName)
+      const raw = first.price.replace(/[^0-9.\-]/g, '')
+      const dash = raw.indexOf('-')
+      if (dash > 0) {
+        setPriceMin(raw.slice(0, dash))
+        setPriceMax(raw.slice(dash + 1))
+      } else {
+        setPriceMin(raw)
+        setPriceMax('')
+      }
+      const contacts: string[] = Array.isArray(data.contacts) ? data.contacts : []
+      for (const c of contacts) {
+        const v = String(c || '').trim()
+        if (!v) continue
+        if (v.includes('@')) { if (!contactEmail.trim()) setContactEmail(v) }
+        else if (!contactPhone.trim()) setContactPhone(v)
+      }
+      const company = String(data.company || '')
+      if (company && !shopOwnerName.trim()) setShopOwnerName(company)
+      const hintCur = String(data.currencyHint || '') || COUNTRY_CURRENCY[String(data.countryHint || '')] || ''
+      if (hintCur && CURRENCIES.includes(hintCur) && currency === 'USD') setCurrency(hintCur)
+      const hintCountry = String(data.countryHint || '')
+      if (hintCountry && !location.trim()) setLocation(hintCountry)
+      setListHint(
+        `Parsed ${mapped.length} product${mapped.length !== 1 ? 's' : ''}` +
+          (company ? ` from ${company}` : '') +
+          (contacts.length ? ` - ${contacts.length} contact${contacts.length !== 1 ? 's' : ''} detected` : '') +
+          (mapped.length > 1
+            ? `. Publishing posts all ${mapped.length} as separate price posts - the location, category, currency, contacts and shop choice below apply to every row.`
+            : '. The first row filled the form below - publish it as a normal single price.')
+      )
+    } catch (e) {
+      toast({ title: 'Parse failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setParsingList(false)
+    }
+  }
+
+  const removeListRow = (idx: number) => {
+    setListRows((prev) => prev.filter((_, i) => i !== idx))
+    if (listRows.length <= 1) setListHint(null)
+  }
+
   const handleSave = async () => {
     // Guest users can't post prices - prompt them to register
     if (typeof window !== 'undefined') {
@@ -201,6 +319,12 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       // and dispatch the auth-expired event which shows the register modal.
       // But for a better UX, let's check first.
     }
+    // v189: with TWO or more parsed price-list rows the composer publishes
+    // the whole list through the bulk endpoint - one price post per row,
+    // every row carrying the form's location, category, currency, contacts
+    // and the shop-owner choice. Photo, GPS pin, local tip and the story
+    // banner stay single-post features (the pin DOES ride every row).
+    const listMode = listRows.length >= 2
     // v178: ONE price is enough. The composer used to demand BOTH a min and
     // a max, so a user who knows a single price had to type it twice before
     // the button would work. Now either box alone publishes - the missing
@@ -208,7 +332,16 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     // stores a single price) and both filled still gives a real range.
     const minFilled = priceMin.trim() !== ''
     const maxFilled = priceMax.trim() !== ''
-    if (!productName.trim() || !location.trim() || currency.trim() === '' || (!minFilled && !maxFilled)) {
+    if (listMode) {
+      if (!location.trim() || currency.trim() === '') {
+        toast({
+          title: 'Missing required fields',
+          description: 'Location (City, Country) and currency are required to post the price list.',
+          variant: 'destructive',
+        })
+        return
+      }
+    } else if (!productName.trim() || !location.trim() || currency.trim() === '' || (!minFilled && !maxFilled)) {
       toast({
         title: 'Missing required fields',
         description: 'Please fill in product name, location (City, Country), currency, and at least one price.',
@@ -218,7 +351,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     }
     const numMin = minFilled ? Number(priceMin) : Number(priceMax)
     const numMax = maxFilled ? Number(priceMax) : Number(priceMin)
-    if (!Number.isFinite(numMin) || !Number.isFinite(numMax) || numMin < 0 || numMax < numMin) {
+    if (!listMode && (!Number.isFinite(numMin) || !Number.isFinite(numMax) || numMin < 0 || numMax < numMin)) {
       toast({
         title: 'Price range invalid',
         description: 'Prices must be numbers, and the max cannot be smaller than the min.',
@@ -240,7 +373,65 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       return
     }
 
-
+    if (listMode) {
+      setSaving(true)
+      try {
+        const res = await authFetch('/api/local-prices/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rows: listRows.map((r) => ({
+              productName: r.productName,
+              price: r.price,
+              city: loc.city,
+              country: loc.country,
+              contactPhone: contactPhone.trim(),
+              contactEmail: contactEmail.trim(),
+              contactWhatsApp: contactWhatsApp.trim(),
+              description: description.trim(),
+              latitude: gpsLat,
+              longitude: gpsLng,
+            })),
+            defaults: {
+              currency,
+              category,
+              postType,
+              country: loc.country,
+              city: loc.city,
+              // The checkbox IS the choice: ticked = first-party stock with
+              // the Shop owner badge, unticked = ordinary shared prices.
+              ownsShop,
+              shopOwnerName: ownsShop ? shopOwnerName.trim() : '',
+              // A multi-row list must not flood the stories strip - bulk
+              // stories stay OFF (the bulk poster's own rule since v173).
+              alsoStory: false,
+            },
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(data?.failed?.[0]?.error || data?.error || 'Could not post the price list')
+        const count = Number(data.count || 0)
+        const failedCount = Number(data.failedCount || 0)
+        toast({
+          title: `${count} price${count !== 1 ? 's' : ''} posted`,
+          description: failedCount
+            ? `${failedCount} row${failedCount !== 1 ? 's' : ''} could not be posted - they are still in the list above if you reopen this form; the rest are live on the feed.`
+            : `The whole list is live on the feed${ownsShop ? ' with the Shop owner badge' : ''}.`,
+        })
+        reset()
+        onOpenChange(false)
+        onCreated()
+      } catch (e) {
+        toast({
+          title: 'Posting failed',
+          description: (e as Error).message,
+          variant: 'destructive',
+        })
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
 
     setSaving(true)
     try {
@@ -265,6 +456,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           contactEmail,
           contactWhatsApp,
           ownsShop,
+          // v189: the shop name rides along (same column the bulk poster
+          // fills) so a single first-party post shows WHO sells it.
+          shopOwnerName: ownsShop ? shopOwnerName.trim() : '',
           alsoStory,
           quantity,
           unit,
@@ -380,6 +574,75 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             />
           </div>
 
+          {/* v189: Price list text - the SAME "Price list text" the bulk post
+              has. Paste a whole price list (WhatsApp style, any format), tap
+              Parse, and the parser fills the form - several products publish
+              as several separate price posts on Publish. */}
+          <div className="space-y-3 p-4 rounded-xl bg-accent/30 border border-border" data-testid="price-list-section">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <FileText className="w-4 h-4 text-primary" />
+              Price list text
+              <span className="text-xs font-normal text-muted-foreground">(optional - paste a whole price list like on the bulk post)</span>
+            </div>
+            <Textarea
+              data-testid="price-list-input"
+              placeholder={"Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\nBenol pharmaceutical plc\n👉 Vicryl 2 round ..950\n👉 Silk 1 cutting..550\nContact\n0911967478"}
+              value={priceListText}
+              onChange={(e) => setPriceListText(e.target.value)}
+              className="font-mono text-xs min-h-[100px] bg-card"
+            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                onClick={parsePriceList}
+                disabled={parsingList}
+                className="h-8 gap-1.5"
+                data-testid="price-list-parse"
+              >
+                {parsingList ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {parsingList ? 'Parsing...' : 'Parse price list'}
+              </Button>
+              {listHint && (
+                <p className="text-xs text-muted-foreground flex-1 min-w-[200px]" data-testid="price-list-hint">
+                  {listHint}
+                </p>
+              )}
+            </div>
+            {listRows.length > 0 && (
+              <div className="space-y-1.5" data-testid="price-list-rows">
+                <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border scrollbar-thin">
+                  {listRows.map((r, i) => (
+                    <div key={`${i}-${r.productName}`} className="flex items-center gap-2 px-2.5 py-1.5 text-xs" data-testid={`price-list-row-${i}`}>
+                      <span className="w-5 shrink-0 text-[10px] text-muted-foreground font-mono">{i + 1}.</span>
+                      <span className="flex-1 min-w-0 truncate text-foreground font-medium">
+                        {r.productName || <span className="text-muted-foreground font-normal">(no product name)</span>}
+                      </span>
+                      <span className="shrink-0 font-mono text-muted-foreground">{r.price}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeListRow(i)}
+                        className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        title="Remove this row"
+                        aria-label={`Remove ${r.productName || 'row ' + (i + 1)}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setListRows([]); setListHint(null) }}
+                  className="text-[11px] text-muted-foreground underline hover:text-foreground inline-flex items-center gap-1"
+                  data-testid="price-list-clear"
+                >
+                  <ListX className="w-3 h-3" />
+                  Clear the parsed list - post a single price instead
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Location block - ONE input: city and country together in a
               single field, comma separated ("Addis Ababa, Ethiopia"). The
               GPS button reverse-geocodes the pin and fills it, so most
@@ -432,47 +695,50 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             </p>
           </div>
 
-          {/* Shop ownership - the poster declares whether this is their own
-              shop/business. Owners get a "Shop owner" badge on the card so
-              travelers know the price is first-hand. */}
+          {/* Shop ownership - the CHECK POINT: tick the box when the prices
+              are your own first-hand stock (Shop owner badge on the card +
+              your shop name), leave it unticked to just share a price you
+              found. v189: one real checkbox instead of the old Yes / No
+              buttons, plus the shop name the bulk poster already had. */}
           <div className="space-y-3 p-4 rounded-xl bg-amber-50 border border-amber-200" data-testid="owns-shop-section">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Store className="w-4 h-4 text-amber-600" />
-              Do you own this shop or business?
+              Is this your own shop or business?
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                data-testid="owns-shop-yes"
-                aria-pressed={ownsShop}
-                onClick={() => setOwnsShop(true)}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                  ownsShop
-                    ? 'bg-amber-600 text-white border-amber-600'
-                    : 'bg-card text-muted-foreground border-border hover:bg-accent'
-                }`}
-              >
-                Yes, I own this shop
-              </button>
-              <button
-                type="button"
-                data-testid="owns-shop-no"
-                aria-pressed={!ownsShop}
-                onClick={() => setOwnsShop(false)}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                  !ownsShop
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-card text-muted-foreground border-border hover:bg-accent'
-                }`}
-              >
-                No, just sharing a price
-              </button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {ownsShop
-                ? 'Travelers will see a Shop owner badge on your post - add your contact info below so they can reach you directly.'
-                : 'Shop owners get a badge on the post and travelers trust first-hand prices more.'}
-            </p>
+            <label
+              className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-card px-3 py-2.5 cursor-pointer select-none"
+              data-testid="owns-shop-row"
+            >
+              <input
+                type="checkbox"
+                data-testid="owns-shop-checkbox"
+                checked={ownsShop}
+                onChange={(e) => setOwnsShop(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-amber-600"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-foreground">
+                  {ownsShop ? 'Yes - I own this shop, these are my prices' : 'No - I am just sharing a price I found'}
+                </span>
+                <span className="block text-[11px] text-muted-foreground mt-0.5">
+                  Tick the check point when the prices come from your own stock - travelers see the Shop owner badge on your posts and trust first-hand prices more.
+                </span>
+              </span>
+            </label>
+            {ownsShop && (
+              <div className="space-y-1.5" data-testid="shop-owner-name-block">
+                <label className="text-xs text-muted-foreground font-medium">Shop name (shown on the posts)</label>
+                <Input
+                  data-testid="shop-owner-name-input"
+                  placeholder="e.g. Hilina Tech Trading PLC - auto-filled from the list header"
+                  value={shopOwnerName}
+                  onChange={(e) => setShopOwnerName(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  A parsed price list fills this from its company header - edit it before publishing if needed.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Price block */}

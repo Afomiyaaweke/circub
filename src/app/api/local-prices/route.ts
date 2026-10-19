@@ -125,6 +125,9 @@ export async function POST(req: NextRequest) {
         contactWhatsApp: sanitizeInput(body.contactWhatsApp || '', 200) || null,
         // Shop ownership declaration - strict boolean, no string leakage
         ownsShop: body.ownsShop === true || body.ownsShop === 'true',
+        // v189: WHO sells it - the composer's check-point section can name the
+        // shop (same column the bulk poster fills); shown beside the badge.
+        shopOwnerName: sanitizeInput(body.shopOwnerName || '', 100) || null,
         category: body.category || 'Other',
         imageUrl: body.imageUrl || null,
         // v122: marketplace details from the unified composer - what the

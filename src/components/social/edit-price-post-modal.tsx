@@ -50,7 +50,10 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
   const [contactEmail, setContactEmail] = useState('')
   const [contactWhatsApp, setContactWhatsApp] = useState('')
   // Shop ownership declaration - prefilled from the existing post, editable.
+  // v189: a real checkbox ("check point") like the create composer, plus the
+  // shop name shown beside the badge on the card.
   const [ownsShop, setOwnsShop] = useState(false)
+  const [shopOwnerName, setShopOwnerName] = useState('')
   // v122: marketplace details (synced to the auto-created product twin).
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('')
@@ -79,6 +82,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
       setContactEmail(post.contactEmail || '')
       setContactWhatsApp(post.contactWhatsApp || '')
       setOwnsShop(post.ownsShop === true)
+      setShopOwnerName((post as any).shopOwnerName || '')
       setQuantity(post.quantity || '')
       setUnit(post.unit || '')
       setCategory(post.category || 'Other')
@@ -149,6 +153,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
           contactEmail: contactEmail.trim() || null,
           contactWhatsApp: contactWhatsApp.trim() || null,
           ownsShop,
+          shopOwnerName: ownsShop ? shopOwnerName.trim() : '',
           quantity,
           unit,
           category: category,
@@ -214,34 +219,42 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
             />
           </div>
 
-          {/* Shop ownership - poster declares whether this is their own
-              shop/business (drives the "Shop owner" badge on the card). */}
+          {/* Shop ownership - the CHECK POINT: ticked = the prices come from
+              your own stock (Shop owner badge + shop name on the card).
+              v189: one real checkbox instead of the old Yes / No buttons. */}
           <div className="space-y-2 p-3 rounded-xl bg-amber-50 border border-amber-200" data-testid="owns-shop-section">
-            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Store className="w-3.5 h-3.5 text-amber-600" />Do you own this shop or business?</p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                data-testid="owns-shop-yes"
-                aria-pressed={ownsShop}
-                onClick={() => setOwnsShop(true)}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                  ownsShop ? 'bg-amber-600 text-white border-amber-600' : 'bg-card text-muted-foreground border-border hover:bg-accent'
-                }`}
-              >
-                Yes, I own this shop
-              </button>
-              <button
-                type="button"
-                data-testid="owns-shop-no"
-                aria-pressed={!ownsShop}
-                onClick={() => setOwnsShop(false)}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                  !ownsShop ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:bg-accent'
-                }`}
-              >
-                No, just sharing a price
-              </button>
-            </div>
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Store className="w-3.5 h-3.5 text-amber-600" />Is this your own shop or business?</p>
+            <label
+              className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-card px-3 py-2.5 cursor-pointer select-none"
+              data-testid="owns-shop-row"
+            >
+              <input
+                type="checkbox"
+                data-testid="owns-shop-checkbox"
+                checked={ownsShop}
+                onChange={(e) => setOwnsShop(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-amber-600"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-foreground">
+                  {ownsShop ? 'Yes - I own this shop, these are my prices' : 'No - I am just sharing a price I found'}
+                </span>
+                <span className="block text-[11px] text-muted-foreground mt-0.5">
+                  Tick the check point when the prices come from your own stock - travelers see the Shop owner badge on the post.
+                </span>
+              </span>
+            </label>
+            {ownsShop && (
+              <div className="space-y-1" data-testid="shop-owner-name-block">
+                <label className="text-[10px] text-muted-foreground">Shop name (shown on the post)</label>
+                <Input
+                  data-testid="shop-owner-name-input"
+                  placeholder="e.g. Hilina Tech Trading PLC"
+                  value={shopOwnerName}
+                  onChange={(e) => setShopOwnerName(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           {/* Prices */}
@@ -303,7 +316,7 @@ export function EditPricePostModal({ open, onOpenChange, post, onSaved }: EditPr
             <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" ref={fileRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); if (fileRef.current) fileRef.current.value = '' }} className="hidden" />
             {(imageUrl || (!imageRemoved && post?.imageUrl)) ? (
               <div className="relative rounded-lg overflow-hidden border border-border">
-                <img src={imageUrl || post?.imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
+                <img src={imageUrl || post?.imageUrl || undefined} alt="Preview" className="w-full max-h-48 object-cover" />
                 <div className="absolute top-2 right-2 flex gap-1.5">
                   <Button size="sm" variant="ghost" className="h-7 px-2 bg-card/90 hover:bg-card" onClick={() => fileRef.current?.click()} disabled={uploading} title="Replace image">
                     {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
