@@ -98,36 +98,9 @@ interface GridRow {
 
 const emptyRow = (): GridRow => ({ productName: '', price: '', city: '', country: '', contact: '', imageUrl: '' })
 
-// Sample price list (text mode) - the real-world shape this parses: a
-// company header, audience banners, emoji bullet rows with dotted prices
-// and bare phone-number contact lines. Loads in one tap so parsing can be
-// tried in seconds.
-const SAMPLE = `✨✨Benol pharmaceutical plc
-Big discount for
-📞 Wholesales
-📞 Clinics and Hospitals
-
-👉 Vicryl 2 round ..950
-👉 Vicryl 2/0 round ..950
-👉 Vicryl 3 round..950
-👉 Vicryl 3/0 cutting..950
-👉 Vicryl 5/0 cutting...1250
-👉 Vicryl 6/0 round..1250
-👉 Prolene 2/0 round..3400
-👉 Prolene 3/0 round..3400
-👉 Prolene 4/0 round..3400
-👉 Prolene 5/0 round..3400
-👉 Prolene 6/0 round..3400
-👉 Nylon 9/0...6200
-👉 Nylon 10/0..6200
-👉 Silk 0 round..620
-👉 Silk 1 cutting..550
-
-With fast delivery 🚚🚚🚚
-Contact
-📞 0911967478
-📞 0973555577
-📞 0999111110`
+// v191: the "Load sample" button now fills the SAME shared example the
+// placeholder shows (src/lib/price-list-example.ts) instead of a second
+// local copy of the Benol post - one source of truth.
 
 // Two paste templates - the column layout a user copies into their sheet.
 // The Simple template covers the everyday case; the Full template adds
@@ -274,7 +247,10 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   const [pasteHint, setPasteHint] = useState<string | null>(null)
   // v174 source modes: sheet = TSV/CSV grid paste (v173 behavior), text =
   // free-form price list parsed server-side, file = upload docx/pdf/xlsx/csv.
-  const [mode, setMode] = useState<'sheet' | 'text' | 'file'>('sheet')
+  // v191: the modal now OPENS on the text tab - the way users actually post
+  // (pasted WhatsApp lists like the Benol example, which is the placeholder
+  // they see immediately). Sheet and file stay one tap away.
+  const [mode, setMode] = useState<'sheet' | 'text' | 'file'>('text')
   const [parsing, setParsing] = useState(false)
   const [parsedCompany, setParsedCompany] = useState('')
   // v183: the shop owner name this whole batch is sold under. Auto-filled
@@ -667,7 +643,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 </Button>
               )}
               {mode === 'text' && (
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setPaste(SAMPLE)} data-testid="bulk-sample" title="Load a real-world sample price list to try the parser">
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={() => setPaste(PRICE_LIST_EXAMPLE)} data-testid="bulk-sample" title="Load a real-world sample price list to try the parser">
                   <Sparkles className="w-3.5 h-3.5" /> Load sample
                 </Button>
               )}
