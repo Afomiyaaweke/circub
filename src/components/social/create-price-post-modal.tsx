@@ -27,6 +27,7 @@ import { CATEGORIES, matchCategoryLoose } from '@/lib/categories'
 import { CategorySelect } from './category-select'
 import { MEASURE_UNITS } from '@/lib/product-units'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
+import { PRICE_LIST_EXAMPLE } from '@/lib/price-list-example'
 import { ComparePreview } from './compare-preview'
 import { GpsCapture } from './gps-capture'
 
@@ -282,8 +283,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       for (const c of contacts) {
         const v = String(c || '').trim()
         if (!v) continue
-        if (v.includes('@')) { if (!contactEmail.trim()) setContactEmail(v) }
-        else if (!contactPhone.trim()) setContactPhone(v)
+        // v190: FUNCTIONAL updates - the loop reads stale state otherwise,
+        // so a list with several phone lines (the Benol example has three)
+        // ended up filling the LAST number instead of the first.
+        if (v.includes('@')) setContactEmail((prev) => (prev.trim() ? prev : v))
+        else setContactPhone((prev) => (prev.trim() ? prev : v))
       }
       const company = String(data.company || '')
       if (company && !shopOwnerName.trim()) setShopOwnerName(company)
@@ -586,10 +590,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             </div>
             <Textarea
               data-testid="price-list-input"
-              placeholder={"Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\nBenol pharmaceutical plc\n👉 Vicryl 2 round ..950\n👉 Silk 1 cutting..550\nContact\n0911967478"}
+              placeholder={`Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\n${PRICE_LIST_EXAMPLE}`}
               value={priceListText}
               onChange={(e) => setPriceListText(e.target.value)}
-              className="font-mono text-xs min-h-[100px] bg-card"
+              className="font-mono text-xs min-h-[150px] bg-card"
             />
             <div className="flex items-center gap-2 flex-wrap">
               <Button

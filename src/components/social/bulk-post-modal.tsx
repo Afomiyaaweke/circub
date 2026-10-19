@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { splitLocationInput } from '@/lib/location'
+import { PRICE_LIST_EXAMPLE } from '@/lib/price-list-example'
 import { CategorySelect } from './category-select'
 
 interface BulkPostModalProps {
@@ -626,8 +627,8 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 onChange={(e) => setPaste(e.target.value)}
                 placeholder={mode === 'sheet'
                   ? 'Product\tPrice\tCity\tContact\tImage URL\nCoffee beans 1kg\t12\tAddis Ababa\t+251911000000\t\nHandwoven basket\t25\tAddis Ababa\t+251911000000\t'
-                  : 'Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\nBenol pharmaceutical plc\n👉 Vicryl 2 round ..950\n👉 Silk 1 cutting..550\nContact\n0911967478'}
-                className="font-mono text-xs min-h-[110px] bg-card"
+                  : `Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\n${PRICE_LIST_EXAMPLE}`}
+                className="font-mono text-xs min-h-[150px] bg-card"
               />
             )}
             {mode === 'file' && (
