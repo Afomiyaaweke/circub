@@ -46,7 +46,7 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { splitLocationInput } from '@/lib/location'
-import { PRICE_LIST_EXAMPLE } from '@/lib/price-list-example'
+import { PRICE_LIST_EXAMPLE, PRICE_LIST_SAMPLE_ONE_DEVICE } from '@/lib/price-list-example'
 import { CategorySelect } from './category-select'
 
 interface BulkPostModalProps {
@@ -119,9 +119,12 @@ interface GridRow {
 
 const emptyRow = (): GridRow => ({ productName: '', price: '', city: '', country: '', contact: '', imageUrl: '', auto: false })
 
-// v191: the "Load sample" button now fills the SAME shared example the
-// placeholder shows (src/lib/price-list-example.ts) instead of a second
-// local copy of the Benol post - one source of truth.
+// v191: the "Load sample" button fills from the shared example module
+// (src/lib/price-list-example.ts) instead of a second local copy of the
+// Benol post - one source of truth. v194: the LOADED sample is the
+// ONE-DEVICE variant (PRICE_LIST_SAMPLE_ONE_DEVICE) - the user asked for
+// the bulk sample to load one device only; the grey placeholder keeps
+// showing the full 15-item PRICE_LIST_EXAMPLE.
 
 // Two paste templates - the column layout a user copies into their sheet.
 // The Simple template covers the everyday case; the Full template adds
@@ -870,7 +873,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 </Button>
               )}
               {mode === 'text' && (
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-full" onClick={() => setPaste(PRICE_LIST_EXAMPLE)} data-testid="bulk-sample" title="Load a real-world sample price list to try the parser">
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-full" onClick={() => setPaste(PRICE_LIST_SAMPLE_ONE_DEVICE)} data-testid="bulk-sample" title="Load a one-device sample price list to try the parser">
                   <Sparkles className="w-3.5 h-3.5" /> Load sample
                 </Button>
               )}
