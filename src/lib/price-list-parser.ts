@@ -19,6 +19,10 @@
 export interface ParsedPriceRow {
   productName: string
   price: string
+  // v195: "2 liter water 60 addis ababa" - the city words after the price
+  // land here so the bulk grid's City cell comes prefilled. The composer
+  // ignores it (its single-post form fills location its own way).
+  city?: string
 }
 
 export interface ParsedPriceList {
@@ -83,6 +87,31 @@ const PHONE_RUN_RE = /\+?\d[\d\s\-().]{5,}\d/g
 const PRICE_LINE_RE =
   /^(.+?)[\s.·•:;,|\-–—=~]*(\d[\d,]*(?:\s*[-–—]\s*\d[\d,]*)?)[\s]*(birr|br\b|etb|usd|eur|gbp|\$|€|£)?[\s]*$/i
 
+// v195: name + a bare price + a CITY tail - "2 liter water 60 addis ababa".
+// The strict rule above demands the line to END in the number, so a trailing
+// city made such lines look like noise (the user's own new example! An
+// optional currency word may sit between price and city ("60 birr addis
+// ababa"). Tried ONLY when the strict rule fails, so dotted/emoji lines
+// keep their exact old behavior.
+const PRICE_CITY_RE =
+  /^(.+?)[\s.·•:;,|\-–—=~]*(\d[\d,]*(?:\s*[-–—]\s*\d[\d,]*)?)[\s,]*(?:(birr|br\b|etb|usd|eur|gbp|\$|€|£)[\s,]+)?(\D{3,60})$/i
+
+// v195: a city tail usually names just the city - map the well-known ones
+// to their country so the row still VERIFIES (the bulk grid requires a
+// country on every postable row, and a bare "... 60 addis ababa" line has
+// no phone numbers to infer from). First match wins.
+const CITY_COUNTRY: [RegExp, string][] = [
+  [/addis ababa|dire dawa|mekelle|bahir dar|hawassa|gondar/i, 'Ethiopia'],
+  [/nairobi|mombasa/i, 'Kenya'],
+  [/dar es salaam|dodoma/i, 'Tanzania'],
+  [/kampala|entebbe/i, 'Uganda'],
+  [/kigali/i, 'Rwanda'],
+  [/accra|kumasi/i, 'Ghana'],
+  [/lagos|abuja/i, 'Nigeria'],
+  [/dubai|abu dhabi/i, 'United Arab Emirates'],
+  [/johannesburg|cape town|pretoria/i, 'South Africa'],
+]
+
 function stripDecor(line: string): string {
   return line
     .replace(EMOJI_RE, ' ')
@@ -131,6 +160,7 @@ export function parsePriceListText(text: string): ParsedPriceList {
   let company = ''
   let currencyHint = ''
   let countryHint = ''
+  let cityHint = ''
   let ignored = 0
 
   const addContact = (v: string) => {
@@ -166,12 +196,17 @@ export function parsePriceListText(text: string): ParsedPriceList {
       // phone-shaped run is parsed as a product below (rare, honest fallback)
     }
 
-    // 3) Product + price line.
+    // 3) Product + price line. v195: the strict end-in-number rule first;
+    //    if it misses, try the name + price + CITY tail rule ("2 liter water
+    //    60 addis ababa") and keep the tail as the row's city.
     const m = PRICE_LINE_RE.exec(line)
-    if (m) {
-      const name = cleanName(m[1] || '')
-      const price = normalizePrice(m[2] || '')
-      const cur = (m[3] || '').trim()
+    const mCity = m ? null : PRICE_CITY_RE.exec(line)
+    if (m || mCity) {
+      const mm = (m || mCity)!
+      const name = cleanName(mm[1] || '')
+      const price = normalizePrice(mm[2] || '')
+      const cur = (mm[3] || '').trim()
+      const city = mCity ? cleanName(mCity[4] || '') : ''
       // A "name" that is really another sentence around a phone number
       // ("Call 0911967478") is a contact, not a product.
       const phoneInName = name.match(PHONE_RUN_RE)
@@ -180,7 +215,8 @@ export function parsePriceListText(text: string): ParsedPriceList {
         continue
       }
       if (name.replace(/[^\p{L}\p{N}/]/gu, '').length >= 1 && price) {
-        rows.push({ productName: name.slice(0, 200), price })
+        rows.push(city ? { productName: name.slice(0, 200), price, city } : { productName: name.slice(0, 200), price })
+        if (city && !cityHint) cityHint = city
         if (!currencyHint) {
           if (/^(birr|br|etb)$/i.test(cur) || /\birr\b/i.test(line)) currencyHint = 'ETB'
           else if (/^(usd|\$)$/i.test(cur)) currencyHint = 'USD'
@@ -221,6 +257,13 @@ export function parsePriceListText(text: string): ParsedPriceList {
     else if (currencyHint === 'RWF') countryHint = 'Rwanda'
     else if (currencyHint === 'GHS') countryHint = 'Ghana'
     else if (currencyHint === 'NGN') countryHint = 'Nigeria'
+  }
+  // v195: last fallback - the first parsed row's city tail ("addis ababa"
+  // -> Ethiopia) when neither phones nor a currency word named the country.
+  if (!countryHint && cityHint) {
+    for (const [re, co] of CITY_COUNTRY) {
+      if (re.test(cityHint)) { countryHint = co; break }
+    }
   }
 
   return {

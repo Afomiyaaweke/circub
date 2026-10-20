@@ -46,7 +46,7 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { compressImage } from '@/lib/image-compress'
 import { splitLocationInput } from '@/lib/location'
-import { PRICE_LIST_EXAMPLE, PRICE_LIST_SAMPLE_ONE_DEVICE } from '@/lib/price-list-example'
+import { PRICE_LIST_SAMPLE_SIMPLE } from '@/lib/price-list-example'
 import { CategorySelect } from './category-select'
 
 interface BulkPostModalProps {
@@ -121,10 +121,10 @@ const emptyRow = (): GridRow => ({ productName: '', price: '', city: '', country
 
 // v191: the "Load sample" button fills from the shared example module
 // (src/lib/price-list-example.ts) instead of a second local copy of the
-// Benol post - one source of truth. v194: the LOADED sample is the
-// ONE-DEVICE variant (PRICE_LIST_SAMPLE_ONE_DEVICE) - the user asked for
-// the bulk sample to load one device only; the grey placeholder keeps
-// showing the full 15-item PRICE_LIST_EXAMPLE.
+// Benol post - one source of truth. v195: the bulk side drops the long
+// Benol example entirely - the grey placeholder AND the loaded sample are
+// now ONE plain line (PRICE_LIST_SAMPLE_SIMPLE, '2 liter water 60 addis
+// ababa'); the company header stays only in the composer's placeholder.
 
 // Two paste templates - the column layout a user copies into their sheet.
 // The Simple template covers the everyday case; the Full template adds
@@ -399,7 +399,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   // v174: fill the grid from a parsed price list (text or file). The grid is
   // the PREVIEW - nothing is posted until the user checks it and submits.
   const applyParsed = (data: any, source: 'text' | 'file') => {
-    const parsedRows: { productName: unknown; price: unknown }[] = Array.isArray(data?.rows) ? data.rows : []
+    const parsedRows: { productName: unknown; price: unknown; city?: unknown }[] = Array.isArray(data?.rows) ? data.rows : []
     if (!parsedRows.length) {
       setRows([])
       setParsedCompany('')
@@ -419,7 +419,9 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       parsedRows.map((r) => ({
         productName: String(r.productName || ''),
         price: String(r.price || ''),
-        city: '',
+        // v195: the parser's city tail ("2 liter water 60 addis ababa")
+        // prefills the City cell - row cells always win over the defaults.
+        city: String(r.city || ''),
         country: '',
         contact: contactStr,
         imageUrl: '',
@@ -751,7 +753,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             Paste rows from Excel or Google Sheets, paste a messy price list, or upload a Word / PDF / Excel file - every row becomes its own price post with product, price, location, contact and an optional photo. Check everything in the cards before posting. Up to 50 rows per batch.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Status strip - the mockup's '12/12 verified - 0 errors' row with
               the reward + auto-tag chips on the right. */}
           <div className="flex items-center gap-2 flex-wrap" data-testid="bulk-statusbar">
@@ -833,7 +835,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 onChange={(e) => setPaste(e.target.value)}
                 placeholder={mode === 'sheet'
                   ? 'Product\tPrice\tCity\tContact\tImage URL\nCoffee beans 1kg\t12\tAddis Ababa\t+251911000000\t\nHandwoven basket\t25\tAddis Ababa\t+251911000000\t'
-                  : `Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\n${PRICE_LIST_EXAMPLE}`}
+                  : PRICE_LIST_SAMPLE_SIMPLE}
                 className="font-mono text-xs min-h-[150px] bg-card"
               />
             )}
@@ -873,7 +875,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 </Button>
               )}
               {mode === 'text' && (
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-full" onClick={() => setPaste(PRICE_LIST_SAMPLE_ONE_DEVICE)} data-testid="bulk-sample" title="Load a one-device sample price list to try the parser">
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-full" onClick={() => setPaste(PRICE_LIST_SAMPLE_SIMPLE)} data-testid="bulk-sample" title="Load the sample line to try the parser">
                   <Sparkles className="w-3.5 h-3.5" /> Load sample
                 </Button>
               )}
@@ -1010,9 +1012,9 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               )}
               {showLoc && (
                 <div className="flex items-center gap-1.5 flex-wrap" data-testid="bulk-location-editors">
-                  <Input value={defCity} onChange={(e) => setDefCity(e.target.value)} className="h-8 text-xs w-40 bg-card" placeholder="e.g. Addis Ababa" data-testid="bulk-default-city" />
-                  <span className="text-muted-foreground text-xs">,</span>
-                  <Input value={defCountry} onChange={(e) => setDefCountry(e.target.value)} className="h-8 text-xs w-40 bg-card" placeholder="e.g. Ethiopia" data-testid="bulk-default-country" />
+                  <Input value={defCity} onChange={(e) => setDefCity(e.target.value)} className="h-8 text-xs w-[calc(50%-0.75rem)] sm:w-40 bg-card" placeholder="e.g. Addis Ababa" data-testid="bulk-default-city" />
+                  <span className="hidden sm:inline text-muted-foreground text-xs">,</span>
+                  <Input value={defCountry} onChange={(e) => setDefCountry(e.target.value)} className="h-8 text-xs w-[calc(50%-0.75rem)] sm:w-40 bg-card" placeholder="e.g. Ethiopia" data-testid="bulk-default-country" />
                   <p className="text-[11px] text-muted-foreground w-full">Applies to every row left empty - row cells always win.</p>
                 </div>
               )}
@@ -1021,7 +1023,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   Auto badge, compact location/contact row, price pill, X. */}
               <div className="space-y-2" data-testid="bulk-grid">
                 {shownRows.map(({ row, idx }) => (
-                  <div key={idx} className="rounded-2xl bg-card border border-border p-3 flex items-start gap-2.5" data-testid="bulk-row">
+                  <div key={idx} className="rounded-2xl bg-card border border-border p-3 flex flex-wrap items-start gap-2.5" data-testid="bulk-row">
                     {selMode && (
                       <input
                         type="checkbox"
@@ -1065,7 +1067,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                         <span className="text-[9px] font-bold">{uploadingImg && imgTarget === idx ? '...' : 'Photo'}</span>
                       </button>
                     )}
-                    <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex-1 min-w-[160px] space-y-1">
                       <div className="flex items-center gap-1.5">
                         <Input
                           value={row.productName}
@@ -1080,18 +1082,18 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <Input value={row.city} onChange={(e) => updateRow(idx, { city: e.target.value })} className="h-6 w-24 border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70" placeholder="City" data-testid={`bulk-cell-city-${idx}`} />
-                        <span className="text-muted-foreground/60 text-[11px]" aria-hidden>•</span>
-                        <Input value={row.country} onChange={(e) => updateRow(idx, { country: e.target.value })} className="h-6 w-24 border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70" placeholder="Country" data-testid={`bulk-cell-country-${idx}`} />
-                        <span className="text-muted-foreground/60 text-[11px]" aria-hidden>•</span>
-                        <Input value={row.contact} onChange={(e) => updateRow(idx, { contact: e.target.value })} className="h-6 flex-1 min-w-[110px] border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70" placeholder="Phone / email" data-testid={`bulk-cell-contact-${idx}`} />
-                        <span className="text-muted-foreground/60 text-[11px]" aria-hidden>•</span>
+                      <div className="grid grid-cols-2 gap-1 sm:flex sm:items-center sm:gap-1 sm:flex-wrap">
+                        <Input value={row.city} onChange={(e) => updateRow(idx, { city: e.target.value })} className="h-6 w-full sm:w-24 border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70" placeholder="City" data-testid={`bulk-cell-city-${idx}`} />
+                        <span className="hidden sm:inline text-muted-foreground/60 text-[11px]" aria-hidden>•</span>
+                        <Input value={row.country} onChange={(e) => updateRow(idx, { country: e.target.value })} className="h-6 w-full sm:w-24 border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70" placeholder="Country" data-testid={`bulk-cell-country-${idx}`} />
+                        <span className="hidden sm:inline text-muted-foreground/60 text-[11px]" aria-hidden>•</span>
+                        <Input value={row.contact} onChange={(e) => updateRow(idx, { contact: e.target.value })} className="h-6 w-full col-span-2 min-w-0 sm:col-span-1 sm:flex-1 sm:min-w-[110px] border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70" placeholder="Phone / email" data-testid={`bulk-cell-contact-${idx}`} />
+                        <span className="hidden sm:inline text-muted-foreground/60 text-[11px]" aria-hidden>•</span>
                         <Input
                           value={row.imageUrl.startsWith('data:') ? '' : row.imageUrl}
                           onChange={(e) => updateRow(idx, { imageUrl: e.target.value })}
                           disabled={row.imageUrl.startsWith('data:')}
-                          className="h-6 flex-1 min-w-[90px] border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70"
+                          className="h-6 w-full col-span-2 min-w-0 sm:col-span-1 sm:flex-1 sm:min-w-[90px] border-0 bg-transparent px-0 text-[11px] shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/70"
                           placeholder={row.imageUrl.startsWith('data:') ? 'Photo attached' : 'Image link'}
                           data-testid={`bulk-cell-image-${idx}`}
                         />
@@ -1102,7 +1104,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
                       <div className="flex items-center gap-1 rounded-lg border border-border bg-background pl-2 pr-1.5 h-9">
                         <Input
                           value={row.price}
@@ -1230,7 +1232,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
         {/* Sticky footer - Review (N) beside the green Publish rocket with
             the mockup's '+40 Karma' chip inside. */}
-        <div className="sticky bottom-0 -mx-4 sm:-mx-6 mt-6 flex items-center gap-3 pt-4 px-4 sm:px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 bg-background/95 backdrop-blur-sm border-t border-border">
+        <div className="sticky bottom-0 -mx-4 sm:-mx-6 mt-6 flex items-center gap-3 min-w-0 pt-4 px-4 sm:px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             type="button"
             variant="outline"
@@ -1247,17 +1249,17 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             type="button"
             onClick={submit}
             disabled={saving || !readyCount}
-            className="flex-1 px-6 h-11 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-2"
+            className="flex-1 min-w-0 px-4 sm:px-6 h-11 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-2"
             data-testid="bulk-submit"
           >
             {saving ? (
               'Publishing...'
             ) : (
               <>
-                <Rocket className="w-4 h-4" />
-                Publish {readyCount > 0 ? `${readyCount} ${readyCount === 1 ? 'Drop' : 'Drops'} ` : ''}Now
+                <Rocket className="w-4 h-4 shrink-0" />
+                <span className="truncate">Publish {readyCount > 0 ? `${readyCount} ${readyCount === 1 ? 'Drop' : 'Drops'} ` : ''}Now</span>
                 {readyCount > 0 && (
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">+40 Karma →</span>
+                  <span className="hidden sm:inline rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold shrink-0">+40 Karma →</span>
                 )}
               </>
             )}

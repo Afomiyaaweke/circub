@@ -34,25 +34,13 @@ Contact
 📞 0973555577
 📞 0999111110`
 
-// v194: the bulk poster's "Load sample" button loads this ONE-DEVICE
-// variant ("change the sample for the bulk to be loaded make it one
-// device only"). Same real Benol post - header, discount banner, fast
-// delivery trailer and the full three-phone contact block - but exactly
-// ONE device row (the first one, Vicryl 2 round ..950), so loading the
-// sample demos a single drop instead of pouring the whole 15-item list
-// into the batch. The full PRICE_LIST_EXAMPLE stays the grey placeholder
-// in both the composer and the bulk text tab; only the LOADED sample
-// shrinks. All three phones stay so the one-device sample still shows
-// how a multi-contact parse fills the joined contact cell.
-export const PRICE_LIST_SAMPLE_ONE_DEVICE = `✨✨Benol pharmaceutical plc
-Big discount for
-📞 Wholesales
-📞 Clinics and Hospitals
-
-👉 Vicryl 2 round ..950
-
-With fast delivery 🚚🚚🚚
-Contact
-📞 0911967478
-📞 0973555577
-📞 0999111110`
+// v195: the bulk poster's example becomes ONE plain line - the user asked
+// to drop the long Benol placeholder from the bulk post ("remove the place
+// holder from the bulk post and make it '2 liter water 60 addis ababa'")
+// and to remove the company header from the bulk side ("remove the header
+// not from the price post"). Both the text-tab placeholder and the Load
+// sample button show this line; the composer keeps the full Benol example
+// with its header (PRICE_LIST_EXAMPLE above, untouched).
+// "2 liter water 60 addis ababa" exercises the v195 parser city-tail rule:
+// name "2 liter water", price 60, city "addis ababa" -> Ethiopia hint.
+export const PRICE_LIST_SAMPLE_SIMPLE = '2 liter water 60 addis ababa'
