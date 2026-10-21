@@ -25,6 +25,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { checkRateLimit, sanitizeInput } from '@/lib/session'
 
+// FormSubmit can be slow on cold paths; 20s keeps the function (maxDuration 30)
+// well inside its budget while tolerating relay slowness.
+export const maxDuration = 30
+
 const CONTACT_INBOX_FALLBACK = 'afomiyaaweke20@gmail.com'
 const FORMSUBMIT_ORIGIN_FALLBACK = 'https://circubawd.vercel.app'
 
@@ -76,6 +80,11 @@ export async function POST(req: NextRequest) {
     const toEmail = process.env.CONTACT_TO_EMAIL || CONTACT_INBOX_FALLBACK
     let emailed = false
     let via: 'resend' | 'formsubmit' | null = null
+    // v197 diagnostics: when the relay does not deliver, the true status +
+    // reply travel back to the caller so the pipeline can read WHY from prod
+    // (Vercel function logs are not reachable from here). No secrets involved.
+    let relayStatus: number | null = null
+    let relayReply: string | null = null
 
     // --- Path 1: Resend (unchanged) ---------------------------------------
     if (apiKey) {
@@ -139,7 +148,7 @@ export async function POST(req: NextRequest) {
             Referer: `${siteOrigin}/contact`,
             'User-Agent': 'Mozilla/5.0 (compatible; circubAwd/1.0)',
           },
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(20_000),
           body: JSON.stringify({
             _subject: subject
               ? `[circubAwd Contact] ${subject}`
@@ -154,9 +163,15 @@ export async function POST(req: NextRequest) {
             'Stored as': `contact message ${saved.id}`,
           }),
         })
-        const fsData: { success?: boolean | string; message?: string } | null = await fsRes
-          .json()
-          .catch(() => null)
+        relayStatus = fsRes.status
+        const fsText = await fsRes.text().catch(() => '')
+        let fsData: { success?: boolean | string; message?: string } | null = null
+        try {
+          fsData = JSON.parse(fsText) as { success?: boolean | string; message?: string }
+        } catch {
+          fsData = null
+        }
+        relayReply = (fsData?.message || fsText || '').slice(0, 200)
         const fsOk = fsRes.ok && !!fsData && (fsData.success === true || fsData.success === 'true')
         if (fsOk) {
           emailed = true
@@ -164,17 +179,22 @@ export async function POST(req: NextRequest) {
         } else {
           console.warn(
             `Contact message ${saved.id}: FormSubmit relay did not deliver ` +
-              `(status ${fsRes.status}, reply: ${(fsData?.message || '').slice(0, 200)}). ` +
+              `(status ${fsRes.status}, reply: ${relayReply.slice(0, 200)}). ` +
               `If this is the activation prompt, the inbox owner must click the ` +
               `"Activate Form" link FormSubmit emailed to ${toEmail} once.`
           )
         }
       } catch (fsErr) {
+        relayReply = String(fsErr).slice(0, 200)
         console.error(`Contact message ${saved.id}: FormSubmit relay error:`, fsErr)
       }
     }
 
-    return NextResponse.json({ ok: true, id: saved.id, emailed, via })
+    return NextResponse.json(
+      emailed
+        ? { ok: true, id: saved.id, emailed, via }
+        : { ok: true, id: saved.id, emailed, via, relayStatus, relayReply }
+    )
   } catch (error) {
     console.error('Failed to store contact message:', error)
     return NextResponse.json(

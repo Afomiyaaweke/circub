@@ -49,6 +49,36 @@ export function ContactClient() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to send your message')
+      // v197: the message is stored server-side; if the server-side relay
+      // could not deliver it (emailed:false - e.g. FormSubmit challenging
+      // datacenter IPs), the VISITOR'S BROWSER fires the same relay directly.
+      // This is FormSubmit's canonical usage: the browser sends the real
+      // Origin and a real client fingerprint, so delivery does not depend on
+      // the server's egress IP. Failure here is silent - the message is
+      // already stored and the visitor's job is done.
+      if (data && data.ok && data.emailed === false) {
+        try {
+          await fetch('https://formsubmit.co/ajax/afomiyaaweke20@gmail.com', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              _subject: subject
+                ? `[circubAwd Contact] ${subject}`
+                : '[circubAwd Contact] New message',
+              _template: 'table',
+              _captcha: 'false',
+              _replyto: email.trim().toLowerCase(),
+              Name: name,
+              Email: email.trim().toLowerCase(),
+              Subject: subject || '(none)',
+              Message: message,
+              'Stored as': data.id ? `contact message ${data.id}` : '(unstored)',
+            }),
+          })
+        } catch {
+          /* stored server-side regardless - nothing to tell the visitor */
+        }
+      }
       setSent(true)
       toast({ title: 'Message sent', description: 'We will get back to you as soon as possible.' })
     } catch (err) {
