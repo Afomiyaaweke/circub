@@ -49,32 +49,49 @@ export function ContactClient() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to send your message')
-      // v197: the message is stored server-side; if the server-side relay
-      // could not deliver it (emailed:false - e.g. FormSubmit challenging
-      // datacenter IPs), the VISITOR'S BROWSER fires the same relay directly.
-      // This is FormSubmit's canonical usage: the browser sends the real
-      // Origin and a real client fingerprint, so delivery does not depend on
-      // the server's egress IP. Failure here is silent - the message is
-      // already stored and the visitor's job is done.
+      // v197->v198: the message is stored server-side; if the server-side
+      // relay could not deliver it (emailed:false - FormSubmit's Cloudflare
+      // 403-challenges Node/server egress), the VISITOR'S BROWSER relays it
+      // via a hidden-iframe FORM POST to formsubmit.co - the canonical
+      // FormSubmit HTML embed. A native form post is not subject to CORS
+      // preflight (fetch() to formsubmit.co is - the preflight fails), a real
+      // browser fingerprint passes Cloudflare, and the response renders into
+      // the hidden iframe so the visitor never leaves the page. Failure here
+      // is silent - the message is already stored and the visitor is done.
       if (data && data.ok && data.emailed === false) {
         try {
-          await fetch('https://formsubmit.co/ajax/afomiyaaweke20@gmail.com', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              _subject: subject
-                ? `[circubAwd Contact] ${subject}`
-                : '[circubAwd Contact] New message',
-              _template: 'table',
-              _captcha: 'false',
-              _replyto: email.trim().toLowerCase(),
-              Name: name,
-              Email: email.trim().toLowerCase(),
-              Subject: subject || '(none)',
-              Message: message,
-              'Stored as': data.id ? `contact message ${data.id}` : '(unstored)',
-            }),
-          })
+          const frame = document.createElement('iframe')
+          frame.name = `fs-relay-${Date.now()}`
+          frame.style.display = 'none'
+          document.body.appendChild(frame)
+          const form = document.createElement('form')
+          form.action = 'https://formsubmit.co/afomiyaaweke20@gmail.com'
+          form.method = 'POST'
+          form.target = frame.name
+          const add = (k: string, v: string) => {
+            const input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = k
+            input.value = v
+            form.appendChild(input)
+          }
+          add('_subject', subject
+            ? `[circubAwd Contact] ${subject}`
+            : '[circubAwd Contact] New message')
+          add('_template', 'table')
+          add('_captcha', 'false')
+          add('_replyto', email.trim().toLowerCase())
+          add('Name', name)
+          add('Email', email.trim().toLowerCase())
+          add('Subject', subject || '(none)')
+          add('Message', message)
+          if (data.id) add('Stored as', `contact message ${data.id}`)
+          document.body.appendChild(form)
+          form.submit()
+          setTimeout(() => {
+            form.remove()
+            frame.remove()
+          }, 30000)
         } catch {
           /* stored server-side regardless - nothing to tell the visitor */
         }
