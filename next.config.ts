@@ -32,10 +32,13 @@ const nextConfig: NextConfig = {
             value: "max-age=31536000; includeSubDomains; preload",
           },
           // CSP allows WebRTC (needed for camera), blob: URLs for video,
-          // and the ZAI API for visual search.
+          // and the ZAI API for visual search. frame-src https: (v198) lets
+          // the contact form's hidden-iframe relay post into formsubmit.co -
+          // without it frame-src falls back to default-src 'self' and the
+          // browser blocks the whole form POST.
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' wss: https:; media-src 'self' blob:; frame-ancestors 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' wss: https:; media-src 'self' blob:; frame-src 'self' https:; frame-ancestors 'none';",
           },
         ],
       },
