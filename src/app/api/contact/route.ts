@@ -1,19 +1,23 @@
 // POST /api/contact - store a "Send Us a Message" submission from the /contact
-// page AND deliver it as an email to the team inbox (v113).
+// page AND deliver it as an email to the team inbox (v113, v196).
 //
-// Delivery (Resend REST API, plain fetch - no SDK dependency):
-//   RESEND_API_KEY    required to send. Without it the message is still
-//                     stored and the response reports emailed: false.
-//   CONTACT_TO_EMAIL  the team inbox. v174: defaults to
-//                     afomiyaaweke20@gmail.com - the owner's own inbox, so
-//                     every "contact us" message lands there once a
-//                     RESEND_API_KEY is configured.
-//   RESEND_FROM       the verified sender, e.g. "circubAwd <support@tenetbid.com>".
-//                     Defaults to Resend's sandbox sender, which only delivers
-//                     to the Resend account's own address until a domain is
-//                     verified (register the Resend account with
-//                     afomiyaaweke20@gmail.com and sandbox delivery reaches
-//                     exactly that inbox).
+// v196 DELIVERY CHAIN - messages must reach afomiyaaweke20@gmail.com DIRECTLY,
+// with zero required configuration:
+//   1. Resend REST API (plain fetch, no SDK) when RESEND_API_KEY is set.
+//   2. FormSubmit AJAX relay (https://formsubmit.co/ajax/<inbox>) when Resend
+//      is unconfigured OR failed - a free, keyless relay so delivery works
+//      out of the box. The very first relayed message makes FormSubmit send
+//      an "Activate Form" email to the inbox; the owner clicks that link
+//      ONCE and every contact message lands there from then on.
+//   Response reports via: 'resend' | 'formsubmit' | null so the pipeline can
+//   prove which path delivered.
+// Env (all optional):
+//   CONTACT_TO_EMAIL  the team inbox. Defaults to afomiyaaweke20@gmail.com.
+//   RESEND_API_KEY    enables the Resend path.
+//   RESEND_FROM       the verified Resend sender, defaults to Resend's sandbox
+//                     sender (delivers to the Resend account's own address).
+//   CONTACT_FORM_ORIGIN  Origin/Referer header value FormSubmit requires
+//                     (anti-spam). Defaults to the production origin.
 // Email failure NEVER fails the request - the message is always persisted
 // first, so nothing a visitor writes is lost. reply_to is the visitor so the
 // team can answer straight from their inbox.
@@ -22,6 +26,7 @@ import { db } from '@/lib/db'
 import { checkRateLimit, sanitizeInput } from '@/lib/session'
 
 const CONTACT_INBOX_FALLBACK = 'afomiyaaweke20@gmail.com'
+const FORMSUBMIT_ORIGIN_FALLBACK = 'https://circubawd.vercel.app'
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,12 +69,15 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // v113: deliver the message to the team inbox. Env-driven and honest:
-    // no key -> emailed: false + a server-side warning (config gap, not a
-    // user-facing error); provider error -> logged, request still succeeds.
+    // v113/v196: deliver the message to the team inbox. Env-driven and honest:
+    // no key -> the keyless FormSubmit relay takes over; provider error ->
+    // logged, request still succeeds.
     const apiKey = process.env.RESEND_API_KEY
     const toEmail = process.env.CONTACT_TO_EMAIL || CONTACT_INBOX_FALLBACK
     let emailed = false
+    let via: 'resend' | 'formsubmit' | null = null
+
+    // --- Path 1: Resend (unchanged) ---------------------------------------
     if (apiKey) {
       try {
         const mailRes = await fetch('https://api.resend.com/emails', {
@@ -99,6 +107,7 @@ export async function POST(req: NextRequest) {
         })
         if (mailRes.ok) {
           emailed = true
+          via = 'resend'
         } else {
           const detail = await mailRes.text().catch(() => '')
           console.error(
@@ -110,15 +119,62 @@ export async function POST(req: NextRequest) {
       } catch (mailErr) {
         console.error(`Contact email delivery error (message ${saved.id}):`, mailErr)
       }
-    } else {
-      console.warn(
-        `Contact message ${saved.id} stored but NOT emailed: RESEND_API_KEY is not set. ` +
-          `Add RESEND_API_KEY (+ optionally CONTACT_TO_EMAIL, RESEND_FROM) in the ` +
-          `hosting environment to deliver contact messages to ${CONTACT_INBOX_FALLBACK}.`
-      )
     }
 
-    return NextResponse.json({ ok: true, id: saved.id, emailed })
+    // --- Path 2: FormSubmit keyless relay (v196) --------------------------
+    // Fires whenever Resend is unconfigured or failed, so delivery to the
+    // owner's inbox never depends on having an API key. FormSubmit requires
+    // Origin/Referer headers (anti-spam) and answers
+    // { success: 'true'|'false', message }. Until the inbox owner clicks the
+    // one-time "Activate Form" link, success stays false - that is expected
+    // and logged honestly, the message is still stored above.
+    if (!emailed) {
+      try {
+        const siteOrigin = process.env.CONTACT_FORM_ORIGIN || FORMSUBMIT_ORIGIN_FALLBACK
+        const fsRes = await fetch(`https://formsubmit.co/ajax/${toEmail}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: siteOrigin,
+            Referer: `${siteOrigin}/contact`,
+            'User-Agent': 'Mozilla/5.0 (compatible; circubAwd/1.0)',
+          },
+          signal: AbortSignal.timeout(10_000),
+          body: JSON.stringify({
+            _subject: subject
+              ? `[circubAwd Contact] ${subject}`
+              : '[circubAwd Contact] New message',
+            _template: 'table',
+            _captcha: 'false',
+            _replyto: email,
+            Name: name,
+            Email: email,
+            Subject: subject || '(none)',
+            Message: message,
+            'Stored as': `contact message ${saved.id}`,
+          }),
+        })
+        const fsData: { success?: boolean | string; message?: string } | null = await fsRes
+          .json()
+          .catch(() => null)
+        const fsOk = fsRes.ok && !!fsData && (fsData.success === true || fsData.success === 'true')
+        if (fsOk) {
+          emailed = true
+          via = 'formsubmit'
+        } else {
+          console.warn(
+            `Contact message ${saved.id}: FormSubmit relay did not deliver ` +
+              `(status ${fsRes.status}, reply: ${(fsData?.message || '').slice(0, 200)}). ` +
+              `If this is the activation prompt, the inbox owner must click the ` +
+              `"Activate Form" link FormSubmit emailed to ${toEmail} once.`
+          )
+        }
+      } catch (fsErr) {
+        console.error(`Contact message ${saved.id}: FormSubmit relay error:`, fsErr)
+      }
+    }
+
+    return NextResponse.json({ ok: true, id: saved.id, emailed, via })
   } catch (error) {
     console.error('Failed to store contact message:', error)
     return NextResponse.json(

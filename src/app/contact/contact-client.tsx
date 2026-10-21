@@ -90,10 +90,10 @@ export function ContactClient() {
               Fill out the form below and our team will get back to you. For urgent issues, email us
               directly at{' '}
               <a
-                href="mailto:support@tenetbid.com"
+                href="mailto:afomiyaaweke20@gmail.com"
                 className="text-orange-600 font-medium hover:underline"
               >
-                support@tenetbid.com
+                afomiyaaweke20@gmail.com
               </a>
               .
             </p>
