@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store, Link2, Scale } from 'lucide-react'
+import { MapPin, Star, BadgeCheck, ThumbsUp, ThumbsDown, Lightbulb, MoreHorizontal, Trash2, Pencil, Phone, Mail, MessageCircle, Share2, Bookmark, Clock, Navigation, Store, Link2, Scale, Crown } from 'lucide-react'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
 import { SharePosterModal } from './share-poster-modal'
+import { posterXp, levelOf, levelTitle } from '@/lib/arena'
 import type { LocalPricePost } from '@/lib/types'
 
 interface LocalPriceCardProps {
@@ -41,6 +42,11 @@ interface LocalPriceCardProps {
     entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }>
     extra: number
   } | null
+  // v200 Price Arena: this post's vote rank among the posts the feed has
+  // loaded (1 = the best-voted item on the feed right now). #1 wears the
+  // crown chip + amber champion ring; #2/#3 get a quieter rank chip. Null
+  // = unranked (no votes yet, or outside the top 3).
+  gameRank?: number | null
 }
 
 // v164: one row of the "connected businesses" panel - what GET
@@ -76,9 +82,13 @@ function formatPrice(value: number, currency: string) {
 // v117: photo and price strip are tappable (open the detail modal), the
 // tourist price section is gone, and Share points at the post's own deep
 // link so link previews show the post's photo.
-export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, currentUserId = null, compare = null }: LocalPriceCardProps) {
+export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage, onDelete, onEdit, canDelete = false, canEdit = false, compact = false, isOwnPost = false, currentUserId = null, compare = null, gameRank = null }: LocalPriceCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [saved, setSaved] = useState(false)
+  // v200 Price Arena: this poster's game level from the counters the feed
+  // already ships (helpfulVotes*100 + localPostCount*50 XP). Computed, not
+  // stored - the chip can never drift from the votes that earned it.
+  const posterLevel = Math.max(1, levelOf(posterXp(post.author)))
   // Share-to-social poster - the Share2 button opens the poster modal.
   const [shareOpen, setShareOpen] = useState(false)
   // v153: "still the same" / v154: "the detail is not change yet" - the
@@ -266,7 +276,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   const effectiveCompare = hasStripProp ? compare : fetchedCompare
 
   return (
-    <Card data-testid="price-card" className={cn('overflow-hidden shadow-sm hover:shadow-md transition-shadow border-border', compact ? 'p-3' : 'p-3')}>
+    <Card data-testid="price-card" className={cn('overflow-hidden shadow-sm hover:shadow-md transition-shadow border-border', compact ? 'p-3' : 'p-3', gameRank === 1 && 'ring-1 ring-amber-400/70 border-amber-300/60')}>
       {/* Row 1: type badge + category left, edit/delete menu right */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -336,7 +346,25 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
       {/* Row 2: name + location; in compact lists the photo stays a small side thumbnail */}
       <div className="mt-1.5 flex items-start gap-2.5">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug">{post.productName}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug min-w-0">{post.productName}</h3>
+            {/* v200 Price Arena: vote rank among the loaded feed - the
+                best-voted item wears the crown, #2/#3 get a quiet chip. */}
+            {gameRank != null && (
+              <span
+                data-testid="card-game-rank"
+                className={
+                  'shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+                  (gameRank === 1
+                    ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800'
+                    : 'bg-muted text-muted-foreground')
+                }
+              >
+                {gameRank === 1 && <Crown className="w-3 h-3" />}
+                {gameRank === 1 ? 'Best voted' : `#${gameRank} voted`}
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-[11px] text-muted-foreground flex items-center gap-1 min-w-0">
             <MapPin className="w-3 h-3 text-primary shrink-0" />
             <span className="truncate">{detailedLocation}</span>
@@ -540,6 +568,15 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
                   You
                 </span>
               )}
+              {/* v200 Price Arena: the poster's level - XP is earned from
+                  helpful votes (100 each) and prices posted (50 each). */}
+              <span
+                data-testid="card-poster-level"
+                title={`${posterXp(post.author)} XP · ${levelTitle(posterLevel)}`}
+                className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 px-1.5 py-px text-[9px] font-bold"
+              >
+                LVL {posterLevel}
+              </span>
               {post.author.verifiedLocal && <BadgeCheck className="w-3 h-3 text-primary shrink-0" />}
               {post.author.idVerified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
             </p>

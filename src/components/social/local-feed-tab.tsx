@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalPriceCard } from './local-price-card'
+import { PriceArena } from './price-arena'
 import { PriceStoriesStrip } from './price-stories-strip'
 import { CreatePricePostModal } from './create-price-post-modal'
 import { BulkPostModal } from './bulk-post-modal'
@@ -48,6 +49,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const { t } = useLanguage()
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
+  // v200 Price Arena: bumped every time a vote commits (either direction) so
+  // the arena section resyncs its duel percentages + leaderboard.
+  const [arenaSignal, setArenaSignal] = useState(0)
   // v147 step-by-step loading: the feed fetches a SMALL window (10 posts) per
   // request and appends the next step only when the reader reaches the bottom
   // - the server never answers one giant take-100 query again, the first
@@ -636,10 +640,24 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       }))
       if (data.vote === 'HELPFUL') toast({ title: 'Marked as helpful' })
       else if (data.vote === 'NOT_ACCURATE') toast({ title: 'Flagged as not accurate' })
+      // v200: the vote just moved a poster's XP - let the arena re-read it.
+      setArenaSignal((s) => s + 1)
     } catch (e) {
       toast({ title: 'Vote failed', description: (e as Error).message, variant: 'destructive' })
     }
   }
+
+  // v200: GAME RANKS among the posts currently loaded - the best-voted item
+  // wears the crown. #1-#3 get a rank chip; #1 additionally gets the amber
+  // champion ring on its card. Recomputed from feed state so every vote
+  // reshuffles the ranks live; posts with zero votes stay unranked.
+  const voteRanks = useMemo(() => {
+    const withVotes = posts.filter((p) => p.helpfulCount > 0)
+      .sort((a, b) => b.helpfulCount - a.helpfulCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const map = new Map<string, number>()
+    withVotes.slice(0, 3).forEach((p, i) => map.set(p.id, i + 1))
+    return map
+  }, [posts])
 
   return (
     <div className="space-y-4">
@@ -667,6 +685,12 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           banner here (the composer creates it on publish). Hidden entirely
           while nothing is live. */}
       <PriceStoriesStrip onOpenPost={setDetailPostId} />
+
+      {/* v200: PRICE ARENA - the weekly game between price posters. The two
+          best-voted items of the week duel at the top with vote-split bars,
+          and the hustle board ranks posters by XP earned from votes. Voting
+          a card helpful is literally how you play. */}
+      <PriceArena onVote={handleVote} onOpenPost={setDetailPostId} guest={isGuest} refreshSignal={arenaSignal} />
 
       <div className="flex items-center gap-2 flex-wrap">
         {/* Unified search bar - the country/city/category filters live INSIDE
@@ -1086,6 +1110,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
                   isOwnPost={!!currentUserId && p.authorId === currentUserId}
                   currentUserId={currentUserId}
                   compare={cmp}
+                  gameRank={voteRanks.get(p.id) ?? null}
                 />
               )
             })}
