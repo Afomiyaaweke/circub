@@ -110,7 +110,16 @@ export function seasonLabel(now: Date = new Date()): { season: number; day: numb
 // the counter; `target` is the unlock threshold; `effect` is the flavor
 // text shown on the earned card. Ordered by how the vault displays them:
 // two post milestones, two engagement milestones, two endgame milestones.
+//
+// v206: DMM (Dynamic Multiplier Matrix) - stickers are no longer purely
+// decorative. Every def carries a buffType (VOTE_WEIGHT / VELOCITY /
+// GLOBAL_XP) and a buffValue, players equip up to TWO, and the equipped
+// buffs feed the game math: voteWeight() widens a vote's influence,
+// effectiveTarget() shrinks unlock thresholds, and the XP multiplier
+// fattens the displayed hustle rate (oracle.ts arbitrageDepth() also
+// consumes the sum for the PEDA win-probability odds).
 export type StickerMetric = 'posts' | 'votes'
+export type StickerBuffType = 'VOTE_WEIGHT' | 'VELOCITY' | 'GLOBAL_XP'
 
 export interface StickerDef {
   id: string
@@ -121,18 +130,81 @@ export interface StickerDef {
   target: number
   requirement: string
   effect: string
+  // v206 DMM: the algorithmic parameter this sticker modifies
+  buffType: StickerBuffType
+  buffValue: number
   // Tailwind gradient for the sticker tile (earned state)
   gradient: string
 }
 
 export const STICKERS: StickerDef[] = [
-  { id: 'deal-spark', name: 'Deal Spark', tier: 'Bronze Tier', kind: 'post', metric: 'posts', target: 10, requirement: '10 Posts Made', effect: '+2% XP Rate', gradient: 'from-amber-500 via-amber-400 to-orange-500' },
-  { id: 'hustle-flame', name: 'Hustle Flame', tier: 'Silver Tier', kind: 'post', metric: 'posts', target: 25, requirement: '25 Posts Made', effect: '+5% Deal Votes', gradient: 'from-slate-300 via-slate-100 to-slate-400' },
-  { id: 'hype-magnet', name: 'Hype Magnet', tier: 'Cyan Radiant', kind: 'engagement', metric: 'votes', target: 100, requirement: '100+ Helpful Votes', effect: 'Live Counter {value} / 1,000', gradient: 'from-cyan-400 via-sky-300 to-teal-400' },
-  { id: 'conversion-king', name: 'Conversion King', tier: 'Gold Sovereign', kind: 'engagement', metric: 'votes', target: 500, requirement: '500+ Helpful Votes', effect: '+15% Velocity', gradient: 'from-yellow-400 via-amber-300 to-yellow-500' },
-  { id: 'century-lister', name: 'Century Lister', tier: 'Endgame', kind: 'post', metric: 'posts', target: 100, requirement: '100 Posts Made', effect: 'Century Badge', gradient: 'from-violet-500 via-purple-400 to-fuchsia-500' },
-  { id: 'viral-overlord', name: 'Viral Overlord', tier: 'Endgame', kind: 'engagement', metric: 'votes', target: 2500, requirement: '2,500 Helpful Votes', effect: 'Overlord Badge', gradient: 'from-fuchsia-500 via-pink-400 to-rose-500' },
+  { id: 'deal-spark', name: 'Deal Spark', tier: 'Bronze Tier', kind: 'post', metric: 'posts', target: 10, requirement: '10 Posts Made', effect: '+2% XP Rate', buffType: 'GLOBAL_XP', buffValue: 0.02, gradient: 'from-amber-500 via-amber-400 to-orange-500' },
+  { id: 'hustle-flame', name: 'Hustle Flame', tier: 'Silver Tier', kind: 'post', metric: 'posts', target: 25, requirement: '25 Posts Made', effect: '+5% Vote Influence', buffType: 'VOTE_WEIGHT', buffValue: 0.05, gradient: 'from-slate-300 via-slate-100 to-slate-400' },
+  { id: 'hype-magnet', name: 'Hype Magnet', tier: 'Cyan Radiant', kind: 'engagement', metric: 'votes', target: 100, requirement: '100+ Helpful Votes', effect: '+3% Vote Influence', buffType: 'VOTE_WEIGHT', buffValue: 0.03, gradient: 'from-cyan-400 via-sky-300 to-teal-400' },
+  { id: 'conversion-king', name: 'Conversion King', tier: 'Gold Sovereign', kind: 'engagement', metric: 'votes', target: 500, requirement: '500+ Helpful Votes', effect: '+15% Roadmap Velocity', buffType: 'VELOCITY', buffValue: 0.15, gradient: 'from-yellow-400 via-amber-300 to-yellow-500' },
+  { id: 'century-lister', name: 'Century Lister', tier: 'Endgame', kind: 'post', metric: 'posts', target: 100, requirement: '100 Posts Made', effect: '+5% XP Rate', buffType: 'GLOBAL_XP', buffValue: 0.05, gradient: 'from-violet-500 via-purple-400 to-fuchsia-500' },
+  { id: 'viral-overlord', name: 'Viral Overlord', tier: 'Endgame', kind: 'engagement', metric: 'votes', target: 2500, requirement: '2,500 Helpful Votes', effect: '+10% XP Rate', buffType: 'GLOBAL_XP', buffValue: 0.1, gradient: 'from-fuchsia-500 via-pink-400 to-rose-500' },
 ]
+
+// v206 DMM: equip handshake - up to TWO active stickers at once.
+export const EQUIP_LIMIT = 2
+export const EQUIPPED_STORAGE_KEY = 'circub.equipped-stickers'
+
+/** Defs for a list of equipped sticker ids (unknown ids are dropped). */
+export function equippedStickerDefs(ids: string[]): StickerDef[] {
+  const wanted = new Set(ids.filter((x) => typeof x === 'string'))
+  return STICKERS.filter((s) => wanted.has(s.id))
+}
+
+/** Sum of one buff type across the equipped stickers (e.g. 0.07 = +7%). */
+export function sumBuff(ids: string[], type: StickerBuffType): number {
+  return equippedStickerDefs(ids)
+    .filter((d) => d.buffType === type)
+    .reduce((sum, d) => sum + (Number(d.buffValue) || 0), 0)
+}
+
+/**
+ * Spec vote-weight: W = (1 + Level/20) x (1 + M_vote). A LVL 8 hustler with
+ * Hustle Flame equipped casts a 1.4 x weighted vote.
+ */
+export function voteWeight(level: number, voteBuffSum: number): number {
+  const l = Math.max(1, Number(level) || 1)
+  return (1 + l / 20) * (1 + Math.max(0, voteBuffSum))
+}
+
+/** Velocity: reduces a sticker's unlock threshold by the equipped %%. */
+export function effectiveTarget(target: number, velocityBuffSum: number): number {
+  const t = Math.max(1, Number(target) || 1)
+  const m = Math.min(0.9, Math.max(0, velocityBuffSum))
+  return Math.max(1, Math.ceil(t * (1 - m)))
+}
+
+/**
+ * Read the equipped sticker ids from localStorage (client only) with the
+ * safe default: the first two unlocked sticker ids. Server render always
+ * gets [] and the vault falls back to the same default until hydration.
+ */
+export function defaultEquippedIds(unlockedIds: string[]): string[] {
+  return unlockedIds.slice(0, EQUIP_LIMIT)
+}
+export function readEquippedIds(unlockedIds: string[]): string[] {
+  if (typeof window === 'undefined') return defaultEquippedIds(unlockedIds)
+  try {
+    const raw = window.localStorage.getItem(EQUIPPED_STORAGE_KEY)
+    if (!raw) return defaultEquippedIds(unlockedIds)
+    const parsed: unknown = JSON.parse(raw)
+    const ids = Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+    const unlockedSet = new Set(unlockedIds)
+    const valid = ids.filter((id) => unlockedSet.has(id))
+    return valid.slice(0, EQUIP_LIMIT)
+  } catch {
+    return defaultEquippedIds(unlockedIds)
+  }
+}
+export function writeEquippedIds(ids: string[]): void {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.setItem(EQUIPPED_STORAGE_KEY, JSON.stringify(ids.slice(0, EQUIP_LIMIT))) } catch { /* private mode */ }
+}
 
 export interface StickerState {
   def: StickerDef
@@ -142,23 +214,26 @@ export interface StickerState {
   remaining: number
 }
 
-export function stickerStates(lifetimePosts: number, lifetimeVotes: number): StickerState[] {
+export function stickerStates(lifetimePosts: number, lifetimeVotes: number, velocityBuffSum: number = 0): StickerState[] {
   return STICKERS.map((def) => {
     const value = Math.max(0, (def.metric === 'posts' ? lifetimePosts : lifetimeVotes) || 0)
-    const unlocked = value >= def.target
+    // v206 DMM: the equipped Conversion King's velocity multiplier shrinks
+    // the threshold itself, so progress reads against the buffed target.
+    const target = effectiveTarget(def.target, velocityBuffSum)
+    const unlocked = value >= target
     return {
       def,
       unlocked,
       value,
-      pct: Math.min(100, Math.round((value / def.target) * 100)),
-      remaining: Math.max(0, def.target - value),
+      pct: Math.min(100, Math.round((value / target) * 100)),
+      remaining: Math.max(0, target - value),
     }
   })
 }
 
 /** The next sticker to unlock = the locked one closest to its threshold. */
-export function nextSticker(lifetimePosts: number, lifetimeVotes: number): StickerState | null {
-  const locked = stickerStates(lifetimePosts, lifetimeVotes).filter((s) => !s.unlocked)
+export function nextSticker(lifetimePosts: number, lifetimeVotes: number, velocityBuffSum: number = 0): StickerState | null {
+  const locked = stickerStates(lifetimePosts, lifetimeVotes, velocityBuffSum).filter((s) => !s.unlocked)
   if (locked.length === 0) return null
   return locked.sort((a, b) => b.pct - a.pct)[0]
 }

@@ -18,7 +18,7 @@
 // after a short delay so the percentages move live.
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Swords, Trophy, Crown, ThumbsUp, Loader2, Zap } from 'lucide-react'
+import { Swords, Trophy, Crown, ThumbsUp, Loader2, Zap, ShieldCheck, Flame } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { countdownLabel, levelTitle } from '@/lib/arena'
@@ -42,6 +42,9 @@ interface ArenaDuelItem {
   helpfulCount: number
   pct: number
   author: { id: string; name: string; username: string | null; avatarColor: string; profilePicture: string | null; level: number; xp: number }
+  // v206 OIVE verdict + PEDA pre-match odds for this side
+  oracle?: { score: number; label: string; baseXp: number }
+  winProb?: number
 }
 
 interface ArenaBoardRow {
@@ -63,6 +66,8 @@ interface ArenaData {
   leaderboard: ArenaBoardRow[]
   duel: ArenaDuelItem[]
   myVotes: Record<string, string | null>
+  // v206 PEDA: the duel's escrow envelope + deterministic invite code
+  match?: { inviteCode: string; escrow: { wager: number; pot: number; winnerShare: number; votersPool: number } } | null
 }
 
 interface PriceArenaProps {
@@ -150,6 +155,31 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
       : data.duel[0]
   const leadBy = data && data.duel.length === 2 ? Math.abs(data.duel[0].helpfulCount - data.duel[1].helpfulCount) : 0
 
+  // v206 OIVE tier chip palette - Extreme Alpha burns gold, Verified reads
+  // cyan, Crowd Audit stays quiet slate.
+  const oracleChip = (o: { score: number; label: string } | undefined, side: string) => {
+    if (!o) return null
+    const extreme = o.score >= 90
+    const verified = o.score >= 70 && !extreme
+    return (
+      <span
+        data-testid={`arena-oracle-${side}`}
+        className={
+          'inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-px text-[9px] font-black tracking-wide ' +
+          (extreme
+            ? 'bg-amber-400/15 border border-amber-400/40 text-amber-300'
+            : verified
+              ? 'bg-cyan-400/10 border border-cyan-400/40 text-cyan-300'
+              : 'bg-slate-500/10 border border-slate-400/30 text-slate-400')
+        }
+        title={`Oracle Score ${o.score}/100 - Spread x45 + Proof x35 + Scarcity x20`}
+      >
+        {extreme ? <Flame className="w-2.5 h-2.5" /> : <ShieldCheck className="w-2.5 h-2.5" />}
+        {o.label.toUpperCase()} {o.score}
+      </span>
+    )
+  }
+
   return (
     <Card data-testid="arena-section" className="p-4 sm:p-5 shadow-sm bg-[#141936] border-[#2a3258] text-slate-100">
       {/* Header */}
@@ -208,12 +238,18 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     </div>
                     {leader && leader.id === item.id && <Crown className="w-4 h-4 text-amber-400 shrink-0" />}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0">
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0 flex-wrap">
                     <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0 ${AVATAR_COLORS[item.author.avatarColor] || 'bg-violet-600'}`}>
                       {item.author.name.charAt(0).toUpperCase()}
                     </span>
                     <span className="truncate">{item.author.name}</span>
                     <span data-testid={`arena-level-${item.side}`} className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold">LVL {item.author.level}</span>
+                    {oracleChip(item.oracle, item.side)}
+                    {typeof item.winProb === 'number' && (
+                      <span data-testid={`arena-winprob-${item.side}`} className="shrink-0 rounded-full bg-fuchsia-500/10 border border-fuchsia-400/30 text-fuchsia-300 px-1.5 py-px text-[9px] font-black" title="PEDA win probability from both sides' Arbitrage Depth Indices">
+                        WIN {item.winProb}%
+                      </span>
+                    )}
                   </div>
                   {/* vote split bar */}
                   <div>
@@ -268,6 +304,19 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
             <p className="text-center text-[11px] text-slate-400" data-testid="arena-tobeat">
               <Crown className="inline w-3 h-3 text-amber-400" /> The item to beat this week - post a price, collect Helpful votes and take the crown
             </p>
+          )}
+          {/* v206 PEDA: escrow envelope + deterministic invite code */}
+          {data.match && (
+            <div data-testid="arena-invite" className="rounded-lg border border-[#2a3258] bg-[#0f1329] px-2.5 py-1.5 flex items-center justify-center gap-1.5 flex-wrap text-[9px] font-bold tracking-wide text-slate-400">
+              <Swords className="w-3 h-3 text-violet-300 shrink-0" />
+              <span className="text-violet-300" data-testid="arena-invite-code">{data.match.inviteCode}</span>
+              <span className="text-slate-600">·</span>
+              <span>ESCROW {data.match.escrow.pot} XP POT</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-cyan-300">WINNER {data.match.escrow.winnerShare} XP</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-amber-300">VOTER POOL {data.match.escrow.votersPool} XP</span>
+            </div>
           )}
         </div>
       ) : (

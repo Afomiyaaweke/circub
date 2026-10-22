@@ -24,7 +24,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Trophy, Swords, Crown, Medal, Lock, Gamepad2, CheckCircle2, Share2,
-  Flame, Heart, Award, Gem, Zap, ChevronRight, Copy,
+  Flame, Heart, Award, Gem, Zap, ChevronRight, Copy, Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { authFetch, dispatchAuthExpired } from '@/lib/auth-fetch'
@@ -36,7 +36,11 @@ import { AuthorProfileModal } from './author-profile-modal'
 import {
   countdownLabel, seasonLabel, xpProgress, levelTitle,
   stickerStates, nextSticker, formatCompact,
+  EQUIP_LIMIT, readEquippedIds, writeEquippedIds, equippedStickerDefs,
+  sumBuff, voteWeight, type StickerState,
 } from '@/lib/arena'
+// v206 ORACLE RUNTIME - the spec's formulas for the explainer panel
+import { ORACLE_WEIGHTS, PEDA, VACH } from '@/lib/oracle'
 import type { User } from '@/lib/types'
 import { avatarSrc } from '@/lib/fighters'
 
@@ -98,6 +102,9 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
   const [composerOpen, setComposerOpen] = useState(false)
   const [vaultFilter, setVaultFilter] = useState<'all' | 'post' | 'engagement'>('all')
   const [signal, setSignal] = useState(0)
+  // v206 DMM: the two equipped stickers (client-local, zero schema change).
+  const [equipped, setEquipped] = useState<string[]>([])
+  const equippedHydratedRef = useRef(false)
   const arenaRef = useRef<HTMLDivElement | null>(null)
   const isGuest = user.id === 'guest'
   const { toast } = useToast()
@@ -132,9 +139,40 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
   const round = seasonLabel(new Date(nowTick))
   const resetsIn = data ? countdownLabel(new Date(data.resetsAt), new Date(nowTick)) : ''
   const progress = me ? xpProgress(me.xp) : null
-  const stickers = me ? stickerStates(me.lifetimePosts, me.lifetimeVotes) : stickerStates(0, 0)
+
+  // v206 DMM: hydrate the equipped pair once the vault knows what is
+  // unlocked; then the buffs recompute on every equip toggle.
+  useEffect(() => {
+    if (equippedHydratedRef.current || !me) return
+    equippedHydratedRef.current = true
+    const unlockedIds = stickerStates(me.lifetimePosts, me.lifetimeVotes).filter((s) => s.unlocked).map((s) => s.def.id)
+    setEquipped(readEquippedIds(unlockedIds))
+  }, [me])
+
+  const velBuff = sumBuff(equipped, 'VELOCITY')
+  const xpBuff = sumBuff(equipped, 'GLOBAL_XP')
+  const voteBuff = sumBuff(equipped, 'VOTE_WEIGHT')
+  const equippedDefs = equippedStickerDefs(equipped)
+  const stickers = me ? stickerStates(me.lifetimePosts, me.lifetimeVotes, velBuff) : stickerStates(0, 0, velBuff)
   const unlockedCount = stickers.filter((s) => s.unlocked).length
-  const next = nextSticker(me?.lifetimePosts ?? 0, me?.lifetimeVotes ?? 0)
+  const next = nextSticker(me?.lifetimePosts ?? 0, me?.lifetimeVotes ?? 0, velBuff)
+
+  // v206 DMM equip handshake - max TWO stickers, persisted client-side.
+  const toggleEquip = (s: StickerState) => {
+    if (!s.unlocked || !me) return
+    const has = equipped.includes(s.def.id)
+    if (!has && equipped.length >= EQUIP_LIMIT) {
+      toast({ title: 'Equip limit reached', description: `Only ${EQUIP_LIMIT} stickers can be active at once - unequip one first.` })
+      return
+    }
+    const nextIds = has ? equipped.filter((x) => x !== s.def.id) : [...equipped, s.def.id]
+    setEquipped(nextIds)
+    writeEquippedIds(nextIds)
+    toast({
+      title: has ? `${s.def.name} unequipped` : `${s.def.name} equipped`,
+      description: has ? 'Its multiplier is no longer active.' : `${s.def.effect} is now live on your hustle.`,
+    })
+  }
 
   // The duel vote: same endpoint + guest gate as everywhere in the game.
   const handleVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
@@ -204,7 +242,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
     },
     {
       id: 'n3', num: 'LIVE STAGE', title: 'Arena Price Match', state: inDuel ? 'won' : weeklyVotes >= 3 ? 'current' : 'locked',
-      xp: '+450 XP', desc: 'Get your best deal into the arena duel - every Helpful vote is a match point.', icon: Gamepad2,
+      xp: '+450 XP', desc: 'Get your best deal into the arena duel - every Helpful vote is a match point. Gate: Spread ≥ 25% or Oracle Score ≥ 90.', icon: Gamepad2,
     },
     {
       id: 'n4', num: 'NODE 04 · BOSS FIGHT', title: 'Hustle Boss Arena', state: weeklyVotes >= 10 ? 'won' : inDuel ? 'current' : 'locked',
@@ -307,7 +345,10 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
         {progress && (
           <div className="space-y-1" data-testid="quest-level-progress">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
-              <span>LVL {progress.level} · {formatCompact(progress.into)} / {formatCompact(progress.need)} XP to LVL {progress.level + 1}</span>
+              <span>
+                LVL {progress.level} · {formatCompact(progress.into)} / {formatCompact(progress.need)} XP to LVL {progress.level + 1}
+                {xpBuff > 0 && <span data-testid="quest-xp-buff" className="ml-1.5 text-amber-300">+{Math.round(xpBuff * 100)}% XP rate</span>}
+              </span>
               <span className="text-violet-300">{progress.pct}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
@@ -446,6 +487,30 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
           </div>
         </div>
 
+        {/* v206 DMM: the equipped pair drives the multiplier matrix */}
+        <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 p-2.5 space-y-1.5" data-testid="quest-buffs">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1 text-[9px] font-black tracking-widest text-violet-300">
+              <Sparkles className="w-3 h-3" /> ACTIVE BUFFS · DMM
+            </p>
+            <span className="text-[9px] font-bold text-slate-400" data-testid="quest-buff-count">{equipped.length}/{EQUIP_LIMIT} EQUIPPED</span>
+          </div>
+          <p className="text-[11px] font-bold text-white" data-testid="quest-buff-line">
+            Vote weight ×{voteWeight(level ?? 1, voteBuff).toFixed(2)} · XP +{Math.round(xpBuff * 100)}% · Unlock targets −{Math.round(velBuff * 100)}%
+          </p>
+          {equippedDefs.length > 0 ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {equippedDefs.map((d) => (
+                <span key={d.id} className="inline-flex items-center gap-1 rounded-full bg-[#0f1329] border border-[#2a3258] px-1.5 py-px text-[9px] font-bold text-cyan-300">
+                  {d.name} · {d.effect}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[10px] text-slate-500">Equip up to {EQUIP_LIMIT} earned stickers below to arm their multipliers.</p>
+          )}
+        </div>
+
         {/* sharable stat tiles */}
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Your hustle in numbers</p>
@@ -509,7 +574,19 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                       : 'bg-fuchsia-500/15 text-fuchsia-300')
                   }>{s.def.tier.toUpperCase()}</span>
                   {s.unlocked ? (
-                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-violet-400"><CheckCircle2 className="w-3 h-3" /> Equipped</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleEquip(s)}
+                      data-testid={`quest-equip-${s.def.id}`}
+                      className={
+                        'inline-flex items-center gap-1 rounded-full px-2 py-px text-[9px] font-black transition-colors ' +
+                        (equipped.includes(s.def.id)
+                          ? 'bg-violet-600 text-white shadow shadow-violet-500/30'
+                          : 'bg-transparent border border-[#2a3258] text-slate-400 hover:text-cyan-300 hover:border-cyan-400/40')
+                      }
+                    >
+                      {equipped.includes(s.def.id) ? (<><CheckCircle2 className="w-3 h-3" /> EQUIPPED</>) : 'EQUIP'}
+                    </button>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-500"><Lock className="w-3 h-3" /> LOCKED</span>
                   )}
@@ -545,8 +622,18 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
         {/* computational ranking explainer */}
         <div className="rounded-lg border border-[#2a3258] bg-[#0f1329] p-3 space-y-2" data-testid="quest-ranking-note">
           <p className="flex items-center gap-1.5 text-xs font-black text-white"><Gamepad2 className="w-4 h-4 text-violet-300" /> Computational Deal Ranking</p>
-          <p className="text-[11px] text-slate-400"><span className="font-bold text-violet-300">Real-time algorithmic multipliers:</span> every arena seat is computed live from the community - 100 XP per Helpful vote, 50 XP per post, reset every Monday 00:00 UTC.</p>
-          <p className="text-[11px] text-slate-400"><span className="font-bold text-cyan-300">Proof-of-savings verification:</span> every vote is a real verification. The best-voted deal of the week takes the crown and feeds your sticker progress.</p>
+          <p className="text-[11px] text-slate-400" data-testid="quest-note-oracle">
+            <span className="font-bold text-violet-300">Oracle Score (OIVE):</span> every deal is scored live - Spread × {ORACLE_WEIGHTS.spread} + Proof × {ORACLE_WEIGHTS.confidence} + Scarcity × {ORACLE_WEIGHTS.scarcity}. Score ≥ 90 is Extreme Alpha (+{85} XP, instant duel seat), 70-89 Verified (+{50} XP), below 70 goes to Crowd Audit (10 Helpful votes to validate).
+          </p>
+          <p className="text-[11px] text-slate-400" data-testid="quest-note-peda">
+            <span className="font-bold text-cyan-300">Escrow duels (PEDA):</span> {PEDA.defaultWager} XP locked per side - the winner takes {PEDA.winnerPct}% of the pot, and the winning side's voters split the remaining {PEDA.votersPct}%.
+          </p>
+          <p className="text-[11px] text-slate-400" data-testid="quest-note-vach">
+            <span className="font-bold text-amber-300">Vlogger Arbitrage (VACH):</span> Extreme Alpha deals auto-broadcast to the creator hub with a synergy link - {VACH.creatorPct}% to the creator, {VACH.buyerPct}% buyer cashback, {VACH.hunterPct}% back to the original hunter.
+          </p>
+          <p className="text-[11px] text-slate-400">
+            <span className="font-bold text-violet-300">Real-time multipliers (DMM):</span> equip up to {EQUIP_LIMIT} stickers - vote influence scales as (1 + LVL/20) × (1 + buff), and 100 XP per Helpful vote, 50 XP per post, reset every Monday 00:00 UTC.
+          </p>
         </div>
       </div>
 

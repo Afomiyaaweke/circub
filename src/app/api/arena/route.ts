@@ -26,6 +26,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
 import { levelOf, posterXp, nextWeeklyReset, weekWindowStart, levelTitle } from '@/lib/arena'
+// v206 ORACLE RUNTIME: OIVE scoring + PEDA odds/escrow/invite code for the
+// duel, computed from the same weekPosts the route already aggregates.
+import { oracleVerdict, marketBaseline, winProbability, arbitrageDepth, escrowSettlement, duelInviteCode } from '@/lib/oracle'
 
 const AUTHOR_SELECT = {
   id: true, name: true, username: true, avatarColor: true, profilePicture: true,
@@ -97,12 +100,35 @@ export async function GET(req: NextRequest) {
     const top = rankedItems.filter((p) => p.helpfulCount > 0).slice(0, 2)
     const duel = top.length === 2 ? top : (top.length === 1 ? [top[0]] : [])
     const totalVotes = duel.reduce((s, p) => s + p.helpfulCount, 0)
+
+    // v206 OIVE: every duel deal gets its Oracle Score. The MSRP baseline is
+    // the market's best-known price for the same product this week (the
+    // crowd IS the catalog); scarcity decays with identical deals logged in
+    // the last 6 hours; proof confidence rides the post's photo.
+    const now6h = Date.now() - 6 * 3600_000
+    const normKey = (s: string) => (s || '').trim().toLowerCase()
+    const oracleOf = (p: ArenaPost) => {
+      const key = normKey(p.productName)
+      const others = weekPosts.filter((q) => q.id !== p.id && normKey(q.productName) === key)
+      const recentIdentical = others.filter((q) => q.createdAt.getTime() >= now6h).length
+      const otherPrices = others.flatMap((q) => [q.priceMin, q.priceMax])
+      const baseline = marketBaseline(p.priceMin, p.priceMax, otherPrices)
+      return oracleVerdict({ offerPrice: p.priceMin, baselinePrice: baseline, hasImage: !!p.imageUrl, recentIdenticalDeals: recentIdentical })
+    }
+    const duelOracles = duel.map((p) => oracleOf(p))
+    const depthA = duelOracles.length > 0 ? arbitrageDepth(duelOracles[0].score) : 0
+    const depthB = duelOracles.length > 1 ? arbitrageDepth(duelOracles[1].score) : 0
+    const wpA = duel.length === 2 ? winProbability(depthA, depthB) : 100
+
     const withPct = duel.map((p, idx) => ({
       ...p,
       createdAt: p.createdAt.toISOString(),
       side: idx === 0 ? 'a' : 'b',
       pct: totalVotes > 0 ? Math.round((p.helpfulCount / totalVotes) * 100) : (duel.length === 2 ? 50 : 100),
       author: { ...p.author, level: levelOf(posterXp(p.author)), xp: posterXp(p.author) },
+      // v206 OIVE verdict + PEDA pre-match odds for this side
+      oracle: duelOracles[idx],
+      winProb: idx === 0 ? wpA : 100 - wpA,
     }))
 
     // myVote for the duel items so the VOTE buttons start in the right state.
@@ -178,6 +204,12 @@ export async function GET(req: NextRequest) {
         myVotes,
         me,
         rival,
+        // v206 PEDA: the duel's escrow envelope + deterministic invite code
+        // (wager tier 100 XP per side; winner takes 87.5% of the pot, the
+        // winning side's voters split the 12.5% pool).
+        match: duel.length > 0
+          ? { inviteCode: duelInviteCode(duel.map((p) => p.id).sort().join(':')), escrow: escrowSettlement(100) }
+          : null,
       },
       {
         // Anonymous answers are shared data - a short edge cache collapses
