@@ -141,7 +141,13 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
   }
 
   const resetsIn = data ? countdownLabel(new Date(data.resetsAt), new Date(nowTick)) : ''
-  const leader = data?.duel && data.duel.length === 2 ? (data.duel[0].helpfulCount >= data.duel[1].helpfulCount ? data.duel[0] : data.duel[1]) : null
+  // The crown always has a home: with 2 sides the current leader, with 1
+  // side the item to beat. The 'leads by N' line stays 2-item-only.
+  const leader = !data || data.duel.length === 0 ? null
+    : data.duel.length === 2
+      ? (data.duel[0].helpfulCount >= data.duel[1].helpfulCount ? data.duel[0] : data.duel[1])
+      : data.duel[0]
+  const leadBy = data && data.duel.length === 2 ? Math.abs(data.duel[0].helpfulCount - data.duel[1].helpfulCount) : 0
 
   return (
     <Card data-testid="arena-section" className="p-4 sm:p-5 shadow-sm border-amber-200/60 dark:border-amber-900/40">
@@ -168,9 +174,9 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
         <div className="mt-3 flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading the battle…
         </div>
-      ) : data && data.duel.length === 2 ? (
+      ) : data && data.duel.length >= 1 ? (
         <div className="mt-3 space-y-2" data-testid="arena-duel">
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-stretch">
+          <div className={"grid grid-cols-1 gap-2 sm:gap-3 items-stretch " + (data.duel.length === 2 ? "sm:grid-cols-[1fr_auto_1fr]" : "sm:max-w-md sm:mx-auto w-full")}>
             {data.duel.map((item, idx) => (
               <div key={item.id} className="contents">
                 <button
@@ -222,7 +228,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     </div>
                   </div>
                 </button>
-                {idx === 0 && (
+                {idx === 0 && data.duel.length === 2 && (
                   <div className="flex sm:flex-col items-center justify-center gap-1 sm:px-0" data-testid="arena-vs">
                     <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-foreground text-background text-xs font-black tracking-wide">VS</span>
                   </div>
@@ -252,9 +258,14 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
               </Button>
             ))}
           </div>
-          {leader && data.duel[0].helpfulCount !== data.duel[1].helpfulCount && (
+          {data.duel.length === 2 && leadBy > 0 && (
             <p className="text-center text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground">{leader.author.name.split(' ')[0]}</span> leads by {Math.abs(data.duel[0].helpfulCount - data.duel[1].helpfulCount)} vote{Math.abs(data.duel[0].helpfulCount - data.duel[1].helpfulCount) !== 1 ? 's' : ''} · winner takes the crown
+              <span className="font-semibold text-foreground">{leader?.author.name.split(' ')[0]}</span> leads by {leadBy} vote{leadBy !== 1 ? 's' : ''} · winner takes the crown
+            </p>
+          )}
+          {data.duel.length === 1 && (
+            <p className="text-center text-[11px] text-muted-foreground" data-testid="arena-tobeat">
+              <Crown className="inline w-3 h-3 text-amber-500" /> The item to beat this week - post a price, collect Helpful votes and take the crown
             </p>
           )}
         </div>
