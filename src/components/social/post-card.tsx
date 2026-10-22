@@ -14,6 +14,7 @@ import { compressImage } from '@/lib/image-compress'
 import { parseVideoUrl } from '@/lib/video'
 import { VideoEmbed } from './video-embed'
 import { SharePosterModal } from './share-poster-modal'
+import { AuthorStickerStrip } from './author-sticker-strip'
 import type { Post, Comment } from '@/lib/types'
 
 interface PostCardProps {
@@ -393,6 +394,16 @@ export function PostCard({
           )}
         </>
       )}
+
+      {/* v208: the author's sticker strip under the post - one MYSTERY tile
+          per sticker their rank has earned; a viewer taps to reveal which
+          sticker it is and what it does to the game math. */}
+      <AuthorStickerStrip
+        lifetimePosts={post.author.localPostCount ?? 0}
+        lifetimeVotes={post.author.helpfulVotes ?? 0}
+        prefix="post"
+        className="px-4 pb-2"
+      />
 
       {/* Likes + reposts + comments count summary */}
       {(post.likes.length > 0 || repostsCount > 0 || post.comments.length > 0) && (

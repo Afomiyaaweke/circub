@@ -37,6 +37,9 @@ export async function GET(req: NextRequest) {
           select: {
             id: true, name: true, username: true, avatarColor: true, profilePicture: true,
             headline: true, location: true, idVerified: true,
+            // v208: the sticker-strip counters - the post card derives the
+            // author's earned stickers from these two (no extra endpoint).
+            helpfulVotes: true, localPostCount: true,
           },
         },
         likes: true,
@@ -108,6 +111,9 @@ export async function POST(req: NextRequest) {
           select: {
             id: true, name: true, username: true, avatarColor: true, profilePicture: true,
             headline: true, location: true, idVerified: true,
+            // v208: the sticker-strip counters - the post card derives the
+            // author's earned stickers from these two (no extra endpoint).
+            helpfulVotes: true, localPostCount: true,
           },
         },
         likes: true,

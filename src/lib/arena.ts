@@ -238,6 +238,53 @@ export function nextSticker(lifetimePosts: number, lifetimeVotes: number, veloci
   return locked.sort((a, b) => b.pct - a.pct)[0]
 }
 
+// v208: STICKERS ON EVERY SURFACE - classify a person by the stickers their
+// lifetime counters have earned. The counters ride the payloads the app
+// already ships (author.helpfulVotes + author.localPostCount on deal cards,
+// social posts, the arena board), so these are pure functions over data in
+// hand - no new endpoints, no schema changes. Classification uses the BASE
+// thresholds (the viewer does not know which stickers the person has
+// equipped, so the public class is the honest, unbuffed one).
+export interface StickerClass {
+  id: string
+  name: string
+  tier: string
+  gradient: string
+  effect: string
+}
+
+/** Defs the person has earned, in ascending tier order (STICKERS order). */
+export function unlockedStickerDefs(lifetimePosts: number, lifetimeVotes: number): StickerDef[] {
+  return stickerStates(lifetimePosts, lifetimeVotes)
+    .filter((s) => s.unlocked)
+    .map((s) => s.def)
+}
+
+/**
+ * The person's sticker class = the highest-tier sticker they earned.
+ * null = no stickers yet (they simply show no sticker tiles anywhere).
+ */
+export function stickerClassOf(lifetimePosts: number, lifetimeVotes: number): StickerClass | null {
+  const defs = unlockedStickerDefs(lifetimePosts, lifetimeVotes)
+  if (defs.length === 0) return null
+  const top = defs[defs.length - 1]
+  return { id: top.id, name: top.name, tier: top.tier, gradient: top.gradient, effect: top.effect }
+}
+
+/** Compact tier label for a chip: 'Bronze Tier' -> 'BRONZE'. */
+export function stickerTierLabel(tier: string): string {
+  return tier.replace(/\s*(Tier|Radiant|Sovereign)\s*/g, ' ').trim().toUpperCase()
+}
+
+/** Tailwind chip classes per tier family (dark surfaces like the arena). */
+export function stickerTierChipClass(tier: string): string {
+  if (tier.startsWith('Bronze')) return 'bg-amber-500/15 text-amber-300 border border-amber-400/30'
+  if (tier.startsWith('Silver')) return 'bg-slate-300/15 text-slate-200 border border-slate-300/30'
+  if (tier.startsWith('Cyan')) return 'bg-cyan-400/15 text-cyan-300 border border-cyan-400/30'
+  if (tier.startsWith('Gold')) return 'bg-yellow-400/15 text-yellow-300 border border-yellow-400/30'
+  return 'bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-400/30'
+}
+
 /** 18400 -> "18.4K" (the vault's big stat tiles). */
 export function formatCompact(n: number): string {
   const v = Math.max(0, Number(n) || 0)

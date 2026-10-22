@@ -10,8 +10,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
-  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, LayoutGrid, Loader2,
-  Check, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, X,
+  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Gem, Image as ImageIcon, Languages, LayoutGrid, Loader2,
+  Check, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, X, Zap,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -39,7 +39,8 @@ import { TopPostersCard } from './top-posters-card'
 import { CreatePricePostModal } from './create-price-post-modal'
 import type { User } from '@/lib/types'
 import { avatarSrc, FIGHTERS, fighterFromPicture, fighterPicture, fighterUnlocked, levelFromRating, votesToUnlock } from '@/lib/fighters'
-import { levelTitle } from '@/lib/arena'
+import { levelTitle, STICKERS, stickerStates, EQUIP_LIMIT } from '@/lib/arena'
+import { AuthorStickerStrip } from './author-sticker-strip'
 
 interface ProfileTabProps {
   me: User
@@ -586,6 +587,26 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     votesNeeded: votesToUnlock(f, me.helpfulVotes, me.localPostCount),
   }))
 
+  // v208: STICKER GUIDE - every sticker explained right where the profile is
+  // edited: what it is, what algorithm it modifies, and how far along the
+  // unlock is. Base thresholds (no velocity buff) - this is the honest
+  // "how the vault works" view, not the equipped-buffs view.
+  const stickerGuide = stickerStates(me.localPostCount ?? 0, me.helpfulVotes ?? 0)
+  const stickerGuideUnlocked = stickerGuide.filter((s) => s.unlocked).length
+  const stickerIconOf = (id: string, metric: string) => {
+    const cls = 'w-4 h-4'
+    if (metric === 'posts') return <Zap className={cls} />
+    if (id === 'hype-magnet') return <Heart className={cls} />
+    if (id === 'viral-overlord') return <Gem className={cls} />
+    return <Award className={cls} />
+  }
+  const stickerExplain = (buffType: string, buffValue: number): string => {
+    const pct = Math.round((buffValue || 0) * 100)
+    if (buffType === 'VOTE_WEIGHT') return `your Helpful votes carry ${pct}% more influence in every duel while it is equipped (vote weight = (1 + LVL/20) x (1 + buff))`
+    if (buffType === 'VELOCITY') return `every sticker's unlock target shrinks by ${pct}% while it is equipped - the vault speeds up`
+    return `every XP payout grows by ${pct}% while it is equipped: each Helpful vote is +100 XP, each post +50 XP`
+  }
+
   const saveProfile = async () => {
     if (!name.trim()) { toast({ title: 'Name is required', variant: 'destructive' }); return }
     const uCheck = validateUsername(username)
@@ -871,6 +892,62 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {currentFighter && (
                 <p className="text-[10px] text-muted-foreground" data-testid="fighter-equipped">Equipped: {currentFighter.name} · {currentFighter.epithet}</p>
               )}
+            </div>
+
+            {/* v208: STICKER VAULT GUIDE - "explain the sticker on edit
+                profile". Every sticker with its tier, its algorithmic buff
+                spelled out in plain words, and the live unlock progress. */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3" data-testid="edit-sticker-guide">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5"><Award className="w-4 h-4 text-amber-500" />Sticker vault</h3>
+                <span data-testid="edit-sticker-count" className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                  {stickerGuideUnlocked}/{STICKERS.length} earned
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Stickers are the algorithmic multipliers of PriceQuest. You EARN them by hustling - posting deals and collecting Helpful votes on your service - and up to {EQUIP_LIMIT} can be equipped in the Quest vault to boost the game math. They show under your profile and on every deal you post as mystery tiles: viewers tap a tile to reveal which sticker it is and what it does.
+              </p>
+              <div className="space-y-2">
+                {stickerGuide.map((s) => (
+                  <div key={s.def.id} data-testid={`edit-sticker-${s.def.id}`} data-unlocked={s.unlocked ? 'true' : 'false'}
+                    className="flex items-start gap-2.5 rounded-lg border border-border bg-card p-2.5">
+                    <span className={'inline-flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br shrink-0 text-white shadow-sm ' + (s.unlocked ? s.def.gradient : 'from-muted to-muted text-muted-foreground/50')}>
+                      {stickerIconOf(s.def.id, s.def.metric)}
+                    </span>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                        {s.def.name}
+                        <span className={'rounded-full px-1.5 py-px text-[8px] font-black tracking-widest ' + (
+                          s.def.tier.startsWith('Bronze') ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+                            : s.def.tier.startsWith('Silver') ? 'bg-slate-400/15 text-slate-600 dark:text-slate-300'
+                            : s.def.tier.startsWith('Cyan') ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300'
+                            : s.def.tier.startsWith('Gold') ? 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-300'
+                            : 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-300'
+                        )}>{s.def.tier.toUpperCase()}</span>
+                        {s.unlocked ? (
+                          <span className="text-[9px] font-black text-primary flex items-center gap-0.5"><Check className="w-3 h-3" />EARNED</span>
+                        ) : (
+                          <span className="text-[9px] font-black text-muted-foreground flex items-center gap-0.5"><Lock className="w-3 h-3" />LOCKED</span>
+                        )}
+                      </p>
+                      <p className="text-[10px] leading-snug text-muted-foreground">
+                        <span className="font-semibold text-foreground">{s.def.effect}.</span> {stickerExplain(s.def.buffType, s.def.buffValue)}.
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Unlock: {s.def.requirement}{!s.unlocked && <> · <span className="font-semibold">{s.remaining}</span> to go ({s.pct}%)</>}
+                      </p>
+                      {!s.unlocked && (
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" style={{ width: `${Math.max(2, s.pct)}%` }} />
+                          </div>
+                          <span className="text-[9px] font-bold text-muted-foreground shrink-0">{s.pct}%</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><UserCircle className="w-3.5 h-3.5" />Full name *</label><Input placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -1220,6 +1297,16 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           {me.location && (
             <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-primary" />{me.location}</p>
           )}
+
+          {/* v208: the sticker strip under the profile - one MYSTERY tile per
+              sticker this rank has earned; tap reveals which sticker it is
+              and what it does to the game math. */}
+          <AuthorStickerStrip
+            lifetimePosts={me.localPostCount ?? 0}
+            lifetimeVotes={me.helpfulVotes ?? 0}
+            prefix="profile-page"
+            className="mt-2"
+          />
         </div>
 
         <div className="mt-4 flex gap-2">

@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { TopPostersCard } from './top-posters-card'
+import { AuthorStickerStrip } from './author-sticker-strip'
 import { cn } from '@/lib/utils'
 import type { User, Trend, LocalPricePost } from '@/lib/types'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
@@ -262,6 +263,18 @@ export function RightSidebar({
                   )
                 })}
               </div>
+
+              {/* v208: the sticker strip under the profile - one MYSTERY tile
+                  per sticker this rank has earned; tap reveals the sticker
+                  and what it does to the game math. */}
+              {user && user.id !== 'guest' && (
+                <AuthorStickerStrip
+                  lifetimePosts={user.localPostCount ?? 0}
+                  lifetimeVotes={user.helpfulVotes ?? 0}
+                  prefix="profile"
+                  className="px-2"
+                />
+              )}
 
               {/* Action buttons */}
               <div className="flex flex-col gap-2">

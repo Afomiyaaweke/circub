@@ -13,6 +13,7 @@ import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '@/lib/freshness'
 import { SharePosterModal } from './share-poster-modal'
 import { posterXp, levelOf, levelTitle } from '@/lib/arena'
+import { AuthorStickerStrip } from './author-sticker-strip'
 import type { LocalPricePost } from '@/lib/types'
 import { avatarSrc } from '@/lib/fighters'
 
@@ -611,6 +612,16 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
           </div>
         )}
       </div>
+
+      {/* v208: the poster's sticker strip - one MYSTERY tile per sticker
+          their rank has earned (rank up, more tiles); a viewer taps a tile
+          to reveal which sticker it is and what it does to the game math. */}
+      <AuthorStickerStrip
+        lifetimePosts={post.author.localPostCount ?? 0}
+        lifetimeVotes={post.author.helpfulVotes ?? 0}
+        prefix="card"
+        className="mt-2"
+      />
 
       {/* v164: connected businesses panel - the heart of "while touching the
           link after link show connected businesses". Ranked like the modal's

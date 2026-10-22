@@ -32,7 +32,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react'
-import { countdownLabel, formatCompact, levelOf, levelTitle, nextWeeklyReset, posterXp } from '@/lib/arena'
+import { countdownLabel, formatCompact, levelOf, levelTitle, nextWeeklyReset, posterXp, stickerClassOf, stickerTierLabel, stickerTierChipClass } from '@/lib/arena'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { FollowButton } from '@/components/social/follow-button'
@@ -547,6 +547,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       createdAt: string
       near: boolean
       fromLink: boolean
+      // v208: the link's sticker class, read from the vote tier its own
+      // Helpful votes qualify it for (the row payload has no lifetime
+      // author counters - the deal's votes ARE its rank here)
+      cls: { id: string; name: string; tier: string; gradient: string; effect: string } | null
     }
     const cands: DuelCand[] = []
     for (const l of links) {
@@ -563,6 +567,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         createdAt: l.post.createdAt,
         near: false,
         fromLink: true,
+        cls: stickerClassOf(0, Math.max(0, rowVotes(l))),
       })
     }
     for (const a of autoRows) {
@@ -579,6 +584,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         createdAt: a.createdAt,
         near: !!a.near,
         fromLink: false,
+        cls: stickerClassOf(0, Math.max(0, a.helpfulCount ?? 0)),
       })
     }
     cands.sort((x, y) => y.votes - x.votes || x.priceMax - y.priceMax)
@@ -1222,6 +1228,16 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 <span title={`LVL ${lvl} · ${levelTitle(lvl)}`} className="shrink-0 rounded bg-amber-400/15 px-1 py-px text-[8px] font-black text-amber-300">
                                   {`LVL ${lvl}`}
                                 </span>
+                                {/* v208: the link classified by its sticker tier */}
+                                {c.cls && (
+                                  <span
+                                    data-testid="duel-target-class"
+                                    title={`${c.cls.name} class - ${c.cls.effect}`}
+                                    className={`shrink-0 rounded px-1 py-px text-[8px] font-black tracking-wide ${stickerTierChipClass(c.cls.tier)}`}
+                                  >
+                                    {stickerTierLabel(c.cls.tier)}
+                                  </span>
+                                )}
                               </span>
                               <span data-testid="duel-target-rank" className="block truncate text-[10px] text-slate-400">
                                 {`Rank #${i + 1} · ${formatCompact(c.votes * 100)} XP · ${winRate}% Win Rate`}

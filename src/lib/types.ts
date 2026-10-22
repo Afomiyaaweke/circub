@@ -94,6 +94,10 @@ export interface Post {
     headline?: string | null
     location?: string | null
     idVerified?: boolean
+    // v208: the game counters ride along so post cards can show the
+    // author's sticker strip (tiles appear by rank, reveal on touch).
+    helpfulVotes?: number
+    localPostCount?: number
   }
   likes: { id: string; userId: string }[]
   reposts: { id: string; userId: string }[]

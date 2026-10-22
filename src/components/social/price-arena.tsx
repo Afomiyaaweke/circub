@@ -21,7 +21,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Swords, Trophy, Crown, ThumbsUp, Loader2, Zap, ShieldCheck, Flame } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { countdownLabel, levelTitle } from '@/lib/arena'
+import { countdownLabel, levelTitle, stickerTierLabel, stickerTierChipClass } from '@/lib/arena'
 import { avatarSrc } from '@/lib/fighters'
 
 const AVATAR_COLORS: Record<string, string> = {
@@ -42,6 +42,8 @@ interface ArenaDuelItem {
   helpfulCount: number
   pct: number
   author: { id: string; name: string; username: string | null; avatarColor: string; profilePicture: string | null; level: number; xp: number }
+  // v208: the side's poster sticker class (their highest earned sticker)
+  authorTopSticker?: { id: string; name: string; tier: string; gradient: string; effect: string } | null
   // v206 OIVE verdict + PEDA pre-match odds for this side
   oracle?: { score: number; label: string; baseXp: number }
   winProb?: number
@@ -58,6 +60,8 @@ interface ArenaBoardRow {
   weeklyPosts: number
   level: number
   xp: number
+  // v208: the ranked link's sticker class
+  topSticker?: { id: string; name: string; tier: string; gradient: string; effect: string } | null
 }
 
 interface ArenaData {
@@ -244,6 +248,16 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     </span>
                     <span className="truncate">{item.author.name}</span>
                     <span data-testid={`arena-level-${item.side}`} className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold">LVL {item.author.level}</span>
+                    {/* v208: the poster's sticker class chip */}
+                    {item.authorTopSticker && (
+                      <span
+                        data-testid={`arena-class-${item.side}`}
+                        title={`${item.authorTopSticker.name} class - ${item.authorTopSticker.effect}`}
+                        className={`shrink-0 rounded-full px-1.5 py-px text-[8px] font-black tracking-wide ${stickerTierChipClass(item.authorTopSticker.tier)}`}
+                      >
+                        {stickerTierLabel(item.authorTopSticker.tier)}
+                      </span>
+                    )}
                     {oracleChip(item.oracle, item.side)}
                     {typeof item.winProb === 'number' && (
                       <span data-testid={`arena-winprob-${item.side}`} className="shrink-0 rounded-full bg-fuchsia-500/10 border border-fuchsia-400/30 text-fuchsia-300 px-1.5 py-px text-[9px] font-black" title="PEDA win probability from both sides' Arbitrage Depth Indices">
@@ -341,6 +355,16 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                   </span>
                   <span className="text-xs font-medium text-white truncate">{row.name}</span>
                   <span className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>
+                  {/* v208: the ranked link classified by its poster's stickers */}
+                  {row.topSticker && (
+                    <span
+                      data-testid="arena-class-chip"
+                      title={`${row.topSticker.name} class - ${row.topSticker.effect}`}
+                      className={`shrink-0 rounded-full px-1.5 py-px text-[8px] font-black tracking-wide ${stickerTierChipClass(row.topSticker.tier)}`}
+                    >
+                      {stickerTierLabel(row.topSticker.tier)}
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs font-bold text-cyan-300 shrink-0">{row.weeklyXp} XP</span>
               </div>

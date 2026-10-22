@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { levelOf, posterXp, nextWeeklyReset, weekWindowStart, levelTitle } from '@/lib/arena'
+import { levelOf, posterXp, nextWeeklyReset, weekWindowStart, levelTitle, stickerClassOf } from '@/lib/arena'
 // v206 ORACLE RUNTIME: OIVE scoring + PEDA odds/escrow/invite code for the
 // duel, computed from the same weekPosts the route already aggregates.
 import { oracleVerdict, marketBaseline, winProbability, arbitrageDepth, escrowSettlement, duelInviteCode } from '@/lib/oracle'
@@ -93,6 +93,9 @@ export async function GET(req: NextRequest) {
         weeklyVotes: row.votes,
         level: levelOf(posterXp(row.author)),
         xp: posterXp(row.author),
+        // v208: the link is classified by its poster's stickers - the
+        // highest-tier sticker their lifetime counters have earned.
+        topSticker: stickerClassOf(row.author.localPostCount ?? 0, row.author.helpfulVotes ?? 0),
       }))
 
     // Duel: the two best-voted items of the week (tiebreak = newer).
@@ -126,6 +129,8 @@ export async function GET(req: NextRequest) {
       side: idx === 0 ? 'a' : 'b',
       pct: totalVotes > 0 ? Math.round((p.helpfulCount / totalVotes) * 100) : (duel.length === 2 ? 50 : 100),
       author: { ...p.author, level: levelOf(posterXp(p.author)), xp: posterXp(p.author) },
+      // v208: each duel side's author carries their sticker class
+      authorTopSticker: stickerClassOf(p.author.localPostCount ?? 0, p.author.helpfulVotes ?? 0),
       // v206 OIVE verdict + PEDA pre-match odds for this side
       oracle: duelOracles[idx],
       winProb: idx === 0 ? wpA : 100 - wpA,
@@ -158,6 +163,8 @@ export async function GET(req: NextRequest) {
       weeklyVotes: row.votes,
       level: levelOf(posterXp(row.author)),
       xp: posterXp(row.author),
+      // v208: sticker class for the ranked row (me + rival views)
+      topSticker: stickerClassOf(row.author.localPostCount ?? 0, row.author.helpfulVotes ?? 0),
     })
     let me: Record<string, unknown> | null = null
     let rival: Record<string, unknown> | null = null
