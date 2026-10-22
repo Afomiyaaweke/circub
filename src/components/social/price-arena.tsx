@@ -150,20 +150,20 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
   const leadBy = data && data.duel.length === 2 ? Math.abs(data.duel[0].helpfulCount - data.duel[1].helpfulCount) : 0
 
   return (
-    <Card data-testid="arena-section" className="p-4 sm:p-5 shadow-sm border-amber-200/60 dark:border-amber-900/40">
+    <Card data-testid="arena-section" className="p-4 sm:p-5 shadow-sm bg-[#141936] border-[#2a3258] text-slate-100">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/50 shrink-0">
-            <Swords className="w-5 h-5 text-amber-600" />
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-400/30 shrink-0">
+            <Swords className="w-5 h-5 text-violet-300" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-foreground leading-tight">Price Arena</h2>
-            <p className="text-[11px] text-muted-foreground leading-tight">Weekly hustle · best-voted price wins</p>
+            <h2 className="text-sm sm:text-base font-bold text-white leading-tight">Price Arena</h2>
+            <p className="text-[11px] text-slate-400 leading-tight">Vote the best deal into the match · winner takes the crown</p>
           </div>
         </div>
         {data && (
-          <span data-testid="arena-countdown" title="The weekly battle resets every Monday 00:00 UTC" className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+          <span data-testid="arena-countdown" title="The weekly battle resets every Monday 00:00 UTC" className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
             <Zap className="w-3 h-3" />{resetsIn}
           </span>
         )}
@@ -171,7 +171,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
 
       {/* Duel */}
       {loading ? (
-        <div className="mt-3 flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+        <div className="mt-3 flex items-center justify-center gap-2 py-4 text-xs text-slate-400">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading the battle…
         </div>
       ) : data && data.duel.length >= 1 ? (
@@ -184,45 +184,45 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                   onClick={() => onOpenPost(item.id)}
                   data-testid={`arena-side-${item.side}`}
                   className={
-                    'text-left rounded-lg border p-2.5 space-y-1.5 transition-colors hover:bg-accent/40 ' +
+                    'text-left rounded-lg border p-2.5 space-y-1.5 transition-colors hover:bg-white/5 ' +
                     (leader && leader.id === item.id
-                      ? 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20'
-                      : 'border-border bg-card')
+                      ? 'border-amber-400/60 bg-amber-400/10'
+                      : 'border-[#2a3258] bg-[#0f1329]')
                   }
                 >
                   <div className="flex items-center gap-2">
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-md object-cover border border-border shrink-0" />
+                      <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-md object-cover border border-[#2a3258] shrink-0" />
                     ) : (
-                      <span className="w-9 h-9 rounded-md bg-accent flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
+                      <span className="w-9 h-9 rounded-md bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-[10px] font-bold text-violet-300 shrink-0">
                         {item.currency}
                       </span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-foreground truncate">{item.productName}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">
+                      <p className="text-xs font-semibold text-white truncate">{item.productName}</p>
+                      <p className="text-[11px] text-slate-400 truncate">
                         {item.currency} {item.priceMin}{item.priceMin !== item.priceMax ? `-${item.priceMax}` : ''}
                         {item.city ? ` · ${item.city}` : ''}
                       </p>
                     </div>
-                    {leader && leader.id === item.id && <Crown className="w-4 h-4 text-amber-500 shrink-0" />}
+                    {leader && leader.id === item.id && <Crown className="w-4 h-4 text-amber-400 shrink-0" />}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground min-w-0">
-                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0 ${AVATAR_COLORS[item.author.avatarColor] || 'bg-primary'}`}>
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0">
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0 ${AVATAR_COLORS[item.author.avatarColor] || 'bg-violet-600'}`}>
                       {item.author.name.charAt(0).toUpperCase()}
                     </span>
                     <span className="truncate">{item.author.name}</span>
-                    <span data-testid={`arena-level-${item.side}`} className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 px-1.5 py-px text-[9px] font-bold">LVL {item.author.level}</span>
+                    <span data-testid={`arena-level-${item.side}`} className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold">LVL {item.author.level}</span>
                   </div>
                   {/* vote split bar */}
                   <div>
                     <div className="flex items-center justify-between text-[10px] font-bold mb-0.5">
-                      <span className="text-emerald-700 dark:text-emerald-400" data-testid={`arena-pct-${item.side}`}>{item.pct}%</span>
-                      <span className="text-muted-foreground">{item.helpfulCount} vote{item.helpfulCount !== 1 ? 's' : ''}</span>
+                      <span className="text-cyan-300" data-testid={`arena-pct-${item.side}`}>{item.pct}%</span>
+                      <span className="text-slate-400">{item.helpfulCount} vote{item.helpfulCount !== 1 ? 's' : ''}</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
                       <div
-                        className={(item.pct >= 50 ? 'bg-emerald-500' : 'bg-slate-400') + ' h-full rounded-full transition-all duration-500'}
+                        className="bg-gradient-to-r from-violet-500 to-cyan-400 h-full rounded-full transition-all duration-500"
                         style={{ width: `${Math.max(4, item.pct)}%` }}
                       />
                     </div>
@@ -230,7 +230,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 </button>
                 {idx === 0 && data.duel.length === 2 && (
                   <div className="flex sm:flex-col items-center justify-center gap-1 sm:px-0" data-testid="arena-vs">
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-foreground text-background text-xs font-black tracking-wide">VS</span>
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-xs font-black tracking-wide shadow-lg shadow-violet-500/30">VS</span>
                   </div>
                 )}
               </div>
@@ -249,8 +249,8 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 className={
                   'h-7 px-3 text-xs gap-1.5 ' +
                   (data.myVotes[item.id] === 'HELPFUL'
-                    ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                    : 'text-muted-foreground hover:text-primary')
+                    ? 'bg-violet-600 hover:bg-violet-500 text-white border-transparent'
+                    : 'bg-transparent border-[#2a3258] text-slate-300 hover:text-cyan-300 hover:border-cyan-400/40')
                 }
               >
                 <ThumbsUp className="w-3.5 h-3.5" />
@@ -259,40 +259,40 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
             ))}
           </div>
           {data.duel.length === 2 && leadBy > 0 && (
-            <p className="text-center text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground">{leader?.author.name.split(' ')[0]}</span> leads by {leadBy} vote{leadBy !== 1 ? 's' : ''} · winner takes the crown
+            <p className="text-center text-[11px] text-slate-400">
+              <span className="font-semibold text-white">{leader?.author.name.split(' ')[0]}</span> leads by {leadBy} vote{leadBy !== 1 ? 's' : ''} · winner takes the crown
             </p>
           )}
           {data.duel.length === 1 && (
-            <p className="text-center text-[11px] text-muted-foreground" data-testid="arena-tobeat">
-              <Crown className="inline w-3 h-3 text-amber-500" /> The item to beat this week - post a price, collect Helpful votes and take the crown
+            <p className="text-center text-[11px] text-slate-400" data-testid="arena-tobeat">
+              <Crown className="inline w-3 h-3 text-amber-400" /> The item to beat this week - post a price, collect Helpful votes and take the crown
             </p>
           )}
         </div>
       ) : (
-        <p className="mt-3 text-center text-xs text-muted-foreground py-3" data-testid="arena-empty">
+        <p className="mt-3 text-center text-xs text-slate-400 py-3" data-testid="arena-empty">
           No battle yet this week - post a price, collect Helpful votes, and the best-voted item takes the crown.
         </p>
       )}
 
       {/* Leaderboard */}
       {data && data.leaderboard.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-border">
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            <Trophy className="w-3.5 h-3.5 text-amber-500" /> Weekly hustle board
+        <div className="mt-3 pt-3 border-t border-[#2a3258]">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            <Trophy className="w-3.5 h-3.5 text-amber-400" /> Weekly hustle board
           </p>
           <div className="space-y-1.5">
             {data.leaderboard.map((row) => (
               <div key={row.authorId} data-testid="arena-board-row" className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-xs font-bold w-5 shrink-0 ${row.rank === 1 ? 'text-amber-600' : row.rank <= 3 ? 'text-foreground' : 'text-muted-foreground'}`}>#{row.rank}</span>
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${AVATAR_COLORS[row.avatarColor] || 'bg-primary'}`}>
+                  <span className={`text-xs font-bold w-5 shrink-0 ${row.rank === 1 ? 'text-amber-400' : row.rank <= 3 ? 'text-white' : 'text-slate-500'}`}>#{row.rank}</span>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${AVATAR_COLORS[row.avatarColor] || 'bg-violet-600'}`}>
                     {row.profilePicture ? <img src={row.profilePicture} alt="" className="w-full h-full object-cover rounded-full" /> : row.name.charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-xs font-medium text-foreground truncate">{row.name}</span>
-                  <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>
+                  <span className="text-xs font-medium text-white truncate">{row.name}</span>
+                  <span className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>
                 </div>
-                <span className="text-xs font-bold text-amber-600 shrink-0">{row.weeklyXp} XP</span>
+                <span className="text-xs font-bold text-cyan-300 shrink-0">{row.weeklyXp} XP</span>
               </div>
             ))}
           </div>

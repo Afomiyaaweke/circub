@@ -90,3 +90,83 @@ export function countdownLabel(target: Date, now: Date = new Date()): string {
   if (hours > 0) return `${hours}h ${minutes}m left`
   return `${minutes}m left`
 }
+
+// v203: QUEST SEASON - the weekly battle reads like a season ladder:
+// "SEASON 4 · DAY 5" = ISO week 4 of the year, day 5 of the current round
+// (Monday = day 1 ... Sunday = day 7, matching the Monday 00:00 UTC reset).
+export function seasonLabel(now: Date = new Date()): { season: number; day: number } {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  // ISO day: Monday = 1 ... Sunday = 7
+  const day = d.getUTCDay() === 0 ? 7 : d.getUTCDay()
+  // ISO week number (week containing the first Thursday = week 1)
+  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + (4 - day)))
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1))
+  const season = Math.ceil(((target.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
+  return { season: Math.max(1, season), day }
+}
+
+// v203: STICKER VAULT - the titles a poster earns, computed from the SAME
+// two counters that drive XP (no new tables, no new writes). `metric` picks
+// the counter; `target` is the unlock threshold; `effect` is the flavor
+// text shown on the earned card. Ordered by how the vault displays them:
+// two post milestones, two engagement milestones, two endgame milestones.
+export type StickerMetric = 'posts' | 'votes'
+
+export interface StickerDef {
+  id: string
+  name: string
+  tier: string
+  kind: 'post' | 'engagement'
+  metric: StickerMetric
+  target: number
+  requirement: string
+  effect: string
+  // Tailwind gradient for the sticker tile (earned state)
+  gradient: string
+}
+
+export const STICKERS: StickerDef[] = [
+  { id: 'deal-spark', name: 'Deal Spark', tier: 'Bronze Tier', kind: 'post', metric: 'posts', target: 10, requirement: '10 Posts Made', effect: '+2% XP Rate', gradient: 'from-amber-500 via-amber-400 to-orange-500' },
+  { id: 'hustle-flame', name: 'Hustle Flame', tier: 'Silver Tier', kind: 'post', metric: 'posts', target: 25, requirement: '25 Posts Made', effect: '+5% Deal Votes', gradient: 'from-slate-300 via-slate-100 to-slate-400' },
+  { id: 'hype-magnet', name: 'Hype Magnet', tier: 'Cyan Radiant', kind: 'engagement', metric: 'votes', target: 100, requirement: '100+ Helpful Votes', effect: 'Live Counter {value} / 1,000', gradient: 'from-cyan-400 via-sky-300 to-teal-400' },
+  { id: 'conversion-king', name: 'Conversion King', tier: 'Gold Sovereign', kind: 'engagement', metric: 'votes', target: 500, requirement: '500+ Helpful Votes', effect: '+15% Velocity', gradient: 'from-yellow-400 via-amber-300 to-yellow-500' },
+  { id: 'century-lister', name: 'Century Lister', tier: 'Endgame', kind: 'post', metric: 'posts', target: 100, requirement: '100 Posts Made', effect: 'Century Badge', gradient: 'from-violet-500 via-purple-400 to-fuchsia-500' },
+  { id: 'viral-overlord', name: 'Viral Overlord', tier: 'Endgame', kind: 'engagement', metric: 'votes', target: 2500, requirement: '2,500 Helpful Votes', effect: 'Overlord Badge', gradient: 'from-fuchsia-500 via-pink-400 to-rose-500' },
+]
+
+export interface StickerState {
+  def: StickerDef
+  unlocked: boolean
+  value: number
+  pct: number
+  remaining: number
+}
+
+export function stickerStates(lifetimePosts: number, lifetimeVotes: number): StickerState[] {
+  return STICKERS.map((def) => {
+    const value = Math.max(0, (def.metric === 'posts' ? lifetimePosts : lifetimeVotes) || 0)
+    const unlocked = value >= def.target
+    return {
+      def,
+      unlocked,
+      value,
+      pct: Math.min(100, Math.round((value / def.target) * 100)),
+      remaining: Math.max(0, def.target - value),
+    }
+  })
+}
+
+/** The next sticker to unlock = the locked one closest to its threshold. */
+export function nextSticker(lifetimePosts: number, lifetimeVotes: number): StickerState | null {
+  const locked = stickerStates(lifetimePosts, lifetimeVotes).filter((s) => !s.unlocked)
+  if (locked.length === 0) return null
+  return locked.sort((a, b) => b.pct - a.pct)[0]
+}
+
+/** 18400 -> "18.4K" (the vault's big stat tiles). */
+export function formatCompact(n: number): string {
+  const v = Math.max(0, Number(n) || 0)
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+  return `${v}`
+}

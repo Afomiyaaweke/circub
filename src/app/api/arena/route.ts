@@ -9,6 +9,12 @@
 //                week - vote split %, both authors, myVote per side so the
 //                UI can render VOTE buttons that work exactly like the
 //                card's (same /api/local-prices/[id]/vote endpoint).
+//   myVotes      per-duel-item vote state so the VOTE buttons start right.
+//   me + rival   v203: the QUEST view - the viewer's own weekly row (rank,
+//                XP, deals, votes) + lifetime counters (level, XP, title,
+//                posts, votes received) for the vault/battle panel, and the
+//                top rival (highest weekly XP that is not me) for the
+//                head-to-head. me = null for guests.
 //   resetsAt     when the weekly battle resets (next Monday 00:00 UTC) -
 //                computed HERE so the client never invents a deadline.
 //
@@ -19,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser } from '@/lib/session'
-import { levelOf, posterXp, nextWeeklyReset, weekWindowStart } from '@/lib/arena'
+import { levelOf, posterXp, nextWeeklyReset, weekWindowStart, levelTitle } from '@/lib/arena'
 
 const AUTHOR_SELECT = {
   id: true, name: true, username: true, avatarColor: true, profilePicture: true,
@@ -48,6 +54,10 @@ export async function GET(req: NextRequest) {
     // ?cb= is a cache-buster the UI never sends - probes and refreshes use
     // it to miss the CDN edge and read fresh data.
     void searchParams
+    // v203: the session is needed BEFORE the response is built - `me` and
+    // `rival` are per-viewer, so a signed-in answer must never sit in a
+    // shared edge cache (myVotes was already per-viewer; now it is explicit).
+    const session = await getCurrentUser()
     const since = weekWindowStart()
     const weekPosts: ArenaPost[] = await db.localPricePost.findMany({
       where: { createdAt: { gte: since } },
@@ -98,7 +108,6 @@ export async function GET(req: NextRequest) {
     // myVote for the duel items so the VOTE buttons start in the right state.
     let myVotes: Record<string, string | null> = {}
     try {
-      const session = await getCurrentUser()
       if (session && duel.length > 0) {
         const rows = await db.localPriceVote.findMany({ where: { userId: session.id, postId: { in: duel.map((p) => p.id) } }, select: { postId: true, voteType: true } })
         myVotes = Object.fromEntries(rows.map((r) => [r.postId, r.voteType]))
@@ -108,6 +117,58 @@ export async function GET(req: NextRequest) {
       }
     } catch { myVotes = {} }
 
+    // v203 QUEST: the viewer's own row (from the FULL weekly table, not just
+    // the top-5 slice) + the top rival that is not them + lifetime counters.
+    const allRows = Array.from(byAuthor.values()).sort((a, b) => b.xp - a.xp || b.votes - a.votes || b.posts - a.posts)
+    const rowView = (row: (typeof allRows)[number], rank: number) => ({
+      rank,
+      authorId: row.author.id,
+      name: row.author.name,
+      username: row.author.username,
+      avatarColor: row.author.avatarColor,
+      profilePicture: row.author.profilePicture,
+      weeklyXp: row.xp,
+      weeklyPosts: row.posts,
+      weeklyVotes: row.votes,
+      level: levelOf(posterXp(row.author)),
+      xp: posterXp(row.author),
+    })
+    let me: Record<string, unknown> | null = null
+    let rival: Record<string, unknown> | null = null
+    if (session) {
+      const myIdx = allRows.findIndex((r) => r.author.id === session.id)
+      const myRow = myIdx >= 0 ? allRows[myIdx] : null
+      let lifetimePosts = 0
+      let lifetimeVotes = 0
+      let identity = { name: '', avatarColor: 'teal', profilePicture: null as string | null }
+      try {
+        const u = await db.user.findUnique({
+          where: { id: session.id },
+          select: { name: true, avatarColor: true, profilePicture: true, helpfulVotes: true, localPostCount: true },
+        })
+        if (u) {
+          lifetimePosts = Math.max(0, u.localPostCount || 0)
+          lifetimeVotes = Math.max(0, u.helpfulVotes || 0)
+          identity = { name: u.name, avatarColor: u.avatarColor, profilePicture: u.profilePicture }
+        }
+      } catch { /* vault falls back to zero counters */ }
+      const xp = lifetimeVotes * 100 + lifetimePosts * 50
+      const level = levelOf(xp)
+      me = {
+        ...(myRow ? rowView(myRow, myIdx + 1) : { rank: null, weeklyXp: 0, weeklyPosts: 0, weeklyVotes: 0 }),
+        level,
+        xp,
+        title: levelTitle(level),
+        lifetimePosts,
+        lifetimeVotes,
+        name: identity.name,
+        avatarColor: identity.avatarColor,
+        profilePicture: identity.profilePicture,
+      }
+      const rivalRow = allRows.find((r) => r.author.id !== session.id)
+      rival = rivalRow ? rowView(rivalRow, allRows.indexOf(rivalRow) + 1) : null
+    }
+
     return NextResponse.json(
       {
         week: { posts: weekPosts.length, votes: weekPosts.reduce((s, p) => s + Math.max(0, p.helpfulCount || 0), 0) },
@@ -115,11 +176,14 @@ export async function GET(req: NextRequest) {
         leaderboard,
         duel: withPct,
         myVotes,
+        me,
+        rival,
       },
       {
-        // Short edge cache: the battle should feel live. 30s is invisible to
-        // players and still collapses bursts; ?cb= bypasses it entirely.
-        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+        // Anonymous answers are shared data - a short edge cache collapses
+        // bursts. Signed-in answers are PERSONAL (me/rival/myVotes): private
+        // and never cached at the edge.
+        headers: { 'Cache-Control': session ? 'private, no-store' : 'public, s-maxage=30, stale-while-revalidate=60' },
       }
     )
   } catch (error) {
