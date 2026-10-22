@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { avatarSrc } from '@/lib/fighters'
 
 interface AuthorProfileModalProps {
   userId: string | null
@@ -99,13 +100,13 @@ export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }
         ) : (
           <div>
             {/* Cover + identity */}
-            <div className="h-20 bg-gradient-to-br from-primary to-emerald-400 relative">
+            <div className="h-20 bg-gradient-to-br from-primary to-violet-400 relative">
               <button onClick={onClose} className="absolute top-2 right-2 p-1.5 rounded-md bg-card/80 hover:bg-card text-muted-foreground" aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <div className="px-5 sm:px-6 -mt-9 flex items-end gap-4">
               <Avatar className="w-20 h-20 border-4 border-card bg-card shadow-md shrink-0 overflow-hidden">
                 {profile.profilePicture ? (
-                  <img src={profile.profilePicture} alt={profile.name} className="w-full h-full object-cover" />
+                  <img src={avatarSrc(profile.profilePicture)} alt={profile.name} className="w-full h-full object-cover" />
                 ) : (
                   <AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{profile.name.charAt(0).toUpperCase()}</AvatarFallback>
                 )}

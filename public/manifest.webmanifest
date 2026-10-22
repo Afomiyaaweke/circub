@@ -8,7 +8,7 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "background_color": "#050505",
-  "theme_color": "#16a34a",
+  "theme_color": "#7c3aed",
   "lang": "en",
   "dir": "ltr",
   "categories": ["travel", "shopping", "social"],

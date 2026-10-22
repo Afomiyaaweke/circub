@@ -20,7 +20,7 @@ import type { User } from '@/lib/types'
 // Same avatar palette as the public share profile (/u/<username>) - each
 // poster keeps their own color everywhere in the app.
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-green-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 

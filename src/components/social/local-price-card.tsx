@@ -14,6 +14,7 @@ import { timeAgoLabel, freshnessLevel, freshnessTitle, freshnessClasses } from '
 import { SharePosterModal } from './share-poster-modal'
 import { posterXp, levelOf, levelTitle } from '@/lib/arena'
 import type { LocalPricePost } from '@/lib/types'
+import { avatarSrc } from '@/lib/fighters'
 
 interface LocalPriceCardProps {
   post: LocalPricePost
@@ -280,7 +281,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
       {/* Row 1: type badge + category left, edit/delete menu right */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <Badge variant="secondary" className={cn('text-[9px] font-medium uppercase tracking-wide px-1.5 shrink-0', post.postType === 'SERVICE' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700')}>
+          <Badge variant="secondary" className={cn('text-[9px] font-medium uppercase tracking-wide px-1.5 shrink-0', post.postType === 'SERVICE' ? 'bg-purple-100 text-purple-700' : 'bg-violet-100 text-violet-700')}>
             {post.postType === 'SERVICE' ? 'Service' : 'Product'}
           </Badge>
           {/* First-party price: the poster declared they own this shop/business.
@@ -419,7 +420,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         data-testid="price-card-price"
         onClick={() => onOpen?.(post.id)}
         aria-label={`Open price details for ${post.productName}`}
-        className="mt-2 w-full text-left px-2.5 py-2 rounded-lg bg-gradient-to-br from-primary/10 to-emerald-50 border border-primary/20 cursor-pointer transition-colors hover:border-primary/40"
+        className="mt-2 w-full text-left px-2.5 py-2 rounded-lg bg-gradient-to-br from-primary/10 to-violet-50 border border-primary/20 cursor-pointer transition-colors hover:border-primary/40"
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Typical local price</span>
@@ -522,7 +523,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             )}
             {post.contactWhatsApp && (
               <a href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-2 py-1 rounded-md bg-card border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
-                <MessageCircle className="w-3 h-3 text-green-600" />
+                <MessageCircle className="w-3 h-3 text-violet-600" />
                 WhatsApp
               </a>
             )}
@@ -552,7 +553,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
           <Avatar className="w-7 h-7 border border-accent shrink-0 overflow-hidden">
             {post.author.profilePicture ? (
-              <img src={post.author.profilePicture} alt={post.author.name} className="w-full h-full object-cover" />
+              <img src={avatarSrc(post.author.profilePicture)} alt={post.author.name} className="w-full h-full object-cover" />
             ) : (
               <AvatarFallback className="bg-primary/15 text-primary text-[10px] font-semibold">{post.author.name.charAt(0).toUpperCase()}</AvatarFallback>
             )}
@@ -653,7 +654,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
                         data-testid="card-links-business-delta"
                         className={cn(
                           'text-[10px] font-semibold shrink-0',
-                          delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                          delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-violet-600' : 'text-muted-foreground'
                         )}
                       >
                         {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}

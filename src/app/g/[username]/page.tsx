@@ -22,11 +22,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { VideoEmbed } from '@/components/social/video-embed'
 import { CopyLinkButton } from '@/components/social/copy-link-button'
+import { avatarSrc } from '@/lib/fighters'
 
 export const dynamic = 'force-dynamic'
 
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-green-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -110,7 +111,7 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
         {/* header */}
         <div className="pt-8 flex items-start gap-5">
           {user.profilePicture ? (
-            <img src={user.profilePicture} alt={user.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-accent shrink-0" />
+            <img src={avatarSrc(user.profilePicture)} alt={user.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-accent shrink-0" />
           ) : (
             <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-2 border-accent shrink-0">
               <AvatarFallback className={`${colorCls} text-white font-bold text-2xl`}>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
@@ -121,14 +122,14 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
               <Compass className="w-4 h-4 text-primary shrink-0" />
               <span data-testid="guide-page-eyebrow" className="text-[11px] font-semibold uppercase tracking-wider text-primary">{roleListLabel(roles)} on circubAwd</span>
               {user.guideAvailable && (
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Available now</Badge>
+                <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-[10px]">Available now</Badge>
               )}
             </div>
             <h1 data-testid="guide-page-name" className="mt-1 text-xl font-bold text-foreground flex items-center gap-1.5 flex-wrap">
               {user.name}
               {idVerified && <VerifiedIcon className="w-4 h-4 text-blue-500" aria-label="Verified with ID or passport" />}
               {user.guideLicense && (
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">
+                <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-[10px]">
                   <Award className="w-2.5 h-2.5 mr-0.5" />Licensed
                 </Badge>
               )}
@@ -151,7 +152,7 @@ export default async function GuideLinkPage({ params }: { params: Promise<{ user
                 {ratingCount > 0 ? `${ratingCount} traveler review${ratingCount !== 1 ? 's' : ''}` : 'No reviews yet'}
               </span>
               {idVerified && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-100 rounded px-1.5 py-0.5">
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-700 bg-violet-100 rounded px-1.5 py-0.5">
                   <ShieldCheck className="w-2.5 h-2.5" />
                   ID verified
                 </span>

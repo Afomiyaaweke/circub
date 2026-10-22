@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { avatarSrc } from '@/lib/fighters'
 
 interface RatingModalProps {
   open: boolean
@@ -68,7 +69,7 @@ export function GuideRatingModal({ open, onOpenChange, guide, onRated }: RatingM
           <div className="flex justify-center mb-3">
             <Avatar className="w-16 h-16 border-2 border-accent overflow-hidden">
               {guide?.profilePicture ? (
-                <img src={guide.profilePicture} alt={guide?.name || 'Guide'} className="w-full h-full object-cover" />
+                <img src={avatarSrc(guide.profilePicture)} alt={guide?.name || 'Guide'} className="w-full h-full object-cover" />
               ) : (
                 <AvatarFallback className="bg-primary/15 text-primary font-bold text-xl">
                   {guide?.name?.charAt(0).toUpperCase() || '?'}

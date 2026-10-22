@@ -733,7 +733,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             </button>
             <DialogTitle className="flex items-center gap-2 text-xl font-extrabold text-foreground">
               Bulk Price Post
-              <span title="Every row becomes its own price post" data-testid="bulk-mode-pill" className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+              <span title="Every row becomes its own price post" data-testid="bulk-mode-pill" className="inline-flex items-center gap-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 text-[10px] font-bold">
                 <Zap className="w-3 h-3" />
                 Bulk Mode
               </span>
@@ -758,7 +758,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               the reward + auto-tag chips on the right. */}
           <div className="flex items-center gap-2 flex-wrap" data-testid="bulk-statusbar">
             <span
-              className={`w-2 h-2 rounded-full shrink-0 ${rows.length ? (allVerified ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-muted-foreground/40'}`}
+              className={`w-2 h-2 rounded-full shrink-0 ${rows.length ? (allVerified ? 'bg-violet-500' : 'bg-amber-500') : 'bg-muted-foreground/40'}`}
               aria-hidden
             />
             <p className="text-xs font-semibold text-foreground" data-testid="bulk-status">
@@ -768,7 +768,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             </p>
             <div className="ml-auto flex items-center gap-1.5">
               {readyCount > 0 && (
-                <span title="A fully verified batch earns Karma" data-testid="bulk-karma-chip" className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold">
+                <span title="A fully verified batch earns Karma" data-testid="bulk-karma-chip" className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 px-2.5 py-0.5 text-[11px] font-bold">
                   <Zap className="w-3 h-3" />
                   +40 Karma
                 </span>
@@ -801,7 +801,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               >
                 <t.icon className="w-3.5 h-3.5" />
                 {t.label}
-                {mode === t.key && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" aria-hidden />}
+                {mode === t.key && <span className="w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" aria-hidden />}
               </button>
             ))}
           </div>
@@ -849,10 +849,10 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 }}
                 className="rounded-xl border-2 border-dashed border-border bg-muted/30 p-6 flex flex-col items-center justify-center gap-2 text-center"
               >
-                <FileUp className="w-7 h-7 text-emerald-600" />
+                <FileUp className="w-7 h-7 text-violet-600" />
                 <p className="text-sm font-medium text-foreground">{fileName || 'Drop a file here, or choose one'}</p>
                 <p className="text-xs text-muted-foreground">Word (.docx), PDF, Excel (.xlsx / .xls) or CSV up to 4 MB - read in memory, never stored.</p>
-                <label className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-emerald-700 text-white text-xs font-semibold cursor-pointer hover:bg-emerald-800 transition-colors">
+                <label className="inline-flex items-center justify-center h-8 px-3 rounded-full bg-violet-700 text-white text-xs font-semibold cursor-pointer hover:bg-violet-800 transition-colors">
                   {parsing ? 'Reading file...' : 'Choose file'}
                   <input
                     type="file"
@@ -870,7 +870,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             )}
             <div className="flex items-center gap-2 flex-wrap">
               {mode !== 'file' && (
-                <Button type="button" onClick={mode === 'sheet' ? doParse : doParseText} disabled={parsing} className="h-8 gap-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="bulk-parse">
+                <Button type="button" onClick={mode === 'sheet' ? doParse : doParseText} disabled={parsing} className="h-8 gap-1.5 rounded-full bg-violet-700 hover:bg-violet-800 text-white" data-testid="bulk-parse">
                   <UploadCloud className="w-3.5 h-3.5" /> {parsing ? 'Parsing...' : mode === 'sheet' ? 'Parse rows' : 'Parse & preview'}
                 </Button>
               )}
@@ -889,13 +889,13 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               {/* Source card - check circle, company + items badge, the
                   parsed contacts line, View Raw, two-tap trash. */}
               <div className="rounded-2xl bg-card border border-border shadow-sm p-3 flex items-center gap-3" data-testid="bulk-source-card">
-                <span className="w-9 h-9 shrink-0 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <span className="w-9 h-9 shrink-0 rounded-full bg-violet-100 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-violet-600" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-bold text-foreground truncate">{parseMeta.company || fileName || 'Parsed list'}</p>
-                    <span className="shrink-0 rounded-md bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[10px] font-bold">
+                    <span className="shrink-0 rounded-md bg-violet-100 text-violet-700 px-1.5 py-0.5 text-[10px] font-bold">
                       {rows.length} items
                     </span>
                   </div>
@@ -927,11 +927,11 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   red Delete selected chip once a selection exists). */}
               <div className="flex items-center gap-2 flex-wrap" data-testid="bulk-items-header">
                 <p className="text-xs font-extrabold uppercase tracking-wide text-foreground">Parsed items ready</p>
-                <span className="rounded-full border border-emerald-300 bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">
+                <span className="rounded-full border border-violet-300 bg-violet-50 text-violet-700 px-2 py-0.5 text-[10px] font-bold">
                   {rows.length} items
                 </span>
                 <div className="ml-auto flex items-center gap-2 text-xs">
-                  <button type="button" onClick={quickFill} data-testid="bulk-quick-fill" className="font-bold text-emerald-600 hover:text-emerald-700" title="Fill every empty city / country / contact from the batch settings and the parsed contacts">
+                  <button type="button" onClick={quickFill} data-testid="bulk-quick-fill" className="font-bold text-violet-600 hover:text-violet-700" title="Fill every empty city / country / contact from the batch settings and the parsed contacts">
                     Quick Fill
                   </button>
                   <span className="text-border" aria-hidden>|</span>
@@ -954,7 +954,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   type="button"
                   onClick={() => setShowCats((v) => !v)}
                   data-testid="bulk-category-chip"
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 h-7 font-semibold transition-colors ${showCats || category !== 'Other' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-card border-border text-foreground hover:border-emerald-300'}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 h-7 font-semibold transition-colors ${showCats || category !== 'Other' ? 'bg-violet-50 border-violet-300 text-violet-700' : 'bg-card border-border text-foreground hover:border-violet-300'}`}
                   title="Pick the batch category (applies to every row)"
                 >
                   <Tag className="w-3 h-3" />
@@ -967,7 +967,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                       type="button"
                       onClick={() => setCurrency(c)}
                       data-testid={c === 'ETB' ? 'bulk-cur-etb' : 'bulk-cur-usd'}
-                      className={`px-2.5 h-6 rounded-full text-[11px] font-bold transition-all ${currency === c ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`px-2.5 h-6 rounded-full text-[11px] font-bold transition-all ${currency === c ? 'bg-violet-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       {c === 'ETB' ? 'ETB (Br)' : 'USD'}
                     </button>
@@ -986,7 +986,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   type="button"
                   onClick={() => setShowLoc((v) => !v)}
                   data-testid="bulk-location-chip"
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 h-7 font-semibold transition-colors ${showLoc || defCity.trim() || defCountry.trim() ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-card border-border text-foreground hover:border-emerald-300'}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 h-7 font-semibold transition-colors ${showLoc || defCity.trim() || defCountry.trim() ? 'bg-violet-50 border-violet-300 text-violet-700' : 'bg-card border-border text-foreground hover:border-violet-300'}`}
                   title="Set the batch location every row falls back to"
                 >
                   <MapPin className="w-3 h-3" />
@@ -1037,7 +1037,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                             return next
                           })
                         }
-                        className="mt-1 w-4 h-4 accent-emerald-600 shrink-0"
+                        className="mt-1 w-4 h-4 accent-violet-600 shrink-0"
                       />
                     )}
                     {/* Photo box (pick + thumbnail + remove) */}
@@ -1061,7 +1061,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                         disabled={uploadingImg}
                         data-testid={`bulk-image-pick-${idx}`}
                         title="Pick a photo for this row"
-                        className="w-14 h-14 shrink-0 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 hover:border-emerald-400 flex flex-col items-center justify-center gap-0.5 text-emerald-700 transition-colors"
+                        className="w-14 h-14 shrink-0 rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/50 hover:border-violet-400 flex flex-col items-center justify-center gap-0.5 text-violet-700 transition-colors"
                       >
                         {uploadingImg && imgTarget === idx ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                         <span className="text-[9px] font-bold">{uploadingImg && imgTarget === idx ? '...' : 'Photo'}</span>
@@ -1077,7 +1077,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                           data-testid={`bulk-cell-product-${idx}`}
                         />
                         {row.auto && (
-                          <span className="shrink-0 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-1.5 py-0.5 text-[10px] font-bold" title="Parsed automatically - edit freely">
+                          <span className="shrink-0 rounded-full bg-violet-50 border border-violet-200 text-violet-700 px-1.5 py-0.5 text-[10px] font-bold" title="Parsed automatically - edit freely">
                             ✓ Auto
                           </span>
                         )}
@@ -1168,13 +1168,13 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
               <p className="text-xs font-extrabold uppercase tracking-wide text-foreground">Batch settings &amp; attribution</p>
-              <span className="ml-auto text-[11px] font-bold text-emerald-600" title="These settings auto-apply to every row you leave empty">
+              <span className="ml-auto text-[11px] font-bold text-violet-600" title="These settings auto-apply to every row you leave empty">
                 Auto-synced
               </span>
             </div>
             <div className="rounded-xl border border-border bg-background p-3 flex items-center gap-3">
-              <span className="w-10 h-10 shrink-0 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-extrabold text-emerald-700 overflow-hidden" data-testid="bulk-owner-avatar" title={shopOwnerName.trim() || 'No shop attribution'}>
-                {ownerInitials || <Store className="w-4 h-4 text-emerald-600" />}
+              <span className="w-10 h-10 shrink-0 rounded-full bg-violet-100 flex items-center justify-center text-sm font-extrabold text-violet-700 overflow-hidden" data-testid="bulk-owner-avatar" title={shopOwnerName.trim() || 'No shop attribution'}>
+                {ownerInitials || <Store className="w-4 h-4 text-violet-600" />}
               </span>
               <div className="flex-1 min-w-0">
                 <Input
@@ -1199,7 +1199,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             )}
             {result && (
               <div className="rounded-lg border border-border bg-background p-2.5 text-xs space-y-1" data-testid="bulk-result">
-                <p className="font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                <p className="font-medium text-violet-700 dark:text-violet-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> {result.count} price{result.count !== 1 ? 's' : ''} posted - they are live on the feed now.
                 </p>
                 {result.failedCount > 0 && (
@@ -1249,7 +1249,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
             type="button"
             onClick={submit}
             disabled={saving || !readyCount}
-            className="flex-1 min-w-0 px-4 sm:px-6 h-11 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-2"
+            className="flex-1 min-w-0 px-4 sm:px-6 h-11 rounded-full bg-violet-700 hover:bg-violet-800 text-white font-bold gap-2"
             data-testid="bulk-submit"
           >
             {saving ? (
@@ -1259,7 +1259,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 <Rocket className="w-4 h-4 shrink-0" />
                 <span className="truncate">Publish {readyCount > 0 ? `${readyCount} ${readyCount === 1 ? 'Drop' : 'Drops'} ` : ''}Now</span>
                 {readyCount > 0 && (
-                  <span className="hidden sm:inline rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold shrink-0">+40 Karma →</span>
+                  <span className="hidden sm:inline rounded-full bg-card/20 px-2 py-0.5 text-[11px] font-bold shrink-0">+40 Karma →</span>
                 )}
               </>
             )}

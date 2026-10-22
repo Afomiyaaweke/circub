@@ -34,6 +34,7 @@ import { GuideReviewsModal, GuideStars } from './guide-reviews-modal'
 import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
 import { GuideBookingsModal } from './guide-bookings-modal'
 import type { User } from '@/lib/types'
+import { avatarSrc } from '@/lib/fighters'
 
 interface LiveZoneTabProps {
   me: User | null
@@ -305,7 +306,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                 className={cn(
                   'gap-1.5 shrink-0',
                   isAvailable
-                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                    ? 'border-violet-500 text-violet-600 bg-violet-50 hover:bg-violet-100'
                     : 'border-muted text-muted-foreground'
                 )}
               >
@@ -353,7 +354,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           onChange={(e) => setLanguage(e.target.value)}
           className={
             'h-9 pl-2.5 pr-3 text-xs sm:text-sm basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] min-w-0 bg-transparent rounded-none shadow-none border-0 border-t border-input sm:border-t-0 focus:outline-none focus:ring-0 cursor-pointer ' +
-            (language ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-foreground')
+            (language ? 'text-violet-700 dark:text-violet-400 font-medium' : 'text-foreground')
           }
         >
           <option value="">All languages</option>
@@ -442,7 +443,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           onChange={(e) => setSpecialty(e.target.value)}
           className={
             'h-9 pl-2.5 pr-3 text-xs sm:text-sm basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] min-w-0 bg-transparent rounded-none shadow-none border-0 border-t border-input sm:border-t-0 sm:border-l focus:outline-none focus:ring-0 cursor-pointer ' +
-            (specialty ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-foreground')
+            (specialty ? 'text-violet-700 dark:text-violet-400 font-medium' : 'text-foreground')
           }
         >
           <option value="">All specialties</option>
@@ -724,7 +725,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     <div className="flex items-center gap-2.5">
                       <Avatar className="w-9 h-9 border border-accent overflow-hidden shrink-0">
                         {g.profilePicture ? (
-                          <img src={g.profilePicture} alt={g.name} className="w-full h-full object-cover" />
+                          <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
                         ) : (
                           <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
                             {g.name?.charAt(0).toUpperCase()}
@@ -740,7 +741,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                           )}
                           {g.verifiedLocal && <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0" />}
                           {(g as any).idVerified && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 bg-emerald-100 rounded px-1 py-0.5 shrink-0" title="ID or passport verified">
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-violet-700 bg-violet-100 rounded px-1 py-0.5 shrink-0" title="ID or passport verified">
                               <ShieldCheck className="w-2.5 h-2.5" />
                               ID
                             </span>
@@ -918,7 +919,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <div className="flex items-center gap-1.5">
                     {g.guideAvailable ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                      <span className="flex items-center gap-1 text-xs font-medium text-violet-600">
                         <Radio className="w-3 h-3 animate-pulse" />
                         Available now
                       </span>
@@ -950,7 +951,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                 <div className="flex items-start gap-3">
                   <Avatar className="w-12 h-12 border-2 border-accent overflow-hidden shrink-0">
                     {g.profilePicture ? (
-                      <img src={g.profilePicture} alt={g.name} className="w-full h-full object-cover" />
+                      <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
                     ) : (
                       <AvatarFallback className="bg-primary/15 text-primary font-semibold">{g.name.charAt(0).toUpperCase()}</AvatarFallback>
                     )}
@@ -973,13 +974,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         </Badge>
                       ))}
                       {g.guideLicense && (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">
+                        <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-[9px] shrink-0">
                           <Award className="w-2.5 h-2.5 mr-0.5" />
                           Licensed
                         </Badge>
                       )}
                       {(g as any).idVerified && (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0" title="ID or passport verified">
+                        <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-[9px] shrink-0" title="ID or passport verified">
                           <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
                           ID
                         </Badge>

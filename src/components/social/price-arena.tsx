@@ -22,9 +22,10 @@ import { Swords, Trophy, Crown, ThumbsUp, Loader2, Zap } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { countdownLabel, levelTitle } from '@/lib/arena'
+import { avatarSrc } from '@/lib/fighters'
 
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-green-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -184,7 +185,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                   onClick={() => onOpenPost(item.id)}
                   data-testid={`arena-side-${item.side}`}
                   className={
-                    'text-left rounded-lg border p-2.5 space-y-1.5 transition-colors hover:bg-white/5 ' +
+                    'text-left rounded-lg border p-2.5 space-y-1.5 transition-colors hover:bg-card/5 ' +
                     (leader && leader.id === item.id
                       ? 'border-amber-400/60 bg-amber-400/10'
                       : 'border-[#2a3258] bg-[#0f1329]')
@@ -287,7 +288,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`text-xs font-bold w-5 shrink-0 ${row.rank === 1 ? 'text-amber-400' : row.rank <= 3 ? 'text-white' : 'text-slate-500'}`}>#{row.rank}</span>
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${AVATAR_COLORS[row.avatarColor] || 'bg-violet-600'}`}>
-                    {row.profilePicture ? <img src={row.profilePicture} alt="" className="w-full h-full object-cover rounded-full" /> : row.name.charAt(0).toUpperCase()}
+                    {row.profilePicture ? <img src={avatarSrc(row.profilePicture)} alt="" className="w-full h-full object-cover rounded-full" /> : row.name.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-xs font-medium text-white truncate">{row.name}</span>
                   <span className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>

@@ -420,17 +420,17 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
                   placeholder="yourname"
                   value={username}
                   onChange={(e) => { setUsernameTouched(true); setUsername(normalizeUsername(e.target.value)) }}
-                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-green-500/60 focus-visible:ring-green-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
+                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-violet-500/60 focus-visible:ring-violet-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
                   autoComplete="off"
                   spellCheck={false}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2">
                   {uStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                  {uStatus === 'available' && <Check className="w-4 h-4 text-green-600" />}
+                  {uStatus === 'available' && <Check className="w-4 h-4 text-violet-600" />}
                 </span>
               </div>
               {uMsg ? (
-                <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', (uStatus === 'checking' || uStatus === 'idle') && 'text-muted-foreground')}>{uMsg}</p>
+                <p className={cn('text-[10px]', uStatus === 'available' && 'text-violet-600', uStatus === 'error' && 'text-destructive', (uStatus === 'checking' || uStatus === 'idle') && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
                 <p className="text-[10px] text-muted-foreground">Your unique ID - people find and share your profile at circubAwd.app/u/<span className="font-semibold">{username || 'yourname'}</span>. Lowercase letters, numbers, underscores.</p>
               )}

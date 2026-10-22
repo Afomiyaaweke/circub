@@ -38,9 +38,10 @@ import {
   stickerStates, nextSticker, formatCompact,
 } from '@/lib/arena'
 import type { User } from '@/lib/types'
+import { avatarSrc } from '@/lib/fighters'
 
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-green-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -246,7 +247,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             <Flame className="w-3 h-3" /> DAY {round.day}
           </span>
           <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-violet-400/50 ${AVATAR_COLORS[user.avatarColor] || 'bg-violet-600'} overflow-hidden`}>
-            {user.profilePicture ? <img src={user.profilePicture} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
+            {user.profilePicture ? <img src={avatarSrc(user.profilePicture)} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
           </span>
         </div>
       </div>
@@ -269,7 +270,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             </span>
             <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[me?.avatarColor || user.avatarColor] || 'bg-violet-600'} overflow-hidden`}>
               {(me?.profilePicture || user.profilePicture)
-                ? <img src={(me?.profilePicture || user.profilePicture) as string} alt="" className="w-full h-full object-cover" />
+                ? <img src={avatarSrc(me?.profilePicture || user.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (me?.name || user.name).charAt(0).toUpperCase()}
             </div>
             <p className="text-xs font-bold text-white truncate">You</p>
@@ -283,7 +284,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             </span>
             <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[rival?.avatarColor || ''] || 'bg-slate-600'} overflow-hidden`}>
               {rival?.profilePicture
-                ? <img src={rival.profilePicture} alt="" className="w-full h-full object-cover" />
+                ? <img src={avatarSrc(rival.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (rival?.name || '?').charAt(0).toUpperCase()}
             </div>
             <p className="text-xs font-bold text-white truncate">{rival ? rival.name : 'No rival yet'}</p>
@@ -508,7 +509,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                       : 'bg-fuchsia-500/15 text-fuchsia-300')
                   }>{s.def.tier.toUpperCase()}</span>
                   {s.unlocked ? (
-                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-400"><CheckCircle2 className="w-3 h-3" /> Equipped</span>
+                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-violet-400"><CheckCircle2 className="w-3 h-3" /> Equipped</span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-500"><Lock className="w-3 h-3" /> LOCKED</span>
                   )}

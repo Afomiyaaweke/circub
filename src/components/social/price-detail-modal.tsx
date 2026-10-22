@@ -28,6 +28,7 @@ import {
   Flame,
   Shield,
   Swords,
+  Check,
   Trophy,
   Zap,
 } from 'lucide-react'
@@ -198,6 +199,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   // duel's cyan VOTE button (the modal's own handleVote only covers THIS
   // post). Reset whenever the duel pairs with a different post.
   const [rivalVote, setRivalVote] = useState<{ id: string; votes: number; voted: boolean; busy: boolean } | null>(null)
+  // v205: the ranked target list ('make the link ranked') - the user can
+  // re-pair the duel to ANY linked/auto-matched competitor; null keeps the
+  // auto strongest challenger.
+  const [preferredRivalId, setPreferredRivalId] = useState<string | null>(null)
   // v204: duel countdown tick - the round clock re-renders every 30s.
   const [nowTs, setNowTs] = useState(() => Date.now())
   useEffect(() => {
@@ -525,8 +530,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   // rows). Every stat is computed from data the modal already loads - zero
   // new endpoints, zero schema changes - and every vote cast in the duel
   // feeds the same Weekly Hustle XP the feed's arena plays for.
-  const duel = (() => {
-    if (!post) return null
+  // v205: the candidate pool is lifted OUT of the duel so the 'Select
+  // Target Duel' ranked list ranks the exact same links the duel pairs
+  // from - and a tap on any rank re-pairs the match live.
+  const duelCands = (() => {
+    if (!post) return []
     type DuelCand = {
       id: string
       name: string
@@ -573,9 +581,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         fromLink: false,
       })
     }
-    if (cands.length === 0) return null
     cands.sort((x, y) => y.votes - x.votes || x.priceMax - y.priceMax)
-    const rival = cands[0]
+    return cands
+  })()
+
+  const duel = (() => {
+    if (!post) return null
+    if (duelCands.length === 0) return null
+    const rival = duelCands.find((c) => c.id === preferredRivalId) ?? duelCands[0]
 
     const selfVotes = Math.max(0, post.helpfulCount ?? 0)
     const selfName = post.author?.name || 'This business'
@@ -641,12 +654,20 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const duelPctA = duel && duelTotal > 0 ? Math.round((duel.selfVotes / duelTotal) * 100) : 50
   const duelPctB = 100 - duelPctA
   const duelCountdown = countdownLabel(nextWeeklyReset(), new Date(nowTs))
+  // v205: win-rate denominators for the ranked target list - the share of
+  // ALL votes in the pool (self + every candidate) each target holds.
+  const duelPoolVotes = duel ? duel.selfVotes + duelCands.reduce((s, c) => s + c.votes, 0) : 0
 
   // v204: reset the challenger's vote state whenever the duel pairs with a
-  // different post (fresh data, fresh vote).
+  // different post (fresh data, fresh vote). v205: the manual target
+  // selection resets with the post too - a fresh modal pairs fresh.
   useEffect(() => {
     setRivalVote(null)
   }, [duel?.rival?.id])
+
+  useEffect(() => {
+    setPreferredRivalId(null)
+  }, [post?.id])
 
   const handleRivalVote = async () => {
     if (!duel) return
@@ -992,7 +1013,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         ) : (
           <div>
             {/* Header */}
-            <div className="p-5 sm:p-6 border-b border-border bg-gradient-to-br from-primary/10 to-emerald-50">
+            <div className="p-5 sm:p-6 border-b border-border bg-gradient-to-br from-primary/10 to-violet-50">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 gap-y-1 flex-wrap mb-1.5">
@@ -1002,7 +1023,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         'text-[10px] font-medium uppercase tracking-wide',
                         post.postType === 'SERVICE'
                           ? 'bg-purple-100 text-purple-700'
-                          : 'bg-emerald-100 text-emerald-700'
+                          : 'bg-violet-100 text-violet-700'
                       )}
                     >
                       {post.postType === 'SERVICE' ? 'Service' : 'Product'}
@@ -1091,12 +1112,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   </p>
                 </div>
                 {post.recommendedPrice != null && (
-                  <div className="rounded-lg bg-card border border-emerald-300 p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-medium flex items-center gap-1">
+                  <div className="rounded-lg bg-card border border-violet-300 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-violet-700 font-medium flex items-center gap-1">
                       <BadgeCheck className="w-3 h-3" />
                       Recommended fair price
                     </p>
-                    <p className="text-base font-bold text-emerald-700 mt-1">
+                    <p className="text-base font-bold text-violet-700 mt-1">
                       {formatPrice(post.recommendedPrice, post.currency)}
                     </p>
                   </div>
@@ -1147,6 +1168,75 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 <p className="text-[11px] text-muted-foreground mb-2.5">
                   Same item at other businesses - this one is first. Tap a business to open its price post.
                 </p>
+
+                {/* v205: SELECT TARGET DUEL - 'make the link ranked': every
+                    linked / auto-matched competitor is a RANKED duel target
+                    (Rank #N · XP · Win Rate, the reference screen's opponent
+                    list). The active rival wears the RIVAL tag + violet
+                    check; tapping any row re-pairs the match live. */}
+                {duel && duelCands.length > 1 && (
+                  <div data-testid="duel-targets" className="mb-3 rounded-xl border border-[#2a3258] bg-[#141936] p-3.5 space-y-2 shadow-lg shadow-black/20">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h4 className="flex items-center gap-1.5 text-xs font-black tracking-wide text-white">
+                        <Swords className="w-3.5 h-3.5 text-violet-300" /> SELECT TARGET DUEL
+                      </h4>
+                      <span className="rounded-full bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 text-[9px] font-black tracking-wide text-amber-300">
+                        PVP MULTIPLIER X1.5
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {duelCands.map((c, i) => {
+                        const active = c.id === duel.rival.id
+                        const lvl = Math.max(1, levelOf(c.votes * 100))
+                        const winRate = duelPoolVotes > 0 ? Math.round((c.votes / duelPoolVotes) * 100) : 0
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            data-testid="duel-target"
+                            data-active={active ? 'true' : 'false'}
+                            onClick={() => setPreferredRivalId(c.id)}
+                            className={
+                              'w-full flex items-center gap-2.5 rounded-lg border p-2 text-left transition-all ' +
+                              (active ? 'border-violet-400/60 bg-violet-500/10 shadow-md shadow-violet-500/20' : 'border-[#2a3258] bg-[#0f1329] hover:border-violet-400/40')
+                            }
+                          >
+                            <span className={'w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-black ' + (active ? 'bg-violet-500/30 text-violet-200' : 'bg-slate-500/15 text-slate-300')}>
+                              {`#${i + 1}`}
+                            </span>
+                            {c.img ? (
+                              <img src={c.img} alt="" className="w-9 h-9 rounded-full object-cover border border-[#2a3258] shrink-0" />
+                            ) : (
+                              <span className="w-9 h-9 rounded-full bg-slate-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                {(c.authorName || '?').charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                            <span className="flex-1 min-w-0">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className="truncate text-xs font-bold text-white">{c.authorName}</span>
+                                {active ? (
+                                  <span className="shrink-0 rounded px-1 py-px text-[8px] font-black tracking-wide bg-violet-500/25 text-violet-200">RIVAL</span>
+                                ) : (
+                                  <span className="shrink-0 rounded px-1 py-px text-[8px] font-black tracking-wide bg-slate-500/20 text-slate-300">TARGET</span>
+                                )}
+                                <span title={`LVL ${lvl} · ${levelTitle(lvl)}`} className="shrink-0 rounded bg-amber-400/15 px-1 py-px text-[8px] font-black text-amber-300">
+                                  {`LVL ${lvl}`}
+                                </span>
+                              </span>
+                              <span data-testid="duel-target-rank" className="block truncate text-[10px] text-slate-400">
+                                {`Rank #${i + 1} · ${formatCompact(c.votes * 100)} XP · ${winRate}% Win Rate`}
+                              </span>
+                            </span>
+                            <span className={'w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ' + (active ? 'border-violet-400 bg-violet-500' : 'border-slate-600')}>
+                              {active && <Check className="w-3 h-3 text-white" />}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[10px] text-slate-500">Tap a target to re-pair the duel - the match and the vote split update live.</p>
+                  </div>
+                )}
 
                 {/* v204: THE COMPARE DUEL - the reference screen's Active Duel
                     rendered from REAL compare data: this business vs its
@@ -1248,7 +1338,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             </div>
                           )}
                           {duel.selfOff > 0 && (
-                            <span className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-px text-[9px] font-black text-white">
+                            <span className="absolute left-1.5 top-1.5 rounded bg-violet-500 px-1.5 py-px text-[9px] font-black text-white">
                               {`-${duel.selfOff}% OFF`}
                             </span>
                           )}
@@ -1311,7 +1401,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             </div>
                           )}
                           {duel.rivalOff > 0 && (
-                            <span className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-px text-[9px] font-black text-white">
+                            <span className="absolute left-1.5 top-1.5 rounded bg-violet-500 px-1.5 py-px text-[9px] font-black text-white">
                               {`-${duel.rivalOff}% OFF`}
                             </span>
                           )}
@@ -1475,7 +1565,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       className={cn(
                                         'px-2 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10 sm:px-3',
                                         priceTable.cities[i].near && 'italic text-muted-foreground',
-                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
+                                        filled.length > 1 && v.max === rowMin ? 'text-violet-700 font-semibold' : 'text-foreground font-medium'
                                       )}
                                     >
                                       {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
@@ -1567,7 +1657,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       title="Touch a price to see the business behind it"
                                       className={cn(
                                         'px-2 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10 sm:px-3',
-                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
+                                        filled.length > 1 && v.max === rowMin ? 'text-violet-700 font-semibold' : 'text-foreground font-medium'
                                       )}
                                     >
                                       {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
@@ -1705,7 +1795,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       data-testid="detail-compare-self"
                       className={cn(
                         'flex items-center justify-between gap-2 gap-y-1 flex-wrap rounded-md border px-2.5 py-1.5',
-                        cheapestSelf ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-primary/40 bg-primary/5'
+                        cheapestSelf ? 'border-violet-500/50 bg-violet-500/5' : 'border-primary/40 bg-primary/5'
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0 max-sm:basis-full">
@@ -1724,12 +1814,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {cheapestSelf && (
                         <span
                           data-testid="detail-compare-cheapest"
-                          className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
+                          className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-100 rounded-full px-1.5 py-0.5 shrink-0"
                         >
                           Cheapest
                         </span>
                       )}
-                      <span className="text-xs font-bold text-emerald-700 shrink-0">
+                      <span className="text-xs font-bold text-violet-700 shrink-0">
                         {post?.currency} {post?.priceMin}
                         {post && post.priceMin !== post.priceMax ? `-${post.priceMax}` : ''}
                       </span>
@@ -1765,7 +1855,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               data-testid="detail-compare-delta"
                               className={cn(
                                 'text-[10px] font-semibold shrink-0 text-right w-14',
-                                delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                                delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-violet-600' : 'text-muted-foreground'
                               )}
                             >
                               {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
@@ -1782,7 +1872,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                           {sameCur && !cheapestSelf && l.post.priceMax === cheapestPrice && (
                             <span
                               data-testid="detail-compare-cheapest"
-                              className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
+                              className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-100 rounded-full px-1.5 py-0.5 shrink-0"
                             >
                               Cheapest
                             </span>
@@ -1795,7 +1885,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             <ThumbsUp className="w-3 h-3" />
                             {rowVotes(l)}
                           </span>
-                          <span className="text-xs font-bold text-emerald-700 shrink-0">
+                          <span className="text-xs font-bold text-violet-700 shrink-0">
                             {l.post.currency} {l.post.priceMin}
                             {l.post.priceMin !== l.post.priceMax ? `-${l.post.priceMax}` : ''}
                           </span>
@@ -1870,7 +1960,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                   data-testid="detail-compare-delta"
                                   className={cn(
                                     'text-[10px] font-semibold shrink-0 text-right w-14',
-                                    delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                                    delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-violet-600' : 'text-muted-foreground'
                                   )}
                                 >
                                   {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
@@ -1887,7 +1977,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               {sameCur && !cheapestSelf && a.priceMax === cheapestPrice && (
                                 <span
                                   data-testid="detail-compare-cheapest"
-                                  className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
+                                  className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-100 rounded-full px-1.5 py-0.5 shrink-0"
                                 >
                                   Cheapest
                                 </span>
@@ -1900,7 +1990,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 <ThumbsUp className="w-3 h-3" />
                                 {a.helpfulCount ?? 0}
                               </span>
-                              <span className="text-xs font-bold text-emerald-700 shrink-0">
+                              <span className="text-xs font-bold text-violet-700 shrink-0">
                                 {a.currency} {a.priceMin}
                                 {a.priceMin !== a.priceMax ? `-${a.priceMax}` : ''}
                               </span>
@@ -1953,7 +2043,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
               )}
 
               {/* Consensus section */}
-              <div className="rounded-xl bg-emerald-50/50 border border-emerald-200 p-4">
+              <div className="rounded-xl bg-violet-50/50 border border-violet-200 p-4">
                 <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-primary" />
                   Local consensus
@@ -1970,13 +2060,13 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         {formatPrice(consensus.avgPriceMin, consensus.currency)} - {formatPrice(consensus.avgPriceMax, consensus.currency)}
                       </p>
                       {consensus.verdict === 'fair' && (
-                        <Badge className="bg-emerald-500 text-white">🟢 Fair price</Badge>
+                        <Badge className="bg-violet-500 text-white">🟢 Fair price</Badge>
                       )}
                       {consensus.verdict === 'expensive' && (
                         <Badge className="bg-orange-500 text-white">🟠 Above local average</Badge>
                       )}
                       {consensus.verdict === 'cheap' && (
-                        <Badge className="bg-emerald-500 text-white">🟢 Below market</Badge>
+                        <Badge className="bg-violet-500 text-white">🟢 Below market</Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1.5 italic">
@@ -2045,7 +2135,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             <span
                               className={cn(
                                 'flex items-center gap-0.5 text-xs w-16 justify-end shrink-0',
-                                change > 0 ? 'text-orange-600' : change < 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                                change > 0 ? 'text-orange-600' : change < 0 ? 'text-violet-600' : 'text-muted-foreground'
                               )}
                             >
                               {change > 0 ? (

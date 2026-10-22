@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import type { User, Conversation, Message } from '@/lib/types'
+import { avatarSrc } from '@/lib/fighters'
 
 interface MessageModalProps {
   open: boolean
@@ -207,7 +208,7 @@ export function MessageModal({
                     <Avatar className="w-10 h-10 border border-accent overflow-hidden">
                       {c.user.profilePicture ? (
                         <img
-                          src={c.user.profilePicture}
+                          src={avatarSrc(c.user.profilePicture)}
                           alt={c.user.name}
                           className="w-full h-full object-cover"
                         />
@@ -291,7 +292,7 @@ export function MessageModal({
                       <Avatar className="w-14 h-14 mx-auto border-2 border-accent overflow-hidden">
                         {activeUser.profilePicture ? (
                           <img
-                            src={activeUser.profilePicture}
+                            src={avatarSrc(activeUser.profilePicture)}
                             alt={activeUser.name}
                             className="w-full h-full object-cover"
                           />

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import type { PriceStory } from '@/lib/types'
+import { avatarSrc } from '@/lib/fighters'
 
 const SEEN_KEY = 'circub-seen-stories'
 const ADVANCE_MS = 6000
@@ -128,7 +129,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
                     {s.imageUrl ? (
                       <img src={s.imageUrl} alt="" className="w-full h-full rounded-full object-cover" loading="lazy" />
                     ) : (
-                      <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 flex items-center justify-center text-[8px] font-bold text-primary leading-none text-center px-0.5">
+                      <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-violet-100 dark:to-violet-950 flex items-center justify-center text-[8px] font-bold text-primary leading-none text-center px-0.5">
                         {priceBit(s).replace(/^(\S+)\s*/, '')}
                       </span>
                     )}
@@ -150,8 +151,8 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
               {/* Progress segments */}
               <div className="absolute top-2 left-2 right-2 z-10 flex gap-1">
                 {stories.map((s, i) => (
-                  <span key={s.id} className="h-0.5 flex-1 rounded-full bg-white/30 overflow-hidden">
-                    <span className={cn('block h-full bg-white transition-all', i < viewerIndex ? 'w-full' : i === viewerIndex ? 'w-full duration-[6000ms] ease-linear story-progress' : 'w-0')} />
+                  <span key={s.id} className="h-0.5 flex-1 rounded-full bg-card/30 overflow-hidden">
+                    <span className={cn('block h-full bg-card transition-all', i < viewerIndex ? 'w-full' : i === viewerIndex ? 'w-full duration-[6000ms] ease-linear story-progress' : 'w-0')} />
                   </span>
                 ))}
               </div>
@@ -159,7 +160,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
               <div className="absolute top-5 left-3 right-3 z-10 flex items-center gap-2">
                 <Avatar className="w-7 h-7 border border-white/40">
                   {current.author?.profilePicture ? (
-                    <img src={current.author.profilePicture} alt="" className="w-full h-full object-cover" />
+                    <img src={avatarSrc(current.author.profilePicture)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-primary/40 text-white text-[10px] font-semibold">{(current.author?.name || '?').charAt(0).toUpperCase()}</AvatarFallback>
                   )}
@@ -177,7 +178,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
               {current.imageUrl ? (
                 <img src={current.imageUrl} alt="" className="w-full aspect-[3/4] object-cover" data-testid="story-viewer-image" />
               ) : (
-                <div data-testid="story-viewer-banner" className="w-full aspect-[3/4] bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-3">
+                <div data-testid="story-viewer-banner" className="w-full aspect-[3/4] bg-gradient-to-br from-violet-600 via-primary to-violet-900 flex flex-col items-center justify-center text-center px-6 gap-3">
                   {(() => {
                     const pp = current.pricePost
                     if (!pp) return (
@@ -208,7 +209,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
                     size="sm"
                     data-testid="story-viewer-open-post"
                     onClick={() => { const pid = current.pricePostId!; setViewerIndex(-1); onOpenPost(pid) }}
-                    className="w-full bg-white text-black hover:bg-white/90 text-xs font-semibold gap-1.5"
+                    className="w-full bg-card text-black hover:bg-card/90 text-xs font-semibold gap-1.5"
                   >
                     View the price post
                   </Button>

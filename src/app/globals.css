@@ -43,95 +43,102 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* v205: the brand hue moves GREEN -> VIOLET (user: 'make the color from the
+   green to this' - the Quest Hub dark-purple reference). The light theme is
+   re-hued violet at the same lightness steps; the dark theme is the reference
+   surface itself: deep navy-violet panels (#141936 family), violet primary,
+   cyan/gold accents. Every component reads the tokens, so the flip is total. */
 :root {
   color-scheme: light;
   --radius: 0.625rem;
-  --background: oklch(0.985 0.005 145);
-  --foreground: oklch(0.18 0.02 145);
+  --background: oklch(0.985 0.005 295);
+  --foreground: oklch(0.18 0.02 295);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.02 145);
+  --card-foreground: oklch(0.18 0.02 295);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.02 145);
-  --primary: oklch(0.62 0.18 145);
-  --primary-foreground: oklch(0.985 0.005 145);
-  --secondary: oklch(0.96 0.01 145);
-  --secondary-foreground: oklch(0.205 0.02 145);
-  --muted: oklch(0.96 0.005 145);
-  --muted-foreground: oklch(0.5 0.01 145);
-  --accent: oklch(0.94 0.04 145);
-  --accent-foreground: oklch(0.25 0.1 145);
+  --popover-foreground: oklch(0.18 0.02 295);
+  --primary: oklch(0.62 0.18 295);
+  --primary-foreground: oklch(0.985 0.005 295);
+  --secondary: oklch(0.96 0.01 295);
+  --secondary-foreground: oklch(0.205 0.02 295);
+  --muted: oklch(0.96 0.005 295);
+  --muted-foreground: oklch(0.5 0.01 295);
+  --accent: oklch(0.94 0.04 295);
+  --accent-foreground: oklch(0.25 0.1 295);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.005 145);
-  --input: oklch(0.94 0.005 145);
-  --ring: oklch(0.62 0.18 145);
-  --chart-1: oklch(0.62 0.18 145);
-  --chart-2: oklch(0.7 0.18 130);
+  --border: oklch(0.92 0.005 295);
+  --input: oklch(0.94 0.005 295);
+  --ring: oklch(0.62 0.18 295);
+  --chart-1: oklch(0.62 0.18 295);
+  --chart-2: oklch(0.7 0.18 215);
   --chart-3: oklch(0.55 0.13 220);
   --chart-4: oklch(0.78 0.18 80);
   --chart-5: oklch(0.72 0.19 70);
-  --sidebar: oklch(0.985 0.005 145);
-  --sidebar-foreground: oklch(0.18 0.02 145);
-  --sidebar-primary: oklch(0.62 0.18 145);
-  --sidebar-primary-foreground: oklch(0.985 0.005 145);
-  --sidebar-accent: oklch(0.94 0.04 145);
-  --sidebar-accent-foreground: oklch(0.25 0.1 145);
-  --sidebar-border: oklch(0.92 0.005 145);
-  --sidebar-ring: oklch(0.62 0.18 145);
+  --sidebar: oklch(0.985 0.005 295);
+  --sidebar-foreground: oklch(0.18 0.02 295);
+  --sidebar-primary: oklch(0.62 0.18 295);
+  --sidebar-primary-foreground: oklch(0.985 0.005 295);
+  --sidebar-accent: oklch(0.94 0.04 295);
+  --sidebar-accent-foreground: oklch(0.25 0.1 295);
+  --sidebar-border: oklch(0.92 0.005 295);
+  --sidebar-ring: oklch(0.62 0.18 295);
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.16 0.012 150);
-  --foreground: oklch(0.955 0.005 150);
-  --card: oklch(0.205 0.015 150);
-  --card-foreground: oklch(0.955 0.005 150);
-  --popover: oklch(0.21 0.015 150);
-  --popover-foreground: oklch(0.955 0.005 150);
-  --primary: oklch(0.68 0.17 150);
-  --primary-foreground: oklch(0.985 0.005 145);
-  --secondary: oklch(0.26 0.02 150);
-  --secondary-foreground: oklch(0.955 0.005 150);
-  --muted: oklch(0.25 0.015 150);
-  --muted-foreground: oklch(0.70 0.015 150);
-  --accent: oklch(0.27 0.03 150);
-  --accent-foreground: oklch(0.955 0.005 150);
+  --background: oklch(0.185 0.04 285);
+  --foreground: oklch(0.955 0.01 290);
+  --card: oklch(0.225 0.045 285);
+  --card-foreground: oklch(0.955 0.01 290);
+  --popover: oklch(0.24 0.045 285);
+  --popover-foreground: oklch(0.955 0.01 290);
+  --primary: oklch(0.60 0.21 295);
+  --primary-foreground: oklch(0.985 0.005 295);
+  --secondary: oklch(0.285 0.05 288);
+  --secondary-foreground: oklch(0.955 0.01 290);
+  --muted: oklch(0.27 0.04 285);
+  --muted-foreground: oklch(0.72 0.025 288);
+  --accent: oklch(0.30 0.06 290);
+  --accent-foreground: oklch(0.955 0.01 290);
   --destructive: oklch(0.70 0.19 25);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.68 0.17 150);
-  --chart-1: oklch(0.68 0.17 150);
-  --chart-2: oklch(0.74 0.15 165);
+  --ring: oklch(0.60 0.21 295);
+  --chart-1: oklch(0.62 0.20 295);
+  --chart-2: oklch(0.76 0.12 215);
   --chart-3: oklch(0.65 0.13 220);
   --chart-4: oklch(0.78 0.15 80);
   --chart-5: oklch(0.72 0.16 70);
-  --sidebar: oklch(0.185 0.012 150);
-  --sidebar-foreground: oklch(0.955 0.005 150);
-  --sidebar-primary: oklch(0.68 0.17 150);
-  --sidebar-primary-foreground: oklch(0.985 0.005 145);
-  --sidebar-accent: oklch(0.27 0.03 150);
-  --sidebar-accent-foreground: oklch(0.955 0.005 150);
+  --sidebar: oklch(0.205 0.04 285);
+  --sidebar-foreground: oklch(0.955 0.01 290);
+  --sidebar-primary: oklch(0.60 0.21 295);
+  --sidebar-primary-foreground: oklch(0.985 0.005 295);
+  --sidebar-accent: oklch(0.30 0.06 290);
+  --sidebar-accent-foreground: oklch(0.955 0.01 290);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.68 0.17 150);
+  --sidebar-ring: oklch(0.60 0.21 295);
 
   /* Dark-mode retint: remap the light palette steps the UI hardcodes so
      tinted chips, cards, borders and dark-on-light texts stay readable on
-     the dark surface. Vivid mid steps (bg-emerald-500, fill-amber-400,
-     hover:bg-emerald-700...) are intentionally untouched - they already
+     the dark surface. Vivid mid steps (bg-violet-500, fill-amber-400,
+     hover:bg-violet-700...) are intentionally untouched - they already
      read well on dark. Overriding the CSS vars here (not the utilities)
-     means hover:/slash/gradient variants follow automatically. */
-  --color-emerald-50: oklch(0.27 0.035 155);
-  --color-emerald-100: oklch(0.31 0.05 155);
-  --color-emerald-200: oklch(0.34 0.05 155);
-  --color-emerald-300: oklch(0.38 0.06 155);
-  --color-emerald-600: oklch(0.72 0.14 160);
-  --color-emerald-700: oklch(0.76 0.14 162);
-  --color-emerald-800: oklch(0.80 0.13 163);
-  --color-emerald-900: oklch(0.84 0.12 164);
-  --color-green-50: oklch(0.27 0.035 150);
-  --color-green-100: oklch(0.31 0.05 150);
-  --color-green-200: oklch(0.34 0.05 150);
-  --color-green-600: oklch(0.74 0.15 152);
-  --color-green-700: oklch(0.78 0.15 152);
+     means hover:/slash/gradient variants follow automatically.
+     v205: the old green/emerald retints re-hued to the violet family so no
+     green survives anywhere. */
+  --color-emerald-50: oklch(0.27 0.04 293);
+  --color-emerald-100: oklch(0.31 0.05 293);
+  --color-emerald-200: oklch(0.34 0.05 293);
+  --color-emerald-300: oklch(0.38 0.06 293);
+  --color-emerald-600: oklch(0.72 0.14 294);
+  --color-emerald-700: oklch(0.76 0.14 294);
+  --color-emerald-800: oklch(0.80 0.13 294);
+  --color-emerald-900: oklch(0.84 0.12 294);
+  --color-green-50: oklch(0.27 0.04 292);
+  --color-green-100: oklch(0.31 0.05 292);
+  --color-green-200: oklch(0.34 0.05 292);
+  --color-green-600: oklch(0.74 0.15 292);
+  --color-green-700: oklch(0.78 0.15 292);
   --color-orange-50: oklch(0.27 0.035 55);
   --color-orange-100: oklch(0.31 0.05 55);
   --color-orange-200: oklch(0.34 0.05 55);
@@ -182,30 +189,30 @@
   --color-yellow-100: oklch(0.32 0.055 95);
   --color-yellow-600: oklch(0.80 0.14 90);
   --color-yellow-700: oklch(0.83 0.13 90);
-  --color-zinc-50: oklch(0.23 0 0);
-  --color-zinc-100: oklch(0.26 0 0);
-  --color-zinc-200: oklch(0.30 0 0);
-  --color-zinc-300: oklch(0.40 0 0);
-  --color-zinc-600: oklch(0.68 0 0);
-  --color-zinc-700: oklch(0.74 0 0);
-  --color-zinc-800: oklch(0.82 0 0);
-  --color-zinc-900: oklch(0.955 0 0);
-  --color-slate-50: oklch(0.23 0.008 255);
-  --color-slate-100: oklch(0.26 0.01 255);
-  --color-slate-200: oklch(0.30 0.01 255);
-  --color-slate-300: oklch(0.40 0.01 255);
-  --color-slate-500: oklch(0.62 0.01 255);
-  --color-slate-600: oklch(0.68 0.01 255);
-  --color-slate-700: oklch(0.74 0.01 255);
-  --color-slate-800: oklch(0.80 0.01 255);
-  --color-slate-900: oklch(0.955 0 0);
-  --color-gray-50: oklch(0.23 0 0);
-  --color-gray-100: oklch(0.26 0 0);
-  --color-gray-200: oklch(0.30 0 0);
-  --color-gray-600: oklch(0.68 0 0);
-  --color-gray-700: oklch(0.74 0 0);
-  --color-gray-800: oklch(0.82 0 0);
-  --color-gray-900: oklch(0.955 0 0);
+  --color-zinc-50: oklch(0.23 0.01 285);
+  --color-zinc-100: oklch(0.26 0.012 285);
+  --color-zinc-200: oklch(0.30 0.015 285);
+  --color-zinc-300: oklch(0.40 0.02 285);
+  --color-zinc-600: oklch(0.68 0.02 285);
+  --color-zinc-700: oklch(0.74 0.02 285);
+  --color-zinc-800: oklch(0.82 0.015 285);
+  --color-zinc-900: oklch(0.955 0.01 290);
+  --color-slate-50: oklch(0.23 0.015 285);
+  --color-slate-100: oklch(0.26 0.02 285);
+  --color-slate-200: oklch(0.30 0.025 285);
+  --color-slate-300: oklch(0.40 0.03 285);
+  --color-slate-500: oklch(0.62 0.03 285);
+  --color-slate-600: oklch(0.68 0.03 285);
+  --color-slate-700: oklch(0.74 0.03 285);
+  --color-slate-800: oklch(0.80 0.025 285);
+  --color-slate-900: oklch(0.955 0.01 290);
+  --color-gray-50: oklch(0.23 0.012 285);
+  --color-gray-100: oklch(0.26 0.015 285);
+  --color-gray-200: oklch(0.30 0.02 285);
+  --color-gray-600: oklch(0.68 0.02 285);
+  --color-gray-700: oklch(0.74 0.02 285);
+  --color-gray-800: oklch(0.82 0.015 285);
+  --color-gray-900: oklch(0.955 0.01 290);
 }
 
 @layer base {

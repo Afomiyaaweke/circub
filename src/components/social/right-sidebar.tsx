@@ -21,14 +21,19 @@ import {
   UserCircle,
   ChevronUp,
   ChevronDown,
+  Share2,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { TopPostersCard } from './top-posters-card'
+import { cn } from '@/lib/utils'
 import type { User, Trend, LocalPricePost } from '@/lib/types'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
+import { fighterFromPicture, levelFromRating, avatarSrc } from '@/lib/fighters'
+import { levelTitle } from '@/lib/arena'
+import { profileLink } from '@/lib/username'
 
 interface RightSidebarProps {
   refreshSignal: number
@@ -66,6 +71,35 @@ export function RightSidebar({
     { label: 'Connections', value: user?.connectionsCount ?? 0, icon: Users },
     { label: 'Likes', value: user?.likesCount ?? 0, icon: Heart },
   ]
+
+  // v205: the profile is SHARABLE from the card - the native share sheet
+  // (phones) or a clipboard copy with the fighter-card text + profile link.
+  const handleShareProfile = async () => {
+    if (!user || user.id === 'guest') {
+      dispatchAuthExpired('guest-share')
+      return
+    }
+    const handle = user.username || ''
+    const link = handle
+      ? profileLink(handle)
+      : typeof window !== 'undefined' ? window.location.origin : ''
+    const lvl = levelFromRating(user.helpfulVotes, user.localPostCount)
+    const fighter = fighterFromPicture(user.profilePicture)
+    const text = `${fighter ? `${fighter.name} the ${fighter.epithet} · ` : ''}LVL ${lvl} ${levelTitle(lvl)} - ${user.helpfulVotes ?? 0} helpful votes on ${user.localPostCount ?? 0} deals. Challenge my fighter on circubAwd!`
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: `${user.name} on circubAwd`, text, url: link })
+        return
+      }
+      await navigator.clipboard.writeText(`${text} ${link}`)
+      toast({ title: 'Profile copied', description: 'Your fighter card + link - paste it anywhere.' })
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return
+      toast({ title: 'Your profile card', description: text })
+    }
+  }
+
+  const equippedFighter = fighterFromPicture(user?.profilePicture ?? null)
 
   useEffect(() => {
     // v136: top-posters moved into the shared TopPostersCard (it fetches
@@ -129,7 +163,7 @@ export function RightSidebar({
       {/* Profile card - the only profile show, on the right side */}
       <Card className="overflow-hidden p-0 shadow-sm">
         {/* Cover banner */}
-        <div className="h-16 sm:h-20 bg-gradient-to-br from-primary to-emerald-400" />
+        <div className="h-16 sm:h-20 bg-gradient-to-br from-primary to-violet-400" />
 
         <div className="px-4 pb-4 -mt-8 sm:-mt-9 flex flex-col items-center text-center">
           {/* Profile picture - tap toggles all info */}
@@ -139,8 +173,8 @@ export function RightSidebar({
             aria-label={profileExpanded ? 'Collapse profile info' : 'Expand profile info'}
           >
             {user?.profilePicture ? (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md overflow-hidden">
-                <img src={user.profilePicture} alt={user?.name || 'Profile'} className="w-full h-full object-cover" />
+              <div className={cn('w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md overflow-hidden', equippedFighter && 'ring-2 ring-violet-400/70 ring-offset-2 ring-offset-card')}>
+                <img src={avatarSrc(user.profilePicture)} alt={user?.name || 'Profile'} className="w-full h-full object-cover" />
               </div>
             ) : (
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md flex items-center justify-center text-primary font-bold text-xl sm:text-2xl">
@@ -231,6 +265,16 @@ export function RightSidebar({
 
               {/* Action buttons */}
               <div className="flex flex-col gap-2">
+                {user && user.id !== 'guest' && (
+                  <button
+                    onClick={handleShareProfile}
+                    data-testid="profile-share"
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 transition-colors shadow-sm"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    Share profile
+                  </button>
+                )}
                 <button
                   onClick={onEditProfile}
                   className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-primary hover:bg-accent/40 transition-colors border border-primary/20"

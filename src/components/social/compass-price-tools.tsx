@@ -161,7 +161,7 @@ function spanDays(fromIso: string, toIso: string): number {
 // Cheapest-cell highlight shared by the compare table cells.
 function cheapClass(cheap: boolean): string {
   return cheap
-    ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+    ? 'text-violet-600 dark:text-violet-400 font-bold'
     : 'text-foreground'
 }
 
@@ -852,13 +852,13 @@ export function CompassPriceTools() {
                     Here are {researchRows.length} prices posted recently for the {chosenNames.length}{' '}product{chosenNames.length !== 1 ? 's' : ''} on your list.
                   </p>
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="border-l-4 border-emerald-500 pl-3" data-testid="compass-stat-avg">
+                    <div className="border-l-4 border-violet-500 pl-3" data-testid="compass-stat-avg">
                       <b className="block text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                         {money(myTotals.av, cur)}
                       </b>
                       <span className="text-xs text-muted-foreground">Average for the list</span>
                     </div>
-                    <div className="border-l-4 border-emerald-400 pl-3" data-testid="compass-stat-low">
+                    <div className="border-l-4 border-violet-400 pl-3" data-testid="compass-stat-low">
                       <b className="block text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                         {money(myTotals.lo, cur)}
                       </b>
@@ -876,7 +876,7 @@ export function CompassPriceTools() {
                   {myTotals.hi > myTotals.lo && (
                     <div className="mt-5">
                       <div
-                        className="relative h-2.5 rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-amber-500"
+                        className="relative h-2.5 rounded-full bg-gradient-to-r from-violet-500 via-amber-400 to-amber-500"
                         data-testid="compass-range"
                       >
                         <span
@@ -903,7 +903,7 @@ export function CompassPriceTools() {
                             'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold',
                             trend > 0
                               ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                              : 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
                           )}
                         >
                           {trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -975,7 +975,7 @@ export function CompassPriceTools() {
                           <div className="text-right shrink-0">
                             <p className="text-sm font-bold text-foreground">{money(r.price, cur)}</p>
                             {r.lowest && (
-                              <span className="inline-block mt-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 text-[10px] font-semibold">
+                              <span className="inline-block mt-0.5 rounded bg-violet-500/15 text-violet-600 dark:text-violet-400 px-1.5 text-[10px] font-semibold">
                                 Lowest
                               </span>
                             )}
@@ -996,7 +996,7 @@ export function CompassPriceTools() {
                 </div>
               )}
 
-              <div className="mt-4 rounded-xl bg-emerald-500/10 border border-border p-3.5 flex items-start gap-2">
+              <div className="mt-4 rounded-xl bg-violet-500/10 border border-border p-3.5 flex items-start gap-2">
                 <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs sm:text-sm text-foreground">
                   {mover && mover.ch >= 5
@@ -1174,12 +1174,12 @@ export function CompassPriceTools() {
                     Tap a location name to make it your shopping location.
                   </p>
                   <div
-                    className="mt-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3.5 flex items-start gap-2"
+                    className="mt-3 rounded-xl bg-violet-500/10 border border-violet-500/30 p-3.5 flex items-start gap-2"
                     data-testid="compass-best-result"
                   >
                     <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <p className="text-xs sm:text-sm text-foreground">
-                      <b className="text-emerald-700 dark:text-emerald-400">Best result:</b>{' '}
+                      <b className="text-violet-700 dark:text-violet-400">Best result:</b>{' '}
                       {bestPlace && bestPlace.key === myPlace ? (
                         <>
                           your list is cheapest in <b>{bestPlace.short}</b> - the place you are
@@ -1373,13 +1373,13 @@ export function CompassPriceTools() {
                     What to set aside for {myShort}
                   </h4>
                   <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="border-l-4 border-emerald-400 pl-3" data-testid="compass-budget-best">
+                    <div className="border-l-4 border-violet-400 pl-3" data-testid="compass-budget-best">
                       <b className="block text-lg sm:text-xl font-bold tracking-tight text-foreground">
                         {money(myTotals.lo, cur)}
                       </b>
                       <span className="text-xs text-muted-foreground">Best case</span>
                     </div>
-                    <div className="border-l-4 border-emerald-500 pl-3" data-testid="compass-budget-typical">
+                    <div className="border-l-4 border-violet-500 pl-3" data-testid="compass-budget-typical">
                       <b className="block text-lg sm:text-xl font-bold tracking-tight text-foreground">
                         {money(myTotals.av, cur)}
                       </b>
@@ -1392,7 +1392,7 @@ export function CompassPriceTools() {
                       <span className="text-xs text-muted-foreground">Worst case</span>
                     </div>
                   </div>
-                  <div className="mt-3 rounded-xl bg-emerald-500/10 border border-border p-3.5 flex items-start gap-2">
+                  <div className="mt-3 rounded-xl bg-violet-500/10 border border-border p-3.5 flex items-start gap-2">
                     <Wallet className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <p className="text-xs sm:text-sm text-foreground">
                       To shop in {myPlace}
@@ -1443,12 +1443,12 @@ export function CompassPriceTools() {
                       className="mt-1.5 text-sm text-foreground"
                       data-testid="compass-budget-locate-best"
                     >
-                      <span className="inline-block rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white mr-1">
+                      <span className="inline-block rounded-full bg-violet-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white mr-1">
                         Best result
                       </span>{' '}
                       Within your {money(budgetNum, cur)} budget the best price is{' '}
                       <b>{budgetBest.short}</b> - the typical total there is{' '}
-                      <b className="text-emerald-600 dark:text-emerald-400">
+                      <b className="text-violet-600 dark:text-violet-400">
                         {money(budgetBest.total, cur)}
                       </b>
                       , {money(budgetNum - budgetBest.total, cur)} under budget - and that
@@ -1534,7 +1534,7 @@ export function CompassPriceTools() {
                                 <span className="truncate">{p.short}</span>
                                 {mostLiked && (
                                   <span
-                                    className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
+                                    className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 px-1.5 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-400"
                                     data-testid="compass-budget-most-liked"
                                   >
                                     <ThumbsUp className="w-2.5 h-2.5" />
@@ -1557,7 +1557,7 @@ export function CompassPriceTools() {
                                   'block text-sm font-bold tracking-tight',
                                   full
                                     ? fits
-                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      ? 'text-violet-600 dark:text-violet-400'
                                       : 'text-amber-600 dark:text-amber-400'
                                     : 'text-foreground',
                                 )}
@@ -1582,7 +1582,7 @@ export function CompassPriceTools() {
                       type="button"
                       data-testid="compass-budget-locate-switch"
                       onClick={() => setMyPlace(budgetBest.key)}
-                      className="mt-2 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                      className="mt-2 rounded-full border border-violet-500/40 px-3 py-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors cursor-pointer"
                     >
                       Shop at {budgetBest.short} instead
                     </button>
@@ -1623,7 +1623,7 @@ export function CompassPriceTools() {
                           className={cn(
                             'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
                             diff < 0
-                              ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
+                              ? 'border-violet-500/40 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10'
                               : 'border-border text-muted-foreground hover:text-foreground',
                           )}
                         >

@@ -15,11 +15,12 @@ import { BadgeCheck as VerifiedIcon, Building2, LayoutGrid, Link2, MapPin } from
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { avatarSrc } from '@/lib/fighters'
 
 export const dynamic = 'force-dynamic'
 
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-green-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -158,7 +159,7 @@ export default async function SharedProfilePage({ params }: { params: Promise<{ 
         <div className="pt-8 flex items-center gap-6 sm:gap-10">
           <div className="shrink-0">
             {user.profilePicture ? (
-              <img src={user.profilePicture} alt={user.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-accent" />
+              <img src={avatarSrc(user.profilePicture)} alt={user.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-accent" />
             ) : (
               <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-2 border-accent">
                 <AvatarFallback className={`${colorCls} text-white font-bold text-2xl`}>{user.name.charAt(0).toUpperCase()}</AvatarFallback>

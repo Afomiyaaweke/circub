@@ -222,7 +222,7 @@ export function PostCard({
               <span
                 data-testid="post-near-you"
                 title={post.distanceKm != null ? `About ${post.distanceKm} km away` : 'This person is near you'}
-                className="shrink-0 self-start inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5"
+                className="shrink-0 self-start inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-100 rounded-full px-2 py-0.5"
               >
                 <MapPin className="w-2.5 h-2.5" />
                 Near you

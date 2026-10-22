@@ -45,7 +45,7 @@ export function CopyLinkButton({ url, title, text, label = 'Share guide link' }:
       className="gap-2 rounded-full"
     >
       {copied ? (
-        <><Check className="w-4 h-4 text-emerald-600" />Link copied</>
+        <><Check className="w-4 h-4 text-violet-600" />Link copied</>
       ) : (
         <><Share2 className="w-4 h-4" />{label}</>
       )}

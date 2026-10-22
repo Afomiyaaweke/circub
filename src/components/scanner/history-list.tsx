@@ -16,7 +16,7 @@ interface HistoryListProps {
 
 export function HistoryList({ history, onSelect, onClear, activeId }: HistoryListProps) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white">
+    <div className="rounded-xl border border-zinc-200 bg-card">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-zinc-400" />
@@ -45,7 +45,7 @@ export function HistoryList({ history, onSelect, onClear, activeId }: HistoryLis
                   <button
                     onClick={() => onSelect(entry)}
                     className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition ${
-                      activeId === entry.id ? 'bg-emerald-50 ring-1 ring-emerald-500/30' : 'hover:bg-zinc-50'
+                      activeId === entry.id ? 'bg-violet-50 ring-1 ring-violet-500/30' : 'hover:bg-zinc-50'
                     }`}
                   >
                     {entry.thumbnail ? (

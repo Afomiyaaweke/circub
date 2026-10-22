@@ -129,7 +129,7 @@ export function DeactivateAccountModal({
           <>
             <DialogHeader className="mb-4">
               <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
-                <CircleCheck className="w-5 h-5 text-emerald-600" />
+                <CircleCheck className="w-5 h-5 text-violet-600" />
                 Account deactivated
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">

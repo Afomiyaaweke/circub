@@ -70,6 +70,9 @@ export async function GET() {
       // v135: HELPFUL votes the poster's price posts earned (the "best vote"
       // counter next to the rating chip on the profile tab strip).
       helpfulVotes: me.helpfulVotes,
+      // v205: lifetime price posts - the second XP source for the fighter
+      // roster unlock math (same numbers the Weekly Hustle arena plays with).
+      localPostCount: me.localPostCount,
       // Live Zone roles: parsed array (legacy null -> ['guide'] client-side).
       guideRoles: me.guideRoles,
       guideVideoUrls: me.guideVideoUrls,

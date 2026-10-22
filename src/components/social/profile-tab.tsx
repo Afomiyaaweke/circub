@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
   AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Image as ImageIcon, Languages, LayoutGrid, Loader2,
-  Check, Lightbulb, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Trash2, Trophy, UserCircle, Users, X,
+  Check, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, X,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -38,6 +38,8 @@ import { TopPostersCard } from './top-posters-card'
 // publishes the price guide AND the product listing in one save.
 import { CreatePricePostModal } from './create-price-post-modal'
 import type { User } from '@/lib/types'
+import { avatarSrc, FIGHTERS, fighterFromPicture, fighterPicture, fighterUnlocked, levelFromRating, votesToUnlock } from '@/lib/fighters'
+import { levelTitle } from '@/lib/arena'
 
 interface ProfileTabProps {
   me: User
@@ -554,18 +556,35 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       return
     }
     const link = profileLink(handle)
+    // v205: the share IS the fighter card - LVL, earned title, rating stats
+    // and the equipped fighter name, so the profile reads like a game card
+    // wherever it lands (WhatsApp, X, Telegram...).
+    const lvl = levelFromRating(me.helpfulVotes, me.localPostCount)
+    const myFighter = fighterFromPicture(me.profilePicture ?? null) ?? fighterFromPicture(profilePicture)
+    const shareText = `${myFighter ? `${myFighter.name} the ${myFighter.epithet} · ` : ''}LVL ${lvl} ${levelTitle(lvl)} - ${me.helpfulVotes ?? 0} helpful votes on ${me.localPostCount ?? 0} deals. Challenge my fighter on circubAwd!`
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: `${me.name} on circubAwd`, url: link })
+        await navigator.share({ title: `${me.name} on circubAwd`, text: shareText, url: link })
         return
       }
-      await navigator.clipboard.writeText(link)
-      toast({ title: 'Profile link copied', description: link.replace(/^https?:\/\//, '') })
+      await navigator.clipboard.writeText(`${shareText} ${link}`)
+      toast({ title: 'Profile copied', description: 'Your fighter card + link - paste it anywhere.' })
     } catch {
       // Clipboard blocked (or share dismissed) - show it so the user can copy manually.
-      toast({ title: 'Your profile link', description: link.replace(/^https?:\/\//, '') })
+      toast({ title: 'Your profile card', description: shareText })
     }
   }
+
+  // v205: fighter roster state - the unlock math runs on the SAME arena XP
+  // the Weekly Hustle plays with, so Helpful votes on the user's service
+  // level the roster up ("good rating for their service").
+  const myLevel = levelFromRating(me.helpfulVotes, me.localPostCount)
+  const currentFighter = fighterFromPicture(profilePicture)
+  const fighterCards = FIGHTERS.map((f) => ({
+    ...f,
+    unlocked: fighterUnlocked(f, myLevel),
+    votesNeeded: votesToUnlock(f, me.helpfulVotes, me.localPostCount),
+  }))
 
   const saveProfile = async () => {
     if (!name.trim()) { toast({ title: 'Name is required', variant: 'destructive' }); return }
@@ -701,7 +720,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {item.imageUrl ? (
                 <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-emerald-500/10 to-teal-500/15 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-violet-500/10 to-teal-500/15 flex items-center justify-center">
                   {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
                 </div>
               )}
@@ -787,7 +806,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <div className="flex items-center gap-4">
               <div className="relative">
                 {avatarPreview || profilePicture ? (
-                  <img src={avatarPreview ?? profilePicture ?? undefined} alt={name} className={cn('w-20 h-20 rounded-full object-cover border-2 border-accent', uploading && 'opacity-80')} data-testid="avatar-preview" />
+                  <img src={avatarPreview ?? avatarSrc(profilePicture)} alt={name} className={cn('w-20 h-20 rounded-full object-cover border-2 border-accent', uploading && 'opacity-80')} data-testid="avatar-preview" />
                 ) : (
                   <Avatar className="w-20 h-20 border-2 border-accent"><AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{name.charAt(0).toUpperCase() || '?'}</AvatarFallback></Avatar>
                 )}
@@ -802,6 +821,58 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </div>
             </div>
 
+            {/* v205: FIGHTER CHARACTER - the anime fighter roster, editable
+                right here on the profile. The equipped fighter persists
+                through profilePicture ('fighter:<id>') and shows up on every
+                avatar surface + the share card. Higher fighters unlock with
+                Helpful votes on your deals (the service rating). */}
+            <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 space-y-3" data-testid="fighter-section">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5"><Swords className="w-4 h-4 text-violet-500" />Fighter character</h3>
+                <span data-testid="fighter-level-chip" className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-400/40 px-2 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                  LVL {myLevel} · {levelTitle(myLevel)}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Pick the fighter that represents you in the arena and on your share card. Higher fighters unlock with Helpful votes on your deals - every vote is +100 XP.</p>
+              <div className="grid grid-cols-3 gap-2" data-testid="fighter-grid">
+                {fighterCards.map((f) => {
+                  const equipped = currentFighter?.id === f.id
+                  const locked = !f.unlocked
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      data-testid={`fighter-card-${f.id}`}
+                      data-locked={locked ? 'true' : 'false'}
+                      onClick={() => {
+                        if (locked) {
+                          toast({ title: `${f.name} is locked`, description: `Reach LVL ${f.unlockLevel} - ${f.votesNeeded} more Helpful votes to go.` })
+                          return
+                        }
+                        setProfilePicture(fighterPicture(f.id))
+                        toast({ title: `${f.name} equipped`, description: 'Save to lock in your fighter.' })
+                      }}
+                      className={cn(
+                        'relative rounded-lg border p-2 flex flex-col items-center gap-1 transition-all',
+                        equipped ? 'border-violet-500 bg-violet-500/10 shadow-md shadow-violet-500/20 ring-2 ring-violet-400/60'
+                          : locked ? 'border-border bg-card opacity-60 grayscale'
+                          : 'border-border bg-card hover:border-violet-400/60 hover:bg-violet-500/5'
+                      )}
+                    >
+                      <img src={f.img} alt={f.name} className={cn('w-14 h-14 rounded-full object-cover ring-2', equipped ? f.ring : 'ring-transparent')} />
+                      {equipped && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-violet-600 text-white flex items-center justify-center"><Check className="w-3 h-3" /></span>}
+                      {locked && <Lock className="absolute top-1 right-1 w-3.5 h-3.5 text-muted-foreground" />}
+                      <span className="text-[11px] font-bold text-foreground leading-none">{f.name}</span>
+                      <span className="text-[9px] text-muted-foreground leading-none text-center">{locked ? `LVL ${f.unlockLevel} · +${f.votesNeeded} votes` : f.epithet}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {currentFighter && (
+                <p className="text-[10px] text-muted-foreground" data-testid="fighter-equipped">Equipped: {currentFighter.name} · {currentFighter.epithet}</p>
+              )}
+            </div>
+
             <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><UserCircle className="w-3.5 h-3.5" />Full name *</label><Input placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} /></div>
             {/* Username - the unique ID people use to find + share this profile */}
             <div className="space-y-1.5">
@@ -812,17 +883,17 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   placeholder="yourname"
                   value={username}
                   onChange={(e) => setUsername(normalizeUsername(e.target.value))}
-                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-green-500/60 focus-visible:ring-green-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
+                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-violet-500/60 focus-visible:ring-violet-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
                   autoComplete="off"
                   spellCheck={false}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2">
                   {uStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                  {uStatus === 'available' && <Check className="w-4 h-4 text-green-600" />}
+                  {uStatus === 'available' && <Check className="w-4 h-4 text-violet-600" />}
                 </span>
               </div>
               {uMsg ? (
-                <p className={cn('text-[10px]', uStatus === 'available' && 'text-green-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
+                <p className={cn('text-[10px]', uStatus === 'available' && 'text-violet-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
                 <p className="text-[10px] text-muted-foreground">Your unique ID - your profile lives at <span className="font-semibold">circubAwd.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
               )}
@@ -1117,7 +1188,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <div className="rounded-full bg-background p-[2px]">
               <Avatar className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden">
                 {me.profilePicture ? (
-                  <img src={me.profilePicture} alt={me.name} className="w-full h-full object-cover" />
+                  <img src={avatarSrc(me.profilePicture)} alt={me.name} className="w-full h-full object-cover" />
                 ) : (
                   <AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{me.name.charAt(0).toUpperCase()}</AvatarFallback>
                 )}
@@ -1177,7 +1248,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {stories.length > 0 && (stories[stories.length - 1].imageUrl ? (
                 <img src={stories[stories.length - 1].imageUrl!} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
               ) : (
-                <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 opacity-60" />
+                <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-violet-100 dark:to-violet-950 opacity-60" />
               ))}
             </div>
             <span className="text-[10px] text-muted-foreground">Your story</span>
@@ -1189,7 +1260,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   {s.imageUrl ? (
                     <img src={s.imageUrl} alt="Your story" className="w-full h-full rounded-full object-cover" loading="lazy" />
                   ) : (
-                    <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 flex items-center justify-center text-[7px] font-bold text-primary leading-none text-center px-0.5">
+                    <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-violet-100 dark:to-violet-950 flex items-center justify-center text-[7px] font-bold text-primary leading-none text-center px-0.5">
                       {s.pricePost ? `${s.pricePost.currency} ${s.pricePost.priceMin}` : 'Price'}
                     </span>
                   )}
@@ -1297,8 +1368,8 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {/* progress segments */}
               <div className="absolute top-2 inset-x-2 z-20 flex gap-1">
                 {stories.map((_, i) => (
-                  <div key={i} className="h-0.5 flex-1 rounded-full overflow-hidden bg-white/30">
-                    <div className={cn('h-full bg-white transition-all duration-500', i < viewerIndex ? 'w-full' : i === viewerIndex ? 'w-full' : 'w-0')} />
+                  <div key={i} className="h-0.5 flex-1 rounded-full overflow-hidden bg-card/30">
+                    <div className={cn('h-full bg-card transition-all duration-500', i < viewerIndex ? 'w-full' : i === viewerIndex ? 'w-full' : 'w-0')} />
                   </div>
                 ))}
               </div>
@@ -1306,7 +1377,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               <div className="absolute top-5 inset-x-2 z-20 flex items-center gap-2">
                 <Avatar className="w-7 h-7 overflow-hidden">
                   {stories[viewerIndex].author?.profilePicture ? (
-                    <img src={stories[viewerIndex].author!.profilePicture!} alt="" className="w-full h-full object-cover" />
+                    <img src={avatarSrc(stories[viewerIndex].author!.profilePicture!)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-primary/30 text-white text-[10px] font-bold">{me.name.charAt(0).toUpperCase()}</AvatarFallback>
                   )}
@@ -1315,10 +1386,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 <span className="text-[10px] text-white/70">{timeAgo(stories[viewerIndex].createdAt)}</span>
                 <div className="ml-auto flex items-center gap-1">
                   <button onClick={() => setConfirm({ kind: 'story', id: stories[viewerIndex].id, label: 'Story' })}
-                    className="p-1.5 rounded-full hover:bg-white/15 text-white" aria-label="Delete story">
+                    className="p-1.5 rounded-full hover:bg-card/15 text-white" aria-label="Delete story">
                     <Trash2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => setViewerIndex(-1)} className="p-1.5 rounded-full hover:bg-white/15 text-white" aria-label="Close story">
+                  <button onClick={() => setViewerIndex(-1)} className="p-1.5 rounded-full hover:bg-card/15 text-white" aria-label="Close story">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -1327,7 +1398,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {stories[viewerIndex].imageUrl ? (
                 <img src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
               ) : (
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-2">
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-violet-600 via-primary to-violet-900 flex flex-col items-center justify-center text-center px-6 gap-2">
                   {stories[viewerIndex].pricePost && (
                     <>
                       <span className="text-3xl font-black text-white drop-shadow">
@@ -1484,7 +1555,7 @@ function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel, badge }: {
       {imageUrl ? (
         <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-emerald-500/10 to-teal-500/20 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-violet-500/10 to-teal-500/20 flex items-center justify-center">
           <ImageIcon className="w-7 h-7 text-primary/40" />
         </div>
       )}

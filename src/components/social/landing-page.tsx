@@ -1,16 +1,16 @@
 'use client'
 
 // v186: the landing page is reskinned to the user's dark-teal design mockup
-// (screenshot: dark #162930 header band, centered white-circle logo +
-// wordmark, lime #e6ff32 monospace uppercase CTA pill, a thin #e4e4e4
+// (screenshot: dark #171b36 header band, centered white-circle logo +
+// wordmark, lime #a78bfa monospace uppercase CTA pill, a thin #e4e4e4
 // hairline under the header, and a green progress bar with a "% completed"
 // caption). The whole page is now ALWAYS dark - independent of the app
 // theme tokens - with explicit hex classes so the landing looks identical
 // in light and dark mode.
 //
 // What changed vs v139's light marketing page:
-//   - palette: page #162930, deep wells #0a1e25, cards #1b3340, headings
-//     white, body #a8bcc4, accent LIME #e6ff32, progress green #41a050,
+//   - palette: page #171b36, deep wells #131730, cards #1e2444, headings
+//     white, body #b8bddc, accent LIME #a78bfa, progress green #8b5cf6,
 //     track #e5e7eb - sampled from the user's screenshot.
 //   - nav mirrors the mockup: centered logo + wordmark (absolute), mono
 //     uppercase section links on the left, controls on the right, and a
@@ -67,23 +67,23 @@ import { useLanguage } from '@/lib/i18n'
 
 // v186 palette - sampled from the user's dark mockup (upload screenshot).
 const C = {
-  page: '#162930', // dark teal page background
-  well: '#0a1e25', // deeper wells: BACK-style pills, board rows, CTA band
-  card: '#1b3340', // raised card surface
-  band: '#0f232b', // alternating section bands
-  lime: '#e6ff32', // primary accent (CTAs, eyebrows, checks)
-  limeHover: '#d9f226',
-  green: '#41a050', // progress fill / logo gradient
-  greenDk: '#068521',
+  page: '#171b36', // dark teal page background
+  well: '#131730', // deeper wells: BACK-style pills, board rows, CTA band
+  card: '#1e2444', // raised card surface
+  band: '#141832', // alternating section bands
+  lime: '#a78bfa', // primary accent (CTAs, eyebrows, checks)
+  limeHover: '#8b5cf6',
+  green: '#8b5cf6', // progress fill / logo gradient
+  greenDk: '#6d28d9',
   track: '#e5e7eb', // progress track
   hair: '#e4e4e4', // the mockup's light hairline
-  body: '#a8bcc4', // body text
-  faint: '#8fa6ae', // faint meta text
+  body: '#b8bddc', // body text
+  faint: '#a5aad0', // faint meta text
 }
 
 // Shared lime CTA treatment - the mockup's "SUBMIT APPLICATION" pill.
 const LIME_BTN =
-  'bg-[#e6ff32] text-[#0a1e25] hover:bg-[#d9f226] hover:text-[#0a1e25] font-mono uppercase tracking-[0.16em]'
+  'bg-[#a78bfa] text-[#131730] hover:bg-[#8b5cf6] hover:text-[#131730] font-mono uppercase tracking-[0.16em]'
 
 // Real counts, computed on the server (page.tsx) and passed down, so the
 // stats band can never drift into marketing fiction - it shows what the
@@ -204,7 +204,7 @@ const STEPS = [
 // Same avatar palette as the app (top-posters-card, /u share profiles) -
 // every face on this page is an initial on a brand color, never an <img>.
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-green-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -223,8 +223,8 @@ function InitialAvatar({ name, color, className = 'w-9 h-9 text-xs' }: { name: s
 // The mockup's centered brand mark: a white disc with the green gradient C.
 function BrandMark({ size = 'h-9 w-9 text-base' }: { size?: string }) {
   return (
-    <span className={`grid ${size} shrink-0 place-items-center rounded-full bg-white shadow-sm`} aria-hidden="true">
-      <span className="bg-gradient-to-br from-[#41a050] via-[#0f8a33] to-[#068521] bg-clip-text font-bold text-transparent">C</span>
+    <span className={`grid ${size} shrink-0 place-items-center rounded-full bg-card shadow-sm`} aria-hidden="true">
+      <span className="bg-gradient-to-br from-[#8b5cf6] via-[#7c3aed] to-[#6d28d9] bg-clip-text font-bold text-transparent">C</span>
     </span>
   )
 }
@@ -232,9 +232,9 @@ function BrandMark({ size = 'h-9 w-9 text-base' }: { size?: string }) {
 function SectionHeading({ eyebrow, title, sub, center = true }: { eyebrow: string; title: string; sub?: string; center?: boolean }) {
   return (
     <div className={center ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
-      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">{eyebrow}</p>
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">{eyebrow}</p>
       <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">{title}</h2>
-      {sub && <p className="mt-3 text-sm leading-relaxed text-[#a8bcc4] sm:text-base">{sub}</p>}
+      {sub && <p className="mt-3 text-sm leading-relaxed text-[#b8bddc] sm:text-base">{sub}</p>}
     </div>
   )
 }
@@ -244,77 +244,77 @@ function SectionHeading({ eyebrow, title, sub, center = true }: { eyebrow: strin
 function PhoneMockup() {
   return (
     <div className="relative mx-auto w-[300px]" aria-hidden="true">
-      <div className="relative rounded-[2.2rem] border border-white/15 bg-[#0a1e25] p-2.5 shadow-2xl">
-        <div className="overflow-hidden rounded-[1.8rem] bg-[#162930]">
+      <div className="relative rounded-[2.2rem] border border-white/15 bg-[#131730] p-2.5 shadow-2xl">
+        <div className="overflow-hidden rounded-[1.8rem] bg-[#171b36]">
           {/* app header */}
           <div className="flex items-center justify-between px-4 pb-2 pt-4">
             <div className="flex items-center gap-1.5">
-              <div className="grid h-5 w-5 place-items-center rounded-md bg-[#41a050] text-[10px] font-bold text-white">C</div>
+              <div className="grid h-5 w-5 place-items-center rounded-md bg-[#8b5cf6] text-[10px] font-bold text-white">C</div>
               <span className="text-xs font-bold text-white">circubAwd</span>
             </div>
             <InitialAvatar name="M" color="amber" className="h-5 w-5 text-[9px]" />
           </div>
           {/* search pill */}
-          <div className="mx-3 mb-2 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#1b3340] px-3 py-1.5">
-            <Search className="h-3 w-3 text-[#8fa6ae]" />
-            <span className="text-[10px] text-[#8fa6ae]">Find local businesses near you</span>
+          <div className="mx-3 mb-2 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#1e2444] px-3 py-1.5">
+            <Search className="h-3 w-3 text-[#a5aad0]" />
+            <span className="text-[10px] text-[#a5aad0]">Find local businesses near you</span>
           </div>
           {/* price card 1 */}
-          <div className="mx-3 mb-2 rounded-xl border border-white/10 bg-[#1b3340] p-2.5">
+          <div className="mx-3 mb-2 rounded-xl border border-white/10 bg-[#1e2444] p-2.5">
             <div className="flex items-center gap-2">
               <InitialAvatar name="A" color="green" className="h-7 w-7 text-[10px]" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[11px] font-semibold text-white">Grill Machine</div>
-                <div className="truncate text-[9px] text-[#8fa6ae]">Nica Trail - street food</div>
+                <div className="truncate text-[9px] text-[#a5aad0]">Nica Trail - street food</div>
               </div>
-              <div className="text-[11px] font-bold text-[#e6ff32]">$80 - $100</div>
+              <div className="text-[11px] font-bold text-[#a78bfa]">$80 - $100</div>
             </div>
             <div className="mt-1.5 flex items-center gap-1">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#41a050]/15 px-2 py-0.5 text-[9px] font-medium text-[#7ed491]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#8b5cf6]/15 px-2 py-0.5 text-[9px] font-medium text-[#c4b5fd]">
                 <Check className="h-2.5 w-2.5" /> Verified local
               </span>
               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-medium text-amber-400">4.9</span>
             </div>
           </div>
           {/* event card */}
-          <div className="mx-3 mb-2 rounded-xl bg-[#41a050] p-3 text-white">
+          <div className="mx-3 mb-2 rounded-xl bg-[#8b5cf6] p-3 text-white">
             <div className="text-[9px] uppercase tracking-wider opacity-80">This weekend</div>
             <div className="text-xs font-bold">Annual Festival</div>
-            <div className="mt-1.5 inline-block rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-medium">Free entry</div>
+            <div className="mt-1.5 inline-block rounded-full bg-card/15 px-2 py-0.5 text-[9px] font-medium">Free entry</div>
           </div>
           {/* price card 2 */}
-          <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-[#1b3340] p-2.5">
+          <div className="mx-3 mb-2 flex items-center gap-2 rounded-xl border border-white/10 bg-[#1e2444] p-2.5">
             <InitialAvatar name="T" color="teal" className="h-7 w-7 text-[10px]" />
             <div className="min-w-0 flex-1">
               <div className="truncate text-[11px] font-semibold text-white">Taxi - airport to center</div>
-              <div className="truncate text-[9px] text-[#8fa6ae]">Posted 2 min ago</div>
+              <div className="truncate text-[9px] text-[#a5aad0]">Posted 2 min ago</div>
             </div>
-            <div className="text-[11px] font-bold text-[#e6ff32]">$12 - $15</div>
+            <div className="text-[11px] font-bold text-[#a78bfa]">$12 - $15</div>
           </div>
           {/* bottom nav */}
           <div className="flex items-center justify-around border-t border-white/10 py-2.5">
-            <Search className="h-3.5 w-3.5 text-[#e6ff32]" />
-            <div className="grid h-7 w-7 place-items-center rounded-full bg-[#41a050] text-white">
+            <Search className="h-3.5 w-3.5 text-[#a78bfa]" />
+            <div className="grid h-7 w-7 place-items-center rounded-full bg-[#8b5cf6] text-white">
               <Camera className="h-3.5 w-3.5" />
             </div>
-            <MessageCircle className="h-3.5 w-3.5 text-[#5f7780]" />
-            <Users className="h-3.5 w-3.5 text-[#5f7780]" />
-            <Plane className="h-3.5 w-3.5 text-[#5f7780]" />
+            <MessageCircle className="h-3.5 w-3.5 text-[#8a90b8]" />
+            <Users className="h-3.5 w-3.5 text-[#8a90b8]" />
+            <Plane className="h-3.5 w-3.5 text-[#8a90b8]" />
           </div>
         </div>
       </div>
       {/* floating proof chips - kept inside the column bounds */}
-      <div className="absolute -left-8 top-14 rounded-xl border border-white/10 bg-[#0a1e25] px-3 py-2 shadow-lg sm:-left-12">
+      <div className="absolute -left-8 top-14 rounded-xl border border-white/10 bg-[#131730] px-3 py-2 shadow-lg sm:-left-12">
         <div className="flex items-center gap-1 text-[10px] font-semibold text-white">
-          <Check className="h-3 w-3 text-[#e6ff32]" /> Real price posted
+          <Check className="h-3 w-3 text-[#a78bfa]" /> Real price posted
         </div>
-        <div className="text-[9px] text-[#8fa6ae]">2 minutes ago</div>
+        <div className="text-[9px] text-[#a5aad0]">2 minutes ago</div>
       </div>
-      <div className="absolute -right-4 bottom-28 rounded-xl border border-white/10 bg-[#0a1e25] px-3 py-2 shadow-lg sm:-right-8">
+      <div className="absolute -right-4 bottom-28 rounded-xl border border-white/10 bg-[#131730] px-3 py-2 shadow-lg sm:-right-8">
         <div className="flex items-center gap-1 text-[10px] font-semibold text-white">
           <Trophy className="h-3 w-3 text-amber-400" /> #1 on Top score
         </div>
-        <div className="text-[9px] text-[#8fa6ae]">Meron - 5 posts</div>
+        <div className="text-[9px] text-[#a5aad0]">Meron - 5 posts</div>
       </div>
     </div>
   )
@@ -362,20 +362,20 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
   const progressPct = stats && goal > 0 ? Math.min(99, Math.round((stats.prices / goal) * 100)) : 0
 
   return (
-    <div data-testid="landing-root" className="relative min-h-[100dvh] bg-[#162930] text-white">
+    <div data-testid="landing-root" className="relative min-h-[100dvh] bg-[#171b36] text-white">
       {/* ============================== NAV ============================== */}
-      <header className="sticky top-0 z-30 border-b border-[#e4e4e4]/25 bg-[#162930]/90 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-[#e4e4e4]/25 bg-[#171b36]/90 backdrop-blur-md">
         <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           {/* left: mono uppercase section links (desktop) */}
           <nav
-            className="hidden items-center gap-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[#a8bcc4] lg:flex"
+            className="hidden items-center gap-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[#b8bddc] lg:flex"
             aria-label="Landing sections"
           >
-            <a href="#how" className="transition-colors hover:text-[#e6ff32]">How it works</a>
-            <a href="#features" className="transition-colors hover:text-[#e6ff32]">Features</a>
-            <a href="#top-score" className="transition-colors hover:text-[#e6ff32]">Top score</a>
-            <a href="#stories" className="transition-colors hover:text-[#e6ff32]">Stories</a>
-            <a href="#faq" className="transition-colors hover:text-[#e6ff32]">FAQs</a>
+            <a href="#how" className="transition-colors hover:text-[#a78bfa]">How it works</a>
+            <a href="#features" className="transition-colors hover:text-[#a78bfa]">Features</a>
+            <a href="#top-score" className="transition-colors hover:text-[#a78bfa]">Top score</a>
+            <a href="#stories" className="transition-colors hover:text-[#a78bfa]">Stories</a>
+            <a href="#faq" className="transition-colors hover:text-[#a78bfa]">FAQs</a>
           </nav>
 
           {/* center: the mockup's logo + wordmark, absolutely centered */}
@@ -390,19 +390,19 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <LanguageMenu />
-            <ThemeToggle className="border border-white/15 bg-transparent text-white shadow-none hover:bg-white/10 hover:text-white" />
+            <ThemeToggle className="border border-white/15 bg-transparent text-white shadow-none hover:bg-card/10 hover:text-white" />
             <Button
               data-testid="landing-signin"
               onClick={onLogin}
               variant="ghost"
-              className="hidden h-9 px-3 font-mono text-xs uppercase tracking-[0.14em] text-white hover:bg-white/10 hover:text-white sm:inline-flex"
+              className="hidden h-9 px-3 font-mono text-xs uppercase tracking-[0.14em] text-white hover:bg-card/10 hover:text-white sm:inline-flex"
             >
               {t('landing.signIn')}
             </Button>
             <span data-testid="landing-install">
               <PwaInstallButton
                 compact
-                className="h-9 border-[#e6ff32]/40 bg-transparent px-3 text-xs text-[#e6ff32] shadow-none hover:bg-[#e6ff32] hover:text-[#0a1e25] sm:text-sm"
+                className="h-9 border-[#a78bfa]/40 bg-transparent px-3 text-xs text-[#a78bfa] shadow-none hover:bg-[#a78bfa] hover:text-[#131730] sm:text-sm"
               />
             </span>
           </div>
@@ -413,13 +413,13 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       <main className="relative overflow-x-clip">
         {/* soft brand glows, tuned for the dark teal ground */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="absolute left-[15%] top-[-20%] h-[420px] w-[420px] rounded-full bg-[#41a050]/10 blur-3xl" />
-          <div className="absolute right-[5%] top-[30%] h-[280px] w-[280px] rounded-full bg-[#e6ff32]/5 blur-3xl" />
+          <div className="absolute left-[15%] top-[-20%] h-[420px] w-[420px] rounded-full bg-[#8b5cf6]/10 blur-3xl" />
+          <div className="absolute right-[5%] top-[30%] h-[280px] w-[280px] rounded-full bg-[#a78bfa]/5 blur-3xl" />
         </div>
 
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20 lg:pt-14">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#e6ff32]/30 bg-[#e6ff32]/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#e6ff32]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#a78bfa]/30 bg-[#a78bfa]/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#a78bfa]">
               <Plane className="h-3 w-3" />
               Real prices. Real businesses. Real registered sellers.
             </div>
@@ -431,11 +431,11 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               {t('landing.headline')}
             </h1>
 
-            <p data-testid="landing-copy" className="mt-3 text-sm font-bold tracking-wide text-[#e6ff32] sm:text-base">
+            <p data-testid="landing-copy" className="mt-3 text-sm font-bold tracking-wide text-[#a78bfa] sm:text-base">
               {t('landing.copy')}
             </p>
 
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#a8bcc4] sm:text-base">
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#b8bddc] sm:text-base">
               Find the local businesses behind real prices, plan what you will buy with an
               itemized proforma, and sell your stuff through registered Sales sellers -
               everything posted in the local currency by people who actually live there.
@@ -453,7 +453,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               <Button
                 variant="outline"
                 size="lg"
-                className="h-12 border-white/25 bg-transparent px-6 font-mono text-sm uppercase tracking-[0.14em] text-white hover:bg-white/10 hover:text-white"
+                className="h-12 border-white/25 bg-transparent px-6 font-mono text-sm uppercase tracking-[0.14em] text-white hover:bg-card/10 hover:text-white"
                 asChild
               >
                 <a href="#how">
@@ -469,7 +469,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               <div className="mt-6 max-w-sm" data-testid="landing-progress">
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#e5e7eb]">
                   <div
-                    className="h-full rounded-full bg-[#41a050]"
+                    className="h-full rounded-full bg-[#8b5cf6]"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -478,15 +478,15 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                 </p>
               </div>
             ) : (
-              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#a8bcc4]">
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#b8bddc]">
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-[#e6ff32]" /> Free to join
+                  <Check className="h-3.5 w-3.5 text-[#a78bfa]" /> Free to join
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-[#e6ff32]" /> No app store download
+                  <Check className="h-3.5 w-3.5 text-[#a78bfa]" /> No app store download
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-[#e6ff32]" /> Works on any phone
+                  <Check className="h-3.5 w-3.5 text-[#a78bfa]" /> Works on any phone
                 </span>
               </div>
             )}
@@ -502,23 +502,23 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
       {/* ============================== REAL STATS BAND ============================== */}
       {stats && (
-        <section aria-label="Community stats" className="border-y border-white/10 bg-[#0f232b]">
+        <section aria-label="Community stats" className="border-y border-white/10 bg-[#141832]">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 md:grid-cols-4">
             <div className="text-center">
               <div className="text-3xl font-bold tracking-tight text-white">{stats.prices.toLocaleString('en-US')}+</div>
-              <div className="mt-1 text-xs text-[#a8bcc4]">real prices posted</div>
+              <div className="mt-1 text-xs text-[#b8bddc]">real prices posted</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold tracking-tight text-white">{stats.people.toLocaleString('en-US')}+</div>
-              <div className="mt-1 text-xs text-[#a8bcc4]">locals and travelers</div>
+              <div className="mt-1 text-xs text-[#b8bddc]">locals and travelers</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold tracking-tight text-white">{stats.countries}</div>
-              <div className="mt-1 text-xs text-[#a8bcc4]">countries covered</div>
+              <div className="mt-1 text-xs text-[#b8bddc]">countries covered</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold tracking-tight text-[#e6ff32]">100%</div>
-              <div className="mt-1 text-xs text-[#a8bcc4]">free, no ads, no fees</div>
+              <div className="text-3xl font-bold tracking-tight text-[#a78bfa]">100%</div>
+              <div className="mt-1 text-xs text-[#b8bddc]">free, no ads, no fees</div>
             </div>
           </div>
         </section>
@@ -530,7 +530,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           <h2 id="seo-about-h" className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
             What is circubAwd?
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-[#a8bcc4] sm:text-base">
+          <p className="mt-3 text-sm leading-relaxed text-[#b8bddc] sm:text-base">
             circubAwd is a free community that helps you find local businesses -
             street food spots, taxi rides, hotels, salons, repairs - with real,
             current prices posted in the local currency by people who live
@@ -547,14 +547,14 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       </section>
 
       {/* ============================== HOW IT WORKS ============================== */}
-      <section id="how" aria-labelledby="how-h" className="border-t border-white/10 bg-[#0f232b]">
+      <section id="how" aria-labelledby="how-h" className="border-t border-white/10 bg-[#141832]">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
           <div className="text-center">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">Buy, plan, sell - in 3 steps</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">Buy, plan, sell - in 3 steps</p>
             <h2 id="how-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-white sm:text-3xl">
               How circubAwd works in 3 simple steps
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#a8bcc4] sm:text-base">
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#b8bddc] sm:text-base">
               No spreadsheets, no membership, no cost. Find a business, plan a
               proforma, or start selling - three steps, all free.
             </p>
@@ -562,18 +562,18 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {STEPS.map((step, i) => (
-              <div key={step.title} className="rounded-2xl border border-white/10 bg-[#1b3340] p-5 shadow-sm">
+              <div key={step.title} className="rounded-2xl border border-white/10 bg-[#1e2444] p-5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e6ff32]/10 text-[#e6ff32]">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#a78bfa]/10 text-[#a78bfa]">
                     <step.icon className="h-5 w-5" />
                   </div>
-                  <span className="text-2xl font-bold text-[#e6ff32]/25">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="text-2xl font-bold text-[#a78bfa]/25">{String(i + 1).padStart(2, '0')}</span>
                 </div>
                 <h3 className="mt-4 text-base font-semibold text-white">{step.title}</h3>
                 <ul className="mt-3 space-y-2">
                   {step.items.map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-xs leading-relaxed text-[#a8bcc4]">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#e6ff32]" />
+                    <li key={item} className="flex items-start gap-2 text-xs leading-relaxed text-[#b8bddc]">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#a78bfa]" />
                       {item}
                     </li>
                   ))}
@@ -594,30 +594,30 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* travelers */}
-          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#1b3340] p-5 shadow-sm">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e6ff32]/10 text-[#e6ff32]">
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#1e2444] p-5 shadow-sm">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#a78bfa]/10 text-[#a78bfa]">
               <Plane className="h-5 w-5" />
             </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">For travelers</p>
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">For travelers</p>
             <h3 className="mt-1 text-base font-semibold text-white">Check prices before you go</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#a8bcc4]">
+            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#b8bddc]">
               See what food, transport, hotels and services really cost - posted by people who live there.
             </p>
           </div>
 
-          {/* locals - the mockup's lime block: dark text on #e6ff32 */}
-          <div className="flex flex-col rounded-2xl bg-[#e6ff32] p-5 text-[#0a1e25] shadow-md">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#0a1e25]/10">
+          {/* locals - the mockup's lime block: dark text on #a78bfa */}
+          <div className="flex flex-col rounded-2xl bg-[#a78bfa] p-5 text-[#131730] shadow-md">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#131730]/10">
               <Store className="h-5 w-5" />
             </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#0a1e25]/70">For locals</p>
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#131730]/70">For locals</p>
             <h3 className="mt-1 text-base font-semibold">Put your business on the map</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#0a1e25]/80">
+            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#131730]/80">
               Post your business with real prices - neighbors and travelers find you, and every post builds your name.
             </p>
             <Button
               onClick={onSignUp}
-              className="mt-4 h-9 w-fit bg-[#0a1e25] font-mono text-xs uppercase tracking-[0.14em] text-white hover:bg-[#162930] hover:text-white"
+              className="mt-4 h-9 w-fit bg-[#131730] font-mono text-xs uppercase tracking-[0.14em] text-white hover:bg-[#171b36] hover:text-white"
               size="sm"
             >
               Post your first price
@@ -625,46 +625,46 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           </div>
 
           {/* guides */}
-          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#1b3340] p-5 shadow-sm">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e6ff32]/10 text-[#e6ff32]">
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#1e2444] p-5 shadow-sm">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#a78bfa]/10 text-[#a78bfa]">
               <Compass className="h-5 w-5" />
             </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">For guides</p>
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">For guides</p>
             <h3 className="mt-1 text-base font-semibold text-white">Get booked directly</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#a8bcc4]">
+            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#b8bddc]">
               Offer your city knowledge, set your rate, and get booked by travelers - no middlemen.
             </p>
-            <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#e6ff32] hover:underline">
+            <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#a78bfa] hover:underline">
               Become a guide <ArrowRight className="h-3 w-3" />
             </button>
           </div>
 
           {/* vendors */}
-          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#1b3340] p-5 shadow-sm">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e6ff32]/10 text-[#e6ff32]">
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#1e2444] p-5 shadow-sm">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#a78bfa]/10 text-[#a78bfa]">
               <BadgeCheck className="h-5 w-5" />
             </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">For sellers</p>
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">For sellers</p>
             <h3 className="mt-1 text-base font-semibold text-white">Sell through registered sales</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#a8bcc4]">
+            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#b8bddc]">
               Register as a Sales seller, list your stuff with photos and real prices, and reach people already looking to buy.
             </p>
-            <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#e6ff32] hover:underline">
+            <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#a78bfa] hover:underline">
               List what you sell <ArrowRight className="h-3 w-3" />
             </button>
           </div>
         </div>
 
         {/* wide community card */}
-        <div className="mt-4 flex flex-col items-start gap-4 rounded-2xl border border-[#e6ff32]/25 bg-[#e6ff32]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col items-start gap-4 rounded-2xl border border-[#a78bfa]/25 bg-[#a78bfa]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e6ff32]/10 text-[#e6ff32]">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#a78bfa]/10 text-[#a78bfa]">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">Join the community</p>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">Join the community</p>
               <h3 className="mt-1 text-base font-semibold text-white">Meet travelers and share your city</h3>
-              <p className="mt-1 text-xs leading-relaxed text-[#a8bcc4]">
+              <p className="mt-1 text-xs leading-relaxed text-[#b8bddc]">
                 Answer questions, vouch for prices, and help the next visitor spend like a local.
               </p>
             </div>
@@ -680,15 +680,15 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         id="features"
         aria-labelledby="seo-features-h"
         data-testid="seo-features"
-        className="border-t border-white/10 bg-[#0f232b]"
+        className="border-t border-white/10 bg-[#141832]"
       >
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
           <div className="text-center">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">Peace of mind</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">Peace of mind</p>
             <h2 id="seo-features-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-white sm:text-3xl">
               What circubAwd does
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#a8bcc4] sm:text-base">
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[#b8bddc] sm:text-base">
               Everything you need to spend with complete peace of mind, in any
               city, in any currency.
             </p>
@@ -696,12 +696,12 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-2xl border border-white/10 bg-[#1b3340] p-5 shadow-sm">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e6ff32]/10 text-[#e6ff32]">
+              <div key={f.title} className="rounded-2xl border border-white/10 bg-[#1e2444] p-5 shadow-sm">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#a78bfa]/10 text-[#a78bfa]">
                   <f.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 text-base font-semibold text-white">{f.title}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-[#a8bcc4]">{f.body}</p>
+                <p className="mt-2 text-xs leading-relaxed text-[#b8bddc]">{f.body}</p>
               </div>
             ))}
           </div>
@@ -712,11 +712,11 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       <section id="top-score" aria-labelledby="top-score-h" data-testid="landing-top-score" className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
         <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">Community leaderboard</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">Community leaderboard</p>
             <h2 id="top-score-h" className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
               Top score
             </h2>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-[#a8bcc4] sm:text-base">
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-[#b8bddc] sm:text-base">
               The most active contributors on circubAwd right now, ranked by
               prices posted. Every real price you share moves you up the
               board - and helps an entire city spend smarter.
@@ -726,15 +726,15 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </Button>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-[#1b3340] p-4 shadow-sm sm:p-5">
+          <div className="rounded-2xl border border-white/10 bg-[#1e2444] p-4 shadow-sm sm:p-5">
             <div className="mb-3 flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-[#e6ff32]" />
+              <Trophy className="h-4 w-4 text-[#a78bfa]" />
               <span className="text-sm font-semibold text-white">Top score</span>
-              <span className="ml-auto text-[11px] text-[#8fa6ae]">most prices posted</span>
+              <span className="ml-auto text-[11px] text-[#a5aad0]">most prices posted</span>
             </div>
             <div className="space-y-2.5">
               {posters.length === 0 ? (
-                <p className="py-6 text-center text-xs text-[#8fa6ae]">
+                <p className="py-6 text-center text-xs text-[#a5aad0]">
                   No posts yet - the board opens with the first price posted.
                 </p>
               ) : (
@@ -742,9 +742,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                   <div
                     key={p.id}
                     data-testid="landing-top-score-row"
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a1e25] px-3.5 py-2.5"
+                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#131730] px-3.5 py-2.5"
                   >
-                    <span className={`w-6 shrink-0 text-sm font-bold ${RANK_STYLES[i] || 'text-[#8fa6ae]'}`}>
+                    <span className={`w-6 shrink-0 text-sm font-bold ${RANK_STYLES[i] || 'text-[#a5aad0]'}`}>
                       #{i + 1}
                     </span>
                     <InitialAvatar name={p.name} color={p.avatarColor} className="h-8 w-8 text-[11px]" />
@@ -759,7 +759,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       </section>
 
       {/* ============================== STORIES ============================== */}
-      <section id="stories" aria-labelledby="stories-h" className="border-y border-white/10 bg-[#0f232b]">
+      <section id="stories" aria-labelledby="stories-h" className="border-y border-white/10 bg-[#141832]">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
           <SectionHeading
             eyebrow="Trusted community stories"
@@ -788,10 +788,10 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                 color: "purple",
               },
             ].map((s) => (
-              <figure key={s.name} className="flex flex-col rounded-2xl border border-white/10 bg-[#1b3340] p-5 shadow-sm">
+              <figure key={s.name} className="flex flex-col rounded-2xl border border-white/10 bg-[#1e2444] p-5 shadow-sm">
                 <div className="flex items-center gap-1" aria-label="5 out of 5 stars">
                   {[0, 1, 2, 3, 4].map((i) => (
-                    <Star key={i} className="h-3.5 w-3.5 fill-[#e6ff32] text-[#e6ff32]" />
+                    <Star key={i} className="h-3.5 w-3.5 fill-[#a78bfa] text-[#a78bfa]" />
                   ))}
                 </div>
                 <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-white">
@@ -801,7 +801,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                   <InitialAvatar name={s.name} color={s.color} className="h-9 w-9 text-xs" />
                   <div>
                     <div className="text-sm font-semibold text-white">{s.name}</div>
-                    <div className="text-xs text-[#a8bcc4]">{s.role}</div>
+                    <div className="text-xs text-[#b8bddc]">{s.role}</div>
                   </div>
                 </figcaption>
               </figure>
@@ -818,11 +818,11 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:py-16"
       >
         <div className="text-center">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">Quick answers</p>
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">Quick answers</p>
           <h2 id="seo-faq-h" className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Frequently asked questions
           </h2>
-          <p className="mt-3 text-sm text-[#a8bcc4] sm:text-base">
+          <p className="mt-3 text-sm text-[#b8bddc] sm:text-base">
             Everything people ask before their first price, answered.
           </p>
         </div>
@@ -832,13 +832,13 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             <details
               key={item.q}
               data-testid={`faq-item-${i}`}
-              className="group rounded-xl border border-white/10 bg-[#1b3340] px-4 py-3"
+              className="group rounded-xl border border-white/10 bg-[#1e2444] px-4 py-3"
             >
               <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">
                 {item.q}
-                <ChevronDown className="h-4 w-4 shrink-0 text-[#8fa6ae] transition-transform group-open:rotate-180" />
+                <ChevronDown className="h-4 w-4 shrink-0 text-[#a5aad0] transition-transform group-open:rotate-180" />
               </summary>
-              <p className="mt-2 text-xs leading-relaxed text-[#a8bcc4]">{item.a}</p>
+              <p className="mt-2 text-xs leading-relaxed text-[#b8bddc]">{item.a}</p>
             </details>
           ))}
         </div>
@@ -846,12 +846,12 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
       {/* ============================== CTA BAND ============================== */}
       <section aria-labelledby="cta-h" className="mx-auto max-w-6xl px-4 pb-14 sm:px-6 lg:pb-16">
-        <div className="rounded-3xl border border-white/10 bg-[#0a1e25] px-6 py-12 text-center shadow-lg sm:px-10">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e6ff32]">Join the community</p>
+        <div className="rounded-3xl border border-white/10 bg-[#131730] px-6 py-12 text-center shadow-lg sm:px-10">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#a78bfa]">Join the community</p>
           <h2 id="cta-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Find local businesses. Plan with a proforma. Sell with trust.
           </h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#a8bcc4] sm:text-base">
+          <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#b8bddc] sm:text-base">
             Join free, put your business on the map, build a proforma for
             anything you need, or start selling through registered sales.
           </p>
@@ -864,24 +864,24 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             >
               Join for free
             </Button>
-            <PwaInstallButton className="h-12 w-full border-white/30 bg-transparent px-8 font-mono text-sm uppercase tracking-[0.14em] text-white hover:bg-white hover:text-[#0a1e25] sm:w-auto" />
+            <PwaInstallButton className="h-12 w-full border-white/30 bg-transparent px-8 font-mono text-sm uppercase tracking-[0.14em] text-white hover:bg-card hover:text-[#131730] sm:w-auto" />
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-white/75">
             <span className="inline-flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-[#e6ff32]" /> No app store download
+              <Check className="h-3.5 w-3.5 text-[#a78bfa]" /> No app store download
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-[#e6ff32]" /> Free to join
+              <Check className="h-3.5 w-3.5 text-[#a78bfa]" /> Free to join
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-[#e6ff32]" /> Available worldwide
+              <Check className="h-3.5 w-3.5 text-[#a78bfa]" /> Available worldwide
             </span>
           </div>
         </div>
       </section>
 
       {/* ============================== FOOTER ============================== */}
-      <footer className="border-t border-white/15 bg-[#0f232b]">
+      <footer className="border-t border-white/15 bg-[#141832]">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <div className="grid gap-8 md:grid-cols-[1.4fr_1fr_1fr]">
             <div>
@@ -889,30 +889,30 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                 <BrandMark size="h-8 w-8 text-sm" />
                 <span className="text-lg font-bold tracking-tight text-white">circubAwd</span>
               </div>
-              <p className="mt-3 max-w-xs text-xs leading-relaxed text-[#a8bcc4]">
+              <p className="mt-3 max-w-xs text-xs leading-relaxed text-[#b8bddc]">
                 Real prices, shared by people who live there. Free forever,
                 on any phone, in any currency.
               </p>
             </div>
             <div>
               <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-white">Product</p>
-              <ul className="mt-3 space-y-2 text-xs text-[#a8bcc4]">
-                <li><a href="#how" className="transition-colors hover:text-[#e6ff32]">How it works</a></li>
-                <li><a href="#features" className="transition-colors hover:text-[#e6ff32]">Features</a></li>
-                <li><a href="#top-score" className="transition-colors hover:text-[#e6ff32]">Top score</a></li>
-                <li><a href="#stories" className="transition-colors hover:text-[#e6ff32]">Community stories</a></li>
+              <ul className="mt-3 space-y-2 text-xs text-[#b8bddc]">
+                <li><a href="#how" className="transition-colors hover:text-[#a78bfa]">How it works</a></li>
+                <li><a href="#features" className="transition-colors hover:text-[#a78bfa]">Features</a></li>
+                <li><a href="#top-score" className="transition-colors hover:text-[#a78bfa]">Top score</a></li>
+                <li><a href="#stories" className="transition-colors hover:text-[#a78bfa]">Community stories</a></li>
               </ul>
             </div>
             <div>
               <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-white">Legal &amp; company</p>
-              <ul className="mt-3 space-y-2 text-xs text-[#a8bcc4]">
-                <li><a href="/contact" className="transition-colors hover:text-[#e6ff32]">Contact</a></li>
-                <li><a href="/privacy" className="transition-colors hover:text-[#e6ff32]">Privacy</a></li>
-                <li><a href="/terms" className="transition-colors hover:text-[#e6ff32]">Terms</a></li>
+              <ul className="mt-3 space-y-2 text-xs text-[#b8bddc]">
+                <li><a href="/contact" className="transition-colors hover:text-[#a78bfa]">Contact</a></li>
+                <li><a href="/privacy" className="transition-colors hover:text-[#a78bfa]">Privacy</a></li>
+                <li><a href="/terms" className="transition-colors hover:text-[#a78bfa]">Terms</a></li>
               </ul>
             </div>
           </div>
-          <div className="mt-8 flex items-center justify-center gap-2 border-t border-white/10 pt-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#8fa6ae]">
+          <div className="mt-8 flex items-center justify-center gap-2 border-t border-white/10 pt-5 font-mono text-[11px] uppercase tracking-[0.12em] text-[#a5aad0]">
             <span>&copy; {new Date().getFullYear()} circubAwd</span>
             <span aria-hidden="true">&middot;</span>
             <span data-testid="landing-version">{APP_VERSION}</span>

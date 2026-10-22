@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { GuideStars } from './guide-reviews-modal'
+import { avatarSrc } from '@/lib/fighters'
 
 export interface BookingGuideInfo {
   id: string
@@ -101,9 +102,9 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
 
         {done ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <p className="text-sm text-emerald-800">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-violet-50 border border-violet-200">
+              <CheckCircle2 className="w-5 h-5 text-violet-600 shrink-0" />
+              <p className="text-sm text-violet-800">
                 Your request {date ? `for ${date} ` : ''}is waiting for {guide.name}&apos;s confirmation.
               </p>
             </div>
@@ -123,7 +124,7 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
             <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/60 mb-4">
               <Avatar className="w-11 h-11 border-2 border-accent overflow-hidden shrink-0">
                 {guide.profilePicture ? (
-                  <img src={guide.profilePicture} alt={guide.name} className="w-full h-full object-cover" />
+                  <img src={avatarSrc(guide.profilePicture)} alt={guide.name} className="w-full h-full object-cover" />
                 ) : (
                   <AvatarFallback className="bg-primary/15 text-primary font-semibold">{guide.name?.charAt(0).toUpperCase()}</AvatarFallback>
                 )}
