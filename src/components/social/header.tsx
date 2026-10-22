@@ -170,6 +170,7 @@ export function Header({
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
+                  data-testid={`nav-tab-${tab.key}`}
                   className={cn(
                     'flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium transition-colors shrink-0',
                     isActive
@@ -361,6 +362,7 @@ export function Header({
               <button
                 key={tab.key}
                 onClick={() => onTabChange(tab.key)}
+                data-testid={`nav-tab-${tab.key}`}
                 className={cn(
                   'relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] leading-tight font-medium transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground'

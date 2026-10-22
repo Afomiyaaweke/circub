@@ -161,7 +161,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
   }
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+    <div data-testid="post-composer-root" className="bg-card rounded-xl shadow-sm border border-border p-4">
       <div className="flex items-start gap-3">
         <Avatar className="w-11 h-11 border-2 border-accent">
           <AvatarFallback className="bg-primary/15 text-primary font-semibold">

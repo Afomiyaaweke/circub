@@ -76,7 +76,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // optimistically from cache/guest state immediately and let the
   // real auth check settle in the background.
   const [authChecked, setAuthChecked] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('local')
+  // v202: the app opens on the FEED - the Price Arena battle between price
+  // posters is the first thing on screen (user: 'change the feed completely
+  // to this and dont make it on the local'). Fresh visits start here; the
+  // position memory below still restores the tab the user was really on.
+  const [activeTab, setActiveTab] = useState<TabKey>('feed')
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
@@ -323,7 +327,9 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // render; an explicit refresh or a fresh visit starts clean at the default.
   useEffect(() => {
     const pos = recallPosition()
-    if (!pos || pos.tab === 'local') return
+    // 'feed' is the v202 default - restoring it would be a no-op; every other
+    // saved tab (incl. Local) still wins over the default.
+    if (!pos || pos.tab === 'feed') return
     setActiveTab(pos.tab)
     if (pos.tab === 'profile' && pos.section) {
       setProfileSection(pos.section)

@@ -3,13 +3,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sparkles, TrendingUp, Newspaper, MapPin } from 'lucide-react'
 import { useProgressiveList } from '@/lib/use-progressive-list'
-import { dispatchAuthExpired } from '@/lib/auth-fetch'
+import { authFetch, dispatchAuthExpired } from '@/lib/auth-fetch'
 import { resolveIpLocation } from '@/lib/location'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PostComposer } from './post-composer'
 import { PostCard } from './post-card'
 import { AuthorProfileModal } from './author-profile-modal'
+// v202: the FEED is the game - the Price Arena (weekly battle between price
+// posters, best-voted item wins) opens the feed, and the duel cards open the
+// price detail modal exactly like on the local feed.
+import { PriceArena } from './price-arena'
+import { PriceDetailModal } from './price-detail-modal'
 import { useToast } from '@/hooks/use-toast'
 import type { User, Post, Comment } from '@/lib/types'
 
@@ -29,6 +34,11 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
   const viewerCoordsRef = useRef<{ lat: number; lng: number } | null>(null)
   // Tap a name/avatar on a post or comment -> author profile modal
   const [authorProfileId, setAuthorProfileId] = useState<string | null>(null)
+  // v202: the arena duel cards open the price detail modal on this tab too
+  const [detailPostId, setDetailPostId] = useState<string | null>(null)
+  // v202: bumped after every committed arena vote so the arena re-reads the
+  // board (XP + split moved).
+  const [arenaSignal, setArenaSignal] = useState(0)
   // Load part by part: render a small batch first, append more on scroll
   const { visible: visiblePosts, hasMore: feedHasMore, sentinelRef: feedSentinelRef } = useProgressiveList(posts, 4, 4)
   const { toast } = useToast()
@@ -153,12 +163,42 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
     onRefreshUser()
   }
 
+  // v202: the arena's vote handler - the same endpoint + guest gate the local
+  // feed cards use. Social post state is untouched here (duel items are price
+  // posts); the arena refetches its own numbers via the signal bump.
+  const handleArenaVote = async (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => {
+    // Demo mode has zero write access: a vote attempt brings up the
+    // registration form - no API call, no failed-vote noise.
+    if (user.id === 'guest') {
+      dispatchAuthExpired('guest-arena-vote')
+      toast({ title: 'Register to vote', description: 'The demo cannot vote. Create a free account to crown the best-voted price.' })
+      return
+    }
+    try {
+      const res = await authFetch(`/api/local-prices/${postId}/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voteType }) })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed') }
+      const data = await res.json()
+      if (data.vote === 'HELPFUL') toast({ title: 'Marked as helpful' })
+      else if (data.vote === 'NOT_ACCURATE') toast({ title: 'Flagged as not accurate' })
+      // The vote just moved a poster's XP - let the arena re-read it.
+      setArenaSignal((s) => s + 1)
+    } catch (e) {
+      toast({ title: 'Vote failed', description: (e as Error).message, variant: 'destructive' })
+    }
+  }
+
   const handleEdit = (postId: string, updatedPost: Post) => {
     setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)))
   }
 
   return (
     <div className="space-y-4">
+      {/* v202: the FEED opens with the game - the weekly battle between
+          price posters. The two best-voted items of the week duel at the top
+          with live split bars, and the hustle board ranks posters by XP.
+          Voting a price helpful is literally how you play. */}
+      <PriceArena onVote={handleArenaVote} onOpenPost={setDetailPostId} guest={user.id === 'guest'} refreshSignal={arenaSignal} />
+
       <PostComposer user={user} onPosted={handlePosted} />
 
       {/* Feed header / sort bar */}
@@ -243,6 +283,10 @@ export function FeedTab({ user, onMessage, onRefreshUser }: FeedTabProps) {
         onMessage={onMessage}
         currentUserId={user.id}
       />
+
+      {/* v202: the arena duel cards open the price detail modal on this tab
+          (linked prices inside it can navigate between price posts). */}
+      <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setAuthorProfileId} onMessage={onMessage} currentUserId={user.id} onOpenPost={setDetailPostId} />
     </div>
   )
 }
