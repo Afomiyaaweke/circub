@@ -24,7 +24,14 @@ import {
   Link2,
   Search,
   Loader2,
+  BarChart3,
+  Flame,
+  Shield,
+  Swords,
+  Trophy,
+  Zap,
 } from 'lucide-react'
+import { countdownLabel, formatCompact, levelOf, levelTitle, nextWeeklyReset, posterXp } from '@/lib/arena'
 import { mapsDirectionsUrl, formatGps } from '@/lib/location'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { FollowButton } from '@/components/social/follow-button'
@@ -187,6 +194,16 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [suggest, setSuggest] = useState<any[]>([])
   const [suggestLoading, setSuggestLoading] = useState(false)
   const suggestForRef = useRef<string | null>(null)
+  // v204: the duel challenger's vote state - optimistic votes cast from the
+  // duel's cyan VOTE button (the modal's own handleVote only covers THIS
+  // post). Reset whenever the duel pairs with a different post.
+  const [rivalVote, setRivalVote] = useState<{ id: string; votes: number; voted: boolean; busy: boolean } | null>(null)
+  // v204: duel countdown tick - the round clock re-renders every 30s.
+  const [nowTs, setNowTs] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTs(Date.now()), 30_000)
+    return () => window.clearInterval(t)
+  }, [])
   const { toast } = useToast()
 
   useEffect(() => {
@@ -499,6 +516,187 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       : 0
   const totalCompare = links.length + autoRows.length
   const deltaPct = (other: number) => (selfPrice > 0 ? ((other - selfPrice) / selfPrice) * 100 : 0)
+
+  // ---------------------------------------------------------------- duel
+  // v204: THE COMPARE DUEL - the Compare section opens like the arena: THIS
+  // business vs its strongest challenger, head to head. The challenger is
+  // the same-currency competitor with the most Helpful votes (cheapest
+  // breaks ties) across BOTH compare sources (linked + automatic same-name
+  // rows). Every stat is computed from data the modal already loads - zero
+  // new endpoints, zero schema changes - and every vote cast in the duel
+  // feeds the same Weekly Hustle XP the feed's arena plays for.
+  const duel = (() => {
+    if (!post) return null
+    type DuelCand = {
+      id: string
+      name: string
+      authorName: string
+      place: string
+      img: string | null
+      priceMin: number
+      priceMax: number
+      votes: number
+      createdAt: string
+      near: boolean
+      fromLink: boolean
+    }
+    const cands: DuelCand[] = []
+    for (const l of links) {
+      if (l.post.currency !== post.currency) continue
+      cands.push({
+        id: l.post.id,
+        name: l.post.productName,
+        authorName: l.post.author?.name || l.post.productName,
+        place: [l.post.city, l.post.country].filter(Boolean).join(', '),
+        img: l.post.imageUrl ?? null,
+        priceMin: l.post.priceMin,
+        priceMax: l.post.priceMax,
+        votes: Math.max(0, rowVotes(l)),
+        createdAt: l.post.createdAt,
+        near: false,
+        fromLink: true,
+      })
+    }
+    for (const a of autoRows) {
+      if (a.currency !== post.currency) continue
+      cands.push({
+        id: a.id,
+        name: a.productName,
+        authorName: a.author?.name || a.productName,
+        place: [a.city, a.country].filter(Boolean).join(', '),
+        img: a.imageUrl ?? null,
+        priceMin: a.priceMin,
+        priceMax: a.priceMax,
+        votes: Math.max(0, a.helpfulCount ?? 0),
+        createdAt: a.createdAt,
+        near: !!a.near,
+        fromLink: false,
+      })
+    }
+    if (cands.length === 0) return null
+    cands.sort((x, y) => y.votes - x.votes || x.priceMax - y.priceMax)
+    const rival = cands[0]
+
+    const selfVotes = Math.max(0, post.helpfulCount ?? 0)
+    const selfName = post.author?.name || 'This business'
+    const selfLevel = Math.max(1, levelOf(posterXp(post.author)))
+    // The challenger's level rides the same XP math - a row payload does not
+    // carry lifetime author counters, but its Helpful votes do (100 XP each).
+    const rivalLevel = Math.max(1, levelOf(rival.votes * 100))
+
+    // Price score: the cheaper side 100, the dearer side 50, a tie 50/50.
+    const scoreA =
+      selfPrice > 0 && rival.priceMax > 0 && selfPrice !== rival.priceMax
+        ? Math.round(50 + ((Math.max(selfPrice, rival.priceMax) - selfPrice) / Math.abs(rival.priceMax - selfPrice)) * 50)
+        : 50
+    const scoreB = 150 - scoreA
+
+    // Level share + freshness share (the newer post reads stronger).
+    const pctLvlA = Math.round((selfLevel / (selfLevel + rivalLevel)) * 100)
+    const ageOf = (iso: string) => {
+      const t = new Date(iso).getTime()
+      if (Number.isNaN(t)) return 0
+      return Math.max(0, (Date.now() - t) / 86_400_000)
+    }
+    const fA = 1 / (1 + ageOf(post.createdAt))
+    const fB = 1 / (1 + ageOf(rival.createdAt))
+    const pctFreshA = Math.round((fA / (fA + fB)) * 100)
+
+    // Discount chip: how far the cheaper side undercuts the other.
+    const selfOff = rival.priceMax > selfPrice && selfPrice > 0 ? Math.round((1 - selfPrice / rival.priceMax) * 100) : 0
+    const rivalOff = selfPrice > rival.priceMax && rival.priceMax > 0 ? Math.round((1 - rival.priceMax / selfPrice) * 100) : 0
+
+    // A stable match number from the post id - the reference screen's
+    // "Active Duel #409" flavor, deterministic per post.
+    const no = 100 + (post.id.split('').reduce((s, ch) => s + ch.charCodeAt(0), 0) % 900)
+
+    const metrics: { label: string; a: string; b: string; aPct: number; bPct: number }[] = [
+      { label: 'Price Score', a: `${scoreA}`, b: `${scoreB}`, aPct: scoreA, bPct: scoreB },
+      { label: 'Seller Level', a: `LVL ${selfLevel}`, b: `LVL ${rivalLevel}`, aPct: pctLvlA, bPct: 100 - pctLvlA },
+      { label: 'Freshness', a: `${pctFreshA}%`, b: `${100 - pctFreshA}%`, aPct: pctFreshA, bPct: 100 - pctFreshA },
+    ]
+
+    return {
+      no,
+      rival,
+      selfVotes,
+      selfName,
+      selfLabel: isOwnPost ? `${selfName} (You)` : selfName,
+      selfLevel,
+      rivalLevel,
+      scoreA,
+      scoreB,
+      selfOff,
+      rivalOff,
+      metrics,
+    }
+  })()
+
+  // v204: the live vote split - rival votes move the moment the cyan button
+  // commits (optimistic), self votes move via handleVote below.
+  const rivalVotesNow =
+    rivalVote && duel && rivalVote.id === duel.rival.id ? rivalVote.votes : duel?.rival.votes ?? 0
+  const rivalVoted = !!rivalVote && !!duel && rivalVote.id === duel.rival.id && rivalVote.voted
+  const duelTotal = duel ? duel.selfVotes + rivalVotesNow : 0
+  const duelPctA = duel && duelTotal > 0 ? Math.round((duel.selfVotes / duelTotal) * 100) : 50
+  const duelPctB = 100 - duelPctA
+  const duelCountdown = countdownLabel(nextWeeklyReset(), new Date(nowTs))
+
+  // v204: reset the challenger's vote state whenever the duel pairs with a
+  // different post (fresh data, fresh vote).
+  useEffect(() => {
+    setRivalVote(null)
+  }, [duel?.rival?.id])
+
+  const handleRivalVote = async () => {
+    if (!duel) return
+    // Same guest gate as handleVote - a vote attempt opens the register
+    // flow, no API call, no noise.
+    if (!currentUserId || currentUserId === 'guest') {
+      dispatchAuthExpired('guest-vote')
+      return
+    }
+    const rival = duel.rival
+    try {
+      setRivalVote((prev) =>
+        prev && prev.id === rival.id ? { ...prev, busy: true } : { id: rival.id, votes: rival.votes, voted: false, busy: true }
+      )
+      const res = await fetch(`/api/local-prices/${rival.id}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voteType: 'HELPFUL' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setRivalVote((prev) => {
+        const base =
+          prev && prev.id === rival.id
+            ? prev
+            : { id: rival.id, votes: rival.votes, voted: false, busy: false }
+        const voted = data.vote === 'HELPFUL'
+        const votes = voted
+          ? base.voted
+            ? base.votes
+            : base.votes + 1
+          : Math.max(0, base.votes - (base.voted ? 1 : 0))
+        return { id: rival.id, votes, voted, busy: false }
+      })
+      if (data.vote === 'HELPFUL') {
+        toast({ title: 'Marked as helpful' })
+      } else if (data.vote === 'NOT_ACCURATE') {
+        toast({ title: 'Flagged as not accurate' })
+      } else {
+        toast({ title: 'Vote removed' })
+      }
+    } catch (e) {
+      setRivalVote((prev) => (prev && prev.id === rival.id ? { ...prev, busy: false } : prev))
+      toast({
+        title: 'Vote failed',
+        description: (e as Error).message,
+        variant: 'destructive',
+      })
+    }
+  }
 
   // ---------------------------------------------------------------- table
   // v147: the compare OUTPUT in the exact shape the user drew - "{product}
@@ -949,6 +1147,269 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 <p className="text-[11px] text-muted-foreground mb-2.5">
                   Same item at other businesses - this one is first. Tap a business to open its price post.
                 </p>
+
+                {/* v204: THE COMPARE DUEL - the reference screen's Active Duel
+                    rendered from REAL compare data: this business vs its
+                    strongest challenger, LIVE ARENA MATCH header, round clock
+                    to the Monday reset, vote-split bar, head-to-head cards
+                    with a VS badge, mirrored metric diagnostics and a vote
+                    button per side. Voting here IS the matching - each
+                    Helpful vote feeds the poster's Weekly Hustle XP. */}
+                {duel && (
+                  <div
+                    data-testid="detail-duel"
+                    className="mb-3 rounded-xl border border-[#2a3258] bg-[#141936] p-3.5 sm:p-4 space-y-3 shadow-lg shadow-black/20"
+                  >
+                    {/* match header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/40 bg-rose-500/15 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-rose-300">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+                        Live arena match
+                      </span>
+                      <span
+                        title="Every Helpful vote is +100 poster XP in the Weekly Hustle"
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-black text-amber-300"
+                      >
+                        <Trophy className="h-3 w-3" />
+                        +100 XP
+                      </span>
+                    </div>
+
+                    <div>
+                      <p data-testid="duel-title" className="text-base sm:text-lg font-black leading-snug text-white">
+                        {`Active Duel #${duel.no}: ${post.productName}`}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1.5 text-[11px] text-violet-300">
+                        <Shield className="h-3.5 w-3.5 shrink-0" />
+                        <span>{'Stakes: the Weekly Hustle crown - every Helpful vote is +100 poster XP'}</span>
+                      </p>
+                    </div>
+
+                    {/* round clock + total votes */}
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span data-testid="duel-countdown" className="flex items-center gap-1.5 font-mono font-semibold text-cyan-300">
+                        <Clock className="h-3.5 w-3.5" />
+                        {duelCountdown}
+                      </span>
+                      <span data-testid="duel-total" className="font-black tracking-wide text-white">
+                        {`${formatCompact(duelTotal)} TOTAL VOTES`}
+                      </span>
+                    </div>
+
+                    {/* vote split bar */}
+                    <div data-testid="duel-split">
+                      <div className="flex items-center gap-1">
+                        <div
+                          className="h-2 basis-0 rounded-full bg-gradient-to-r from-violet-600 to-violet-400 transition-all duration-500"
+                          style={{ flexGrow: Math.max(1, duelPctA) }}
+                        />
+                        <div
+                          className="h-2 basis-0 rounded-full bg-gradient-to-l from-cyan-400 to-cyan-500 transition-all duration-500"
+                          style={{ flexGrow: Math.max(1, duelPctB) }}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-semibold">
+                        <span data-testid="duel-pct-a" className="max-w-[48%] truncate text-violet-300">{`${duel.selfLabel}: ${duelPctA}%`}</span>
+                        <span data-testid="duel-pct-b" className="max-w-[48%] truncate text-right text-cyan-300">{`${duel.rival.authorName}: ${duelPctB}%`}</span>
+                      </div>
+                    </div>
+
+                    {/* head-to-head cards */}
+                    <div className="relative grid grid-cols-2 gap-3 pt-3.5">
+                      <span
+                        data-testid="duel-ribbon"
+                        className="absolute left-1/2 top-0 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-amber-400/40 bg-[#0d1130] px-2.5 py-0.5 text-[9px] font-black tracking-widest text-amber-300"
+                      >
+                        {`PRICE ${duel.scoreA} VS ${duel.scoreB}`}
+                      </span>
+                      {/* this post - the violet side */}
+                      <div
+                        data-testid="duel-card-a"
+                        className="relative min-w-0 space-y-1.5 rounded-lg border border-violet-400/40 bg-[#181d3d] p-2"
+                      >
+                        <div className="flex items-center justify-between gap-1 text-[9px] font-black tracking-wide">
+                          <span className="flex min-w-0 items-center gap-1 text-violet-300">
+                            <span className="h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+                            <span className="truncate">{isOwnPost ? 'YOU' : 'THIS BUSINESS'}</span>
+                          </span>
+                          <span
+                            title={`LVL ${duel.selfLevel} · ${levelTitle(duel.selfLevel)}`}
+                            className="shrink-0 rounded-full border border-violet-400/40 bg-violet-500/20 px-1.5 text-violet-200"
+                          >
+                            {`LVL ${duel.selfLevel}`}
+                          </span>
+                        </div>
+                        <div className="relative h-20 overflow-hidden rounded-md bg-violet-500/10">
+                          {post.imageUrl ? (
+                            <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-violet-300/60">
+                              <Scale className="h-6 w-6" />
+                            </div>
+                          )}
+                          {duel.selfOff > 0 && (
+                            <span className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-px text-[9px] font-black text-white">
+                              {`-${duel.selfOff}% OFF`}
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-xs font-bold text-white">{post.productName}</p>
+                        <p className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="truncate text-base font-black text-cyan-300">{formatPrice(post.priceMax, post.currency)}</span>
+                          {duel.selfOff > 0 && (
+                            <span
+                              title="The challenger's price"
+                              className="shrink-0 text-[10px] text-slate-500 line-through"
+                            >
+                              {formatPrice(duel.rival.priceMax, post.currency)}
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-px text-[9px] font-bold text-amber-300">
+                            <Flame className="h-2.5 w-2.5" />
+                            {`${formatCompact(duel.selfVotes)} Hype`}
+                          </span>
+                          {post.author.verifiedLocal && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full border border-violet-400/30 bg-violet-500/15 px-1.5 py-px text-[9px] font-bold text-violet-200">
+                              <BadgeCheck className="h-2.5 w-2.5" />
+                              Verified
+                            </span>
+                          )}
+                        </div>
+                        <p className="flex items-center gap-1 truncate text-[10px] text-slate-400">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{[post.city, post.country].filter(Boolean).join(', ') || 'Unknown location'}</span>
+                        </p>
+                      </div>
+                      {/* the challenger - the cyan side, tappable */}
+                      <button
+                        type="button"
+                        data-testid="duel-card-b"
+                        onClick={() => onOpenPost?.(duel.rival.id)}
+                        title="Open this challenger's price post"
+                        className="relative min-w-0 space-y-1.5 rounded-lg border border-cyan-400/30 bg-[#181d3d] p-2 text-left transition-colors hover:border-cyan-400/60"
+                      >
+                        <div className="flex items-center justify-between gap-1 text-[9px] font-black tracking-wide">
+                          <span className="flex min-w-0 items-center gap-1 text-cyan-300">
+                            <span className="h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
+                            <span className="truncate">{duel.rival.authorName}</span>
+                          </span>
+                          <span
+                            title={`LVL ${duel.rivalLevel} · ${levelTitle(duel.rivalLevel)}`}
+                            className="shrink-0 rounded-full border border-cyan-400/40 bg-cyan-400/10 px-1.5 text-cyan-200"
+                          >
+                            {`LVL ${duel.rivalLevel}`}
+                          </span>
+                        </div>
+                        <div className="relative h-20 overflow-hidden rounded-md bg-cyan-400/10">
+                          {duel.rival.img ? (
+                            <img src={duel.rival.img} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-cyan-300/60">
+                              <Scale className="h-6 w-6" />
+                            </div>
+                          )}
+                          {duel.rivalOff > 0 && (
+                            <span className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-px text-[9px] font-black text-white">
+                              {`-${duel.rivalOff}% OFF`}
+                            </span>
+                          )}
+                          {duel.rival.near && (
+                            <span className="absolute right-1.5 top-1.5 rounded bg-amber-400/90 px-1.5 py-px text-[8px] font-black uppercase text-[#0b1024]">
+                              similar
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-xs font-bold text-white">{duel.rival.name}</p>
+                        <p className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="truncate text-base font-black text-cyan-300">{formatPrice(duel.rival.priceMax, post.currency)}</span>
+                          {duel.rivalOff > 0 && (
+                            <span title="This business's price" className="shrink-0 text-[10px] text-slate-500 line-through">
+                              {formatPrice(selfPrice, post.currency)}
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-px text-[9px] font-bold text-amber-300">
+                            <Flame className="h-2.5 w-2.5" />
+                            {`${formatCompact(rivalVotesNow)} Hype`}
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 rounded-full border border-[#2a3258] bg-[#10142e] px-1.5 py-px text-[9px] font-bold text-slate-300">
+                            {duel.rival.fromLink ? 'Linked' : 'Auto-match'}
+                          </span>
+                        </div>
+                        <p className="flex items-center gap-1 truncate text-[10px] text-slate-400">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{duel.rival.place || 'Unknown location'}</span>
+                        </p>
+                      </button>
+                      <span
+                        data-testid="duel-vs"
+                        className="absolute left-1/2 top-1/2 z-20 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-violet-400/70 bg-[#141936] text-[10px] font-black text-white shadow-lg shadow-violet-500/40"
+                      >
+                        VS
+                      </span>
+                    </div>
+
+                    {/* tactical metric diagnostics */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="flex items-center gap-1.5 text-xs font-bold text-white">
+                          <BarChart3 className="h-3.5 w-3.5 text-cyan-300" />
+                          Tactical Metric Diagnostics
+                        </p>
+                        <p className="text-[9px] font-black tracking-widest text-cyan-300">DIRECT COMPARISON</p>
+                      </div>
+                      {duel.metrics.map((m) => (
+                        <div key={m.label} data-testid="duel-metric" data-label={m.label} data-a={m.a} data-b={m.b}>
+                          <div className="flex items-center justify-between gap-2 text-[10px] font-semibold">
+                            <span className="shrink-0 text-violet-300">{`${m.a} (${duel.selfName})`}</span>
+                            <span className="truncate text-center uppercase tracking-wide text-slate-300">{m.label}</span>
+                            <span className="shrink-0 text-cyan-300">{`${m.b} (${duel.rival.authorName})`}</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <div className="flex h-1.5 flex-1 justify-start">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-400 transition-all duration-500"
+                                style={{ width: `${Math.max(4, Math.min(100, m.aPct))}%` }}
+                              />
+                            </div>
+                            <div className="flex h-1.5 flex-1 justify-end">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-l from-cyan-400 to-cyan-500 transition-all duration-500"
+                                style={{ width: `${Math.max(4, Math.min(100, m.bPct))}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* vote CTAs - voting IS the matching */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        data-testid="duel-vote-a"
+                        onClick={() => void handleVote('HELPFUL')}
+                        className="h-9 flex-1 gap-1.5 bg-violet-600 text-xs font-bold text-white hover:bg-violet-500"
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                        {`Vote ${duel.selfName}`}
+                      </Button>
+                      <Button
+                        type="button"
+                        data-testid="duel-vote-b"
+                        disabled={!!rivalVote && rivalVote.id === duel.rival.id && rivalVote.busy}
+                        onClick={() => void handleRivalVote()}
+                        className="h-9 flex-1 gap-1.5 bg-cyan-400 text-xs font-bold text-[#0b1024] hover:bg-cyan-300"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        {rivalVoted ? 'Voted' : `Vote ${duel.rival.authorName}`}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 {/* v147: the compare output as a price table - months as
                     rows, locations as columns. Always present (this post
