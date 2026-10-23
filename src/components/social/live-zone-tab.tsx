@@ -975,6 +975,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         posts={(g as any).localPostCount}
                         rating={g.rating || 0}
                         ratingCount={(g as any).ratingCount || 0}
+                        votes={(g as any).helpfulVotes}
+                        profilePicture={g.profilePicture}
                         location={g.location}
                       />
                       {g.guideLicense && (
