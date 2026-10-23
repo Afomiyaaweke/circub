@@ -35,6 +35,7 @@ import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
 import { GuideBookingsModal } from './guide-bookings-modal'
 import type { User } from '@/lib/types'
 import { avatarSrc } from '@/lib/fighters'
+import { RoleStickerTile } from './role-sticker-reveal'
 
 interface LiveZoneTabProps {
   me: User | null
@@ -966,13 +967,16 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       )}
                       {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
                       {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
-                      {/* Live Zone roles: Guide / Vlogger / Local / Volunteer */}
-                      {guideRolesOrLegacy((g as any).guideRoles).map((r) => (
-                        <Badge key={r} variant="secondary" data-testid={`guide-role-${r}`}
-                          className="bg-primary/10 text-primary text-[9px] shrink-0">
-                          {ROLE_META[r].label}
-                        </Badge>
-                      ))}
+                      {/* v208: roles hide under the mystery sticker - touch
+                          to take the full screen. No open role badges. */}
+                      <RoleStickerTile
+                        name={g.name}
+                        roles={(g as any).guideRoles}
+                        posts={(g as any).localPostCount}
+                        rating={g.rating || 0}
+                        ratingCount={(g as any).ratingCount || 0}
+                        location={g.location}
+                      />
                       {g.guideLicense && (
                         <Badge variant="secondary" className="bg-violet-100 text-violet-700 text-[9px] shrink-0">
                           <Award className="w-2.5 h-2.5 mr-0.5" />
