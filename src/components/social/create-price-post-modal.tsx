@@ -637,7 +637,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             </button>
             <DialogTitle className="flex items-center gap-2 text-xl font-extrabold text-foreground">
               Quick Price Drop
-              <span title="A first-hand drop takes about 30 seconds" className="inline-flex items-center gap-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 text-[10px] font-bold">
+              <span title="A first-hand drop takes about 30 seconds" className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
                 <Zap className="w-3 h-3" />
                 30s
               </span>
@@ -671,8 +671,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           <div className="rounded-2xl bg-card border border-border shadow-sm p-4 sm:p-5 space-y-4" data-testid="quick-price-card">
             {/* Location - ONE input ("City, Country"); the GPS button below
                 fills it from the pin, most posters never type it. */}
-            <div className="flex items-center gap-2 rounded-xl bg-violet-50 border border-violet-200 px-3 py-2.5">
-              <MapPin className="w-4 h-4 shrink-0 text-violet-600" />
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
+              <MapPin className="w-4 h-4 shrink-0 text-emerald-600" />
               <Input
                 data-testid="composer-location-input"
                 placeholder="e.g. Addis Ababa, Ethiopia"
@@ -681,7 +681,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                 className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 text-sm font-semibold"
               />
               {gpsLat != null && (
-                <span data-testid="gps-badge" className="shrink-0 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-bold text-white">GPS</span>
+                <span data-testid="gps-badge" className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">GPS</span>
               )}
             </div>
             <GpsCapture
@@ -716,7 +716,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                       data-testid={`quick-chip-${chip.slug}`}
                       className={`inline-flex items-center gap-1.5 rounded-full border px-3 h-8 text-xs font-semibold transition-colors ${
                         active
-                          ? 'bg-violet-50 border-violet-400 text-violet-700'
+                          ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
                           : 'bg-muted/60 border-transparent text-muted-foreground hover:border-border hover:text-foreground'
                       }`}
                     >
@@ -797,7 +797,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                       className="h-8 w-28 rounded-lg text-right text-sm"
                     />
                   ) : (
-                    <button type="button" onClick={() => setShowAsk(true)} data-testid="edit-ask" className="text-xs font-bold text-violet-600 hover:text-violet-700">
+                    <button type="button" onClick={() => setShowAsk(true)} data-testid="edit-ask" className="text-xs font-bold text-emerald-600 hover:text-emerald-700">
                       + Edit ask
                     </button>
                   )}
@@ -841,10 +841,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                     disabled={uploading || comparing}
                     title="PNG, JPEG, WebP, GIF - max 5 MB"
                     data-testid="photo-drop"
-                    className="w-full h-full min-h-[9rem] rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/60 px-3 py-4 flex flex-col items-center justify-center gap-1 text-center hover:border-violet-400 transition-colors disabled:opacity-60"
+                    className="w-full h-full min-h-[9rem] rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 px-3 py-4 flex flex-col items-center justify-center gap-1 text-center hover:border-emerald-400 transition-colors disabled:opacity-60"
                   >
-                    <span className="w-11 h-11 rounded-full bg-violet-100 flex items-center justify-center">
-                      <Camera className="w-5 h-5 text-violet-600" />
+                    <span className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Camera className="w-5 h-5 text-emerald-600" />
                     </span>
                     <span className="text-sm font-bold text-foreground">
                       {uploading ? 'Uploading...' : comparing ? 'Analyzing…' : 'Photo'}
@@ -932,13 +932,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             {/* Share as story - ON by default; kept in the main flow. */}
             <label
               data-testid="also-story-row"
-              className="flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2.5 cursor-pointer select-none"
+              className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 cursor-pointer select-none"
             >
               <input
                 type="checkbox"
                 checked={alsoStory}
                 onChange={(e) => setAlsoStory(e.target.checked)}
-                className="mt-0.5 accent-violet-600 w-4 h-4"
+                className="mt-0.5 accent-emerald-600 w-4 h-4"
                 data-testid="also-story-checkbox"
               />
               <span className="min-w-0">
@@ -1178,7 +1178,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             onClick={handleSave}
             disabled={saving || uploading}
             data-testid="composer-publish"
-            className="flex-1 px-6 h-11 rounded-full bg-violet-700 hover:bg-violet-800 text-white font-bold gap-2"
+            className="flex-1 px-6 h-11 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-2"
           >
             <Rocket className="w-4 h-4" />
             {saving ? 'Dropping...' : 'Drop Price Now'}

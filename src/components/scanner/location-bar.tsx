@@ -29,7 +29,7 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
         <div
           className={cn(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
-            label ? 'border-violet-500/30 bg-violet-50 text-violet-600' : 'border-zinc-200 bg-card text-zinc-400'
+            label ? 'border-emerald-500/30 bg-emerald-50 text-emerald-600' : 'border-zinc-200 bg-card text-zinc-400'
           )}
         >
           {detecting ? (
@@ -52,7 +52,7 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
             <motion.div key={label} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-1.5">
               <span className="truncate text-sm font-medium text-zinc-900">{label}</span>
               {isGeo && (
-                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-700" title="Location detected via device GPS">
+                <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700" title="Location detected via device GPS">
                   <Crosshair className="h-2.5 w-2.5" /> GPS
                 </span>
               )}
@@ -72,7 +72,7 @@ export function LocationBar({ location, detecting, onRefresh }: LocationBarProps
           )}
         </div>
       </div>
-      <Button variant="ghost" size="sm" onClick={onRefresh} disabled={detecting} className="shrink-0 text-zinc-400 hover:bg-zinc-100 hover:text-violet-600">
+      <Button variant="ghost" size="sm" onClick={onRefresh} disabled={detecting} className="shrink-0 text-zinc-400 hover:bg-zinc-100 hover:text-emerald-600">
         <RefreshCw className={cn('h-4 w-4', detecting && 'animate-spin')} />
         <span className="sr-only">Refresh location</span>
       </Button>

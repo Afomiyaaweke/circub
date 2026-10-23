@@ -1019,7 +1019,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         ) : (
           <div>
             {/* Header */}
-            <div className="p-5 sm:p-6 border-b border-border bg-gradient-to-br from-primary/10 to-violet-50">
+            <div className="p-5 sm:p-6 border-b border-border bg-gradient-to-br from-primary/10 to-emerald-50">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 gap-y-1 flex-wrap mb-1.5">
@@ -1029,7 +1029,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         'text-[10px] font-medium uppercase tracking-wide',
                         post.postType === 'SERVICE'
                           ? 'bg-purple-100 text-purple-700'
-                          : 'bg-violet-100 text-violet-700'
+                          : 'bg-emerald-100 text-emerald-700'
                       )}
                     >
                       {post.postType === 'SERVICE' ? 'Service' : 'Product'}
@@ -1118,12 +1118,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   </p>
                 </div>
                 {post.recommendedPrice != null && (
-                  <div className="rounded-lg bg-card border border-violet-300 p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-violet-700 font-medium flex items-center gap-1">
+                  <div className="rounded-lg bg-card border border-emerald-300 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-medium flex items-center gap-1">
                       <BadgeCheck className="w-3 h-3" />
                       Recommended fair price
                     </p>
-                    <p className="text-base font-bold text-violet-700 mt-1">
+                    <p className="text-base font-bold text-emerald-700 mt-1">
                       {formatPrice(post.recommendedPrice, post.currency)}
                     </p>
                   </div>
@@ -1184,7 +1184,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   <div data-testid="duel-targets" className="mb-3 rounded-xl border border-[#2a3258] bg-[#141936] p-3.5 space-y-2 shadow-lg shadow-black/20">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <h4 className="flex items-center gap-1.5 text-xs font-black tracking-wide text-white">
-                        <Swords className="w-3.5 h-3.5 text-violet-300" /> SELECT TARGET DUEL
+                        <Swords className="w-3.5 h-3.5 text-emerald-300" /> SELECT TARGET DUEL
                       </h4>
                       <span className="rounded-full bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 text-[9px] font-black tracking-wide text-amber-300">
                         PVP MULTIPLIER X1.5
@@ -1204,10 +1204,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             onClick={() => setPreferredRivalId(c.id)}
                             className={
                               'w-full flex items-center gap-2.5 rounded-lg border p-2 text-left transition-all ' +
-                              (active ? 'border-violet-400/60 bg-violet-500/10 shadow-md shadow-violet-500/20' : 'border-[#2a3258] bg-[#0f1329] hover:border-violet-400/40')
+                              (active ? 'border-emerald-400/60 bg-emerald-500/10 shadow-md shadow-emerald-500/20' : 'border-[#2a3258] bg-[#0f1329] hover:border-emerald-400/40')
                             }
                           >
-                            <span className={'w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-black ' + (active ? 'bg-violet-500/30 text-violet-200' : 'bg-slate-500/15 text-slate-300')}>
+                            <span className={'w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-black ' + (active ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-500/15 text-slate-300')}>
                               {`#${i + 1}`}
                             </span>
                             {c.img ? (
@@ -1221,7 +1221,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               <span className="flex items-center gap-1.5 min-w-0">
                                 <span className="truncate text-xs font-bold text-white">{c.authorName}</span>
                                 {active ? (
-                                  <span className="shrink-0 rounded px-1 py-px text-[8px] font-black tracking-wide bg-violet-500/25 text-violet-200">RIVAL</span>
+                                  <span className="shrink-0 rounded px-1 py-px text-[8px] font-black tracking-wide bg-emerald-500/25 text-emerald-200">RIVAL</span>
                                 ) : (
                                   <span className="shrink-0 rounded px-1 py-px text-[8px] font-black tracking-wide bg-slate-500/20 text-slate-300">TARGET</span>
                                 )}
@@ -1243,7 +1243,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 {`Rank #${i + 1} · ${formatCompact(c.votes * 100)} XP · ${winRate}% Win Rate`}
                               </span>
                             </span>
-                            <span className={'w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ' + (active ? 'border-violet-400 bg-violet-500' : 'border-slate-600')}>
+                            <span className={'w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ' + (active ? 'border-emerald-400 bg-emerald-500' : 'border-slate-600')}>
                               {active && <Check className="w-3 h-3 text-white" />}
                             </span>
                           </button>
@@ -1285,7 +1285,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       <p data-testid="duel-title" className="text-base sm:text-lg font-black leading-snug text-white">
                         {`Active Duel #${duel.no}: ${post.productName}`}
                       </p>
-                      <p className="mt-1 flex items-center gap-1.5 text-[11px] text-violet-300">
+                      <p className="mt-1 flex items-center gap-1.5 text-[11px] text-emerald-300">
                         <Shield className="h-3.5 w-3.5 shrink-0" />
                         <span>{'Stakes: the Weekly Hustle crown - every Helpful vote is +100 poster XP'}</span>
                       </p>
@@ -1306,7 +1306,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     <div data-testid="duel-split">
                       <div className="flex items-center gap-1">
                         <div
-                          className="h-2 basis-0 rounded-full bg-gradient-to-r from-violet-600 to-violet-400 transition-all duration-500"
+                          className="h-2 basis-0 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
                           style={{ flexGrow: Math.max(1, duelPctA) }}
                         />
                         <div
@@ -1315,7 +1315,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         />
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-semibold">
-                        <span data-testid="duel-pct-a" className="max-w-[48%] truncate text-violet-300">{`${duel.selfLabel}: ${duelPctA}%`}</span>
+                        <span data-testid="duel-pct-a" className="max-w-[48%] truncate text-emerald-300">{`${duel.selfLabel}: ${duelPctA}%`}</span>
                         <span data-testid="duel-pct-b" className="max-w-[48%] truncate text-right text-cyan-300">{`${duel.rival.authorName}: ${duelPctB}%`}</span>
                       </div>
                     </div>
@@ -1331,30 +1331,30 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {/* this post - the violet side */}
                       <div
                         data-testid="duel-card-a"
-                        className="relative min-w-0 space-y-1.5 rounded-lg border border-violet-400/40 bg-[#181d3d] p-2"
+                        className="relative min-w-0 space-y-1.5 rounded-lg border border-emerald-400/40 bg-[#181d3d] p-2"
                       >
                         <div className="flex items-center justify-between gap-1 text-[9px] font-black tracking-wide">
-                          <span className="flex min-w-0 items-center gap-1 text-violet-300">
-                            <span className="h-1 w-1 shrink-0 rounded-full bg-violet-400" />
+                          <span className="flex min-w-0 items-center gap-1 text-emerald-300">
+                            <span className="h-1 w-1 shrink-0 rounded-full bg-emerald-400" />
                             <span className="truncate">{isOwnPost ? 'YOU' : 'THIS BUSINESS'}</span>
                           </span>
                           <span
                             title={`LVL ${duel.selfLevel} · ${levelTitle(duel.selfLevel)}`}
-                            className="shrink-0 rounded-full border border-violet-400/40 bg-violet-500/20 px-1.5 text-violet-200"
+                            className="shrink-0 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-1.5 text-emerald-200"
                           >
                             {`LVL ${duel.selfLevel}`}
                           </span>
                         </div>
-                        <div className="relative h-20 overflow-hidden rounded-md bg-violet-500/10">
+                        <div className="relative h-20 overflow-hidden rounded-md bg-emerald-500/10">
                           {post.imageUrl ? (
                             <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-violet-300/60">
+                            <div className="flex h-full w-full items-center justify-center text-emerald-300/60">
                               <Scale className="h-6 w-6" />
                             </div>
                           )}
                           {duel.selfOff > 0 && (
-                            <span className="absolute left-1.5 top-1.5 rounded bg-violet-500 px-1.5 py-px text-[9px] font-black text-white">
+                            <span className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-px text-[9px] font-black text-white">
                               {`-${duel.selfOff}% OFF`}
                             </span>
                           )}
@@ -1377,7 +1377,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             {`${formatCompact(duel.selfVotes)} Hype`}
                           </span>
                           {post.author.verifiedLocal && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full border border-violet-400/30 bg-violet-500/15 px-1.5 py-px text-[9px] font-bold text-violet-200">
+                            <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-1.5 py-px text-[9px] font-bold text-emerald-200">
                               <BadgeCheck className="h-2.5 w-2.5" />
                               Verified
                             </span>
@@ -1417,7 +1417,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             </div>
                           )}
                           {duel.rivalOff > 0 && (
-                            <span className="absolute left-1.5 top-1.5 rounded bg-violet-500 px-1.5 py-px text-[9px] font-black text-white">
+                            <span className="absolute left-1.5 top-1.5 rounded bg-emerald-500 px-1.5 py-px text-[9px] font-black text-white">
                               {`-${duel.rivalOff}% OFF`}
                             </span>
                           )}
@@ -1452,7 +1452,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       </button>
                       <span
                         data-testid="duel-vs"
-                        className="absolute left-1/2 top-1/2 z-20 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-violet-400/70 bg-[#141936] text-[10px] font-black text-white shadow-lg shadow-violet-500/40"
+                        className="absolute left-1/2 top-1/2 z-20 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-emerald-400/70 bg-[#141936] text-[10px] font-black text-white shadow-lg shadow-emerald-500/40"
                       >
                         VS
                       </span>
@@ -1470,14 +1470,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {duel.metrics.map((m) => (
                         <div key={m.label} data-testid="duel-metric" data-label={m.label} data-a={m.a} data-b={m.b}>
                           <div className="flex items-center justify-between gap-2 text-[10px] font-semibold">
-                            <span className="shrink-0 text-violet-300">{`${m.a} (${duel.selfName})`}</span>
+                            <span className="shrink-0 text-emerald-300">{`${m.a} (${duel.selfName})`}</span>
                             <span className="truncate text-center uppercase tracking-wide text-slate-300">{m.label}</span>
                             <span className="shrink-0 text-cyan-300">{`${m.b} (${duel.rival.authorName})`}</span>
                           </div>
                           <div className="mt-1 flex items-center gap-1.5">
                             <div className="flex h-1.5 flex-1 justify-start">
                               <div
-                                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-400 transition-all duration-500"
+                                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
                                 style={{ width: `${Math.max(4, Math.min(100, m.aPct))}%` }}
                               />
                             </div>
@@ -1498,7 +1498,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         type="button"
                         data-testid="duel-vote-a"
                         onClick={() => void handleVote('HELPFUL')}
-                        className="h-9 flex-1 gap-1.5 bg-violet-600 text-xs font-bold text-white hover:bg-violet-500"
+                        className="h-9 flex-1 gap-1.5 bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-500"
                       >
                         <ThumbsUp className="h-3.5 w-3.5" />
                         {`Vote ${duel.selfName}`}
@@ -1581,7 +1581,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       className={cn(
                                         'px-2 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10 sm:px-3',
                                         priceTable.cities[i].near && 'italic text-muted-foreground',
-                                        filled.length > 1 && v.max === rowMin ? 'text-violet-700 font-semibold' : 'text-foreground font-medium'
+                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
                                       )}
                                     >
                                       {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
@@ -1673,7 +1673,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       title="Touch a price to see the business behind it"
                                       className={cn(
                                         'px-2 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10 sm:px-3',
-                                        filled.length > 1 && v.max === rowMin ? 'text-violet-700 font-semibold' : 'text-foreground font-medium'
+                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
                                       )}
                                     >
                                       {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
@@ -1811,7 +1811,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       data-testid="detail-compare-self"
                       className={cn(
                         'flex items-center justify-between gap-2 gap-y-1 flex-wrap rounded-md border px-2.5 py-1.5',
-                        cheapestSelf ? 'border-violet-500/50 bg-violet-500/5' : 'border-primary/40 bg-primary/5'
+                        cheapestSelf ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-primary/40 bg-primary/5'
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0 max-sm:basis-full">
@@ -1830,12 +1830,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       {cheapestSelf && (
                         <span
                           data-testid="detail-compare-cheapest"
-                          className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-100 rounded-full px-1.5 py-0.5 shrink-0"
+                          className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
                         >
                           Cheapest
                         </span>
                       )}
-                      <span className="text-xs font-bold text-violet-700 shrink-0">
+                      <span className="text-xs font-bold text-emerald-700 shrink-0">
                         {post?.currency} {post?.priceMin}
                         {post && post.priceMin !== post.priceMax ? `-${post.priceMax}` : ''}
                       </span>
@@ -1871,7 +1871,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               data-testid="detail-compare-delta"
                               className={cn(
                                 'text-[10px] font-semibold shrink-0 text-right w-14',
-                                delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-violet-600' : 'text-muted-foreground'
+                                delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
                               )}
                             >
                               {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
@@ -1888,7 +1888,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                           {sameCur && !cheapestSelf && l.post.priceMax === cheapestPrice && (
                             <span
                               data-testid="detail-compare-cheapest"
-                              className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-100 rounded-full px-1.5 py-0.5 shrink-0"
+                              className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
                             >
                               Cheapest
                             </span>
@@ -1901,7 +1901,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             <ThumbsUp className="w-3 h-3" />
                             {rowVotes(l)}
                           </span>
-                          <span className="text-xs font-bold text-violet-700 shrink-0">
+                          <span className="text-xs font-bold text-emerald-700 shrink-0">
                             {l.post.currency} {l.post.priceMin}
                             {l.post.priceMin !== l.post.priceMax ? `-${l.post.priceMax}` : ''}
                           </span>
@@ -1976,7 +1976,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                   data-testid="detail-compare-delta"
                                   className={cn(
                                     'text-[10px] font-semibold shrink-0 text-right w-14',
-                                    delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-violet-600' : 'text-muted-foreground'
+                                    delta > 0 ? 'text-orange-600' : delta < 0 ? 'text-emerald-600' : 'text-muted-foreground'
                                   )}
                                 >
                                   {delta > 0 ? `+${delta.toFixed(1)}%` : delta < 0 ? `${delta.toFixed(1)}%` : 'same'}
@@ -1993,7 +1993,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               {sameCur && !cheapestSelf && a.priceMax === cheapestPrice && (
                                 <span
                                   data-testid="detail-compare-cheapest"
-                                  className="text-[9px] font-bold uppercase tracking-wide text-violet-700 bg-violet-100 rounded-full px-1.5 py-0.5 shrink-0"
+                                  className="text-[9px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 rounded-full px-1.5 py-0.5 shrink-0"
                                 >
                                   Cheapest
                                 </span>
@@ -2006,7 +2006,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 <ThumbsUp className="w-3 h-3" />
                                 {a.helpfulCount ?? 0}
                               </span>
-                              <span className="text-xs font-bold text-violet-700 shrink-0">
+                              <span className="text-xs font-bold text-emerald-700 shrink-0">
                                 {a.currency} {a.priceMin}
                                 {a.priceMin !== a.priceMax ? `-${a.priceMax}` : ''}
                               </span>
@@ -2059,7 +2059,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
               )}
 
               {/* Consensus section */}
-              <div className="rounded-xl bg-violet-50/50 border border-violet-200 p-4">
+              <div className="rounded-xl bg-emerald-50/50 border border-emerald-200 p-4">
                 <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-primary" />
                   Local consensus
@@ -2076,13 +2076,13 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         {formatPrice(consensus.avgPriceMin, consensus.currency)} - {formatPrice(consensus.avgPriceMax, consensus.currency)}
                       </p>
                       {consensus.verdict === 'fair' && (
-                        <Badge className="bg-violet-500 text-white">🟢 Fair price</Badge>
+                        <Badge className="bg-emerald-500 text-white">🟢 Fair price</Badge>
                       )}
                       {consensus.verdict === 'expensive' && (
                         <Badge className="bg-orange-500 text-white">🟠 Above local average</Badge>
                       )}
                       {consensus.verdict === 'cheap' && (
-                        <Badge className="bg-violet-500 text-white">🟢 Below market</Badge>
+                        <Badge className="bg-emerald-500 text-white">🟢 Below market</Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1.5 italic">
@@ -2151,7 +2151,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             <span
                               className={cn(
                                 'flex items-center gap-0.5 text-xs w-16 justify-end shrink-0',
-                                change > 0 ? 'text-orange-600' : change < 0 ? 'text-violet-600' : 'text-muted-foreground'
+                                change > 0 ? 'text-orange-600' : change < 0 ? 'text-emerald-600' : 'text-muted-foreground'
                               )}
                             >
                               {change > 0 ? (

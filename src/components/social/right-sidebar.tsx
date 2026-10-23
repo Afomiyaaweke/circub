@@ -164,7 +164,7 @@ export function RightSidebar({
       {/* Profile card - the only profile show, on the right side */}
       <Card className="overflow-hidden p-0 shadow-sm">
         {/* Cover banner */}
-        <div className="h-16 sm:h-20 bg-gradient-to-br from-primary to-violet-400" />
+        <div className="h-16 sm:h-20 bg-gradient-to-br from-primary to-emerald-400" />
 
         <div className="px-4 pb-4 -mt-8 sm:-mt-9 flex flex-col items-center text-center">
           {/* Profile picture - tap toggles all info */}
@@ -174,7 +174,7 @@ export function RightSidebar({
             aria-label={profileExpanded ? 'Collapse profile info' : 'Expand profile info'}
           >
             {user?.profilePicture ? (
-              <div className={cn('w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md overflow-hidden', equippedFighter && 'ring-2 ring-violet-400/70 ring-offset-2 ring-offset-card')}>
+              <div className={cn('w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md overflow-hidden', equippedFighter && 'ring-2 ring-emerald-400/70 ring-offset-2 ring-offset-card')}>
                 <img src={avatarSrc(user.profilePicture)} alt={user?.name || 'Profile'} className="w-full h-full object-cover" />
               </div>
             ) : (

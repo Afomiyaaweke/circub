@@ -103,9 +103,9 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
   }
 
   return (
-    <div className="rounded-xl border border-violet-500/20 bg-violet-50/40 p-4" data-testid="budget-planner">
+    <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/40 p-4" data-testid="budget-planner">
       <p className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
-        <Calculator className="h-4 w-4 text-violet-600" />
+        <Calculator className="h-4 w-4 text-emerald-600" />
         Budget planner
       </p>
       <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
@@ -116,7 +116,7 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
         <Button
           size="sm"
           onClick={handleOpen}
-          className="mt-2.5 gap-1.5 bg-violet-600 text-xs text-white hover:bg-violet-700"
+          className="mt-2.5 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-700"
           data-testid="budget-toggle"
         >
           <Calculator className="h-3.5 w-3.5" />
@@ -127,7 +127,7 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
       {open && (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border border-violet-200 bg-card p-1">
+            <div className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-card p-1">
               <Button
                 type="button"
                 variant="ghost"
@@ -165,7 +165,7 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
               size="sm"
               onClick={() => void calculate()}
               disabled={loading}
-              className="h-9 gap-1.5 bg-violet-600 text-white hover:bg-violet-700"
+              className="h-9 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
               data-testid="budget-calc"
             >
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
@@ -176,7 +176,7 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
               variant="ghost"
               onClick={() => setOpen(false)}
               disabled={loading}
-              className="h-9 px-2 text-xs text-zinc-500 hover:text-violet-600"
+              className="h-9 px-2 text-xs text-zinc-500 hover:text-emerald-600"
             >
               Hide
             </Button>
@@ -188,7 +188,7 @@ export function BudgetPlanner({ itemName, location, price, localPrices }: Budget
 
           {loading && !result && (
             <p className="flex items-center gap-2 text-xs text-zinc-500" data-testid="budget-loading">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-600" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
               Working out your budget for {place}…
             </p>
           )}

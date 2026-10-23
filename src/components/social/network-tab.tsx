@@ -706,7 +706,7 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
                 key={s.id}
                 className="rounded-xl border border-border bg-card overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="h-12 bg-gradient-to-br from-primary/40 to-violet-400/40" />
+                <div className="h-12 bg-gradient-to-br from-primary/40 to-emerald-400/40" />
                 <div className="px-3 pb-3 -mt-6 flex flex-col items-center text-center">
                   <Avatar className="w-12 h-12 border-2 border-card bg-card">
                     <AvatarFallback className="bg-primary/15 text-primary font-semibold">

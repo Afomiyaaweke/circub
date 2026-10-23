@@ -40,7 +40,7 @@ interface GuideBookingsModalProps {
 
 const STATUS_STYLE: Record<string, string> = {
   PENDING: 'bg-amber-100 text-amber-700',
-  ACCEPTED: 'bg-violet-100 text-violet-700',
+  ACCEPTED: 'bg-emerald-100 text-emerald-700',
   DECLINED: 'bg-red-100 text-red-600',
   COMPLETED: 'bg-blue-100 text-blue-700',
   CANCELLED: 'bg-muted text-muted-foreground',
@@ -117,7 +117,7 @@ function BookingCard({ b, me, onMessage, refresh }: {
 
       {b.message && <p className="text-xs text-muted-foreground bg-accent/60 rounded p-2 break-words">&ldquo;{b.message}&rdquo;</p>}
       {b.reply && (
-        <p className={cn('text-xs rounded p-2 break-words', b.status === 'ACCEPTED' ? 'bg-violet-50 text-violet-800' : 'bg-accent/60 text-muted-foreground')}>
+        <p className={cn('text-xs rounded p-2 break-words', b.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-800' : 'bg-accent/60 text-muted-foreground')}>
           Guide replied: &ldquo;{b.reply}&rdquo;
         </p>
       )}
@@ -126,7 +126,7 @@ function BookingCard({ b, me, onMessage, refresh }: {
       <div className="flex items-center gap-1.5 flex-wrap">
         {isIncoming && b.status === 'PENDING' && (
           <>
-            <Button size="sm" disabled={busy} onClick={() => act('ACCEPTED', replyOpen && reply.trim() ? reply.trim() : undefined)} className="bg-violet-600 hover:bg-violet-700 text-white text-xs gap-1">
+            <Button size="sm" disabled={busy} onClick={() => act('ACCEPTED', replyOpen && reply.trim() ? reply.trim() : undefined)} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1">
               {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : null}Accept
             </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => act('DECLINED')} className="border-red-300 text-red-600 hover:bg-red-50 text-xs">

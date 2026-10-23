@@ -129,7 +129,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
                     {s.imageUrl ? (
                       <img src={s.imageUrl} alt="" className="w-full h-full rounded-full object-cover" loading="lazy" />
                     ) : (
-                      <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-violet-100 dark:to-violet-950 flex items-center justify-center text-[8px] font-bold text-primary leading-none text-center px-0.5">
+                      <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 flex items-center justify-center text-[8px] font-bold text-primary leading-none text-center px-0.5">
                         {priceBit(s).replace(/^(\S+)\s*/, '')}
                       </span>
                     )}
@@ -178,7 +178,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
               {current.imageUrl ? (
                 <img src={current.imageUrl} alt="" className="w-full aspect-[3/4] object-cover" data-testid="story-viewer-image" />
               ) : (
-                <div data-testid="story-viewer-banner" className="w-full aspect-[3/4] bg-gradient-to-br from-violet-600 via-primary to-violet-900 flex flex-col items-center justify-center text-center px-6 gap-3">
+                <div data-testid="story-viewer-banner" className="w-full aspect-[3/4] bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-3">
                   {(() => {
                     const pp = current.pricePost
                     if (!pp) return (

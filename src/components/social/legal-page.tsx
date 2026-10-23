@@ -27,11 +27,11 @@ export function LegalPage({ doc, otherHref, otherLabel }: { doc: LegalDoc; other
             </div>
           </div>
 
-          <div className="mt-5 p-3.5 rounded-lg border border-violet-200 bg-violet-50 text-xs sm:text-sm text-violet-900 flex items-start gap-2">
-            <FileText className="w-4 h-4 mt-0.5 shrink-0 text-violet-600" />
+          <div className="mt-5 p-3.5 rounded-lg border border-emerald-200 bg-emerald-50 text-xs sm:text-sm text-emerald-900 flex items-start gap-2">
+            <FileText className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
             <p className="leading-relaxed">
               By creating an account or using circubAwd you confirm that you have read and agree to this
-              document and our <Link href={otherHref} className="font-semibold underline underline-offset-2 hover:text-violet-700">{otherLabel}</Link>.
+              document and our <Link href={otherHref} className="font-semibold underline underline-offset-2 hover:text-emerald-700">{otherLabel}</Link>.
             </p>
           </div>
 

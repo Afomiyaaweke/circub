@@ -741,7 +741,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {item.imageUrl ? (
                 <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-violet-500/10 to-teal-500/15 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-emerald-500/10 to-teal-500/15 flex items-center justify-center">
                   {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
                 </div>
               )}
@@ -847,10 +847,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 through profilePicture ('fighter:<id>') and shows up on every
                 avatar surface + the share card. Higher fighters unlock with
                 Helpful votes on your deals (the service rating). */}
-            <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 space-y-3" data-testid="fighter-section">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3" data-testid="fighter-section">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5"><Swords className="w-4 h-4 text-violet-500" />Fighter character</h3>
-                <span data-testid="fighter-level-chip" className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-400/40 px-2 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5"><Swords className="w-4 h-4 text-emerald-500" />Fighter character</h3>
+                <span data-testid="fighter-level-chip" className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-400/40 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-300">
                   LVL {myLevel} · {levelTitle(myLevel)}
                 </span>
               </div>
@@ -875,13 +875,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                       }}
                       className={cn(
                         'relative rounded-lg border p-2 flex flex-col items-center gap-1 transition-all',
-                        equipped ? 'border-violet-500 bg-violet-500/10 shadow-md shadow-violet-500/20 ring-2 ring-violet-400/60'
+                        equipped ? 'border-emerald-500 bg-emerald-500/10 shadow-md shadow-emerald-500/20 ring-2 ring-emerald-400/60'
                           : locked ? 'border-border bg-card opacity-60 grayscale'
-                          : 'border-border bg-card hover:border-violet-400/60 hover:bg-violet-500/5'
+                          : 'border-border bg-card hover:border-emerald-400/60 hover:bg-emerald-500/5'
                       )}
                     >
                       <img src={f.img} alt={f.name} className={cn('w-14 h-14 rounded-full object-cover ring-2', equipped ? f.ring : 'ring-transparent')} />
-                      {equipped && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-violet-600 text-white flex items-center justify-center"><Check className="w-3 h-3" /></span>}
+                      {equipped && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center"><Check className="w-3 h-3" /></span>}
                       {locked && <Lock className="absolute top-1 right-1 w-3.5 h-3.5 text-muted-foreground" />}
                       <span className="text-[11px] font-bold text-foreground leading-none">{f.name}</span>
                       <span className="text-[9px] text-muted-foreground leading-none text-center">{locked ? `LVL ${f.unlockLevel} · +${f.votesNeeded} votes` : f.epithet}</span>
@@ -922,7 +922,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                             : s.def.tier.startsWith('Silver') ? 'bg-slate-400/15 text-slate-600 dark:text-slate-300'
                             : s.def.tier.startsWith('Cyan') ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300'
                             : s.def.tier.startsWith('Gold') ? 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-300'
-                            : 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-300'
+                            : 'bg-teal-500/15 text-teal-600 dark:text-teal-300'
                         )}>{s.def.tier.toUpperCase()}</span>
                         {s.unlocked ? (
                           <span className="text-[9px] font-black text-primary flex items-center gap-0.5"><Check className="w-3 h-3" />EARNED</span>
@@ -939,7 +939,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                       {!s.unlocked && (
                         <div className="flex items-center gap-2 pt-0.5">
                           <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" style={{ width: `${Math.max(2, s.pct)}%` }} />
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400" style={{ width: `${Math.max(2, s.pct)}%` }} />
                           </div>
                           <span className="text-[9px] font-bold text-muted-foreground shrink-0">{s.pct}%</span>
                         </div>
@@ -960,17 +960,17 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   placeholder="yourname"
                   value={username}
                   onChange={(e) => setUsername(normalizeUsername(e.target.value))}
-                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-violet-500/60 focus-visible:ring-violet-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
+                  className={cn('pl-7 pr-9', uStatus === 'available' && 'border-emerald-500/60 focus-visible:ring-emerald-500/40', uStatus === 'error' && 'border-destructive/60 focus-visible:ring-destructive/40')}
                   autoComplete="off"
                   spellCheck={false}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2">
                   {uStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                  {uStatus === 'available' && <Check className="w-4 h-4 text-violet-600" />}
+                  {uStatus === 'available' && <Check className="w-4 h-4 text-emerald-600" />}
                 </span>
               </div>
               {uMsg ? (
-                <p className={cn('text-[10px]', uStatus === 'available' && 'text-violet-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
+                <p className={cn('text-[10px]', uStatus === 'available' && 'text-emerald-600', uStatus === 'error' && 'text-destructive', uStatus === 'checking' && 'text-muted-foreground')}>{uMsg}</p>
               ) : (
                 <p className="text-[10px] text-muted-foreground">Your unique ID - your profile lives at <span className="font-semibold">circubAwd.app/u/{username || 'yourname'}</span>. Lowercase letters, numbers and underscores.</p>
               )}
@@ -1335,7 +1335,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {stories.length > 0 && (stories[stories.length - 1].imageUrl ? (
                 <img src={stories[stories.length - 1].imageUrl!} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
               ) : (
-                <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-violet-100 dark:to-violet-950 opacity-60" />
+                <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 opacity-60" />
               ))}
             </div>
             <span className="text-[10px] text-muted-foreground">Your story</span>
@@ -1347,7 +1347,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   {s.imageUrl ? (
                     <img src={s.imageUrl} alt="Your story" className="w-full h-full rounded-full object-cover" loading="lazy" />
                   ) : (
-                    <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-violet-100 dark:to-violet-950 flex items-center justify-center text-[7px] font-bold text-primary leading-none text-center px-0.5">
+                    <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 flex items-center justify-center text-[7px] font-bold text-primary leading-none text-center px-0.5">
                       {s.pricePost ? `${s.pricePost.currency} ${s.pricePost.priceMin}` : 'Price'}
                     </span>
                   )}
@@ -1485,7 +1485,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {stories[viewerIndex].imageUrl ? (
                 <img src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
               ) : (
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-violet-600 via-primary to-violet-900 flex flex-col items-center justify-center text-center px-6 gap-2">
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-2">
                   {stories[viewerIndex].pricePost && (
                     <>
                       <span className="text-3xl font-black text-white drop-shadow">
@@ -1642,7 +1642,7 @@ function Tile({ imageUrl, children, onOpen, onDelete, ariaLabel, badge }: {
       {imageUrl ? (
         <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-violet-500/10 to-teal-500/20 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-emerald-500/10 to-teal-500/20 flex items-center justify-center">
           <ImageIcon className="w-7 h-7 text-primary/40" />
         </div>
       )}

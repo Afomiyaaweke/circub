@@ -440,7 +440,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500 text-white shadow-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm">
               <ScanLine className="h-4 w-4" />
             </div>
             <div>
@@ -449,7 +449,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
             </div>
           </div>
           <div className="hidden items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[10px] text-zinc-500 sm:flex">
-            <ShieldCheck className="h-3 w-3 text-violet-500" />
+            <ShieldCheck className="h-3 w-3 text-emerald-500" />
             Not stored
           </div>
         </div>
@@ -478,7 +478,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
                   className={cn(
                     'flex-1 gap-2 rounded-xl text-sm font-semibold transition',
                     canScan
-                      ? 'bg-violet-500 text-white hover:bg-violet-400 shadow-lg shadow-violet-500/25'
+                      ? 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/25'
                       : 'bg-zinc-100 text-zinc-400'
                   )}
                 >
@@ -488,7 +488,7 @@ export function PriceLensModal({ open, onOpenChange, onPickItem }: PriceLensModa
 
                 <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    {autoScan ? <Zap className="h-3.5 w-3.5 text-violet-500" /> : <ZapOff className="h-3.5 w-3.5 text-zinc-400" />}
+                    {autoScan ? <Zap className="h-3.5 w-3.5 text-emerald-500" /> : <ZapOff className="h-3.5 w-3.5 text-zinc-400" />}
                     <div className="leading-tight">
                       <p className="text-xs font-medium text-zinc-800">Auto-scan</p>
                       <p className="text-[9px] text-zinc-500">

@@ -404,7 +404,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
                     )}
                   </div>
                   {link.trim() && (
-                    <p className={`text-[10px] flex items-center gap-1 ${parsed ? 'text-violet-600' : 'text-destructive'}`}>
+                    <p className={`text-[10px] flex items-center gap-1 ${parsed ? 'text-emerald-600' : 'text-destructive'}`}>
                       {parsed ? (
                         <><CheckCircle2 className="w-3 h-3 shrink-0" />{parsed.label} - looks good</>
                       ) : (

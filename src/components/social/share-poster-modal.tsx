@@ -180,7 +180,7 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuil
             data-testid="share-poster-whatsapp"
             onClick={() => openExternal(`https://wa.me/?text=${enc(`${text} ${linkUrl}`)}`)}
           >
-            <MessageCircle className="w-4 h-4 text-violet-600" />
+            <MessageCircle className="w-4 h-4 text-emerald-600" />
             WhatsApp
           </Button>
           <Button

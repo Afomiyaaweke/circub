@@ -25,7 +25,7 @@ import { countdownLabel, levelTitle, stickerTierLabel, stickerTierChipClass } fr
 import { avatarSrc } from '@/lib/fighters'
 
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-emerald-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -189,8 +189,8 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-400/30 shrink-0">
-            <Swords className="w-5 h-5 text-violet-300" />
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-400/30 shrink-0">
+            <Swords className="w-5 h-5 text-emerald-300" />
           </span>
           <div className="min-w-0">
             <h2 className="text-sm sm:text-base font-bold text-white leading-tight">Price Arena</h2>
@@ -229,7 +229,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-md object-cover border border-[#2a3258] shrink-0" />
                     ) : (
-                      <span className="w-9 h-9 rounded-md bg-violet-500/15 border border-violet-400/30 flex items-center justify-center text-[10px] font-bold text-violet-300 shrink-0">
+                      <span className="w-9 h-9 rounded-md bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-[10px] font-bold text-emerald-300 shrink-0">
                         {item.currency}
                       </span>
                     )}
@@ -243,11 +243,11 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     {leader && leader.id === item.id && <Crown className="w-4 h-4 text-amber-400 shrink-0" />}
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0 flex-wrap">
-                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0 ${AVATAR_COLORS[item.author.avatarColor] || 'bg-violet-600'}`}>
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0 ${AVATAR_COLORS[item.author.avatarColor] || 'bg-emerald-600'}`}>
                       {item.author.name.charAt(0).toUpperCase()}
                     </span>
                     <span className="truncate">{item.author.name}</span>
-                    <span data-testid={`arena-level-${item.side}`} className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold">LVL {item.author.level}</span>
+                    <span data-testid={`arena-level-${item.side}`} className="shrink-0 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 px-1.5 py-px text-[9px] font-bold">LVL {item.author.level}</span>
                     {/* v208: the poster's sticker class chip */}
                     {item.authorTopSticker && (
                       <span
@@ -260,7 +260,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     )}
                     {oracleChip(item.oracle, item.side)}
                     {typeof item.winProb === 'number' && (
-                      <span data-testid={`arena-winprob-${item.side}`} className="shrink-0 rounded-full bg-fuchsia-500/10 border border-fuchsia-400/30 text-fuchsia-300 px-1.5 py-px text-[9px] font-black" title="PEDA win probability from both sides' Arbitrage Depth Indices">
+                      <span data-testid={`arena-winprob-${item.side}`} className="shrink-0 rounded-full bg-teal-500/10 border border-teal-400/30 text-teal-300 px-1.5 py-px text-[9px] font-black" title="PEDA win probability from both sides' Arbitrage Depth Indices">
                         WIN {item.winProb}%
                       </span>
                     )}
@@ -273,7 +273,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                     </div>
                     <div className="h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-violet-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-500"
                         style={{ width: `${Math.max(4, item.pct)}%` }}
                       />
                     </div>
@@ -281,7 +281,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 </button>
                 {idx === 0 && data.duel.length === 2 && (
                   <div className="flex sm:flex-col items-center justify-center gap-1 sm:px-0" data-testid="arena-vs">
-                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-xs font-black tracking-wide shadow-lg shadow-violet-500/30">VS</span>
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs font-black tracking-wide shadow-lg shadow-emerald-500/30">VS</span>
                   </div>
                 )}
               </div>
@@ -300,7 +300,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 className={
                   'h-7 px-3 text-xs gap-1.5 ' +
                   (data.myVotes[item.id] === 'HELPFUL'
-                    ? 'bg-violet-600 hover:bg-violet-500 text-white border-transparent'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent'
                     : 'bg-transparent border-[#2a3258] text-slate-300 hover:text-cyan-300 hover:border-cyan-400/40')
                 }
               >
@@ -322,8 +322,8 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
           {/* v206 PEDA: escrow envelope + deterministic invite code */}
           {data.match && (
             <div data-testid="arena-invite" className="rounded-lg border border-[#2a3258] bg-[#0f1329] px-2.5 py-1.5 flex items-center justify-center gap-1.5 flex-wrap text-[9px] font-bold tracking-wide text-slate-400">
-              <Swords className="w-3 h-3 text-violet-300 shrink-0" />
-              <span className="text-violet-300" data-testid="arena-invite-code">{data.match.inviteCode}</span>
+              <Swords className="w-3 h-3 text-emerald-300 shrink-0" />
+              <span className="text-emerald-300" data-testid="arena-invite-code">{data.match.inviteCode}</span>
               <span className="text-slate-600">·</span>
               <span>ESCROW {data.match.escrow.pot} XP POT</span>
               <span className="text-slate-600">·</span>
@@ -350,11 +350,11 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
               <div key={row.authorId} data-testid="arena-board-row" className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`text-xs font-bold w-5 shrink-0 ${row.rank === 1 ? 'text-amber-400' : row.rank <= 3 ? 'text-white' : 'text-slate-500'}`}>#{row.rank}</span>
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${AVATAR_COLORS[row.avatarColor] || 'bg-violet-600'}`}>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${AVATAR_COLORS[row.avatarColor] || 'bg-emerald-600'}`}>
                     {row.profilePicture ? <img src={avatarSrc(row.profilePicture)} alt="" className="w-full h-full object-cover rounded-full" /> : row.name.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-xs font-medium text-white truncate">{row.name}</span>
-                  <span className="shrink-0 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-300 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>
+                  <span className="shrink-0 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>
                   {/* v208: the ranked link classified by its poster's stickers */}
                   {row.topSticker && (
                     <span

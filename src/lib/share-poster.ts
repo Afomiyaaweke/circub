@@ -144,7 +144,7 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
   // Simple map-pin path (no emoji fonts needed on headless browsers).
   ctx.save()
-  ctx.fillStyle = '#7c3aed'
+  ctx.fillStyle = '#059669'
   ctx.beginPath()
   ctx.arc(x, y - s * 0.9, s * 0.72, Math.PI * 0.95, Math.PI * 0.05)
   ctx.lineTo(x, y)
@@ -162,8 +162,8 @@ async function drawBackground(ctx: CanvasRenderingContext2D) {
   // dark skin's neon glows, scan lines and perspective grid are gone.
   const grad = ctx.createLinearGradient(0, 0, W, H)
   grad.addColorStop(0, '#ffffff')
-  grad.addColorStop(0.55, '#faf8ff')
-  grad.addColorStop(1, '#f3effc')
+  grad.addColorStop(0.55, '#f2fef7')
+  grad.addColorStop(1, '#e8f8ee')
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, W, H)
 
@@ -178,7 +178,7 @@ async function drawBackground(ctx: CanvasRenderingContext2D) {
 function drawFrame(ctx: CanvasRenderingContext2D) {
   // v181: one thin soft-green hairline - the glow, the double border and
   // the corner accents are gone (light + simple).
-  ctx.strokeStyle = '#ddd6fe'
+  ctx.strokeStyle = '#a7f3d0'
   ctx.lineWidth = 2
   roundRect(ctx, INSET, INSET, W - INSET * 2, H - INSET * 2, 34)
   ctx.stroke()
@@ -191,11 +191,11 @@ async function drawBrand(ctx: CanvasRenderingContext2D, x: number, y: number) {
     ctx.drawImage(logo, x, y - logoSize + 8, logoSize, logoSize)
   }
   ctx.textAlign = 'left'
-  ctx.fillStyle = '#2e1065'
+  ctx.fillStyle = '#022c22'
   ctx.font = FONT(58)
   ctx.fillText('circubAwd', x + logoSize + 22, y - 6)
   ctx.font = FONT(26, '600')
-  ctx.fillStyle = '#7c3aed'
+  ctx.fillStyle = '#059669'
   ctx.fillText('REAL LOCAL PRICES', x + logoSize + 24, y + 34)
 }
 
@@ -207,12 +207,12 @@ function drawChip(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   ctx.save()
   ctx.strokeStyle = 'rgba(22,163,74,0.35)'
   ctx.lineWidth = 2
-  ctx.fillStyle = '#f5f3ff'
+  ctx.fillStyle = '#f0fdf4'
   roundRect(ctx, x, y, w, h, h / 2)
   ctx.fill()
   ctx.stroke()
   ctx.restore()
-  ctx.fillStyle = '#6d28d9'
+  ctx.fillStyle = '#047857'
   ctx.textAlign = 'left'
   ctx.font = FONT(30, '600')
   ctx.fillText(text, x + padX, y + 38)
@@ -231,17 +231,17 @@ function drawCompareOnPhoto(ctx: CanvasRenderingContext2D, title: string, label:
   ctx.restore()
   ctx.textAlign = 'left'
   ctx.font = FONT(fitText(ctx, title, w - 48, 22, 14, '600'), '600')
-  ctx.fillStyle = '#7c3aed'
+  ctx.fillStyle = '#059669'
   ctx.fillText(title, x + 24, y + 34)
   ctx.font = FONT(fitText(ctx, label, w - 48, 26, 14))
-  ctx.fillStyle = '#2e1065'
+  ctx.fillStyle = '#022c22'
   ctx.fillText(label, x + 24, y + 70)
 }
 
 function drawCompareText(ctx: CanvasRenderingContext2D, title: string, label: string, x: number, y: number, w: number) {
   ctx.textAlign = 'left'
   ctx.font = FONT(fitText(ctx, title, w, 24, 14, '600'), '600')
-  ctx.fillStyle = '#7c3aed'
+  ctx.fillStyle = '#059669'
   ctx.fillText(title, x, y)
   ctx.font = FONT(fitText(ctx, label, w, 30, 14))
   ctx.fillStyle = '#1f2937'
@@ -250,14 +250,14 @@ function drawCompareText(ctx: CanvasRenderingContext2D, title: string, label: st
 
 async function drawQr(ctx: CanvasRenderingContext2D, url: string, x: number, y: number, size: number) {
   try {
-    const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#2a1a5e', light: '#ffffff' } })
+    const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#052e1c', light: '#ffffff' } })
     const img = await loadImage(dataUrl)
     if (!img) return
     ctx.save()
     ctx.fillStyle = '#ffffff'
     roundRect(ctx, x, y, size, size, 18)
     ctx.fill()
-    ctx.strokeStyle = '#e4dcfe'
+    ctx.strokeStyle = '#c8f7dd'
     ctx.lineWidth = 2
     ctx.stroke()
     const pad = 8
@@ -305,7 +305,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
 
   if (target.kind === 'price') {
     ctx.font = FONT(34, '600')
-    ctx.fillStyle = '#7c3aed'
+    ctx.fillStyle = '#059669'
     ctx.fillText('PRICE CHECK', contentX, 336)
     ctx.font = FONT(34, '600')
     const chipText = (target.category || 'Local price').toUpperCase()
@@ -315,7 +315,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       // ---------- v117 PHOTO LAYOUT: the post's image is the hero ----------
       // Product name - up to 2 lines above the photo
       ctx.font = FONT(56)
-      ctx.fillStyle = '#2e1065'
+      ctx.fillStyle = '#022c22'
       const nameLines = wrapLines(ctx, target.productName, contentW, 2)
       let py = 402
       for (const line of nameLines) {
@@ -328,7 +328,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       if (place) {
         drawPin(ctx, contentX + 14, py - 10, 26)
         ctx.font = FONT(30, '600')
-        ctx.fillStyle = '#6d28d9'
+        ctx.fillStyle = '#047857'
         ctx.fillText(place, contentX + 44, py)
         py += 50
       }
@@ -382,10 +382,10 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         roundRect(ctx, phX + 18, phY + 18, chipW, 46, 23)
         ctx.fill()
         ctx.restore()
-        ctx.fillStyle = '#2e1065'
+        ctx.fillStyle = '#022c22'
         ctx.fillText(byLine, phX + 36, phY + 49)
         if (handleText) {
-          ctx.fillStyle = '#7c3aed'
+          ctx.fillStyle = '#059669'
           ctx.fillText(handleText, phX + 36 + ctx.measureText(byLine).width, phY + 49)
         }
       }
@@ -397,7 +397,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       const priceY = Math.max(phY + phH + 84, 1040)
       const psize = fitText(ctx, range, contentW, 76, 48)
       ctx.font = FONT(psize)
-      ctx.fillStyle = '#7c3aed'
+      ctx.fillStyle = '#059669'
       ctx.fillText(range, contentX, priceY)
 
       // v152: compare strip pinned to the photo's bottom edge
@@ -408,7 +408,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       // ---------- TEXT-ONLY LAYOUT (no photo / photo failed to load) ----------
       // Product name
       ctx.font = FONT(72)
-      ctx.fillStyle = '#2e1065'
+      ctx.fillStyle = '#022c22'
       const nameLines = wrapLines(ctx, target.productName, contentW, 3)
       let y = 440
       for (const line of nameLines) {
@@ -421,7 +421,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       if (place) {
         drawPin(ctx, contentX + 16, y + 6, 30)
         ctx.font = FONT(40, '600')
-        ctx.fillStyle = '#6d28d9'
+        ctx.fillStyle = '#047857'
         ctx.fillText(place, contentX + 52, y + 16)
         y += 72
       }
@@ -433,7 +433,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
       ctx.font = FONT(128)
       const size = fitText(ctx, range, contentW, 128, 56)
       ctx.font = FONT(size)
-      ctx.fillStyle = '#7c3aed'
+      ctx.fillStyle = '#059669'
       ctx.fillText(range, contentX, Math.max(y + 120, 780))
       ctx.font = FONT(34, '600')
       ctx.fillStyle = '#6b7280'
@@ -454,7 +454,7 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
         ctx.fillText(byLine, contentX, priceY + 108)
         if (uname) {
           ctx.font = FONT(idSize, '600')
-          ctx.fillStyle = '#7c3aed'
+          ctx.fillStyle = '#059669'
           ctx.fillText(handleText, contentX + ctx.measureText(byLine).width, priceY + 108)
         }
         ctx.font = FONT(28, '600')
@@ -469,24 +469,24 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
     }
   } else {
     ctx.font = FONT(34, '600')
-    ctx.fillStyle = '#7c3aed'
+    ctx.fillStyle = '#059669'
     ctx.fillText('COMMUNITY POST', contentX, 336)
 
     // Author chip
     ctx.beginPath()
     ctx.arc(contentX + 34, 428, 34, 0, Math.PI * 2)
-    ctx.fillStyle = '#ede9fe'
+    ctx.fillStyle = '#d1fae5'
     ctx.fill()
-    ctx.strokeStyle = '#ddd6fe'
+    ctx.strokeStyle = '#a7f3d0'
     ctx.lineWidth = 2
     ctx.stroke()
-    ctx.fillStyle = '#6d28d9'
+    ctx.fillStyle = '#047857'
     ctx.font = FONT(36)
     ctx.textAlign = 'center'
     ctx.fillText(target.authorName.charAt(0).toUpperCase(), contentX + 34, 441)
     ctx.textAlign = 'left'
     ctx.font = FONT(44, '600')
-    ctx.fillStyle = '#2e1065'
+    ctx.fillStyle = '#022c22'
     ctx.fillText(target.authorName, contentX + 92, 418)
     ctx.font = FONT(28, '600')
     ctx.fillStyle = '#6b7280'
@@ -519,17 +519,17 @@ export async function buildSharePoster(target: SharePosterTarget, linkUrl: strin
   }
   const ctaSize = fitText(ctx, cta, qrTextW, 44, 28, '600')
   ctx.font = FONT(ctaSize, '600')
-  ctx.fillStyle = '#2e1065'
+  ctx.fillStyle = '#022c22'
   ctx.fillText(cta, contentX, footerTop + rowCta)
   try {
     const u = new URL(linkUrl, window.location.origin)
     const linkText = `${u.host}${u.pathname !== '/' ? u.pathname : ''}` || 'circubAwd.app'
     ctx.font = FONT(fitText(ctx, linkText, qrTextW, 32, 20, '600'), '600')
-    ctx.fillStyle = '#7c3aed'
+    ctx.fillStyle = '#059669'
     ctx.fillText(linkText, contentX, footerTop + rowLink)
   } catch {
     ctx.font = FONT(32, '600')
-    ctx.fillStyle = '#7c3aed'
+    ctx.fillStyle = '#059669'
     ctx.fillText('circubAwd.app', contentX, footerTop + rowLink)
   }
   ctx.font = FONT(26, '600')

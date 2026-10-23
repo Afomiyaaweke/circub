@@ -146,8 +146,8 @@ export function ContactClient() {
             </p>
 
             {sent ? (
-              <div className="mt-6 rounded-xl border border-violet-200 bg-violet-50 p-5 text-center">
-                <CircleCheck className="w-10 h-10 text-violet-600 mx-auto mb-2" />
+              <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                <CircleCheck className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
                 <p className="font-semibold text-slate-900">Message sent!</p>
                 <p className="mt-1 text-sm text-slate-600">
                   Thanks for reaching out - we will reply to <span className="font-medium">{email}</span> as

@@ -102,9 +102,9 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
 
         {done ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-violet-50 border border-violet-200">
-              <CheckCircle2 className="w-5 h-5 text-violet-600 shrink-0" />
-              <p className="text-sm text-violet-800">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <p className="text-sm text-emerald-800">
                 Your request {date ? `for ${date} ` : ''}is waiting for {guide.name}&apos;s confirmation.
               </p>
             </div>

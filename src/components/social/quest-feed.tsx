@@ -45,7 +45,7 @@ import type { User } from '@/lib/types'
 import { avatarSrc } from '@/lib/fighters'
 
 const AVATAR_COLORS: Record<string, string> = {
-  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-violet-600', red: 'bg-red-600',
+  teal: 'bg-teal-600', blue: 'bg-blue-600', green: 'bg-emerald-600', red: 'bg-red-600',
   purple: 'bg-purple-600', orange: 'bg-orange-600', pink: 'bg-pink-600', amber: 'bg-amber-600',
 }
 
@@ -266,17 +266,17 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       {/* ================= TOP BAR ================= */}
       <div className="rounded-xl border border-[#2a3258] bg-gradient-to-r from-[#141936] via-[#181d3d] to-[#141936] p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-400/30 shrink-0">
-            <Trophy className="w-5 h-5 text-violet-300" />
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/30 shrink-0">
+            <Trophy className="w-5 h-5 text-emerald-300" />
           </span>
           <div className="min-w-0">
             <p className="text-base font-black text-white leading-tight" data-testid="quest-title">PriceQuest</p>
             {me ? (
-              <span data-testid="quest-level-chip" className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-violet-500/20 border border-violet-400/40 px-2 py-px text-[10px] font-bold text-violet-200">
+              <span data-testid="quest-level-chip" className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2 py-px text-[10px] font-bold text-emerald-200">
                 LVL {me.level} · {formatCompact(me.xp)} XP · {me.title}
               </span>
             ) : (
-              <span className="mt-0.5 inline-flex items-center rounded-full bg-violet-500/20 border border-violet-400/40 px-2 py-px text-[10px] font-bold text-violet-200">GUEST · REGISTER TO PLAY</span>
+              <span className="mt-0.5 inline-flex items-center rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2 py-px text-[10px] font-bold text-emerald-200">GUEST · REGISTER TO PLAY</span>
             )}
           </div>
         </div>
@@ -284,7 +284,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
           <span data-testid="quest-day-chip" className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-400/30 px-2 py-0.5 text-[10px] font-bold text-orange-300">
             <Flame className="w-3 h-3" /> DAY {round.day}
           </span>
-          <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-violet-400/50 ${AVATAR_COLORS[user.avatarColor] || 'bg-violet-600'} overflow-hidden`}>
+          <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-emerald-400/50 ${AVATAR_COLORS[user.avatarColor] || 'bg-emerald-600'} overflow-hidden`}>
             {user.profilePicture ? <img src={avatarSrc(user.profilePicture)} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
           </span>
         </div>
@@ -294,7 +294,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       <div className="rounded-xl border border-[#2a3258] bg-[#141936] p-4 space-y-3" data-testid="quest-battle">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="flex items-center gap-2 text-sm font-black text-white">
-            <Swords className="w-4 h-4 text-violet-300" /> Weekly Hustle Battle
+            <Swords className="w-4 h-4 text-emerald-300" /> Weekly Hustle Battle
           </h2>
           <span className="rounded-full bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-amber-300">
             SEASON {round.season} · DAY {round.day}
@@ -306,7 +306,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-px text-[9px] font-black tracking-wide text-amber-300">
               <Crown className="w-3 h-3" /> {me?.rank === 1 ? '#1 LEADER' : me?.rank ? `#${me.rank} CHALLENGER` : 'YOU'}
             </span>
-            <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[me?.avatarColor || user.avatarColor] || 'bg-violet-600'} overflow-hidden`}>
+            <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[me?.avatarColor || user.avatarColor] || 'bg-emerald-600'} overflow-hidden`}>
               {(me?.profilePicture || user.profilePicture)
                 ? <img src={avatarSrc(me?.profilePicture || user.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (me?.name || user.name).charAt(0).toUpperCase()}
@@ -339,7 +339,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             <span className="text-slate-400" data-testid="quest-round-clock">Round Ends: {resetsIn || '—'}</span>
           </div>
           <div className="h-2 rounded-full bg-[#0b0f22] overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 transition-all duration-500" style={{ width: `${battleBar}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-500 to-teal-500 transition-all duration-500" style={{ width: `${battleBar}%` }} />
           </div>
         </div>
         {progress && (
@@ -349,10 +349,10 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                 LVL {progress.level} · {formatCompact(progress.into)} / {formatCompact(progress.need)} XP to LVL {progress.level + 1}
                 {xpBuff > 0 && <span data-testid="quest-xp-buff" className="ml-1.5 text-amber-300">+{Math.round(xpBuff * 100)}% XP rate</span>}
               </span>
-              <span className="text-violet-300">{progress.pct}%</span>
+              <span className="text-emerald-300">{progress.pct}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 transition-all duration-500" style={{ width: `${Math.max(3, progress.pct)}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500" style={{ width: `${Math.max(3, progress.pct)}%` }} />
             </div>
           </div>
         )}
@@ -370,9 +370,9 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             <p className="text-[11px] text-slate-400">Unlocked at {formatCompact(next.def.target)} {next.def.metric === 'posts' ? 'posts' : 'helpful votes'} · {formatCompact(next.remaining)} to go!</p>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{ width: `${Math.max(3, next.pct)}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500" style={{ width: `${Math.max(3, next.pct)}%` }} />
               </div>
-              <span className="text-[10px] font-bold text-violet-300 shrink-0">{formatCompact(next.value)}/{formatCompact(next.def.target)}</span>
+              <span className="text-[10px] font-bold text-emerald-300 shrink-0">{formatCompact(next.value)}/{formatCompact(next.def.target)}</span>
             </div>
           </div>
         </div>
@@ -397,24 +397,24 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             return (
               <div key={node.id} className="relative flex gap-3" data-testid={`quest-road-node-${i + 1}`} data-state={node.state}>
                 {/* road spine */}
-                {i < nodes.length - 1 && <span className="absolute left-[19px] top-11 bottom-0 w-0.5 bg-gradient-to-b from-violet-500/60 to-[#2a3258]" aria-hidden />}
+                {i < nodes.length - 1 && <span className="absolute left-[19px] top-11 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500/60 to-[#2a3258]" aria-hidden />}
                 {/* position marker */}
                 <div className={
                   'relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ' +
                   (node.state === 'done' ? 'bg-amber-400/15 border-amber-400/50'
-                    : node.state === 'won' ? 'bg-violet-500/20 border-violet-400/50'
-                    : live ? 'bg-violet-500/25 border-violet-400 shadow-lg shadow-violet-500/30'
+                    : node.state === 'won' ? 'bg-emerald-500/20 border-emerald-400/50'
+                    : live ? 'bg-emerald-500/25 border-emerald-400 shadow-lg shadow-emerald-500/30'
                     : 'bg-[#0f1329] border-[#2a3258]')
                 }>
                   {node.state === 'done' ? <CheckCircle2 className="w-5 h-5 text-amber-300" />
-                    : node.state === 'won' ? <Medal className="w-5 h-5 text-violet-300" />
+                    : node.state === 'won' ? <Medal className="w-5 h-5 text-emerald-300" />
                     : live ? <Icon className="w-5 h-5 text-cyan-300" />
                     : <Lock className="w-4 h-4 text-slate-500" />}
                 </div>
                 {/* node card */}
                 <div className={
                   'flex-1 min-w-0 rounded-lg border p-3 mb-2 space-y-1 ' +
-                  (live ? 'border-violet-400/50 bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10'
+                  (live ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-500/15 to-teal-500/10'
                     : open ? 'border-[#2a3258] bg-[#0f1329]'
                     : 'border-[#20264a] bg-[#0f1329]/60 opacity-70')
                 }>
@@ -426,19 +426,19 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                       {node.num}{!open && ' · LOCKED'}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      {node.chip && <span className="rounded-full bg-fuchsia-500/15 border border-fuchsia-400/30 px-1.5 py-px text-[9px] font-bold text-fuchsia-300">{node.chip}</span>}
+                      {node.chip && <span className="rounded-full bg-teal-500/15 border border-teal-400/30 px-1.5 py-px text-[9px] font-bold text-teal-300">{node.chip}</span>}
                       {node.xp && <span className="rounded-full bg-cyan-400/10 border border-cyan-400/30 px-1.5 py-px text-[9px] font-black text-cyan-300">{node.xp}</span>}
                     </div>
                   </div>
                   <p className={'text-sm font-bold truncate ' + (open ? 'text-white' : 'text-slate-400')}>{node.title}</p>
                   <p className="text-[11px] text-slate-400">{node.desc}</p>
                   {live && node.id === 'n3' && (
-                    <Button onClick={openComposer} data-testid="quest-post-deal" size="sm" className="mt-1.5 w-full h-8 bg-violet-600 hover:bg-violet-500 text-white text-xs gap-1.5">
+                    <Button onClick={openComposer} data-testid="quest-post-deal" size="sm" className="mt-1.5 w-full h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-xs gap-1.5">
                       <Gamepad2 className="w-3.5 h-3.5" /> Compute &amp; Post Deal
                     </Button>
                   )}
                   {live && node.id === 'n4' && (
-                    <p className="text-[10px] font-bold text-violet-300 pt-0.5" data-testid="quest-boss-live">BOSS ARENA LIVE - 10 votes to clear</p>
+                    <p className="text-[10px] font-bold text-emerald-300 pt-0.5" data-testid="quest-boss-live">BOSS ARENA LIVE - 10 votes to clear</p>
                   )}
                 </div>
               </div>
@@ -448,14 +448,14 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       </div>
 
       {/* ================= CHALLENGE BANNER ================= */}
-      <div className="rounded-xl border border-violet-400/40 bg-gradient-to-r from-violet-600/30 via-fuchsia-600/20 to-violet-600/30 p-4 flex items-center justify-between gap-3" data-testid="quest-challenge">
+      <div className="rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-600/30 via-teal-600/20 to-emerald-600/30 p-4 flex items-center justify-between gap-3" data-testid="quest-challenge">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/30 border border-violet-300/40 shrink-0">
-            <Zap className="w-5 h-5 text-violet-200" />
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/30 border border-emerald-300/40 shrink-0">
+            <Zap className="w-5 h-5 text-emerald-200" />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-black text-white truncate">Challenge {rival ? rival.name : 'the arena'}</p>
-            <p className="text-[11px] text-violet-200/80">Instant price duel - vote the best deal into the match</p>
+            <p className="text-[11px] text-emerald-200/80">Instant price duel - vote the best deal into the match</p>
           </div>
         </div>
         <Button onClick={() => arenaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} size="sm" data-testid="quest-start-duel" className="shrink-0 h-8 bg-cyan-500 hover:bg-cyan-400 text-[#0b0e1d] font-black text-xs">
@@ -472,8 +472,8 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       <div className="rounded-xl border border-[#2a3258] bg-[#141936] p-4 space-y-3" data-testid="quest-vault">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-400/30 shrink-0">
-              <Award className="w-5 h-5 text-violet-300" />
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/30 shrink-0">
+              <Award className="w-5 h-5 text-emerald-300" />
             </span>
             <div className="min-w-0">
               <h2 className="text-sm font-black text-white">Sticker Vault</h2>
@@ -481,16 +481,16 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[9px] font-black tracking-widest text-violet-300">MASTERY</p>
+            <p className="text-[9px] font-black tracking-widest text-emerald-300">MASTERY</p>
             <p className="text-xs font-black text-white">LVL {me?.level ?? 1}</p>
             <p className="text-[10px] text-slate-400" data-testid="quest-vault-count">{unlockedCount} / {stickers.length} Unlocked</p>
           </div>
         </div>
 
         {/* v206 DMM: the equipped pair drives the multiplier matrix */}
-        <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 p-2.5 space-y-1.5" data-testid="quest-buffs">
+        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-2.5 space-y-1.5" data-testid="quest-buffs">
           <div className="flex items-center justify-between gap-2">
-            <p className="flex items-center gap-1 text-[9px] font-black tracking-widest text-violet-300">
+            <p className="flex items-center gap-1 text-[9px] font-black tracking-widest text-emerald-300">
               <Sparkles className="w-3 h-3" /> ACTIVE BUFFS · DMM
             </p>
             <span className="text-[9px] font-bold text-slate-400" data-testid="quest-buff-count">{equipped.length}/{EQUIP_LIMIT} EQUIPPED</span>
@@ -527,7 +527,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             const Icon = tile.icon
             return (
               <div key={tile.label} className="rounded-lg border border-[#2a3258] bg-[#0f1329] p-2.5 space-y-0.5">
-                <p className="flex items-center gap-1 text-[8px] font-black tracking-widest text-slate-500"><Icon className="w-2.5 h-2.5 text-violet-300" />{tile.label}</p>
+                <p className="flex items-center gap-1 text-[8px] font-black tracking-widest text-slate-500"><Icon className="w-2.5 h-2.5 text-emerald-300" />{tile.label}</p>
                 <p className="text-lg font-black text-white leading-tight" data-testid="quest-stat-value">{tile.big}</p>
                 <p className="text-[9px] text-slate-400 truncate">{tile.sub}</p>
               </div>
@@ -546,7 +546,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
               className={
                 'rounded-full px-3 py-1 text-[10px] font-black tracking-wide transition-colors ' +
                 (vaultFilter === key
-                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/25'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/25'
                   : 'bg-[#0f1329] border border-[#2a3258] text-slate-400 hover:text-slate-200')
               }
             >
@@ -571,7 +571,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                       : s.def.tier.startsWith('Silver') ? 'bg-slate-300/15 text-slate-200'
                       : s.def.tier.startsWith('Cyan') ? 'bg-cyan-400/15 text-cyan-300'
                       : s.def.tier.startsWith('Gold') ? 'bg-yellow-400/15 text-yellow-300'
-                      : 'bg-fuchsia-500/15 text-fuchsia-300')
+                      : 'bg-teal-500/15 text-teal-300')
                   }>{s.def.tier.toUpperCase()}</span>
                   {s.unlocked ? (
                     <button
@@ -581,7 +581,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                       className={
                         'inline-flex items-center gap-1 rounded-full px-2 py-px text-[9px] font-black transition-colors ' +
                         (equipped.includes(s.def.id)
-                          ? 'bg-violet-600 text-white shadow shadow-violet-500/30'
+                          ? 'bg-emerald-600 text-white shadow shadow-emerald-500/30'
                           : 'bg-transparent border border-[#2a3258] text-slate-400 hover:text-cyan-300 hover:border-cyan-400/40')
                       }
                     >
@@ -609,7 +609,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                 {!s.unlocked && (
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" style={{ width: `${Math.max(2, s.pct)}%` }} />
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400" style={{ width: `${Math.max(2, s.pct)}%` }} />
                     </div>
                     <span className="text-[9px] font-bold text-slate-400 shrink-0">{formatCompact(s.value)}/{formatCompact(s.def.target)} · {s.pct}%</span>
                   </div>
@@ -621,9 +621,9 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
 
         {/* computational ranking explainer */}
         <div className="rounded-lg border border-[#2a3258] bg-[#0f1329] p-3 space-y-2" data-testid="quest-ranking-note">
-          <p className="flex items-center gap-1.5 text-xs font-black text-white"><Gamepad2 className="w-4 h-4 text-violet-300" /> Computational Deal Ranking</p>
+          <p className="flex items-center gap-1.5 text-xs font-black text-white"><Gamepad2 className="w-4 h-4 text-emerald-300" /> Computational Deal Ranking</p>
           <p className="text-[11px] text-slate-400" data-testid="quest-note-oracle">
-            <span className="font-bold text-violet-300">Oracle Score (OIVE):</span> every deal is scored live - Spread × {ORACLE_WEIGHTS.spread} + Proof × {ORACLE_WEIGHTS.confidence} + Scarcity × {ORACLE_WEIGHTS.scarcity}. Score ≥ 90 is Extreme Alpha (+{85} XP, instant duel seat), 70-89 Verified (+{50} XP), below 70 goes to Crowd Audit (10 Helpful votes to validate).
+            <span className="font-bold text-emerald-300">Oracle Score (OIVE):</span> every deal is scored live - Spread × {ORACLE_WEIGHTS.spread} + Proof × {ORACLE_WEIGHTS.confidence} + Scarcity × {ORACLE_WEIGHTS.scarcity}. Score ≥ 90 is Extreme Alpha (+{85} XP, instant duel seat), 70-89 Verified (+{50} XP), below 70 goes to Crowd Audit (10 Helpful votes to validate).
           </p>
           <p className="text-[11px] text-slate-400" data-testid="quest-note-peda">
             <span className="font-bold text-cyan-300">Escrow duels (PEDA):</span> {PEDA.defaultWager} XP locked per side - the winner takes {PEDA.winnerPct}% of the pot, and the winning side's voters split the remaining {PEDA.votersPct}%.
@@ -632,7 +632,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             <span className="font-bold text-amber-300">Vlogger Arbitrage (VACH):</span> Extreme Alpha deals auto-broadcast to the creator hub with a synergy link - {VACH.creatorPct}% to the creator, {VACH.buyerPct}% buyer cashback, {VACH.hunterPct}% back to the original hunter.
           </p>
           <p className="text-[11px] text-slate-400">
-            <span className="font-bold text-violet-300">Real-time multipliers (DMM):</span> equip up to {EQUIP_LIMIT} stickers - vote influence scales as (1 + LVL/20) × (1 + buff), and 100 XP per Helpful vote, 50 XP per post, reset every Monday 00:00 UTC.
+            <span className="font-bold text-emerald-300">Real-time multipliers (DMM):</span> equip up to {EQUIP_LIMIT} stickers - vote influence scales as (1 + LVL/20) × (1 + buff), and 100 XP per Helpful vote, 50 XP per post, reset every Monday 00:00 UTC.
           </p>
         </div>
       </div>

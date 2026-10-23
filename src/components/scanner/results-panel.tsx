@@ -29,10 +29,10 @@ interface ResultsPanelProps {
 
 export function ResultsPanel({ result, loading, error, retrying, onAskGuide }: ResultsPanelProps) {
   return (
-    <Card className="border-violet-500/20 bg-card shadow-sm">
+    <Card className="border-emerald-500/20 bg-card shadow-sm">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base text-zinc-900">
-          <Sparkles className="h-4 w-4 text-violet-500" />
+          <Sparkles className="h-4 w-4 text-emerald-500" />
           Scan result
         </CardTitle>
       </CardHeader>
@@ -100,7 +100,7 @@ function RetryState({ info }: { info: ScanRetryInfo }) {
         </p>
       </div>
       <p className="flex max-w-xs items-start gap-1.5 text-xs leading-relaxed text-zinc-500">
-        <Camera className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
+        <Camera className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
         Your photo is captured and safe. The scan will send itself automatically - keep the camera pointed at the item.
       </p>
     </motion.div>
@@ -110,12 +110,12 @@ function RetryState({ info }: { info: ScanRetryInfo }) {
 function EmptyState() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-2 py-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-violet-500/20 bg-violet-50">
-        <Package className="h-5 w-5 text-violet-500" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-50">
+        <Package className="h-5 w-5 text-emerald-500" />
       </div>
       <p className="text-sm font-medium text-zinc-700">No item scanned yet</p>
       <p className="max-w-xs text-xs text-zinc-500">
-        Point your camera at any product and tap <span className="text-violet-600">Scan</span> to identify it and see live local prices.
+        Point your camera at any product and tap <span className="text-emerald-600">Scan</span> to identify it and see live local prices.
       </p>
     </motion.div>
   )
@@ -131,7 +131,7 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {item.brand && (
-            <Badge variant="secondary" className="bg-violet-50 text-violet-700 hover:bg-violet-100">
+            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
               <Tag className="mr-1 h-3 w-3" />
               {item.brand}
             </Badge>
@@ -146,8 +146,8 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
         {item.description && <p className="text-sm leading-relaxed text-zinc-600">{item.description}</p>}
       </div>
 
-      <div className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-50 to-transparent p-4">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-violet-700/80">
+      <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-50 to-transparent p-4">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-700/80">
           Estimated price
           {location?.city ? ` near ${location.city}${location.country ? ', ' + location.country : ''}` : location?.country ? ` in ${location.country}` : ' · worldwide'}
         </p>
@@ -186,7 +186,7 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
           comparison is obvious at a glance. */}
       {result.localPrices && result.localPrices.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-violet-600">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-600">
             Local prices ({result.localPrices.length})
             {(() => {
               const nearCount = result.localPrices.filter((p) => isNearLocation(p, location)).length
@@ -199,21 +199,21 @@ function ResultBody({ result, onAskGuide }: { result: ScanResult; onAskGuide?: (
             {result.localPrices.map((post, i) => {
               const near = isNearLocation(post, location)
               return (
-                <div key={i} className={`rounded-lg border p-2.5 space-y-1 ${near ? 'border-violet-300 bg-violet-50' : 'border-violet-200 bg-violet-50/50'}`}>
+                <div key={i} className={`rounded-lg border p-2.5 space-y-1 ${near ? 'border-emerald-300 bg-emerald-50' : 'border-emerald-200 bg-emerald-50/50'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium text-zinc-900 truncate">{post.productName}</span>
-                    <span className="text-sm font-bold text-violet-700 shrink-0">
+                    <span className="text-sm font-bold text-emerald-700 shrink-0">
                       {post.currency} {post.priceMin}{post.priceMin !== post.priceMax ? `-${post.priceMax}` : ''}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
                     {near && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-500 px-1.5 py-0.5 text-[9px] font-semibold text-white shrink-0">
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-semibold text-white shrink-0">
                         <MapPin className="h-2.5 w-2.5" /> Near you
                       </span>
                     )}
                     <span className="truncate">{post.city ? post.city + ', ' : ''}{post.country}</span>
-                    {post.authorVerifiedLocal && <BadgeCheck className="h-3 w-3 text-violet-500 shrink-0" />}
+                    {post.authorVerifiedLocal && <BadgeCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
                     <span className="truncate">· {post.authorName}</span>
                   </div>
                 </div>
@@ -257,7 +257,7 @@ function SourcesList({ sources }: { sources: ScanResult['sources'] }) {
               rel="noopener noreferrer"
               className="group flex items-start gap-2 rounded-lg border border-transparent px-2 py-1.5 transition hover:border-zinc-200 hover:bg-zinc-50"
             >
-              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400 transition group-hover:text-violet-500" />
+              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400 transition group-hover:text-emerald-500" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-zinc-700 group-hover:text-zinc-900">{s.title}</p>
                 <p className="truncate text-[11px] text-zinc-400">{s.host}</p>
@@ -267,7 +267,7 @@ function SourcesList({ sources }: { sources: ScanResult['sources'] }) {
         ))}
       </ul>
       {sources.length > 3 && (
-        <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)} className="h-7 w-full justify-center text-xs text-zinc-500 hover:text-violet-600">
+        <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)} className="h-7 w-full justify-center text-xs text-zinc-500 hover:text-emerald-600">
           {expanded ? 'Show less' : `Show ${sources.length - 3} more sources`}
         </Button>
       )}

@@ -43,7 +43,7 @@ export function freshnessTitle(createdAt: string | Date): string {
 
 // Tailwind classes per level so cards and the detail modal stay consistent
 export const freshnessClasses: Record<FreshnessLevel, string> = {
-  fresh: 'text-violet-600',
+  fresh: 'text-emerald-600',
   current: 'text-muted-foreground',
   stale: 'bg-amber-100 text-amber-800 font-medium',
 }

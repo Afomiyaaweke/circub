@@ -69,7 +69,7 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
           <div className="p-10 text-center text-sm text-muted-foreground">Profile not found.</div>
         ) : (
           <div>
-            <div className="h-20 bg-gradient-to-br from-primary to-violet-400 relative">
+            <div className="h-20 bg-gradient-to-br from-primary to-emerald-400 relative">
               <button onClick={onClose} className="absolute top-2 right-2 p-1.5 rounded-md bg-card/80 hover:bg-card text-muted-foreground" aria-label="Close"><X className="w-4 h-4" /></button>
             </div>
             <div className="px-5 sm:px-6 -mt-9 flex items-end gap-4">
@@ -142,7 +142,7 @@ export function LocalProfileModal({ userId, onClose, onOpenPost, onMessage, curr
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-sm font-semibold text-primary">{formatPrice(p.priceMin, p.currency)} · {formatPrice(p.priceMax, p.currency)}</p>
-                              {p.recommendedPrice != null && <p className="text-[10px] text-violet-700">Fair: {formatPrice(p.recommendedPrice, p.currency)}</p>}
+                              {p.recommendedPrice != null && <p className="text-[10px] text-emerald-700">Fair: {formatPrice(p.recommendedPrice, p.currency)}</p>}
                             </div>
                           </div>
                           <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">

@@ -63,8 +63,8 @@ const CATEGORY_META: Record<RoleCategory, {
     label: 'Star',
     blurb: 'Loved by travelers or everywhere in the feed - often both.',
     gradient: 'from-violet-500 via-fuchsia-400 to-pink-500',
-    ring: 'ring-fuchsia-300/40',
-    chip: 'bg-fuchsia-500/15 text-fuchsia-600 border border-fuchsia-400/30',
+    ring: 'ring-teal-300/40',
+    chip: 'bg-teal-500/15 text-teal-600 border border-teal-400/30',
   },
   PROVEN: {
     label: 'Proven',
@@ -201,7 +201,7 @@ export function RoleStickerTile({ name, roles, posts, rating, ratingCount, votes
           aria-label={`${name} - Sticker Vault`}
         >
           {/* faint stage glow behind the card */}
-          <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_40%_at_50%_0%,rgba(139,92,246,0.12),transparent_70%)]" />
+          <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_40%_at_50%_0%,rgba(16,185,129,0.12),transparent_70%)]" />
 
           <div
             className="relative w-full max-w-lg mx-auto min-h-full bg-card border-x border-border shadow-2xl px-4 pt-4 pb-8 space-y-4"
@@ -227,22 +227,22 @@ export function RoleStickerTile({ name, roles, posts, rating, ratingCount, votes
                 <span className="text-[11px] text-muted-foreground">{levelTitle(vault.prog.level)}</span>
               </div>
               <div className="h-1.5 rounded-full bg-muted mt-2 overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500" style={{ width: `${vault.prog.pct}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${vault.prog.pct}%` }} />
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">{vault.prog.into} / {vault.prog.need} XP into LV.{vault.prog.level + 1}</p>
             </div>
 
             {/* Sticker Vault panel */}
-            <div data-testid="vault-panel" className="rounded-2xl border border-violet-400/20 bg-gradient-to-br from-violet-600/25 via-violet-800/15 to-fuchsia-700/10 p-4">
+            <div data-testid="vault-panel" className="rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-600/25 via-emerald-800/15 to-teal-700/10 p-4">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-bold text-foreground leading-tight">Sticker Vault</h2>
                   <p className="text-[11px] text-muted-foreground">Earn stickers by posting deals and collecting Helpful votes.</p>
                 </div>
-                <Sparkles className="w-6 h-6 text-violet-400 shrink-0" />
+                <Sparkles className="w-6 h-6 text-emerald-400 shrink-0" />
               </div>
               <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <span data-testid="vault-mastery" className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-violet-500/20 text-violet-300 border border-violet-400/30">
+                <span data-testid="vault-mastery" className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
                   Mastery LV.{vault.earnedCount}
                 </span>
                 <span data-testid="vault-unlocked" className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-muted/50 text-muted-foreground border border-border">
@@ -405,7 +405,7 @@ export function RoleStickerTile({ name, roles, posts, rating, ratingCount, votes
                     ) : (
                       <div>
                         <div className="h-1 rounded-full bg-muted overflow-hidden" data-testid="vault-sticker-progress">
-                          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500" style={{ width: `${s.pct}%` }} />
+                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${s.pct}%` }} />
                         </div>
                         <p className="text-[9px] text-muted-foreground mt-1">{s.value}/{s.def.target} &middot; {s.remaining} to go</p>
                       </div>

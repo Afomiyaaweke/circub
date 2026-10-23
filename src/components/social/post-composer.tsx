@@ -282,7 +282,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                     disabled={uploading}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Video className="w-4 h-4 text-violet-500" />
+                    <Video className="w-4 h-4 text-emerald-500" />
                     <span className="hidden sm:inline">Video</span>
                   </button>
                   <button
@@ -372,7 +372,7 @@ export function PostComposer({ user, onPosted }: PostComposerProps) {
                 onClick={() => setOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Video className="w-4 h-4 text-violet-500" />
+                <Video className="w-4 h-4 text-emerald-500" />
                 <span>Video</span>
               </button>
               <button
