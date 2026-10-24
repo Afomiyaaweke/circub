@@ -264,7 +264,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
   return (
     <div className="space-y-4" data-testid="quest-root">
       {/* ================= TOP BAR ================= */}
-      <div className="rounded-xl border border-[#2a3258] bg-gradient-to-r from-[#141936] via-[#181d3d] to-[#141936] p-4 flex items-center justify-between gap-3">
+      <div className="rounded-xl border border-emerald-900/60 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/30 shrink-0">
             <Trophy className="w-5 h-5 text-emerald-300" />
@@ -291,19 +291,19 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       </div>
 
       {/* ================= WEEKLY HUSTLE BATTLE ================= */}
-      <div className="rounded-xl border border-[#2a3258] bg-[#141936] p-4 space-y-3" data-testid="quest-battle">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3" data-testid="quest-battle">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h2 className="flex items-center gap-2 text-sm font-black text-white">
-            <Swords className="w-4 h-4 text-emerald-300" /> Weekly Hustle Battle
+          <h2 className="flex items-center gap-2 text-sm font-black text-foreground">
+            <Swords className="w-4 h-4 text-emerald-700 dark:text-emerald-300" /> Weekly Hustle Battle
           </h2>
-          <span className="rounded-full bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-amber-300">
+          <span className="rounded-full bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-amber-700 dark:text-amber-300">
             SEASON {round.season} · DAY {round.day}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {/* YOU */}
           <div className="rounded-lg border border-amber-400/40 bg-amber-400/5 p-3 text-center space-y-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-px text-[9px] font-black tracking-wide text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-px text-[9px] font-black tracking-wide text-amber-700 dark:text-amber-300">
               <Crown className="w-3 h-3" /> {me?.rank === 1 ? '#1 LEADER' : me?.rank ? `#${me.rank} CHALLENGER` : 'YOU'}
             </span>
             <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[me?.avatarColor || user.avatarColor] || 'bg-emerald-600'} overflow-hidden`}>
@@ -311,13 +311,13 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                 ? <img src={avatarSrc(me?.profilePicture || user.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (me?.name || user.name).charAt(0).toUpperCase()}
             </div>
-            <p className="text-xs font-bold text-white truncate">You</p>
-            <p className="text-sm font-black text-cyan-300" data-testid="quest-you-xp">{me ? `${formatCompact(me.weeklyXp)} XP` : '0 XP'}</p>
-            <p className="text-[10px] text-slate-400">{me?.weeklyPosts ?? 0} Deals · {me?.weeklyVotes ?? 0} Votes</p>
+            <p className="text-xs font-bold text-foreground truncate">You</p>
+            <p className="text-sm font-black text-cyan-700 dark:text-cyan-300" data-testid="quest-you-xp">{me ? `${formatCompact(me.weeklyXp)} XP` : '0 XP'}</p>
+            <p className="text-[10px] text-muted-foreground">{me?.weeklyPosts ?? 0} Deals · {me?.weeklyVotes ?? 0} Votes</p>
           </div>
           {/* RIVAL */}
-          <div className="rounded-lg border border-[#2a3258] bg-[#0f1329] p-3 text-center space-y-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 px-2 py-px text-[9px] font-black tracking-wide text-slate-300">
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 px-2 py-px text-[9px] font-black tracking-wide text-slate-600 dark:text-slate-300">
               {rival ? `#${rival.rank} RIVAL` : 'OPEN ARENA'}
             </span>
             <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[rival?.avatarColor || ''] || 'bg-slate-600'} overflow-hidden`}>
@@ -325,33 +325,33 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                 ? <img src={avatarSrc(rival.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (rival?.name || '?').charAt(0).toUpperCase()}
             </div>
-            <p className="text-xs font-bold text-white truncate">{rival ? rival.name : 'No rival yet'}</p>
-            <p className="text-sm font-black text-slate-300" data-testid="quest-rival-xp">{rival ? `${formatCompact(rival.weeklyXp)} XP` : '0 XP'}</p>
-            <p className="text-[10px] text-slate-400">{rival ? `${rival.weeklyPosts} Deals · ${rival.weeklyVotes} Votes` : 'Post first - dare the field'}</p>
+            <p className="text-xs font-bold text-foreground truncate">{rival ? rival.name : 'No rival yet'}</p>
+            <p className="text-sm font-black text-slate-600 dark:text-slate-300" data-testid="quest-rival-xp">{rival ? `${formatCompact(rival.weeklyXp)} XP` : '0 XP'}</p>
+            <p className="text-[10px] text-muted-foreground">{rival ? `${rival.weeklyPosts} Deals · ${rival.weeklyVotes} Votes` : 'Post first - dare the field'}</p>
           </div>
         </div>
         {/* lead margin + round clock */}
-        <div className="rounded-lg bg-[#0f1329] border border-[#2a3258] p-2.5 space-y-1.5">
+        <div className="rounded-lg bg-muted/40 border border-border p-2.5 space-y-1.5">
           <div className="flex items-center justify-between text-[11px] font-bold">
-            <span className="text-cyan-300" data-testid="quest-lead">
+            <span className="text-cyan-700 dark:text-cyan-300" data-testid="quest-lead">
               {leadXp === null ? 'Post a deal to enter the battle' : leadXp >= 0 ? `↑ +${leadXp} XP Lead Margin` : `${Math.abs(leadXp)} XP Behind - close the gap`}
             </span>
-            <span className="text-slate-400" data-testid="quest-round-clock">Round Ends: {resetsIn || '—'}</span>
+            <span className="text-muted-foreground" data-testid="quest-round-clock">Round Ends: {resetsIn || '—'}</span>
           </div>
-          <div className="h-2 rounded-full bg-[#0b0f22] overflow-hidden">
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-500 to-teal-500 transition-all duration-500" style={{ width: `${battleBar}%` }} />
           </div>
         </div>
         {progress && (
           <div className="space-y-1" data-testid="quest-level-progress">
-            <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+            <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
               <span>
                 LVL {progress.level} · {formatCompact(progress.into)} / {formatCompact(progress.need)} XP to LVL {progress.level + 1}
-                {xpBuff > 0 && <span data-testid="quest-xp-buff" className="ml-1.5 text-amber-300">+{Math.round(xpBuff * 100)}% XP rate</span>}
+                {xpBuff > 0 && <span data-testid="quest-xp-buff" className="ml-1.5 text-amber-700 dark:text-amber-300">+{Math.round(xpBuff * 100)}% XP rate</span>}
               </span>
-              <span className="text-emerald-300">{progress.pct}%</span>
+              <span className="text-emerald-700 dark:text-emerald-300">{progress.pct}%</span>
             </div>
-            <div className="h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
               <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500" style={{ width: `${Math.max(3, progress.pct)}%` }} />
             </div>
           </div>
@@ -360,32 +360,32 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
 
       {/* ================= NEXT VAULT UNLOCKING ================= */}
       {next && (
-        <div className="rounded-xl border border-[#2a3258] bg-[#141936] p-4 flex items-center gap-3" data-testid="quest-next-unlock">
+        <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3" data-testid="quest-next-unlock">
           <span className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${next.def.gradient} text-white shrink-0 shadow-lg`}>
             {next.def.metric === 'posts' ? <Zap className="w-6 h-6 text-white/90" /> : <Heart className="w-6 h-6 text-white/90" />}
           </span>
           <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-[10px] font-black tracking-widest text-amber-300">NEXT VAULT UNLOCKING</p>
-            <p className="text-sm font-bold text-white truncate">{next.def.name} Sticker</p>
-            <p className="text-[11px] text-slate-400">Unlocked at {formatCompact(next.def.target)} {next.def.metric === 'posts' ? 'posts' : 'helpful votes'} · {formatCompact(next.remaining)} to go!</p>
+            <p className="text-[10px] font-black tracking-widest text-amber-700 dark:text-amber-300">NEXT VAULT UNLOCKING</p>
+            <p className="text-sm font-bold text-foreground truncate">{next.def.name} Sticker</p>
+            <p className="text-[11px] text-muted-foreground">Unlocked at {formatCompact(next.def.target)} {next.def.metric === 'posts' ? 'posts' : 'helpful votes'} · {formatCompact(next.remaining)} to go!</p>
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                 <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500" style={{ width: `${Math.max(3, next.pct)}%` }} />
               </div>
-              <span className="text-[10px] font-bold text-emerald-300 shrink-0">{formatCompact(next.value)}/{formatCompact(next.def.target)}</span>
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 shrink-0">{formatCompact(next.value)}/{formatCompact(next.def.target)}</span>
             </div>
           </div>
         </div>
       )}
 
       {/* ================= QUEST ROADMAP ================= */}
-      <div className="rounded-xl border border-[#2a3258] bg-[#141936] p-4" data-testid="quest-roadmap">
+      <div className="rounded-xl border border-border bg-card p-4" data-testid="quest-roadmap">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <h2 className="text-sm font-black text-white">Quest Roadmap</h2>
-            <p className="text-[11px] text-slate-400">Circuit {round.season}: Metro Price Hunter</p>
+            <h2 className="text-sm font-black text-foreground">Quest Roadmap</h2>
+            <p className="text-[11px] text-muted-foreground">Circuit {round.season}: Metro Price Hunter</p>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-400/10 border border-cyan-400/30 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-400/10 border border-cyan-400/30 px-2 py-0.5 text-[10px] font-bold text-cyan-700 dark:text-cyan-300">
             <Zap className="w-3 h-3" /> Auto-Sync
           </span>
         </div>
@@ -397,48 +397,48 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             return (
               <div key={node.id} className="relative flex gap-3" data-testid={`quest-road-node-${i + 1}`} data-state={node.state}>
                 {/* road spine */}
-                {i < nodes.length - 1 && <span className="absolute left-[19px] top-11 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500/60 to-[#2a3258]" aria-hidden />}
+                {i < nodes.length - 1 && <span className="absolute left-[19px] top-11 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500/60 to-border" aria-hidden />}
                 {/* position marker */}
                 <div className={
                   'relative z-10 w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ' +
                   (node.state === 'done' ? 'bg-amber-400/15 border-amber-400/50'
                     : node.state === 'won' ? 'bg-emerald-500/20 border-emerald-400/50'
                     : live ? 'bg-emerald-500/25 border-emerald-400 shadow-lg shadow-emerald-500/30'
-                    : 'bg-[#0f1329] border-[#2a3258]')
+                    : 'bg-muted/40 border-border')
                 }>
-                  {node.state === 'done' ? <CheckCircle2 className="w-5 h-5 text-amber-300" />
-                    : node.state === 'won' ? <Medal className="w-5 h-5 text-emerald-300" />
-                    : live ? <Icon className="w-5 h-5 text-cyan-300" />
-                    : <Lock className="w-4 h-4 text-slate-500" />}
+                  {node.state === 'done' ? <CheckCircle2 className="w-5 h-5 text-amber-700 dark:text-amber-300" />
+                    : node.state === 'won' ? <Medal className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
+                    : live ? <Icon className="w-5 h-5 text-cyan-700 dark:text-cyan-300" />
+                    : <Lock className="w-4 h-4 text-muted-foreground" />}
                 </div>
                 {/* node card */}
                 <div className={
                   'flex-1 min-w-0 rounded-lg border p-3 mb-2 space-y-1 ' +
                   (live ? 'border-emerald-400/50 bg-gradient-to-br from-emerald-500/15 to-teal-500/10'
-                    : open ? 'border-[#2a3258] bg-[#0f1329]'
-                    : 'border-[#20264a] bg-[#0f1329]/60 opacity-70')
+                    : open ? 'border-border bg-muted/40'
+                    : 'border-border/70 bg-muted/30 opacity-70')
                 }>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className={
                       'text-[9px] font-black tracking-widest ' +
-                      (live ? 'text-cyan-300' : node.state === 'done' || node.state === 'won' ? 'text-slate-400' : 'text-slate-500')
+                      (live ? 'text-cyan-700 dark:text-cyan-300' : node.state === 'done' || node.state === 'won' ? 'text-muted-foreground' : 'text-muted-foreground')
                     }>
                       {node.num}{!open && ' · LOCKED'}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      {node.chip && <span className="rounded-full bg-teal-500/15 border border-teal-400/30 px-1.5 py-px text-[9px] font-bold text-teal-300">{node.chip}</span>}
-                      {node.xp && <span className="rounded-full bg-cyan-400/10 border border-cyan-400/30 px-1.5 py-px text-[9px] font-black text-cyan-300">{node.xp}</span>}
+                      {node.chip && <span className="rounded-full bg-teal-500/15 border border-teal-400/30 px-1.5 py-px text-[9px] font-bold text-teal-700 dark:text-teal-300">{node.chip}</span>}
+                      {node.xp && <span className="rounded-full bg-cyan-400/10 border border-cyan-400/30 px-1.5 py-px text-[9px] font-black text-cyan-700 dark:text-cyan-300">{node.xp}</span>}
                     </div>
                   </div>
-                  <p className={'text-sm font-bold truncate ' + (open ? 'text-white' : 'text-slate-400')}>{node.title}</p>
-                  <p className="text-[11px] text-slate-400">{node.desc}</p>
+                  <p className={'text-sm font-bold truncate ' + (open ? 'text-foreground' : 'text-muted-foreground')}>{node.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{node.desc}</p>
                   {live && node.id === 'n3' && (
                     <Button onClick={openComposer} data-testid="quest-post-deal" size="sm" className="mt-1.5 w-full h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-xs gap-1.5">
                       <Gamepad2 className="w-3.5 h-3.5" /> Compute &amp; Post Deal
                     </Button>
                   )}
                   {live && node.id === 'n4' && (
-                    <p className="text-[10px] font-bold text-emerald-300 pt-0.5" data-testid="quest-boss-live">BOSS ARENA LIVE - 10 votes to clear</p>
+                    <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 pt-0.5" data-testid="quest-boss-live">BOSS ARENA LIVE - 10 votes to clear</p>
                   )}
                 </div>
               </div>
@@ -451,14 +451,14 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       <div className="rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-600/30 via-teal-600/20 to-emerald-600/30 p-4 flex items-center justify-between gap-3" data-testid="quest-challenge">
         <div className="flex items-center gap-3 min-w-0">
           <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/30 border border-emerald-300/40 shrink-0">
-            <Zap className="w-5 h-5 text-emerald-200" />
+            <Zap className="w-5 h-5 text-emerald-700 dark:text-emerald-200" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-black text-white truncate">Challenge {rival ? rival.name : 'the arena'}</p>
-            <p className="text-[11px] text-emerald-200/80">Instant price duel - vote the best deal into the match</p>
+            <p className="text-sm font-black text-foreground truncate">Challenge {rival ? rival.name : 'the arena'}</p>
+            <p className="text-[11px] text-emerald-700/80 dark:text-emerald-700 dark:text-emerald-200/80">Instant price duel - vote the best deal into the match</p>
           </div>
         </div>
-        <Button onClick={() => arenaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} size="sm" data-testid="quest-start-duel" className="shrink-0 h-8 bg-cyan-500 hover:bg-cyan-400 text-[#0b0e1d] font-black text-xs">
+        <Button onClick={() => arenaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} size="sm" data-testid="quest-start-duel" className="shrink-0 h-8 bg-cyan-500 hover:bg-cyan-400 text-emerald-950 font-black text-xs">
           Start Duel <ChevronRight className="w-3.5 h-3.5" />
         </Button>
       </div>
@@ -469,52 +469,52 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
       </div>
 
       {/* ================= STICKER VAULT ================= */}
-      <div className="rounded-xl border border-[#2a3258] bg-[#141936] p-4 space-y-3" data-testid="quest-vault">
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3" data-testid="quest-vault">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/30 shrink-0">
-              <Award className="w-5 h-5 text-emerald-300" />
+              <Award className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
             </span>
             <div className="min-w-0">
-              <h2 className="text-sm font-black text-white">Sticker Vault</h2>
-              <p className="text-[11px] text-slate-400">Titles to be earned · computational ranking</p>
+              <h2 className="text-sm font-black text-foreground">Sticker Vault</h2>
+              <p className="text-[11px] text-muted-foreground">Titles to be earned · computational ranking</p>
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[9px] font-black tracking-widest text-emerald-300">MASTERY</p>
-            <p className="text-xs font-black text-white">LVL {me?.level ?? 1}</p>
-            <p className="text-[10px] text-slate-400" data-testid="quest-vault-count">{unlockedCount} / {stickers.length} Unlocked</p>
+            <p className="text-[9px] font-black tracking-widest text-emerald-700 dark:text-emerald-300">MASTERY</p>
+            <p className="text-xs font-black text-foreground">LVL {me?.level ?? 1}</p>
+            <p className="text-[10px] text-muted-foreground" data-testid="quest-vault-count">{unlockedCount} / {stickers.length} Unlocked</p>
           </div>
         </div>
 
         {/* v206 DMM: the equipped pair drives the multiplier matrix */}
         <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-2.5 space-y-1.5" data-testid="quest-buffs">
           <div className="flex items-center justify-between gap-2">
-            <p className="flex items-center gap-1 text-[9px] font-black tracking-widest text-emerald-300">
+            <p className="flex items-center gap-1 text-[9px] font-black tracking-widest text-emerald-700 dark:text-emerald-300">
               <Sparkles className="w-3 h-3" /> ACTIVE BUFFS · DMM
             </p>
-            <span className="text-[9px] font-bold text-slate-400" data-testid="quest-buff-count">{equipped.length}/{EQUIP_LIMIT} EQUIPPED</span>
+            <span className="text-[9px] font-bold text-muted-foreground" data-testid="quest-buff-count">{equipped.length}/{EQUIP_LIMIT} EQUIPPED</span>
           </div>
-          <p className="text-[11px] font-bold text-white" data-testid="quest-buff-line">
+          <p className="text-[11px] font-bold text-foreground" data-testid="quest-buff-line">
             Vote weight ×{voteWeight(level ?? 1, voteBuff).toFixed(2)} · XP +{Math.round(xpBuff * 100)}% · Unlock targets −{Math.round(velBuff * 100)}%
           </p>
           {equippedDefs.length > 0 ? (
             <div className="flex items-center gap-1.5 flex-wrap">
               {equippedDefs.map((d) => (
-                <span key={d.id} className="inline-flex items-center gap-1 rounded-full bg-[#0f1329] border border-[#2a3258] px-1.5 py-px text-[9px] font-bold text-cyan-300">
+                <span key={d.id} className="inline-flex items-center gap-1 rounded-full bg-muted/40 border border-border px-1.5 py-px text-[9px] font-bold text-cyan-700 dark:text-cyan-300">
                   {d.name} · {d.effect}
                 </span>
               ))}
             </div>
           ) : (
-            <p className="text-[10px] text-slate-500">Equip up to {EQUIP_LIMIT} earned stickers below to arm their multipliers.</p>
+            <p className="text-[10px] text-muted-foreground">Equip up to {EQUIP_LIMIT} earned stickers below to arm their multipliers.</p>
           )}
         </div>
 
         {/* sharable stat tiles */}
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Your hustle in numbers</p>
-          <Button onClick={() => void shareStats()} size="sm" variant="outline" data-testid="quest-share" className="h-7 px-2.5 text-[11px] gap-1 bg-transparent border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 hover:text-cyan-200">
+          <p className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">Your hustle in numbers</p>
+          <Button onClick={() => void shareStats()} size="sm" variant="outline" data-testid="quest-share" className="h-7 px-2.5 text-[11px] gap-1 bg-transparent border-cyan-400/40 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-400/10 hover:text-cyan-200">
             <Share2 className="w-3.5 h-3.5" /> Share
           </Button>
         </div>
@@ -526,10 +526,10 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
           ].map((tile) => {
             const Icon = tile.icon
             return (
-              <div key={tile.label} className="rounded-lg border border-[#2a3258] bg-[#0f1329] p-2.5 space-y-0.5">
-                <p className="flex items-center gap-1 text-[8px] font-black tracking-widest text-slate-500"><Icon className="w-2.5 h-2.5 text-emerald-300" />{tile.label}</p>
-                <p className="text-lg font-black text-white leading-tight" data-testid="quest-stat-value">{tile.big}</p>
-                <p className="text-[9px] text-slate-400 truncate">{tile.sub}</p>
+              <div key={tile.label} className="rounded-lg border border-border bg-muted/40 p-2.5 space-y-0.5">
+                <p className="flex items-center gap-1 text-[8px] font-black tracking-widest text-muted-foreground"><Icon className="w-2.5 h-2.5 text-emerald-700 dark:text-emerald-300" />{tile.label}</p>
+                <p className="text-lg font-black text-foreground leading-tight" data-testid="quest-stat-value">{tile.big}</p>
+                <p className="text-[9px] text-muted-foreground truncate">{tile.sub}</p>
               </div>
             )
           })}
@@ -547,7 +547,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                 'rounded-full px-3 py-1 text-[10px] font-black tracking-wide transition-colors ' +
                 (vaultFilter === key
                   ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/25'
-                  : 'bg-[#0f1329] border border-[#2a3258] text-slate-400 hover:text-slate-200')
+                  : 'bg-muted/40 border border-border text-muted-foreground hover:text-foreground')
               }
             >
               {label}
@@ -562,16 +562,16 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             return (
               <div key={s.def.id} data-testid={`quest-sticker-${s.def.id}`} className={
                 'rounded-lg border p-3 space-y-2 ' +
-                (s.unlocked ? 'border-[#2a3258] bg-[#0f1329]' : 'border-[#20264a] bg-[#0f1329]/60')
+                (s.unlocked ? 'border-border bg-muted/40' : 'border-border/70 bg-muted/30')
               }>
                 <div className="flex items-center justify-between gap-1.5">
                   <span className={
                     'rounded-full px-1.5 py-px text-[8px] font-black tracking-widest ' +
-                    (s.def.tier.startsWith('Bronze') ? 'bg-amber-500/15 text-amber-300'
+                    (s.def.tier.startsWith('Bronze') ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                       : s.def.tier.startsWith('Silver') ? 'bg-slate-300/15 text-slate-200'
-                      : s.def.tier.startsWith('Cyan') ? 'bg-cyan-400/15 text-cyan-300'
+                      : s.def.tier.startsWith('Cyan') ? 'bg-cyan-400/15 text-cyan-700 dark:text-cyan-300'
                       : s.def.tier.startsWith('Gold') ? 'bg-yellow-400/15 text-yellow-300'
-                      : 'bg-teal-500/15 text-teal-300')
+                      : 'bg-teal-500/15 text-teal-700 dark:text-teal-300')
                   }>{s.def.tier.toUpperCase()}</span>
                   {s.unlocked ? (
                     <button
@@ -582,36 +582,36 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
                         'inline-flex items-center gap-1 rounded-full px-2 py-px text-[9px] font-black transition-colors ' +
                         (equipped.includes(s.def.id)
                           ? 'bg-emerald-600 text-white shadow shadow-emerald-500/30'
-                          : 'bg-transparent border border-[#2a3258] text-slate-400 hover:text-cyan-300 hover:border-cyan-400/40')
+                          : 'bg-transparent border border-border text-muted-foreground hover:text-cyan-700 dark:text-cyan-300 hover:border-cyan-400/40')
                       }
                     >
                       {equipped.includes(s.def.id) ? (<><CheckCircle2 className="w-3 h-3" /> EQUIPPED</>) : 'EQUIP'}
                     </button>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-500"><Lock className="w-3 h-3" /> LOCKED</span>
+                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-muted-foreground"><Lock className="w-3 h-3" /> LOCKED</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={
                     'inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br shrink-0 ' +
-                    (s.unlocked ? s.def.gradient + ' text-white shadow-lg' : 'from-[#1a2040] to-[#141936] text-slate-600 border border-[#2a3258]')
+                    (s.unlocked ? s.def.gradient + ' text-white shadow-lg' : 'from-muted to-muted/60 text-muted-foreground border border-border')
                   }>
                     <StickerIcon className="w-7 h-7" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className={'text-sm font-bold truncate ' + (s.unlocked ? 'text-white' : 'text-slate-300')}>{s.def.name}</p>
-                    <p className="text-[10px] text-slate-500">{s.def.requirement}</p>
-                    <p className="text-[10px] font-bold text-cyan-300">
+                    <p className={'text-sm font-bold truncate ' + (s.unlocked ? 'text-foreground' : 'text-muted-foreground')}>{s.def.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{s.def.requirement}</p>
+                    <p className="text-[10px] font-bold text-cyan-700 dark:text-cyan-300">
                       {s.def.effect.replace('{value}', formatCompact(s.value))}
                     </p>
                   </div>
                 </div>
                 {!s.unlocked && (
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 rounded-full bg-[#0b0f22] overflow-hidden">
+                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                       <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400" style={{ width: `${Math.max(2, s.pct)}%` }} />
                     </div>
-                    <span className="text-[9px] font-bold text-slate-400 shrink-0">{formatCompact(s.value)}/{formatCompact(s.def.target)} · {s.pct}%</span>
+                    <span className="text-[9px] font-bold text-muted-foreground shrink-0">{formatCompact(s.value)}/{formatCompact(s.def.target)} · {s.pct}%</span>
                   </div>
                 )}
               </div>
@@ -620,19 +620,19 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
         </div>
 
         {/* computational ranking explainer */}
-        <div className="rounded-lg border border-[#2a3258] bg-[#0f1329] p-3 space-y-2" data-testid="quest-ranking-note">
-          <p className="flex items-center gap-1.5 text-xs font-black text-white"><Gamepad2 className="w-4 h-4 text-emerald-300" /> Computational Deal Ranking</p>
-          <p className="text-[11px] text-slate-400" data-testid="quest-note-oracle">
-            <span className="font-bold text-emerald-300">Oracle Score (OIVE):</span> every deal is scored live - Spread × {ORACLE_WEIGHTS.spread} + Proof × {ORACLE_WEIGHTS.confidence} + Scarcity × {ORACLE_WEIGHTS.scarcity}. Score ≥ 90 is Extreme Alpha (+{85} XP, instant duel seat), 70-89 Verified (+{50} XP), below 70 goes to Crowd Audit (10 Helpful votes to validate).
+        <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2" data-testid="quest-ranking-note">
+          <p className="flex items-center gap-1.5 text-xs font-black text-foreground"><Gamepad2 className="w-4 h-4 text-emerald-700 dark:text-emerald-300" /> Computational Deal Ranking</p>
+          <p className="text-[11px] text-muted-foreground" data-testid="quest-note-oracle">
+            <span className="font-bold text-emerald-700 dark:text-emerald-300">Oracle Score (OIVE):</span> every deal is scored live - Spread × {ORACLE_WEIGHTS.spread} + Proof × {ORACLE_WEIGHTS.confidence} + Scarcity × {ORACLE_WEIGHTS.scarcity}. Score ≥ 90 is Extreme Alpha (+{85} XP, instant duel seat), 70-89 Verified (+{50} XP), below 70 goes to Crowd Audit (10 Helpful votes to validate).
           </p>
-          <p className="text-[11px] text-slate-400" data-testid="quest-note-peda">
-            <span className="font-bold text-cyan-300">Escrow duels (PEDA):</span> {PEDA.defaultWager} XP locked per side - the winner takes {PEDA.winnerPct}% of the pot, and the winning side's voters split the remaining {PEDA.votersPct}%.
+          <p className="text-[11px] text-muted-foreground" data-testid="quest-note-peda">
+            <span className="font-bold text-cyan-700 dark:text-cyan-300">Escrow duels (PEDA):</span> {PEDA.defaultWager} XP locked per side - the winner takes {PEDA.winnerPct}% of the pot, and the winning side's voters split the remaining {PEDA.votersPct}%.
           </p>
-          <p className="text-[11px] text-slate-400" data-testid="quest-note-vach">
-            <span className="font-bold text-amber-300">Vlogger Arbitrage (VACH):</span> Extreme Alpha deals auto-broadcast to the creator hub with a synergy link - {VACH.creatorPct}% to the creator, {VACH.buyerPct}% buyer cashback, {VACH.hunterPct}% back to the original hunter.
+          <p className="text-[11px] text-muted-foreground" data-testid="quest-note-vach">
+            <span className="font-bold text-amber-700 dark:text-amber-300">Vlogger Arbitrage (VACH):</span> Extreme Alpha deals auto-broadcast to the creator hub with a synergy link - {VACH.creatorPct}% to the creator, {VACH.buyerPct}% buyer cashback, {VACH.hunterPct}% back to the original hunter.
           </p>
-          <p className="text-[11px] text-slate-400">
-            <span className="font-bold text-emerald-300">Real-time multipliers (DMM):</span> equip up to {EQUIP_LIMIT} stickers - vote influence scales as (1 + LVL/20) × (1 + buff), and 100 XP per Helpful vote, 50 XP per post, reset every Monday 00:00 UTC.
+          <p className="text-[11px] text-muted-foreground">
+            <span className="font-bold text-emerald-700 dark:text-emerald-300">Real-time multipliers (DMM):</span> equip up to {EQUIP_LIMIT} stickers - vote influence scales as (1 + LVL/20) × (1 + buff), and 100 XP per Helpful vote, 50 XP per post, reset every Monday 00:00 UTC.
           </p>
         </div>
       </div>
