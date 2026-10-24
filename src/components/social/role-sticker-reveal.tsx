@@ -26,6 +26,7 @@ import {
   STICKERS, StickerState, posterXp, xpProgress, levelOf, levelTitle,
   stickerStates, readEquippedIds, equippedStickerDefs,
   stickerTierLabel, stickerTierChipClass, formatCompact,
+  priceRatingOf,
 } from '@/lib/arena'
 
 // ---------------------------------------------------------------------------
@@ -152,7 +153,10 @@ export function RoleStickerTile({ name, roles, posts, rating, ratingCount, votes
     void equipTick // re-read localStorage when the quest hub equips
     const equippedDefs = equippedStickerDefs(equippedIds)
     const top = equippedDefs[0] || null
-    return { xp, prog, states, earnedCount: earned.length, equippedIds, equippedDefs, top }
+    // v211: the Price Rating - posting the price + engaging on the voting,
+    // divided by the person's top earned sticker tier.
+    const price = priceRatingOf(p, v)
+    return { xp, prog, states, earnedCount: earned.length, equippedIds, equippedDefs, top, price }
   }, [p, v, equipTick])
 
   // Fullscreen takeover hygiene: lock the body scroll while open, Escape
@@ -263,10 +267,13 @@ export function RoleStickerTile({ name, roles, posts, rating, ratingCount, votes
                 <p className="text-lg font-bold text-foreground mt-1">{formatCompact(v)}</p>
                 <p className="text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">Viral Beacon</p>
               </div>
-              <div data-testid="vault-stat-stars" className="rounded-xl border border-border bg-muted/30 p-3 text-center">
-                <Star className="w-4 h-4 mx-auto text-amber-500" />
-                <p className="text-lg font-bold text-foreground mt-1">{r > 0 ? r.toFixed(1) : 'New'}</p>
-                <p className="text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">Star Prize</p>
+              <div data-testid="vault-stat-rating" className="rounded-xl border border-border bg-muted/30 p-3 text-center">
+                <TrendingUp className="w-4 h-4 mx-auto text-primary" />
+                <p className="text-lg font-bold text-foreground mt-1">{formatCompact(vault.price.rating)}</p>
+                <p className="text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">Price Rating</p>
+                <p data-testid="vault-rating-divisor" className="text-[8px] font-bold tracking-wider text-muted-foreground/80 uppercase mt-0.5">
+                  &divide;{vault.price.divisor} {vault.price.tierLabel || 'No Sticker'}
+                </p>
               </div>
             </div>
 
@@ -453,6 +460,11 @@ export function RoleStickerTile({ name, roles, posts, rating, ratingCount, votes
                 Equipped stickers modify the math: Vote Influence widens each Helpful vote,
                 Roadmap Velocity shrinks unlock targets, XP Boost fattens every payout.
                 {STICKERS.length > 0 ? ' The catalog above is the full six-sticker ladder.' : ''}
+              </p>
+              <p data-testid="vault-rating-formula" className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                <span className="font-semibold text-foreground">Price Rating</span> = (posts &times; 45 + Helpful votes &times; 10)
+                &divide; sticker divisor - your top earned sticker divides harder:
+                Endgame &divide;1, Gold &divide;1.5, Cyan &divide;2, Silver &divide;2.5, Bronze &divide;3, none &divide;4.
               </p>
             </div>
           </div>

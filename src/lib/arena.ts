@@ -285,6 +285,54 @@ export function stickerTierChipClass(tier: string): string {
   return 'bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-400/30'
 }
 
+// v211 (Task 214): PRICE RATING - the vault's rating stat, computed from
+// the two things a hustler actually does: POSTING THE PRICE and ENGAGING
+// ON THE VOTING - divided by their sticker ("divide them with their
+// sticker"). The sticker enters the math as a DIVISOR keyed by the person's
+// top EARNED tier, and better stickers divide harder (smaller divisor), so
+// the exact same activity reads higher the higher the tier ladder goes.
+// Honest + public: the divisor uses the top EARNED sticker (like every
+// public classification since v207), never the viewer-local equipped pair,
+// so everyone sees the same rating for the same person.
+//   raw    = posts x 45 + helpful votes x 10
+//   rating = round(raw / divisor)   divisor: Endgame 1, Gold 1.5, Cyan 2,
+//                                   Silver 2.5, Bronze 3, no sticker 4
+export const PRICE_RATING_POST_WEIGHT = 45
+export const PRICE_RATING_VOTE_WEIGHT = 10
+
+/** The sticker divisor for a person's counters (their top earned tier). */
+export function stickerDivisorOf(lifetimePosts: number, lifetimeVotes: number): number {
+  const cls = stickerClassOf(lifetimePosts, lifetimeVotes)
+  if (!cls) return 4 // no sticker yet: the heaviest divisor
+  if (cls.tier.startsWith('Bronze')) return 3
+  if (cls.tier.startsWith('Silver')) return 2.5
+  if (cls.tier.startsWith('Cyan')) return 2
+  if (cls.tier.startsWith('Gold')) return 1.5
+  return 1 // Endgame
+}
+
+/** The vault's Price Rating + the parts it came from (for the explainer). */
+export function priceRatingOf(lifetimePosts: number, lifetimeVotes: number): {
+  rating: number
+  raw: number
+  divisor: number
+  tier: string | null
+  tierLabel: string | null
+} {
+  const posts = Math.max(0, Number(lifetimePosts) || 0)
+  const votes = Math.max(0, Number(lifetimeVotes) || 0)
+  const raw = posts * PRICE_RATING_POST_WEIGHT + votes * PRICE_RATING_VOTE_WEIGHT
+  const divisor = stickerDivisorOf(posts, votes)
+  const cls = stickerClassOf(posts, votes)
+  return {
+    rating: Math.round(raw / divisor),
+    raw,
+    divisor,
+    tier: cls ? cls.tier : null,
+    tierLabel: cls ? stickerTierLabel(cls.tier) : null,
+  }
+}
+
 /** 18400 -> "18.4K" (the vault's big stat tiles). */
 export function formatCompact(n: number): string {
   const v = Math.max(0, Number(n) || 0)
