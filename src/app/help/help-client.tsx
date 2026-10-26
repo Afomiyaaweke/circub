@@ -22,6 +22,10 @@ import {
   Clock,
   CheckCircle2,
   Plus,
+  Pencil,
+  Trash2,
+  UserX,
+  X,
 } from 'lucide-react'
 
 type Answer = { id: string; authorName: string; body: string; createdAt: string }
@@ -41,7 +45,10 @@ type Quest = {
   bountyUsd: number
   posterName: string
   claimed: boolean
-  claimedBy: string | null
+  // v219 privacy: claimer name/contact never leave the server - the board
+  // only sees the session-scoped flags (I posted it / I claimed it).
+  isMine: boolean
+  myClaim: boolean
   createdAt: string
 }
 
@@ -69,7 +76,8 @@ const questInputCls =
 
 export function HelpClient() {
   // Shared identity (logged-in member or visitor) - drives both boards.
-  const [me, setMe] = useState<{ name: string } | null>(null)
+  // v219: id is needed for the isMine/myClaim board controls.
+  const [me, setMe] = useState<{ id: string; name: string } | null>(null)
   const [tab, setTab] = useState<'qa' | 'quests'>('qa')
 
   // ---- Tab 1: Questions & Answers (v213, unchanged behavior) ----
@@ -106,6 +114,9 @@ export function HelpClient() {
   const [claimErrs, setClaimErrs] = useState<Record<string, string>>({})
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [locallyClaimed, setLocallyClaimed] = useState<Record<string, boolean>>({})
+  // v219 poster/claimer management on the help board quest tab.
+  const [editingQuest, setEditingQuest] = useState<string | null>(null)
+  const [questBusy, setQuestBusy] = useState<string>('')
 
   const load = useCallback(async () => {
     try {
@@ -135,7 +146,7 @@ export function HelpClient() {
     fetch('/api/auth/me')
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => {
-        setMe(u && u.name ? { name: u.name } : null)
+        setMe(u && u.id && u.name ? { id: u.id, name: u.name } : null)
         if (u && u.name) setClaimName((prev) => prev || u.name)
       })
       .catch(() => setMe(null))
@@ -232,16 +243,44 @@ export function HelpClient() {
       setPostErr('Bounty must be at least $0.50.')
       return
     }
-    if (!me && !posterName.trim()) {
+    if (!me && !editingQuest && !posterName.trim()) {
       setPostErr('Your name is required.')
       return
     }
-    if (!contact.trim()) {
+    // Edit mode: the stored contact stays unless a new one is typed.
+    if (!editingQuest && !contact.trim()) {
       setPostErr('A contact (phone / WhatsApp / Telegram) is required so guides can reach you.')
       return
     }
     setPosting(true)
     try {
+      if (editingQuest) {
+        const res = await fetch(`/api/quests/${editingQuest}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            details,
+            location,
+            deadlineText,
+            bountyUsd: bounty,
+            ...(contact.trim() ? { contact } : {}),
+          }),
+        })
+        if (res.ok) {
+          setTitle(''); setDetails(''); setLocation(''); setDeadlineText('')
+          setBountyUsd(''); setPosterName(''); setContact('')
+          setShowForm(false)
+          setEditingQuest(null)
+          setPostOk('Quest updated - the board now shows the new terms.')
+          await loadQuests()
+        } else {
+          const data = await res.json().catch(() => ({}))
+          setPostErr(data.error || 'Failed to update your quest.')
+          if (res.status === 409) setEditingQuest(null)
+        }
+        return
+      }
       const res = await fetch('/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -265,6 +304,62 @@ export function HelpClient() {
       setPostErr('Failed to post your quest.')
     } finally {
       setPosting(false)
+    }
+  }
+
+  // v219: pre-fill the post form for an in-place edit (contact stays stored
+  // server-side; a blank contact field keeps the current one).
+  function startEditQuest(q: Quest) {
+    setEditingQuest(q.id)
+    setTitle(q.title)
+    setDetails(q.details || '')
+    setLocation(q.location)
+    setDeadlineText(q.deadlineText)
+    setBountyUsd(String(q.bountyUsd))
+    setContact('')
+    setPostErr('')
+    setPostOk('')
+    setShowForm(true)
+    try { document.getElementById('help-quest-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch { /* noop */ }
+  }
+
+  // v219: claimer drops their claim / poster removes the applicant.
+  async function dropClaimHere(qid: string) {
+    setQuestBusy(qid)
+    try {
+      const res = await fetch(`/api/quests/${qid}/claim`, { method: 'DELETE' })
+      if (res.ok) {
+        setRevealed((m) => { const n = { ...m }; delete n[qid]; return n })
+        setLocallyClaimed((m) => { const n = { ...m }; delete n[qid]; return n })
+        setClaimFor((f) => (f === qid ? null : f))
+        await loadQuests()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setClaimErrs((m) => ({ ...m, [qid]: data.error || 'Could not remove the claim.' }))
+      }
+    } catch {
+      setClaimErrs((m) => ({ ...m, [qid]: 'Could not remove the claim.' }))
+    } finally {
+      setQuestBusy('')
+    }
+  }
+
+  async function deleteQuestHere(qid: string) {
+    if (!window.confirm('Delete this bounty quest? This cannot be undone.')) return
+    setQuestBusy(qid)
+    try {
+      const res = await fetch(`/api/quests/${qid}`, { method: 'DELETE' })
+      if (res.ok) {
+        if (editingQuest === qid) { setEditingQuest(null); setShowForm(false) }
+        await loadQuests()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setPostErr(data.error || 'Could not delete the quest.')
+      }
+    } catch {
+      setPostErr('Could not delete the quest.')
+    } finally {
+      setQuestBusy('')
     }
   }
 
@@ -528,12 +623,18 @@ export function HelpClient() {
           </span>
           <button
             type="button"
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => {
+              setShowForm((v) => {
+                if (!v) { setEditingQuest(null); setTitle(''); setDetails(''); setLocation(''); setDeadlineText(''); setBountyUsd(''); setContact('') }
+                return !v
+              })
+              setPostErr('')
+            }}
             className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
             data-testid="quest-post-toggle"
           >
             <Plus className="h-4 w-4" />
-            Post an Instant Quest
+            {editingQuest ? 'Editing quest - cancel' : 'Post an Instant Quest'}
           </button>
         </div>
 
@@ -548,8 +649,11 @@ export function HelpClient() {
             onSubmit={postQuest}
             className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-3"
             data-testid="quest-post-form"
+            id="help-quest-form"
           >
-            <p className="text-sm font-bold text-foreground">Upload an instant quest - ask for help, offer a bounty</p>
+            <p className="text-sm font-bold text-foreground">
+              {editingQuest ? 'Edit your quest - update the terms, then save' : 'Upload an instant quest - ask for help, offer a bounty'}
+            </p>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -597,7 +701,7 @@ export function HelpClient() {
               <input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
-                placeholder="Your contact - phone / WhatsApp / Telegram"
+                placeholder={editingQuest ? 'New contact - leave blank to keep the current one' : 'Your contact - phone / WhatsApp / Telegram'}
                 maxLength={200}
                 className={questInputCls}
                 data-testid="quest-input-contact"
@@ -625,7 +729,7 @@ export function HelpClient() {
               data-testid="quest-post-submit"
             >
               <Send className="h-4 w-4" />
-              {posting ? 'Posting...' : 'Post quest'}
+              {posting ? 'Saving...' : editingQuest ? 'Save changes' : 'Post quest'}
             </button>
           </form>
         )}
@@ -667,6 +771,32 @@ export function HelpClient() {
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     Posted by <span className="font-semibold text-foreground">{q.posterName}</span> · {timeAgo(q.createdAt)}
                   </p>
+                  {/* v219: poster-only manage row - other visitors never see it. */}
+                  {q.isMine && !isClaimed && (
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap" data-testid="quest-manage-row">
+                      <button
+                        type="button"
+                        onClick={() => startEditQuest(q)}
+                        disabled={questBusy === q.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="quest-edit-btn"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteQuestHere(q.id)}
+                        disabled={questBusy === q.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-red-600 hover:border-red-300 transition-colors"
+                        data-testid="quest-delete-btn"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
+                      <span className="text-[10px] font-semibold text-muted-foreground/70">Your post</span>
+                    </div>
+                  )}
                   <div className="mt-3">
                     <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
                     <p className="text-lg font-extrabold text-foreground" data-testid="bounty-amount">
@@ -678,14 +808,39 @@ export function HelpClient() {
                       className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
                       data-testid="quest-claimed"
                     >
+                      {/* v219: the claimer's identity is never public. */}
                       <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Claimed{q.claimedBy && !locallyClaimed[q.id] ? ` by ${q.claimedBy}` : ''} - payout on completion
+                        {q.myClaim || locallyClaimed[q.id] ? 'You claimed this - payout on completion' : 'Claimed - payout on completion'}
                       </p>
                       {revealed[q.id] && (
                         <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
                           Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
                         </p>
+                      )}
+                      {(q.myClaim || locallyClaimed[q.id]) && (
+                        <button
+                          type="button"
+                          onClick={() => dropClaimHere(q.id)}
+                          disabled={questBusy === q.id}
+                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          data-testid="quest-drop-claim"
+                        >
+                          <X className="w-3 h-3" />
+                          {questBusy === q.id ? 'Removing...' : 'Drop claim'}
+                        </button>
+                      )}
+                      {q.isMine && !locallyClaimed[q.id] && (
+                        <button
+                          type="button"
+                          onClick={() => dropClaimHere(q.id)}
+                          disabled={questBusy === q.id}
+                          className={"mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors" + ((q.myClaim || locallyClaimed[q.id]) ? ' sm:ml-3' : '')}
+                          data-testid="quest-remove-claimer"
+                        >
+                          <UserX className="w-3 h-3" />
+                          {questBusy === q.id ? 'Removing...' : 'Remove claimer'}
+                        </button>
                       )}
                     </div>
                   ) : claimFor === q.id ? (

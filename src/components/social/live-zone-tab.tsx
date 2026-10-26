@@ -15,6 +15,7 @@ import {
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
   Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
+  Pencil, Trash2, UserX, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -136,7 +137,11 @@ type QuestRow = {
   bountyUsd: number
   posterName: string
   claimed: boolean
-  claimedBy: string | null
+  // v219 privacy: the claimer's name/contact are never sent to the client -
+  // the board only knows the two session-scoped flags below. Applicant
+  // details for posters live in Profile > Bounties (via /api/quests/mine).
+  isMine: boolean
+  myClaim: boolean
   createdAt: string
 }
 
@@ -246,6 +251,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [locallyClaimed, setLocallyClaimed] = useState<Record<string, boolean>>({})
   const [showAllQuests, setShowAllQuests] = useState(false)
+  // v219 poster/claimer management: inline Edit (reuses the post form),
+  // Delete, Drop claim and Remove claimer. questBusy marks the quest whose
+  // action is in flight so only that card's buttons spin.
+  const [editingQuest, setEditingQuest] = useState<string | null>(null)
+  const [questBusy, setQuestBusy] = useState<string>('')
 
   // Claim form: prefill the member's own name (visitors type theirs).
   const meName = me?.name
@@ -278,16 +288,48 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       setQPostErr('Bounty must be at least $0.50.')
       return
     }
-    if (!me && !qName.trim()) {
+    if (!me && !editingQuest && !qName.trim()) {
       setQPostErr('Your name is required.')
       return
     }
-    if (!qContact.trim()) {
+    // Edit mode: the stored contact stays unless the poster types a new one
+    // (the API never sends the poster's contact back to the client).
+    if (!editingQuest && !qContact.trim()) {
       setQPostErr('A contact (phone / WhatsApp / Telegram) is required so guides can reach you.')
       return
     }
     setQPosting(true)
     try {
+      if (editingQuest) {
+        const res = await fetch(`/api/quests/${editingQuest}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: qTitle,
+            details: qDetails,
+            location: qLocation,
+            deadlineText: qDeadline,
+            bountyUsd: bounty,
+            ...(qContact.trim() ? { contact: qContact } : {}),
+          }),
+        })
+        if (res.ok) {
+          setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline('')
+          setQBounty(''); setQContact('')
+          setShowQuestForm(false)
+          setEditingQuest(null)
+          setQPostOk('Quest updated - the board now shows the new terms.')
+          await reloadQuests()
+        } else {
+          const d = await res.json().catch(() => ({}))
+          setQPostErr(d.error || 'Failed to update your quest.')
+          if (res.status === 409) {
+            // Claimed while editing (or terms locked) - drop back to a clean form.
+            setEditingQuest(null)
+          }
+        }
+        return
+      }
       const res = await fetch('/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -311,6 +353,65 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       setQPostErr('Failed to post your quest.')
     } finally {
       setQPosting(false)
+    }
+  }
+
+  // v219: open the post form pre-filled for an in-place edit of my quest.
+  // The stored contact is never sent to the client, so the contact field
+  // starts empty and only overwrites when the poster types a new one.
+  function startEditQuest(q: QuestRow) {
+    setEditingQuest(q.id)
+    setQTitle(q.title)
+    setQDetails(q.details || '')
+    setQLocation(q.location)
+    setQDeadline(q.deadlineText)
+    setQBounty(String(q.bountyUsd))
+    setQContact('')
+    setQPostErr('')
+    setQPostOk('')
+    setShowQuestForm(true)
+    try { document.getElementById('bounty-board-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch { /* noop */ }
+  }
+
+  // v219: claimer drops their own claim ("Drop claim") or the poster removes
+  // the applicant ("Remove claimer") - same endpoint, quest reopens for the
+  // next taker either way.
+  async function dropClaimHere(qid: string) {
+    setQuestBusy(qid)
+    try {
+      const res = await fetch(`/api/quests/${qid}/claim`, { method: 'DELETE' })
+      if (res.ok) {
+        setRevealed((m) => { const n = { ...m }; delete n[qid]; return n })
+        setLocallyClaimed((m) => { const n = { ...m }; delete n[qid]; return n })
+        setClaimFor((f) => (f === qid ? null : f))
+        await reloadQuests()
+      } else {
+        const d = await res.json().catch(() => ({}))
+        toast({ title: d.error || 'Could not remove the claim', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Could not remove the claim', variant: 'destructive' })
+    } finally {
+      setQuestBusy('')
+    }
+  }
+
+  async function deleteQuestHere(qid: string) {
+    if (!window.confirm('Delete this bounty quest? This cannot be undone.')) return
+    setQuestBusy(qid)
+    try {
+      const res = await fetch(`/api/quests/${qid}`, { method: 'DELETE' })
+      if (res.ok) {
+        if (editingQuest === qid) { setEditingQuest(null); setShowQuestForm(false) }
+        await reloadQuests()
+      } else {
+        const d = await res.json().catch(() => ({}))
+        toast({ title: d.error || 'Could not delete the quest', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Could not delete the quest', variant: 'destructive' })
+    } finally {
+      setQuestBusy('')
     }
   }
 
@@ -540,13 +641,21 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => { setShowQuestForm((v) => !v); setQPostErr('') }}
+              onClick={() => {
+                // Opening the form fresh always means a NEW post - cancel any
+                // in-flight edit so stale pre-filled values don't leak in.
+                setShowQuestForm((v) => {
+                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
+                  return !v
+                })
+                setQPostErr('')
+              }}
               data-testid="bounty-post-link"
               aria-expanded={showQuestForm}
               className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold tracking-wide shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all shrink-0"
             >
               <Plus className="w-4 h-4 shrink-0" />
-              Post an Instant Quest
+              {editingQuest ? 'Editing quest - cancel' : 'Post an Instant Quest'}
             </button>
             {quests && quests.length > 3 && (
               <button
@@ -580,8 +689,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             onSubmit={postQuestHere}
             className="mt-3 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3"
             data-testid="quest-post-form"
+            id="bounty-board-form"
           >
-            <p className="text-sm font-bold text-foreground">Upload an instant quest - ask for help, offer a bounty</p>
+            <p className="text-sm font-bold text-foreground">
+              {editingQuest ? 'Edit your quest - update the terms, then save' : 'Upload an instant quest - ask for help, offer a bounty'}
+            </p>
             <input
               value={qTitle}
               onChange={(e) => setQTitle(e.target.value)}
@@ -629,7 +741,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <input
                 value={qContact}
                 onChange={(e) => setQContact(e.target.value)}
-                placeholder="Your contact - phone / WhatsApp / Telegram"
+                placeholder={editingQuest ? 'New contact - leave blank to keep the current one' : 'Your contact - phone / WhatsApp / Telegram'}
                 maxLength={200}
                 className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 data-testid="quest-input-contact"
@@ -657,7 +769,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               data-testid="quest-post-submit"
             >
               <Send className="h-4 w-4" />
-              {qPosting ? 'Posting...' : 'Post quest'}
+              {qPosting ? 'Saving...' : editingQuest ? 'Save changes' : 'Post quest'}
             </button>
           </form>
         )}
@@ -689,6 +801,32 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     Posted by <span className="font-semibold text-foreground">{q.posterName}</span>
                   </p>
+                  {/* v219: poster-only manage row - other visitors never see it. */}
+                  {q.isMine && !isClaimed && (
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap" data-testid="quest-manage-row">
+                      <button
+                        type="button"
+                        onClick={() => startEditQuest(q)}
+                        disabled={questBusy === q.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="quest-edit-btn"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteQuestHere(q.id)}
+                        disabled={questBusy === q.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-red-600 hover:border-red-300 transition-colors"
+                        data-testid="quest-delete-btn"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
+                      <span className="text-[10px] font-semibold text-muted-foreground/70">Your post</span>
+                    </div>
+                  )}
                   <div className="mt-3">
                     <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
                     <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
@@ -698,14 +836,40 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
                       data-testid="bounty-claimed"
                     >
+                      {/* v219: no claimer name is shown to the public - only
+                          the two session-scoped views below know more. */}
                       <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Claimed{q.claimedBy && !locallyClaimed[q.id] ? ` by ${q.claimedBy}` : ''} - payout on completion
+                        {q.myClaim || locallyClaimed[q.id] ? 'You claimed this - payout on completion' : 'Claimed - payout on completion'}
                       </p>
                       {revealed[q.id] && (
                         <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
                           Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
                         </p>
+                      )}
+                      {(q.myClaim || locallyClaimed[q.id]) && (
+                        <button
+                          type="button"
+                          onClick={() => dropClaimHere(q.id)}
+                          disabled={questBusy === q.id}
+                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          data-testid="quest-drop-claim"
+                        >
+                          <X className="w-3 h-3" />
+                          {questBusy === q.id ? 'Removing...' : 'Drop claim'}
+                        </button>
+                      )}
+                      {q.isMine && !locallyClaimed[q.id] && (
+                        <button
+                          type="button"
+                          onClick={() => dropClaimHere(q.id)}
+                          disabled={questBusy === q.id}
+                          className={"mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors" + ((q.myClaim || locallyClaimed[q.id]) ? ' sm:ml-3' : '')}
+                          data-testid="quest-remove-claimer"
+                        >
+                          <UserX className="w-3 h-3" />
+                          {questBusy === q.id ? 'Removing...' : 'Remove claimer'}
+                        </button>
                       )}
                     </div>
                   ) : claimFor === q.id ? (

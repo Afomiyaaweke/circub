@@ -4,17 +4,24 @@
 // visitors leave a name + a contact channel. The poster's contact is NEVER
 // returned by this list - it is revealed only to the single winner via
 // POST /api/quests/[id]/claim ("guide contacts the traveler instantly").
+// v219 CLAIMER PRIVACY: the claimer's name/contact are no longer exposed to
+// everyone either - the public list only carries a `claimed` boolean plus two
+// session-scoped flags (isMine = I posted this, myClaim = I claimed this) so
+// the board can render the owner's Edit/Delete and the claimer's Drop claim.
+// Applicant details live exclusively in GET /api/quests/mine (poster-only).
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, checkRateLimit, sanitizeInput } from '@/lib/session'
 
 export async function GET() {
   try {
+    // Session-aware flags only - never claimer PII (v219 privacy contract).
+    const me = await getCurrentUser()
     const quests = await db.quest.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
-        claims: { select: { claimerName: true, createdAt: true } },
+        claims: { select: { userId: true } },
       },
     })
     return NextResponse.json(
@@ -28,7 +35,8 @@ export async function GET() {
           bountyUsd: q.bountyUsd,
           posterName: q.posterName,
           claimed: q.claims.length > 0,
-          claimedBy: q.claims[0]?.claimerName ?? null,
+          isMine: !!me && q.userId === me.id,
+          myClaim: !!me && q.claims.some((c) => c.userId === me.id),
           createdAt: q.createdAt,
         })),
       },

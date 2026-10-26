@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
   AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Gem, Image as ImageIcon, Languages, LayoutGrid, Loader2,
-  Check, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, X, Zap,
+  Check, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Pencil, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, UserX, X, Zap,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -79,12 +79,30 @@ interface MyStory {
   createdAt: string; expiresAt: string
 }
 
-type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore'
+// v219: bounty management (Profile > Bounties). Applicants' names + contacts
+// come from GET /api/quests/mine - a poster-only, owner-scoped endpoint.
+interface QuestApplicantInfo {
+  id: string; claimerName: string; claimerContact: string; createdAt: string
+  claimerUser?: { id: string; name: string; username?: string | null } | null
+}
+interface MyQuestPosted {
+  id: string; title: string; details: string | null; location: string
+  deadlineText: string; bountyUsd: number; posterName: string; contact: string
+  createdAt: string; claim: QuestApplicantInfo | null
+}
+interface MyQuestClaimed {
+  id: string; title: string; location: string; deadlineText: string
+  bountyUsd: number; posterName: string; posterContact: string
+  claimedAt: string; createdAt: string
+}
+
+type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore' | 'quests'
 type Deletable =
   | { kind: 'post'; id: string; label: string }
   | { kind: 'listing'; id: string; label: string }
   | { kind: 'product'; id: string; label: string }
   | { kind: 'story'; id: string; label: string }
+  | { kind: 'quest'; id: string; label: string }
 
 function timeAgo(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
@@ -114,6 +132,9 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   // tab now - selecting it renders the shared TopPostersCard below.
   { key: 'topscore', label: 'Top score', icon: Trophy },
   { key: 'network', label: 'Network', icon: Users },
+  // v219: bounty management - posted quests + their applicants, and quests I
+  // claimed (with the poster contact). Lives in the tab strip like the rest.
+  { key: 'quests', label: 'Bounties', icon: Zap },
 ]
 
 // An HEIC/HEIF file that SURVIVED compression means the browser could not
@@ -138,11 +159,17 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [stories, setStories] = useState<MyStory[]>([])
   const [loading, setLoading] = useState(!isGuest)
 
+  // v219: bounty management state (Profile > Bounties tab).
+  const [myQuests, setMyQuests] = useState<{ posted: MyQuestPosted[]; claimed: MyQuestClaimed[] } | null>(null)
+  const [questEditing, setQuestEditing] = useState<string | null>(null)
+  const [questForm, setQuestForm] = useState({ title: '', details: '', location: '', deadlineText: '', bountyUsd: '', contact: '' })
+  const [questBusy, setQuestBusy] = useState(false)
+
   const [contentType, setContentType] = useState<ContentType>(
     // 'listings'/'products' are legacy deep-link targets from the old 5-tab
     // strip (position memory in sessionStorage) - they land on the mixed
     // "All" grid, which shows their content anyway.
-    initialSection === 'saved' || initialSection === 'network' ? initialSection : 'posts'
+    initialSection === 'saved' || initialSection === 'network' || initialSection === 'quests' ? initialSection : 'posts'
   )
 
   // v121: posts + price listings + products MERGED into one newest-first
@@ -246,17 +273,24 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const fetchAll = useCallback(async () => {
     if (isGuest) return
     if (!hasContentRef.current) setLoading(true)
-    const [p, l, pr, st] = await Promise.allSettled([
+    const [p, l, pr, st, q] = await Promise.allSettled([
       fetch(`/api/posts?authorId=${me.id}&limit=60`).then((r) => r.json()),
       fetch(`/api/local-prices?authorId=${me.id}`).then((r) => r.json()),
       fetch(`/api/products?authorId=${me.id}`).then((r) => r.json()),
       fetch('/api/stories').then((r) => r.json()),
+      fetch('/api/quests/mine').then((r) => r.json()),
     ])
     if (p.status === 'fulfilled' && p.value?.posts) setPosts(p.value.posts)
     if (l.status === 'fulfilled' && l.value?.posts) setListings(l.value.posts)
     if (pr.status === 'fulfilled' && pr.value?.products) setProducts(pr.value.products)
     if (st.status === 'fulfilled' && Array.isArray(st.value?.stories)) {
       setStories(st.value.stories.filter((s: MyStory & { authorId?: string }) => s.authorId === me.id || s.author?.id === me.id))
+    }
+    if (q.status === 'fulfilled' && q.value && !q.value.error) {
+      setMyQuests({
+        posted: Array.isArray(q.value.posted) ? q.value.posted : [],
+        claimed: Array.isArray(q.value.claimed) ? q.value.claimed : [],
+      })
     }
     hasContentRef.current = true
     setLoading(false)
@@ -280,7 +314,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       lastBump.current = sectionBump
       if (initialSection && !isGuest) {
         setEditing(false)
-        setContentType(initialSection === 'saved' || initialSection === 'network' ? initialSection : 'posts')
+        setContentType(initialSection === 'saved' || initialSection === 'network' || initialSection === 'quests' ? initialSection : 'posts')
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -691,6 +725,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       kind === 'post' ? `/api/posts/${id}` :
       kind === 'listing' ? `/api/local-prices/${id}` :
       kind === 'product' ? `/api/products/${id}` :
+      kind === 'quest' ? `/api/quests/${id}` :
       `/api/stories/${id}`
     try {
       const res = await fetch(url, { method: 'DELETE' })
@@ -709,6 +744,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         setProductView(null)
         // v122: deleting a twin product removes its price post server-side.
         fetch(`/api/local-prices?authorId=${me.id}`).then((r) => r.json()).then((d) => { if (d?.posts) setListings(d.posts) }).catch(() => {})
+      } else if (kind === 'quest') {
+        // v219: deleting a bounty quest also drops its applicant server-side
+        // (claims cascade) - refresh the whole mine feed so the claims list
+        // stays truthful (a deleted quest may also have been one I claimed).
+        setMyQuests((m) => (m ? { ...m, posted: m.posted.filter((x) => x.id !== id) } : m))
+        fetch('/api/quests/mine').then((r) => (r.ok ? r.json() : null)).then((d) => {
+          if (d && !d.error) setMyQuests({ posted: Array.isArray(d.posted) ? d.posted : [], claimed: Array.isArray(d.claimed) ? d.claimed : [] })
+        }).catch(() => {})
       } else {
         setStories((list) => {
           const next = list.filter((x) => x.id !== id)
@@ -724,6 +767,310 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       setDeleting(false)
       setConfirm(null)
     }
+  }
+
+  // ------------------------------------------------- v219 bounty management
+  // Profile > Bounties: the poster's applicant inbox + the claimer's own
+  // claims. All data comes from GET /api/quests/mine (owner-scoped).
+  const reloadQuestsMine = async () => {
+    try {
+      const r = await fetch('/api/quests/mine', { cache: 'no-store' })
+      if (r.status === 401) { dispatchAuthExpired('session-expired'); return }
+      const d = await r.json()
+      if (d && !d.error) {
+        setMyQuests({
+          posted: Array.isArray(d.posted) ? d.posted : [],
+          claimed: Array.isArray(d.claimed) ? d.claimed : [],
+        })
+      }
+    } catch { /* keep the current list */ }
+  }
+
+  // Poster removes the applicant - the quest reopens for the next taker.
+  const removeQuestClaim = async (qid: string) => {
+    setQuestBusy(true)
+    try {
+      const res = await fetch(`/api/quests/${qid}/claim`, { method: 'DELETE' })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Remove failed') }
+      toast({ title: 'Applicant removed - the bounty is open again' })
+      setQuestEditing(null)
+      await reloadQuestsMine()
+    } catch (err) {
+      toast({ title: 'Could not remove the applicant', description: (err as Error).message, variant: 'destructive' })
+    } finally {
+      setQuestBusy(false)
+    }
+  }
+
+  // Claimer drops their own claim.
+  const dropMyClaim = async (qid: string) => {
+    setQuestBusy(true)
+    try {
+      const res = await fetch(`/api/quests/${qid}/claim`, { method: 'DELETE' })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Drop failed') }
+      toast({ title: 'Claim dropped' })
+      await reloadQuestsMine()
+    } catch (err) {
+      toast({ title: 'Could not drop the claim', description: (err as Error).message, variant: 'destructive' })
+    } finally {
+      setQuestBusy(false)
+    }
+  }
+
+  // Inline edit of an open quest (claimed quests are locked server-side).
+  const startQuestEdit = (q: MyQuestPosted) => {
+    setQuestEditing(q.id)
+    setQuestForm({
+      title: q.title,
+      details: q.details || '',
+      location: q.location,
+      deadlineText: q.deadlineText,
+      bountyUsd: String(q.bountyUsd),
+      contact: '',
+    })
+  }
+
+  const saveQuestEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!questEditing) return
+    setQuestBusy(true)
+    try {
+      const res = await fetch(`/api/quests/${questEditing}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: questForm.title,
+          details: questForm.details,
+          location: questForm.location,
+          deadlineText: questForm.deadlineText,
+          bountyUsd: Number(questForm.bountyUsd),
+          ...(questForm.contact.trim() ? { contact: questForm.contact } : {}),
+        }),
+      })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Save failed') }
+      toast({ title: 'Quest updated' })
+      setQuestEditing(null)
+      await reloadQuestsMine()
+    } catch (err) {
+      toast({ title: 'Could not save', description: (err as Error).message, variant: 'destructive' })
+    } finally {
+      setQuestBusy(false)
+    }
+  }
+
+  const renderQuests = () => {
+    if (isGuest) {
+      return (
+        <div className="py-4" data-testid="profile-quests">
+          <EmptyState icon={<Zap className="w-7 h-7 text-primary/50" />} title="Bounties live here"
+            text="Sign up to post paid help quests, see every applicant with their contact, and manage all your claims in one place."
+            action={
+              <Button size="sm" onClick={onSignUp} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="profile-quests-signup">
+                Sign up
+              </Button>
+            } />
+        </div>
+      )
+    }
+    if (!myQuests) {
+      return (
+        <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2" data-testid="profile-quests">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading bounties...
+        </div>
+      )
+    }
+    return (
+      <div className="py-4 space-y-7" data-testid="profile-quests">
+        {/* -------- my posted quests + their applicants -------- */}
+        <section data-testid="quest-posted-section">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Zap className="w-4 h-4 text-primary" />
+            Your bounty posts
+            <span className="font-semibold text-muted-foreground">({myQuests.posted.length})</span>
+          </h3>
+          {myQuests.posted.length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              No bounty posts yet. Post an instant quest from the Live Hustle Zone - whoever claims it shows up here with their name and contact so you can arrange the handover.
+            </p>
+          ) : (
+            <div className="mt-2.5 space-y-2.5">
+              {myQuests.posted.map((q) => (
+                <div key={q.id} className="rounded-xl border border-border bg-card p-3" data-testid="quest-mine-row">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{q.title}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        ${q.bountyUsd.toFixed(2)} &middot; {q.location} &middot; {q.deadlineText}
+                      </p>
+                    </div>
+                    {q.claim ? (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">Claimed</span>
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-foreground">Open</span>
+                    )}
+                  </div>
+                  {q.claim && (
+                    <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/10" data-testid="quest-applicant">
+                      <p className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                        Applicant: {q.claim.claimerName}
+                      </p>
+                      <p className="mt-0.5 text-xs text-emerald-800 dark:text-emerald-200">
+                        Contact: <span className="font-semibold" data-testid="quest-applicant-contact">{q.claim.claimerContact}</span>
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-emerald-700/80 dark:text-emerald-300/80">
+                        Claimed {timeAgo(q.claim.createdAt).toLowerCase()}{q.claim.claimerUser?.username ? ` &middot; @${q.claim.claimerUser.username}` : ''}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeQuestClaim(q.id)}
+                        disabled={questBusy}
+                        className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 transition-colors hover:text-destructive dark:text-emerald-300"
+                        data-testid="quest-applicant-remove"
+                      >
+                        <UserX className="w-3 h-3" />
+                        {questBusy ? 'Working...' : 'Remove applicant'}
+                      </button>
+                    </div>
+                  )}
+                  <div className="mt-2 flex items-center gap-2">
+                    {!q.claim && (
+                      <button
+                        type="button"
+                        onClick={() => startQuestEdit(q)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                        data-testid="quest-mine-edit"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setConfirm({ kind: 'quest', id: q.id, label: 'Quest' })}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                      data-testid="quest-mine-delete"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Delete
+                    </button>
+                    {q.contact && (
+                      <span className="ml-auto truncate text-[10px] text-muted-foreground/70">Your contact: {q.contact}</span>
+                    )}
+                  </div>
+                  {questEditing === q.id && (
+                    <form onSubmit={saveQuestEdit} className="mt-2.5 space-y-2 border-t border-border pt-2.5" data-testid="quest-edit-form">
+                      <input
+                        value={questForm.title}
+                        onChange={(e) => setQuestForm((f) => ({ ...f, title: e.target.value }))}
+                        placeholder="What do you need?"
+                        maxLength={200}
+                        className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        data-testid="quest-edit-title"
+                      />
+                      <textarea
+                        value={questForm.details}
+                        onChange={(e) => setQuestForm((f) => ({ ...f, details: e.target.value }))}
+                        placeholder="Details (optional)"
+                        rows={2}
+                        maxLength={1000}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        data-testid="quest-edit-details"
+                      />
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <input
+                          value={questForm.location}
+                          onChange={(e) => setQuestForm((f) => ({ ...f, location: e.target.value }))}
+                          placeholder="Location"
+                          maxLength={120}
+                          className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          data-testid="quest-edit-location"
+                        />
+                        <input
+                          value={questForm.deadlineText}
+                          onChange={(e) => setQuestForm((f) => ({ ...f, deadlineText: e.target.value }))}
+                          placeholder="Deadline"
+                          maxLength={120}
+                          className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          data-testid="quest-edit-deadline"
+                        />
+                        <input
+                          value={questForm.bountyUsd}
+                          onChange={(e) => setQuestForm((f) => ({ ...f, bountyUsd: e.target.value }))}
+                          placeholder="Bounty in USD"
+                          type="number"
+                          min="0.5"
+                          step="0.5"
+                          className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          data-testid="quest-edit-bounty"
+                        />
+                        <input
+                          value={questForm.contact}
+                          onChange={(e) => setQuestForm((f) => ({ ...f, contact: e.target.value }))}
+                          placeholder="New contact (optional)"
+                          maxLength={200}
+                          className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          data-testid="quest-edit-contact"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button type="submit" size="sm" disabled={questBusy} className="h-8 gap-1.5 rounded-lg bg-primary text-xs text-primary-foreground hover:bg-primary/90" data-testid="quest-edit-save">
+                          {questBusy ? 'Saving...' : 'Save changes'}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="h-8 rounded-lg text-xs" onClick={() => setQuestEditing(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* -------- quests I claimed (poster contact stays visible) -------- */}
+        <section data-testid="quest-claimed-section">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Check className="w-4 h-4 text-primary" />
+            Quests you claimed
+            <span className="font-semibold text-muted-foreground">({myQuests.claimed.length})</span>
+          </h3>
+          {myQuests.claimed.length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              Claim a bounty from the Live Hustle Zone - the poster&apos;s contact stays here so you can always reach them.
+            </p>
+          ) : (
+            <div className="mt-2.5 space-y-2.5">
+              {myQuests.claimed.map((c) => (
+                <div key={c.id} className="rounded-xl border border-border bg-card p-3" data-testid="quest-claim-row">
+                  <p className="truncate text-sm font-semibold text-foreground">{c.title}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    ${c.bountyUsd.toFixed(2)} &middot; {c.location} &middot; {c.deadlineText}
+                  </p>
+                  <p className="mt-1 text-xs text-foreground">
+                    Poster: <span className="font-semibold">{c.posterName}</span> &middot; Contact:{' '}
+                    <span className="font-semibold" data-testid="quest-claim-contact-value">{c.posterContact}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => dropMyClaim(c.id)}
+                    disabled={questBusy}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-destructive"
+                    data-testid="quest-claim-drop"
+                  >
+                    <X className="w-3 h-3" />
+                    {questBusy ? 'Working...' : 'Drop claim'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    )
   }
 
   // ------------------------------------------------------- saved list markup
@@ -1400,6 +1747,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <div className="py-4" data-testid="profile-top-score">
             <TopPostersCard />
           </div>
+        ) : contentType === 'quests' ? (
+          /* v219: bounty management - applicants inbox + my claims. */
+          renderQuests()
         ) : loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading your content...
