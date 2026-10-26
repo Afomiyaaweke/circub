@@ -14,7 +14,7 @@ import {
   Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck,
-  Play, Video, Zap, ArrowRight, Clock, Tag,
+  Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun, circubawd_ROLES } from '@/lib/roles'
+import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun, circubawd_ROLES, circubawdRole } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -88,13 +88,18 @@ const TIER_LABEL: Record<string, string> = {
   none: 'No guides yet',
 }
 
-// v214 Live Hustle Zone: the four hustle lanes map 1:1 onto the community
-// roles (guide / vlogger / local / sales). Price ranges are the platform's
-// public rate guidance from the reference design; the live counter under
-// each lane comes from the REAL directory counts, and tapping a lane
-// applies that role filter (same as the chips under the search bar).
+// v214 Live Hustle Zone, trimmed in v217 (user: "remove those all vloger
+// things"): the three hustle lanes map 1:1 onto the community roles
+// (guide / local / sales). Price ranges are the platform's public rate
+// guidance from the reference design; the live counter under each lane
+// comes from the REAL directory counts, and tapping a lane applies that
+// role filter (same as the chips under the search bar).
+// Zone chips exclude 'vlogger' (v217) - the shared circubawd_ROLES list
+// keeps it for registration/data compat, the Hustle Zone UI just no
+// longer surfaces it.
+const ZONE_ROLE_CHIPS: circubawdRole[] = circubawd_ROLES.filter((r) => r !== 'vlogger')
 const HUSTLE_LANES: Array<{
-  role: 'guide' | 'vlogger' | 'local' | 'sales'
+  role: 'guide' | 'local' | 'sales'
   label: string
   price: string
   desc: string
@@ -107,13 +112,6 @@ const HUSTLE_LANES: Array<{
     price: 'AVG. $24 - $45 / HR',
     desc: 'Lead in-person or live-streamed walks, audit local shops, and accept verified street scouting commissions.',
     icon: Compass,
-  },
-  {
-    role: 'vlogger',
-    label: 'Digital Vlogger',
-    price: 'AVG. $50 - $120 / VID',
-    desc: 'Produce merchant spotlights, unbox and review boutique tech products, and earn creator affiliate shares.',
-    icon: Video,
   },
   {
     role: 'local',
@@ -132,47 +130,6 @@ const HUSTLE_LANES: Array<{
   },
 ]
 
-// Instant bounty board (v214, live since v215, unified since v216): the
-// homepage board is fed by /api/quests - real quests members UPLOAD ("I need
-// help around Merkato", travelers post, guides get paid). Claiming + uploading
-// happen INSIDE the Help Board page (/help#quests) - same page as the link,
-// never a separate destination - where the claimer instantly receives the
-// poster's contact. The static list below stays as the offline/empty fallback
-// so the board never looks dead.
-const SIDE_HUSTLE_BOUNTIES = [
-  {
-    place: 'Piazza, Addis',
-    timing: 'Within 2 hours',
-    title: 'Verify Leather Jacket Stock & Collect 5 Photos',
-    desc: 'Visit shop #14 in Piazza, snap 5 clear photos of men\u2019s genuine leather jackets with price tag receipts attached.',
-    reward: 25,
-  },
-  {
-    place: 'Phone Call',
-    timing: 'Starts in 30 mins',
-    title: 'Translate 15-Minute Deal Call (Amharic to English)',
-    desc: 'Facilitate a voice call between an Addis distributor and a Dubai buyer. Translate MOQ quantities and shipment schedule.',
-    reward: 18,
-  },
-  {
-    place: 'Bole District',
-    timing: 'Today by 5 PM',
-    title: 'Spot Check Specialty Coffee Prices at 3 Roasteries',
-    desc: 'Log in-person kg prices for Yirgacheffe Grade 1 roasted beans at 3 Bole cafes. Quick checklist input on app.',
-    reward: 15,
-  },
-]
-
-type BountyRow = {
-  id: string
-  place: string
-  timing: string
-  title: string
-  desc: string
-  reward: number
-  claimed: boolean
-}
-
 type QuestRow = {
   id: string
   title: string
@@ -186,30 +143,6 @@ type QuestRow = {
   createdAt: string
 }
 
-// Live quests first (newest 3 uploaded), static fallback when the API has
-// nothing yet - identical card anatomy either way.
-function bountyRows(quests: QuestRow[] | null): BountyRow[] {
-  if (quests && quests.length > 0) {
-    return quests.slice(0, 3).map((q) => ({
-      id: q.id,
-      place: q.location,
-      timing: q.deadlineText,
-      title: q.title,
-      desc: q.details || '',
-      reward: q.bountyUsd,
-      claimed: q.claimed,
-    }))
-  }
-  return SIDE_HUSTLE_BOUNTIES.map((b, i) => ({
-    id: `v214-static-${i}`,
-    place: b.place,
-    timing: b.timing,
-    title: b.title,
-    desc: b.desc,
-    reward: b.reward,
-    claimed: false,
-  }))
-}
 
 export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability }: LiveZoneTabProps) {
   const router = useRouter()
@@ -291,11 +224,132 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
     return () => clearTimeout(t)
   }, [fetchGuides])
 
-  // v215: live instant bounty quests - the homepage bounty board is fed by
-  // /api/quests (real uploaded quests with escrowed rewards). Static
-  // SIDE_HUSTLE_BOUNTIES stay as the fallback when the API is empty or
-  // unreachable, so the board never renders dead.
+  // v215: live instant bounty quests - fed by /api/quests. v217: the board is
+  // FULLY INLINE on this page (user: "make this on the same page as the link
+  // and don't take it on the new landing page") - posting + claiming happen
+  // right here with zero navigation. The Help Board (/help) hosts the same
+  // experience through its quest tab; both surfaces share one API.
   const [quests, setQuests] = useState<QuestRow[] | null>(null)
+
+  // --- Inline quest board state (v217) ---
+  const [showQuestForm, setShowQuestForm] = useState(false)
+  const [qTitle, setQTitle] = useState('')
+  const [qDetails, setQDetails] = useState('')
+  const [qLocation, setQLocation] = useState('')
+  const [qDeadline, setQDeadline] = useState('')
+  const [qBounty, setQBounty] = useState('')
+  const [qContact, setQContact] = useState('')
+  const [qName, setQName] = useState('')
+  const [qPosting, setQPosting] = useState(false)
+  const [qPostErr, setQPostErr] = useState('')
+  const [qPostOk, setQPostOk] = useState('')
+  const [claimFor, setClaimFor] = useState<string | null>(null)
+  const [claimName, setClaimName] = useState('')
+  const [claimContact, setClaimContact] = useState('')
+  const [claiming, setClaiming] = useState(false)
+  const [claimErrs, setClaimErrs] = useState<Record<string, string>>({})
+  const [revealed, setRevealed] = useState<Record<string, string>>({})
+  const [locallyClaimed, setLocallyClaimed] = useState<Record<string, boolean>>({})
+  const [showAllQuests, setShowAllQuests] = useState(false)
+
+  // Claim form: prefill the member's own name (visitors type theirs).
+  const meName = me?.name
+  useEffect(() => {
+    if (meName) setClaimName((p) => (p ? p : meName))
+  }, [meName])
+
+  async function reloadQuests() {
+    try {
+      const r = await fetch('/api/quests', { cache: 'no-store' })
+      const d = await r.json()
+      setQuests(Array.isArray(d?.quests) ? d.quests : null)
+    } catch { /* keep the current list */ }
+  }
+
+  async function postQuestHere(e: React.FormEvent) {
+    e.preventDefault()
+    setQPostErr('')
+    setQPostOk('')
+    if (qTitle.trim().length < 5) {
+      setQPostErr('Please describe the help you need (at least 5 characters).')
+      return
+    }
+    if (!qLocation.trim() || !qDeadline.trim()) {
+      setQPostErr('Location and deadline are required.')
+      return
+    }
+    const bounty = Number(qBounty)
+    if (!Number.isFinite(bounty) || bounty < 0.5) {
+      setQPostErr('Bounty must be at least $0.50.')
+      return
+    }
+    if (!me && !qName.trim()) {
+      setQPostErr('Your name is required.')
+      return
+    }
+    if (!qContact.trim()) {
+      setQPostErr('A contact (phone / WhatsApp / Telegram) is required so guides can reach you.')
+      return
+    }
+    setQPosting(true)
+    try {
+      const res = await fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          me
+            ? { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, contact: qContact }
+            : { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, posterName: qName, contact: qContact }
+        ),
+      })
+      if (res.ok) {
+        setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline('')
+        setQBounty(''); setQName(''); setQContact('')
+        setShowQuestForm(false)
+        setQPostOk('Quest is live - local guides can claim it now. You will be contacted on the channel you left.')
+        await reloadQuests()
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setQPostErr(d.error || 'Failed to post your quest.')
+      }
+    } catch {
+      setQPostErr('Failed to post your quest.')
+    } finally {
+      setQPosting(false)
+    }
+  }
+
+  async function claimQuestHere(qid: string) {
+    setClaimErrs((m) => ({ ...m, [qid]: '' }))
+    if (!claimName.trim() || !claimContact.trim()) {
+      setClaimErrs((m) => ({ ...m, [qid]: 'Your name and a contact are required to claim.' }))
+      return
+    }
+    setClaiming(true)
+    try {
+      const res = await fetch(`/api/quests/${qid}/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimerName: claimName, claimerContact: claimContact }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok && d.ok) {
+        // Instant contact: the poster's channel opens right here, no page change.
+        setRevealed((m) => ({ ...m, [qid]: d.posterContact || '' }))
+        setLocallyClaimed((m) => ({ ...m, [qid]: true }))
+        setClaimFor(null)
+        setClaimContact('')
+        await reloadQuests()
+      } else {
+        setClaimErrs((m) => ({ ...m, [qid]: d.error || 'Failed to claim.' }))
+        if (res.status === 409) await reloadQuests()
+      }
+    } catch {
+      setClaimErrs((m) => ({ ...m, [qid]: 'Failed to claim.' }))
+    } finally {
+      setClaiming(false)
+    }
+  }
   useEffect(() => {
     let alive = true
     fetch('/api/quests', { cache: 'no-store' })
@@ -475,10 +529,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       </div>
 
-      {/* v214: the four hustle lanes - tap a card to slice the directory by
+      {/* v214: the three hustle lanes - tap a card to slice the directory by
           that role. Counter = real members currently in the directory. The
           first lane is the platform's signature dark-green card. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" data-testid="hustle-lanes">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" data-testid="hustle-lanes">
         {HUSTLE_LANES.map((lane, i) => {
           const laneCount = guides.filter((g) => guideRolesOrLegacy((g as any).guideRoles).includes(lane.role)).length
           const laneActive = role === lane.role
@@ -718,10 +772,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </button>
       </div>
 
-      {/* Role chips (v161): one tap slices the directory by Live Zone role
-          (Guide / Vlogger / Local / Volunteer / Sales). Counts come from the
-          currently loaded directory and only render while "All" is active -
-          inside a filtered view they would read as something they are not. */}
+      {/* Role chips (v161, vlogger chip removed in v217): one tap slices the
+          directory by Live Zone role (Guide / Local / Volunteer / Sales).
+          Counts come from the currently loaded directory and only render
+          while "All" is active - inside a filtered view they would read as
+          something they are not. */}
       <div className="flex items-center gap-1.5 flex-wrap" data-testid="zone-role-filter">
         <button
           type="button"
@@ -741,7 +796,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">{guides.length}</span>
           )}
         </button>
-        {circubawd_ROLES.map((r) => (
+        {ZONE_ROLE_CHIPS.map((r) => (
           <button
             key={r}
             type="button"
@@ -1039,7 +1094,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           </div>
           <h3 className="font-semibold text-foreground">No locals found</h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            No one matches your filters. Try adjusting search, or be the first to join as a guide, vlogger, local, volunteer or seller!
+            No one matches your filters. Try adjusting search, or be the first to join as a guide, local, volunteer or seller!
           </p>
           {!isGuide && (
             <Button onClick={onBecomeGuide} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
@@ -1296,11 +1351,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       )}
 
-      {/* v215: Instant Side-Hustle Bounties - LIVE board fed by /api/quests.
-          v216: uploading + claiming happen INSIDE /help (same page as the
-          link, no separate page) - these buttons deep-link to the Help Board
-          quest tab, where guides instantly receive the poster's contact.
-          Static list stays as fallback. */}
+      {/* v217: Instant Side-Hustle Bounties - the FULL board, INLINE on this
+          page (user: "make this on the same page as the link and don't take
+          it on the new landing page"). Posting and claiming happen right
+          here with zero navigation: "+ Post an Instant Quest" opens the
+          upload form in place, "Claim Bounty" opens the claim form in place
+          and instantly reveals the poster's contact. Fed by /api/quests;
+          the Help Board (/help) hosts the same experience via its quest tab. */}
       <div className="pt-2" data-testid="bounty-board">
         <div className="flex items-end justify-between gap-2 flex-wrap">
           <div>
@@ -1309,70 +1366,233 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <h2 className="text-lg font-bold text-foreground">Instant Side-Hustle Bounties</h2>
               <span className="rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 text-[10px] font-bold">1-Click Claim</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Travelers post real quests, funds escrowed by the poster. Claim a bounty and the poster&apos;s contact opens instantly - paid on completion.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Travelers post real quests, funds escrowed by the poster. Post and claim right here - the poster&apos;s contact opens instantly, paid on completion.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => router.push('/help#post-quest')}
+              onClick={() => { setShowQuestForm((v) => !v); setQPostErr('') }}
               data-testid="bounty-post-link"
               className="text-xs font-semibold text-primary hover:underline"
             >
               + Post an Instant Quest
             </button>
-            <button
-              type="button"
-              onClick={() => router.push('/help#quests')}
-              data-testid="bounty-view-all"
-              className="text-xs font-semibold text-primary hover:underline"
-            >
-              View all open bounties →
-            </button>
+            {quests && quests.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllQuests((v) => !v)}
+                data-testid="bounty-view-all"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                {showAllQuests ? 'Show top bounties' : 'View all open bounties →'}
+              </button>
+            )}
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-          {bountyRows(quests).map((b) => (
-            <Card key={b.id} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                  <MapPin className="w-3 h-3" />
-                  {b.place}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
-                  <Clock className="w-3 h-3" />
-                  {b.timing}
-                </span>
-              </div>
-              <h3 className="mt-2 font-bold text-foreground leading-snug">{b.title}</h3>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{b.desc}</p>
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
-                  <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${b.reward.toFixed(2)}</p>
-                </div>
-                {b.claimed ? (
-                  <span
-                    data-testid="bounty-claimed"
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Claimed
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    data-testid="bounty-claim"
-                    onClick={() => router.push('/help#quests')}
-                    className="bg-primary hover:bg-primary/90 gap-1"
-                  >
-                    Claim Bounty
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
+
+        {qPostOk && (
+          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" data-testid="quest-post-ok">
+            {qPostOk}
+          </p>
+        )}
+
+        {showQuestForm && (
+          <form
+            onSubmit={postQuestHere}
+            className="mt-3 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3"
+            data-testid="quest-post-form"
+          >
+            <p className="text-sm font-bold text-foreground">Upload an instant quest - ask for help, offer a bounty</p>
+            <input
+              value={qTitle}
+              onChange={(e) => setQTitle(e.target.value)}
+              placeholder="What do you need? e.g. I need help around Merkato - carry bags & bargain"
+              maxLength={200}
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              data-testid="quest-input-title"
+            />
+            <textarea
+              value={qDetails}
+              onChange={(e) => setQDetails(e.target.value)}
+              placeholder="Details (optional) - what exactly should the helper do, where to meet, how you pay"
+              rows={2}
+              maxLength={1000}
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              data-testid="quest-input-details"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                value={qLocation}
+                onChange={(e) => setQLocation(e.target.value)}
+                placeholder="Location - e.g. Merkato, Addis"
+                maxLength={120}
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-location"
+              />
+              <input
+                value={qDeadline}
+                onChange={(e) => setQDeadline(e.target.value)}
+                placeholder="Deadline - e.g. Today by 5 PM"
+                maxLength={120}
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-deadline"
+              />
+              <input
+                value={qBounty}
+                onChange={(e) => setQBounty(e.target.value)}
+                placeholder="Bounty in USD - e.g. 15"
+                type="number"
+                min="0.5"
+                step="0.5"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-bounty"
+              />
+              <input
+                value={qContact}
+                onChange={(e) => setQContact(e.target.value)}
+                placeholder="Your contact - phone / WhatsApp / Telegram"
+                maxLength={200}
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-contact"
+              />
+              {!me && (
+                <input
+                  value={qName}
+                  onChange={(e) => setQName(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={100}
+                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  data-testid="quest-input-name"
+                />
+              )}
+            </div>
+            {qPostErr && (
+              <p className="text-sm text-red-600 dark:text-red-400" data-testid="quest-post-error">
+                {qPostErr}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={qPosting}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
+              data-testid="quest-post-submit"
+            >
+              <Send className="h-4 w-4" />
+              {qPosting ? 'Posting...' : 'Post quest'}
+            </button>
+          </form>
+        )}
+
+        {!quests ? (
+          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-loading">Loading bounties...</p>
+        ) : quests.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
+        ) : (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {(showAllQuests ? quests : quests.slice(0, 3)).map((q) => {
+              const isClaimed = q.claimed || locallyClaimed[q.id]
+              return (
+                <Card key={q.id} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                      <MapPin className="w-3 h-3" />
+                      {q.location}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
+                      <Clock className="w-3 h-3" />
+                      {q.deadlineText}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 font-bold text-foreground leading-snug">{q.title}</h3>
+                  {q.details && (
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{q.details}</p>
+                  )}
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Posted by <span className="font-semibold text-foreground">{q.posterName}</span>
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
+                    <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
+                  </div>
+                  {isClaimed ? (
+                    <div
+                      className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+                      data-testid="bounty-claimed"
+                    >
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Claimed{q.claimedBy && !locallyClaimed[q.id] ? ` by ${q.claimedBy}` : ''} - payout on completion
+                      </p>
+                      {revealed[q.id] && (
+                        <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
+                          Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
+                        </p>
+                      )}
+                    </div>
+                  ) : claimFor === q.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        claimQuestHere(q.id)
+                      }}
+                      className="mt-1 space-y-2"
+                      data-testid="quest-claim-form"
+                    >
+                      <input
+                        value={claimName}
+                        onChange={(e) => setClaimName(e.target.value)}
+                        placeholder="Your name"
+                        maxLength={100}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        data-testid="quest-claim-name"
+                      />
+                      <input
+                        value={claimContact}
+                        onChange={(e) => setClaimContact(e.target.value)}
+                        placeholder="Your contact - phone / WhatsApp / Telegram"
+                        maxLength={200}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        data-testid="quest-claim-contact"
+                      />
+                      {claimErrs[q.id] && (
+                        <p className="text-xs text-red-600 dark:text-red-400">{claimErrs[q.id]}</p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="submit"
+                          disabled={claiming}
+                          className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
+                          data-testid="quest-claim-submit"
+                        >
+                          {claiming ? 'Claiming...' : 'Claim & get contact'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setClaimFor(null)}
+                          className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="mt-1">
+                      <Button
+                        size="sm"
+                        data-testid="bounty-claim"
+                        onClick={() => setClaimFor(q.id)}
+                        className="bg-primary hover:bg-primary/90 gap-1"
+                      >
+                        Claim Bounty
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* v214: escrow guarantee band (reference footer strip) */}

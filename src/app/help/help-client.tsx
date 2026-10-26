@@ -329,28 +329,30 @@ export function HelpClient() {
           onClick={() => setTab('qa')}
           data-testid="help-tab-qa"
           className={
-            'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors ' +
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:px-4 sm:py-2 sm:text-sm ' +
             (tab === 'qa'
               ? 'bg-teal-600 text-white shadow-sm hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600'
               : 'text-muted-foreground hover:text-foreground')
           }
         >
           <HelpCircle className="h-4 w-4" />
-          Questions &amp; Answers
+          <span className="hidden xs:inline sm:inline">Questions &amp; Answers</span>
+          <span className="xs:hidden sm:hidden">Q&amp;A</span>
         </button>
         <button
           type="button"
           onClick={() => setTab('quests')}
           data-testid="help-tab-quests"
           className={
-            'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold transition-colors ' +
+            'inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:px-4 sm:py-2 sm:text-sm ' +
             (tab === 'quests'
               ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
               : 'text-muted-foreground hover:text-foreground')
           }
         >
           <Zap className="h-4 w-4" />
-          Instant Quests · Get paid to help
+          <span className="hidden xs:inline sm:inline">Instant Quests · Get paid to help</span>
+          <span className="xs:hidden sm:hidden">Instant Quests</span>
         </button>
       </div>
 
