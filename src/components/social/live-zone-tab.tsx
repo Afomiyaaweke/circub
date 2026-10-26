@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, ROLE_META, roleListLabel, roleNoun, circubawd_ROLES, circubawdRole } from '@/lib/roles'
+import { guideRolesOrLegacy, roleListLabel, roleNoun } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -88,16 +88,13 @@ const TIER_LABEL: Record<string, string> = {
   none: 'No guides yet',
 }
 
-// v214 Live Hustle Zone, trimmed in v217 (user: "remove those all vloger
-// things"): the three hustle lanes map 1:1 onto the community roles
-// (guide / local / sales). Price ranges are the platform's public rate
-// guidance from the reference design; the live counter under each lane
-// comes from the REAL directory counts, and tapping a lane applies that
-// role filter (same as the chips under the search bar).
-// Zone chips exclude 'vlogger' (v217) - the shared circubawd_ROLES list
-// keeps it for registration/data compat, the Hustle Zone UI just no
-// longer surfaces it.
-const ZONE_ROLE_CHIPS: circubawdRole[] = circubawd_ROLES.filter((r) => r !== 'vlogger')
+// v214 Live Hustle Zone, trimmed in v217 ("remove those all vloger things")
+// and again in v218 ("remove redundant filters"): the three slim lane rows
+// map 1:1 onto the community roles (guide / local / sales) and are the ONLY
+// role slicers now - the old role chips row under the search bar is gone
+// (it duplicated the lanes). Price ranges are the platform's public rate
+// guidance; the live counter comes from the REAL directory counts, and
+// tapping a lane applies that role filter.
 const HUSTLE_LANES: Array<{
   role: 'guide' | 'local' | 'sales'
   label: string
@@ -109,21 +106,21 @@ const HUSTLE_LANES: Array<{
   {
     role: 'guide',
     label: 'Local Scout & Guide',
-    price: 'AVG. $24 - $45 / HR',
+    price: '$24-45 / HR',
     desc: 'Lead in-person or live-streamed walks, audit local shops, and accept verified street scouting commissions.',
     icon: Compass,
   },
   {
     role: 'local',
     label: 'Remote Helper',
-    price: 'AVG. $15 - $30 / GIG',
+    price: '$15-30 / GIG',
     desc: 'Translate buyer calls, verify invoices over chat, and broker wholesale terms for international buyers.',
     icon: Languages,
   },
   {
     role: 'sales',
     label: 'Price Hunter',
-    price: '$5 - $20 BOUNTY / DEAL',
+    price: '$5-20 / DEAL',
     desc: 'Audit real street store receipts, alert the community of flash liquidations, and earn automated escrow rewards.',
     icon: Tag,
     hot: true,
@@ -151,10 +148,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const { visible: visibleGuides, hasMore: guidesHasMore, sentinelRef: guidesSentinelRef } = useProgressiveList(guides, 6, 6)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [language, setLanguage] = useState('')
-  const [specialty, setSpecialty] = useState('')
+  // v218: standalone language/specialty dropdown filters removed as redundant
+  // - the search box matches languages, specialties and locations already.
   // Role filter (v161): '' = all roles, otherwise a circubawd_ROLES slug wired
-  // to the chip row under the search pill and the /api/guides `role` param.
+  // to the hustle lanes (tap a lane) and the /api/guides `role` param.
   const [role, setRole] = useState('')
   const [availableOnly, setAvailableOnly] = useState(false)
 
@@ -203,8 +200,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
-      if (language) params.set('language', language)
-      if (specialty) params.set('specialty', specialty)
       if (role) params.set('role', role)
       if (availableOnly) params.set('available', 'true')
       if (nearMe && myCoords) {
@@ -217,7 +212,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       setGuides(next)
       hasGuidesRef.current = next.length > 0
     } catch { setGuides([]); hasGuidesRef.current = false } finally { setLoading(false) }
-  }, [search, language, specialty, role, availableOnly, nearMe, myCoords, meRolesKey])
+  }, [search, role, availableOnly, nearMe, myCoords, meRolesKey])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
@@ -471,9 +466,9 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       <div className="space-y-2" data-testid="hustle-hero">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 h-7 text-[11px] font-bold text-primary" title="Members whose availability toggle is ON right now">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 h-6 text-[11px] font-bold text-primary" title="Members whose availability toggle is ON right now">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              {guides.filter((g) => (g as any).guideAvailable).length} HUSTLERS ONLINE & TAKING GIGS NOW
+              {guides.filter((g) => (g as any).guideAvailable).length} hustlers online
             </span>
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
               <ShieldCheck className="w-3.5 h-3.5 text-primary" />
@@ -522,17 +517,19 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           </div>
         </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">Live Hustle Zone</h1>
-          <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-            Turn your local knowledge, smartphone, or language skills into cash. Lead guided walkthroughs, live-stream market verifications, translate deals, or snag lightning bounties — payouts land directly to your wallet in minutes.
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">Live Hustle Zone</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground max-w-2xl">
+            Turn local knowledge, your phone, or language skills into cash — payouts land straight in your wallet.
           </p>
         </div>
       </div>
 
-      {/* v214: the three hustle lanes - tap a card to slice the directory by
-          that role. Counter = real members currently in the directory. The
-          first lane is the platform's signature dark-green card. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" data-testid="hustle-lanes">
+      {/* v218: the three hustle lanes as SLIM rows - tap one to slice the
+          directory by that role (same as the old big cards + role chips,
+          now merged into one compact strip). Counter = real members in the
+          directory. The first lane is the platform's signature dark-green
+          row; descriptions stay one truncated line on >=sm screens. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2" data-testid="hustle-lanes">
         {HUSTLE_LANES.map((lane, i) => {
           const laneCount = guides.filter((g) => guideRolesOrLegacy((g as any).guideRoles).includes(lane.role)).length
           const laneActive = role === lane.role
@@ -547,39 +544,45 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               onClick={() => setRole(laneActive ? '' : lane.role)}
               title={`Show ${lane.label} members`}
               className={cn(
-                'text-left rounded-xl border p-4 transition-all cursor-pointer',
+                'flex items-center gap-3 text-left rounded-xl border p-2.5 transition-all cursor-pointer',
                 isLead
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                   : 'bg-card border-border hover:border-primary/40 hover:shadow-sm',
                 laneActive && 'ring-2 ring-primary/40'
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', isLead ? 'bg-white/15' : 'bg-primary/10')}>
-                  <LaneIcon className={cn('w-4 h-4', isLead ? 'text-white' : 'text-primary')} />
+              <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', isLead ? 'bg-white/15' : 'bg-primary/10')}>
+                <LaneIcon className={cn('w-4 h-4', isLead ? 'text-white' : 'text-primary')} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 min-w-0">
+                  <h3 className={cn('font-bold text-sm truncate', isLead ? 'text-white' : 'text-foreground')}>{lane.label}</h3>
+                  <span
+                    className={cn(
+                      'rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap shrink-0',
+                      isLead
+                        ? 'bg-white/15 text-white'
+                        : lane.hot
+                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400'
+                          : 'bg-accent text-muted-foreground'
+                    )}
+                  >
+                    {lane.price}
+                  </span>
                 </span>
-                <span
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap',
-                    isLead
-                      ? 'bg-white/15 text-white'
-                      : lane.hot
-                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400'
-                        : 'bg-accent text-muted-foreground'
-                  )}
-                >
-                  {lane.price}
+                <span className={cn('hidden sm:block mt-0.5 text-[11px] leading-snug truncate', isLead ? 'text-white/75' : 'text-muted-foreground')}>
+                  {lane.desc}
                 </span>
-              </div>
-              <h3 className={cn('mt-3 font-bold text-sm', isLead ? 'text-white' : 'text-foreground')}>{lane.label}</h3>
-              <p className={cn('mt-1 text-xs leading-relaxed', isLead ? 'text-white/80' : 'text-muted-foreground')}>{lane.desc}</p>
-              <div className={cn('mt-3 flex items-center justify-between text-[11px] font-semibold', isLead ? 'text-white' : 'text-primary')}>
-                <span className="inline-flex items-center gap-1.5 min-w-0">
-                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', isLead ? 'bg-white' : 'bg-primary')} />
-                  <span className="truncate">{laneCount} Active Members</span>
+                <span className={cn('sm:hidden mt-0.5 flex items-center gap-1 text-[10px] font-semibold', isLead ? 'text-white/80' : 'text-primary')}>
+                  <span className={cn('w-1 h-1 rounded-full shrink-0', isLead ? 'bg-white' : 'bg-primary')} />
+                  {laneCount} active now
                 </span>
-                <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-              </div>
+              </span>
+              <span className={cn('hidden sm:flex items-center gap-1.5 text-[11px] font-semibold shrink-0', isLead ? 'text-white' : 'text-primary')}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+                {laneCount} active
+                <ArrowRight className="w-3.5 h-3.5 opacity-70" />
+              </span>
             </button>
           )
         })}
@@ -588,11 +591,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       {/* Search bar - one unified pill (mirrors the Local Price feed). The
           search accepts comma-separated terms ("Addis, English, Hiking"):
           each term matches name, bio, languages, specialties or location and
-          the terms are AND-ed. The standalone "City or country" input is
-          gone - locations are simply search terms now. */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[200px] flex-wrap rounded-lg border border-input bg-card shadow-xs overflow-hidden">
-          <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[180px] min-w-0">
+          the terms are AND-ed - v218 removed the standalone language and
+          specialty dropdowns as redundant with this search. The whole filter
+          row is ONE line even on phones: AI Match goes icon-only, Available /
+          Near me hide their labels under sm. */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center flex-1 min-w-0 rounded-lg border border-input bg-card shadow-xs overflow-hidden">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search by skill (e.g. English, Merkato Sourcing, Driver)..."
@@ -601,151 +606,29 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               className="pl-9 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
             />
           </div>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-        {/* Language filter - world-class list */}
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className={
-            'h-9 pl-2.5 pr-3 text-xs sm:text-sm basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] min-w-0 bg-transparent rounded-none shadow-none border-0 border-t border-input sm:border-t-0 focus:outline-none focus:ring-0 cursor-pointer ' +
-            (language ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-foreground')
-          }
-        >
-          <option value="">All languages</option>
-          <optgroup label="Africa">
-            <option value="Amharic">Amharic</option>
-            <option value="Swahili">Swahili</option>
-            <option value="Arabic">Arabic</option>
-            <option value="Oromo">Oromo</option>
-            <option value="Tigrinya">Tigrinya</option>
-            <option value="Yoruba">Yoruba</option>
-            <option value="Igbo">Igbo</option>
-            <option value="Hausa">Hausa</option>
-            <option value="Zulu">Zulu</option>
-            <option value="Xhosa">Xhosa</option>
-            <option value="Somali">Somali</option>
-            <option value="Shona">Shona</option>
-            <option value="Kinyarwanda">Kinyarwanda</option>
-            <option value="Lingala">Lingala</option>
-            <option value="Wolof">Wolof</option>
-            <option value="Malagasy">Malagasy</option>
-            <option value="Twi">Twi</option>
-          </optgroup>
-          <optgroup label="Europe">
-            <option value="English">English</option>
-            <option value="French">French</option>
-            <option value="Spanish">Spanish</option>
-            <option value="Portuguese">Portuguese</option>
-            <option value="German">German</option>
-            <option value="Italian">Italian</option>
-            <option value="Dutch">Dutch</option>
-            <option value="Russian">Russian</option>
-            <option value="Polish">Polish</option>
-            <option value="Swedish">Swedish</option>
-            <option value="Norwegian">Norwegian</option>
-            <option value="Danish">Danish</option>
-            <option value="Finnish">Finnish</option>
-            <option value="Greek">Greek</option>
-            <option value="Turkish">Turkish</option>
-            <option value="Czech">Czech</option>
-            <option value="Romanian">Romanian</option>
-            <option value="Hungarian">Hungarian</option>
-            <option value="Ukrainian">Ukrainian</option>
-            <option value="Catalan">Catalan</option>
-          </optgroup>
-          <optgroup label="Asia">
-            <option value="Mandarin">Mandarin</option>
-            <option value="Cantonese">Cantonese</option>
-            <option value="Japanese">Japanese</option>
-            <option value="Korean">Korean</option>
-            <option value="Hindi">Hindi</option>
-            <option value="Bengali">Bengali</option>
-            <option value="Tamil">Tamil</option>
-            <option value="Telugu">Telugu</option>
-            <option value="Urdu">Urdu</option>
-            <option value="Persian">Persian</option>
-            <option value="Thai">Thai</option>
-            <option value="Vietnamese">Vietnamese</option>
-            <option value="Indonesian">Indonesian</option>
-            <option value="Malay">Malay</option>
-            <option value="Tagalog">Tagalog</option>
-            <option value="Khmer">Khmer</option>
-            <option value="Burmese">Burmese</option>
-            <option value="Nepali">Nepali</option>
-            <option value="Sinhala">Sinhala</option>
-            <option value="Kazakh">Kazakh</option>
-          </optgroup>
-          <optgroup label="Middle East">
-            <option value="Hebrew">Hebrew</option>
-            <option value="Kurdish">Kurdish</option>
-            <option value="Pashto">Pashto</option>
-            <option value="Dari">Dari</option>
-          </optgroup>
-          <optgroup label="Americas">
-            <option value="Quechua">Quechua</option>
-            <option value="Guarani">Guarani</option>
-            <option value="Haitian Creole">Haitian Creole</option>
-          </optgroup>
-          <optgroup label="Sign Language">
-            <option value="Sign Language (ASL)">Sign Language (ASL)</option>
-            <option value="Sign Language (BSL)">Sign Language (BSL)</option>
-          </optgroup>
-        </select>
-        {/* Specialty filter - expanded list */}
-        <select
-          value={specialty}
-          onChange={(e) => setSpecialty(e.target.value)}
-          className={
-            'h-9 pl-2.5 pr-3 text-xs sm:text-sm basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] min-w-0 bg-transparent rounded-none shadow-none border-0 border-t border-input sm:border-t-0 sm:border-l focus:outline-none focus:ring-0 cursor-pointer ' +
-            (specialty ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-foreground')
-          }
-        >
-          <option value="">All specialties</option>
-          <option value="Historical">Historical</option>
-          <option value="Food">Food & Culinary</option>
-          <option value="Adventure">Adventure</option>
-          <option value="Cultural">Cultural</option>
-          <option value="Nature">Nature & Wildlife</option>
-          <option value="Photography">Photography</option>
-          <option value="Shopping">Shopping</option>
-          <option value="Nightlife">Nightlife</option>
-          <option value="Religious">Religious</option>
-          <option value="Architecture">Architecture</option>
-          <option value="Beach">Beach & Islands</option>
-          <option value="Hiking">Hiking & Trekking</option>
-          <option value="Safari">Safari</option>
-          <option value="Diving">Diving & Snorkeling</option>
-          <option value="Wine">Wine & Spirits</option>
-          <option value="Art">Art & Museums</option>
-          <option value="Markets">Local Markets</option>
-          <option value="Festivals">Festivals</option>
-          <option value="Wellness">Wellness & Spa</option>
-          <option value="Family">Family Friendly</option>
-        </select>
-        {/* AI Guide Match - lives inside the search pill now. Tap to open the
-            ask form in the panel below; a finished match keeps the button lit. */}
+        {/* AI Guide Match - lives inside the search pill. Tap to open the ask
+            form in the panel below; a finished match keeps the button lit. */}
         <button
           type="button"
           onClick={() => setAiOpen(!aiOpen)}
           aria-expanded={aiOpen}
           title="AI Guide Match - ask anything · get matched guides + places"
           className={
-            'flex items-center gap-1.5 h-9 pl-2.5 pr-3 basis-full sm:basis-auto sm:flex-none min-w-0 text-xs sm:text-sm font-medium border-0 border-t border-input sm:border-t-0 sm:border-l rounded-none transition-colors cursor-pointer ' +
+            'flex items-center gap-1.5 h-9 px-2.5 sm:pr-3 shrink-0 text-xs sm:text-sm font-medium border-0 border-l border-input rounded-none transition-colors cursor-pointer ' +
             (aiOpen || aiResult ? 'bg-primary/10 text-primary' : 'bg-transparent text-muted-foreground hover:text-primary')
           }
         >
           <Sparkles className="w-4 h-4 shrink-0" />
-          <span className="sm:hidden font-semibold shrink-0">AI Guide Match</span>
           <span className="hidden sm:inline shrink-0">AI Match</span>
-          <span className="sm:hidden flex-1 min-w-0 truncate text-[11px] font-normal opacity-80">Ask anything · get matched guides + places</span>
           {aiResult && !aiOpen && (
-            <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5 shrink-0">Match ready</span>
+            <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5 shrink-0 hidden sm:inline">Match ready</span>
           )}
-          {aiOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0 ml-auto sm:ml-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0 ml-auto sm:ml-0" />}
+          {aiOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" />}
         </button>
         </div>
         <button
           onClick={() => setAvailableOnly(!availableOnly)}
+          title="Show only hustlers whose availability toggle is ON"
           className={cn(
             'flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-medium border transition-colors shrink-0',
             availableOnly
@@ -754,12 +637,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           )}
         >
           <Radio className={cn('w-3.5 h-3.5', availableOnly && 'animate-pulse')} />
-          Available
+          <span className="hidden sm:inline">Available</span>
         </button>
         {/* Near me - GPS distance sort */}
         <button
           onClick={handleNearMe}
           disabled={locating}
+          title="Sort guides by distance from you"
           className={cn(
             'flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-medium border transition-colors disabled:opacity-60 shrink-0',
             nearMe
@@ -768,58 +652,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           )}
         >
           {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className={cn('w-3.5 h-3.5', nearMe && 'animate-pulse')} />}
-          {nearMe ? 'Nearest' : 'Near me'}
+          <span className="hidden sm:inline">{nearMe ? 'Nearest' : 'Near me'}</span>
         </button>
-      </div>
-
-      {/* Role chips (v161, vlogger chip removed in v217): one tap slices the
-          directory by Live Zone role (Guide / Local / Volunteer / Sales).
-          Counts come from the currently loaded directory and only render
-          while "All" is active - inside a filtered view they would read as
-          something they are not. */}
-      <div className="flex items-center gap-1.5 flex-wrap" data-testid="zone-role-filter">
-        <button
-          type="button"
-          data-testid="zone-role-chip"
-          data-role=""
-          data-active={role === '' ? 'true' : 'false'}
-          onClick={() => setRole('')}
-          className={cn(
-            'flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors cursor-pointer shrink-0',
-            role === ''
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-          )}
-        >
-          All Hustlers
-          {role === '' && (
-            <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">{guides.length}</span>
-          )}
-        </button>
-        {ZONE_ROLE_CHIPS.map((r) => (
-          <button
-            key={r}
-            type="button"
-            data-testid="zone-role-chip"
-            data-role={r}
-            data-active={role === r ? 'true' : 'false'}
-            onClick={() => setRole(role === r ? '' : r)}
-            title={ROLE_META[r].blurb}
-            className={cn(
-              'flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors cursor-pointer shrink-0',
-              role === r
-                ? 'bg-primary/10 text-primary border-primary/30'
-                : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-            )}
-          >
-            {ROLE_META[r].label}
-            {role === '' && (
-              <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">
-                {guides.filter((g) => Array.isArray(g.guideRoles) && g.guideRoles.includes(r)).length}
-              </span>
-            )}
-          </button>
-        ))}
       </div>
 
       {/* AI Guide Match panel - opens from the AI button inside the search
