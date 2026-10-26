@@ -524,6 +524,274 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       </div>
 
+      {/* v220: the DEALS come first - this board sits right under the hero,
+          above the lanes and the talent directory (user: "make the deals
+          first then the ppl next and the button on top"), with the
+          "+ Post an Instant Quest" button as the FIRST element of the
+          board header. v217: the FULL board, INLINE on this
+          page (user: "make this on the same page as the link and don't take
+          it on the new landing page"). Posting and claiming happen right
+          here with zero navigation: "+ Post an Instant Quest" opens the
+          upload form in place, "Claim Bounty" opens the claim form in place
+          and instantly reveals the poster's contact. Fed by /api/quests;
+          the Help Board (/help) hosts the same experience via its quest tab. */}
+      <div className="pt-2" data-testid="bounty-board">
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => { setShowQuestForm((v) => !v); setQPostErr('') }}
+              data-testid="bounty-post-link"
+              aria-expanded={showQuestForm}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold tracking-wide shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all shrink-0"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              Post an Instant Quest
+            </button>
+            {quests && quests.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllQuests((v) => !v)}
+                data-testid="bounty-view-all"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                {showAllQuests ? 'Show top bounties' : 'View all open bounties →'}
+              </button>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Zap className="w-4 h-4 text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Instant Side-Hustle Bounties</h2>
+              <span className="rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 text-[10px] font-bold">1-Click Claim</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Travelers post real quests, funds escrowed by the poster. Post and claim right here - the poster&apos;s contact opens instantly, paid on completion.</p>
+          </div>
+        </div>
+
+        {qPostOk && (
+          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" data-testid="quest-post-ok">
+            {qPostOk}
+          </p>
+        )}
+
+        {showQuestForm && (
+          <form
+            onSubmit={postQuestHere}
+            className="mt-3 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3"
+            data-testid="quest-post-form"
+          >
+            <p className="text-sm font-bold text-foreground">Upload an instant quest - ask for help, offer a bounty</p>
+            <input
+              value={qTitle}
+              onChange={(e) => setQTitle(e.target.value)}
+              placeholder="What do you need? e.g. I need help around Merkato - carry bags & bargain"
+              maxLength={200}
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              data-testid="quest-input-title"
+            />
+            <textarea
+              value={qDetails}
+              onChange={(e) => setQDetails(e.target.value)}
+              placeholder="Details (optional) - what exactly should the helper do, where to meet, how you pay"
+              rows={2}
+              maxLength={1000}
+              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              data-testid="quest-input-details"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                value={qLocation}
+                onChange={(e) => setQLocation(e.target.value)}
+                placeholder="Location - e.g. Merkato, Addis"
+                maxLength={120}
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-location"
+              />
+              <input
+                value={qDeadline}
+                onChange={(e) => setQDeadline(e.target.value)}
+                placeholder="Deadline - e.g. Today by 5 PM"
+                maxLength={120}
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-deadline"
+              />
+              <input
+                value={qBounty}
+                onChange={(e) => setQBounty(e.target.value)}
+                placeholder="Bounty in USD - e.g. 15"
+                type="number"
+                min="0.5"
+                step="0.5"
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-bounty"
+              />
+              <input
+                value={qContact}
+                onChange={(e) => setQContact(e.target.value)}
+                placeholder="Your contact - phone / WhatsApp / Telegram"
+                maxLength={200}
+                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                data-testid="quest-input-contact"
+              />
+              {!me && (
+                <input
+                  value={qName}
+                  onChange={(e) => setQName(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={100}
+                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  data-testid="quest-input-name"
+                />
+              )}
+            </div>
+            {qPostErr && (
+              <p className="text-sm text-red-600 dark:text-red-400" data-testid="quest-post-error">
+                {qPostErr}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={qPosting}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
+              data-testid="quest-post-submit"
+            >
+              <Send className="h-4 w-4" />
+              {qPosting ? 'Posting...' : 'Post quest'}
+            </button>
+          </form>
+        )}
+
+        {!quests ? (
+          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-loading">Loading bounties...</p>
+        ) : quests.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
+        ) : (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {(showAllQuests ? quests : quests.slice(0, 3)).map((q) => {
+              const isClaimed = q.claimed || locallyClaimed[q.id]
+              return (
+                <Card key={q.id} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                      <MapPin className="w-3 h-3" />
+                      {q.location}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
+                      <Clock className="w-3 h-3" />
+                      {q.deadlineText}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 font-bold text-foreground leading-snug">{q.title}</h3>
+                  {q.details && (
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{q.details}</p>
+                  )}
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Posted by <span className="font-semibold text-foreground">{q.posterName}</span>
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
+                    <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
+                  </div>
+                  {isClaimed ? (
+                    <div
+                      className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+                      data-testid="bounty-claimed"
+                    >
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Claimed{q.claimedBy && !locallyClaimed[q.id] ? ` by ${q.claimedBy}` : ''} - payout on completion
+                      </p>
+                      {revealed[q.id] && (
+                        <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
+                          Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
+                        </p>
+                      )}
+                    </div>
+                  ) : claimFor === q.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        claimQuestHere(q.id)
+                      }}
+                      className="mt-1 space-y-2"
+                      data-testid="quest-claim-form"
+                    >
+                      <input
+                        value={claimName}
+                        onChange={(e) => setClaimName(e.target.value)}
+                        placeholder="Your name"
+                        maxLength={100}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        data-testid="quest-claim-name"
+                      />
+                      <input
+                        value={claimContact}
+                        onChange={(e) => setClaimContact(e.target.value)}
+                        placeholder="Your contact - phone / WhatsApp / Telegram"
+                        maxLength={200}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        data-testid="quest-claim-contact"
+                      />
+                      {claimErrs[q.id] && (
+                        <p className="text-xs text-red-600 dark:text-red-400">{claimErrs[q.id]}</p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="submit"
+                          disabled={claiming}
+                          className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
+                          data-testid="quest-claim-submit"
+                        >
+                          {claiming ? 'Claiming...' : 'Claim & get contact'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setClaimFor(null)}
+                          className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="mt-1">
+                      <Button
+                        size="sm"
+                        data-testid="bounty-claim"
+                        onClick={() => setClaimFor(q.id)}
+                        className="bg-primary hover:bg-primary/90 gap-1"
+                      >
+                        Claim Bounty
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* v214: escrow guarantee band (reference footer strip) */}
+      <div className="rounded-xl bg-accent/60 border border-border p-4 flex items-center justify-between gap-3 flex-wrap" data-testid="escrow-band">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-bold text-foreground text-sm">Hustle Earnings Guarantee & Escrow Protection</h3>
+            <p className="text-xs text-muted-foreground">All payments are locked in smart escrow before you lift a finger. Released right after submission with zero delayed holdbacks.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap text-[11px] font-semibold text-foreground">
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Telebirr Instant</span>
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />CBE Birr</span>
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Wise / Crypto USD</span>
+        </div>
+      </div>
+
       {/* v218: the three hustle lanes as SLIM rows - tap one to slice the
           directory by that role (same as the old big cards + role chips,
           now merged into one compact strip). Counter = real members in the
@@ -1184,270 +1452,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           )}
         </div>
       )}
-
-      {/* v217: Instant Side-Hustle Bounties - the FULL board, INLINE on this
-          page (user: "make this on the same page as the link and don't take
-          it on the new landing page"). Posting and claiming happen right
-          here with zero navigation: "+ Post an Instant Quest" opens the
-          upload form in place, "Claim Bounty" opens the claim form in place
-          and instantly reveals the poster's contact. Fed by /api/quests;
-          the Help Board (/help) hosts the same experience via its quest tab. */}
-      <div className="pt-2" data-testid="bounty-board">
-        <div className="flex items-end justify-between gap-2 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Zap className="w-4 h-4 text-primary" />
-              <h2 className="text-lg font-bold text-foreground">Instant Side-Hustle Bounties</h2>
-              <span className="rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 text-[10px] font-bold">1-Click Claim</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Travelers post real quests, funds escrowed by the poster. Post and claim right here - the poster&apos;s contact opens instantly, paid on completion.</p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => { setShowQuestForm((v) => !v); setQPostErr('') }}
-              data-testid="bounty-post-link"
-              aria-expanded={showQuestForm}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold tracking-wide shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all shrink-0"
-            >
-              <Plus className="w-4 h-4 shrink-0" />
-              Post an Instant Quest
-            </button>
-            {quests && quests.length > 3 && (
-              <button
-                type="button"
-                onClick={() => setShowAllQuests((v) => !v)}
-                data-testid="bounty-view-all"
-                className="text-xs font-semibold text-primary hover:underline"
-              >
-                {showAllQuests ? 'Show top bounties' : 'View all open bounties →'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {qPostOk && (
-          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" data-testid="quest-post-ok">
-            {qPostOk}
-          </p>
-        )}
-
-        {showQuestForm && (
-          <form
-            onSubmit={postQuestHere}
-            className="mt-3 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3"
-            data-testid="quest-post-form"
-          >
-            <p className="text-sm font-bold text-foreground">Upload an instant quest - ask for help, offer a bounty</p>
-            <input
-              value={qTitle}
-              onChange={(e) => setQTitle(e.target.value)}
-              placeholder="What do you need? e.g. I need help around Merkato - carry bags & bargain"
-              maxLength={200}
-              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-              data-testid="quest-input-title"
-            />
-            <textarea
-              value={qDetails}
-              onChange={(e) => setQDetails(e.target.value)}
-              placeholder="Details (optional) - what exactly should the helper do, where to meet, how you pay"
-              rows={2}
-              maxLength={1000}
-              className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-              data-testid="quest-input-details"
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                value={qLocation}
-                onChange={(e) => setQLocation(e.target.value)}
-                placeholder="Location - e.g. Merkato, Addis"
-                maxLength={120}
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                data-testid="quest-input-location"
-              />
-              <input
-                value={qDeadline}
-                onChange={(e) => setQDeadline(e.target.value)}
-                placeholder="Deadline - e.g. Today by 5 PM"
-                maxLength={120}
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                data-testid="quest-input-deadline"
-              />
-              <input
-                value={qBounty}
-                onChange={(e) => setQBounty(e.target.value)}
-                placeholder="Bounty in USD - e.g. 15"
-                type="number"
-                min="0.5"
-                step="0.5"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                data-testid="quest-input-bounty"
-              />
-              <input
-                value={qContact}
-                onChange={(e) => setQContact(e.target.value)}
-                placeholder="Your contact - phone / WhatsApp / Telegram"
-                maxLength={200}
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                data-testid="quest-input-contact"
-              />
-              {!me && (
-                <input
-                  value={qName}
-                  onChange={(e) => setQName(e.target.value)}
-                  placeholder="Your name"
-                  maxLength={100}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  data-testid="quest-input-name"
-                />
-              )}
-            </div>
-            {qPostErr && (
-              <p className="text-sm text-red-600 dark:text-red-400" data-testid="quest-post-error">
-                {qPostErr}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={qPosting}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
-              data-testid="quest-post-submit"
-            >
-              <Send className="h-4 w-4" />
-              {qPosting ? 'Posting...' : 'Post quest'}
-            </button>
-          </form>
-        )}
-
-        {!quests ? (
-          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-loading">Loading bounties...</p>
-        ) : quests.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
-        ) : (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {(showAllQuests ? quests : quests.slice(0, 3)).map((q) => {
-              const isClaimed = q.claimed || locallyClaimed[q.id]
-              return (
-                <Card key={q.id} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                      <MapPin className="w-3 h-3" />
-                      {q.location}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
-                      <Clock className="w-3 h-3" />
-                      {q.deadlineText}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 font-bold text-foreground leading-snug">{q.title}</h3>
-                  {q.details && (
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{q.details}</p>
-                  )}
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    Posted by <span className="font-semibold text-foreground">{q.posterName}</span>
-                  </p>
-                  <div className="mt-3">
-                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
-                    <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
-                  </div>
-                  {isClaimed ? (
-                    <div
-                      className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-                      data-testid="bounty-claimed"
-                    >
-                      <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Claimed{q.claimedBy && !locallyClaimed[q.id] ? ` by ${q.claimedBy}` : ''} - payout on completion
-                      </p>
-                      {revealed[q.id] && (
-                        <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
-                          Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
-                        </p>
-                      )}
-                    </div>
-                  ) : claimFor === q.id ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        claimQuestHere(q.id)
-                      }}
-                      className="mt-1 space-y-2"
-                      data-testid="quest-claim-form"
-                    >
-                      <input
-                        value={claimName}
-                        onChange={(e) => setClaimName(e.target.value)}
-                        placeholder="Your name"
-                        maxLength={100}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        data-testid="quest-claim-name"
-                      />
-                      <input
-                        value={claimContact}
-                        onChange={(e) => setClaimContact(e.target.value)}
-                        placeholder="Your contact - phone / WhatsApp / Telegram"
-                        maxLength={200}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        data-testid="quest-claim-contact"
-                      />
-                      {claimErrs[q.id] && (
-                        <p className="text-xs text-red-600 dark:text-red-400">{claimErrs[q.id]}</p>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="submit"
-                          disabled={claiming}
-                          className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
-                          data-testid="quest-claim-submit"
-                        >
-                          {claiming ? 'Claiming...' : 'Claim & get contact'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setClaimFor(null)}
-                          className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="mt-1">
-                      <Button
-                        size="sm"
-                        data-testid="bounty-claim"
-                        onClick={() => setClaimFor(q.id)}
-                        className="bg-primary hover:bg-primary/90 gap-1"
-                      >
-                        Claim Bounty
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  )}
-                </Card>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* v214: escrow guarantee band (reference footer strip) */}
-      <div className="rounded-xl bg-accent/60 border border-border p-4 flex items-center justify-between gap-3 flex-wrap" data-testid="escrow-band">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-primary" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="font-bold text-foreground text-sm">Hustle Earnings Guarantee & Escrow Protection</h3>
-            <p className="text-xs text-muted-foreground">All payments are locked in smart escrow before you lift a finger. Released right after submission with zero delayed holdbacks.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap text-[11px] font-semibold text-foreground">
-          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Telebirr Instant</span>
-          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />CBE Birr</span>
-          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Wise / Crypto USD</span>
-        </div>
-      </div>
 
       {/* Guide rating modal */}
       <GuideRatingModal
