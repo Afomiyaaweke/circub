@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX, Globe } from 'lucide-react'
+import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX, Globe, HelpCircle } from 'lucide-react'
 import { NotificationBell } from '@/components/social/notification-bell'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -297,6 +297,18 @@ export function Header({
                 >
                   <Mail className="w-4 h-4 text-muted-foreground" />
                   {t('header.contactUs')}
+                </a>
+                <a
+                  href="/help"
+                  onClick={() => setMenuOpen(false)}
+                  className="mx-2 my-1 flex items-center gap-3 rounded-xl bg-teal-600/10 px-3 py-2.5 transition-colors hover:bg-teal-600/20 dark:bg-teal-400/10 dark:hover:bg-teal-400/20"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-600 dark:bg-teal-500">
+                    <HelpCircle className="h-5 w-5 text-white" />
+                  </span>
+                  <span className="text-sm font-bold text-foreground">
+                    {t('header.helpBoard')}
+                  </span>
                 </a>
                 <a
                   href="/privacy"

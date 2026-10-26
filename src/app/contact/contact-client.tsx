@@ -263,6 +263,27 @@ export function ContactClient() {
               </div>
             </div>
 
+            {/* v213: Community Help Board - where people ask questions and
+                registered members help them with answers (teal pill in the
+                reference style: teal icon tile + bold dark label + border). */}
+            <a
+              href="/help"
+              data-testid="help-board-link"
+              className="flex items-center gap-4 bg-card rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow"
+            >
+              <div className="w-11 h-11 rounded-xl bg-teal-600 flex items-center justify-center shrink-0">
+                <MessagesSquare className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Community
+                </p>
+                <p className="font-semibold text-slate-900">
+                  Help Board - ask questions, members answer
+                </p>
+              </div>
+            </a>
+
             {/* PHONE */}
             <div className="flex items-start gap-4 bg-card rounded-2xl shadow-sm border border-slate-200 p-5">
               <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">

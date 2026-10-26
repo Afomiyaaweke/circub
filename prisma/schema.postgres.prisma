@@ -124,6 +124,10 @@ model User {
   blocksMade     Block[]  @relation("BlockBlocker")
   blocksReceived Block[]  @relation("BlockBlocked")
 
+  // v213: community help board
+  helpQuestionsAsked HelpQuestion[]
+  helpAnswersGiven   HelpAnswer[]
+
   // Direct messages
   msgsSent       Message[]    @relation("MsgSender")
   msgsReceived   Message[]    @relation("MsgReceiver")
@@ -520,4 +524,31 @@ model ContactMessage {
   createdAt DateTime @default(now())
 
   @@index([handled, createdAt])
+}
+
+// v213: community help board - anyone can ask, registered members answer.
+model HelpQuestion {
+  id        String       @id @default(cuid())
+  name      String
+  email     String?
+  question  String
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers   HelpAnswer[]
+  createdAt DateTime     @default(now())
+
+  @@index([createdAt])
+}
+
+model HelpAnswer {
+  id         String       @id @default(cuid())
+  questionId String
+  question   HelpQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorName String
+  body       String
+  createdAt  DateTime     @default(now())
+
+  @@index([questionId, createdAt])
 }
