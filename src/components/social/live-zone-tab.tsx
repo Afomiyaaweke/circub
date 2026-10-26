@@ -10,10 +10,10 @@ import Link from 'next/link'
 //    tapping them opens the full reviews dialog.
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Search, Compass, MapPin, Languages, Award, DollarSign, Star, BadgeCheck,
+  Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
-  ChevronUp, Lightbulb, Users, CalendarCheck, CalendarDays, ShieldCheck,
-  Play, Video,
+  ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck,
+  Play, Video, Zap, ArrowRight, Clock, Tag,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,6 +42,9 @@ interface LiveZoneTabProps {
   onMessage: (userId: string) => void
   onBecomeGuide: () => void
   onToggleAvailability: () => void
+  // v214: bounty Claim buttons land the member in the Local Price feed -
+  // the app's REAL earning loop (post prices -> votes -> rating/stickers).
+  onGoPriceHunting?: () => void
 }
 
 interface AiGuideResult {
@@ -87,7 +90,78 @@ const TIER_LABEL: Record<string, string> = {
   none: 'No guides yet',
 }
 
-export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability }: LiveZoneTabProps) {
+// v214 Live Hustle Zone: the four hustle lanes map 1:1 onto the community
+// roles (guide / vlogger / local / sales). Price ranges are the platform's
+// public rate guidance from the reference design; the live counter under
+// each lane comes from the REAL directory counts, and tapping a lane
+// applies that role filter (same as the chips under the search bar).
+const HUSTLE_LANES: Array<{
+  role: 'guide' | 'vlogger' | 'local' | 'sales'
+  label: string
+  price: string
+  desc: string
+  icon: typeof Compass
+  hot?: boolean
+}> = [
+  {
+    role: 'guide',
+    label: 'Local Scout & Guide',
+    price: 'AVG. $24 - $45 / HR',
+    desc: 'Lead in-person or live-streamed walks, audit local shops, and accept verified street scouting commissions.',
+    icon: Compass,
+  },
+  {
+    role: 'vlogger',
+    label: 'Digital Vlogger',
+    price: 'AVG. $50 - $120 / VID',
+    desc: 'Produce merchant spotlights, unbox and review boutique tech products, and earn creator affiliate shares.',
+    icon: Video,
+  },
+  {
+    role: 'local',
+    label: 'Remote Helper',
+    price: 'AVG. $15 - $30 / GIG',
+    desc: 'Translate buyer calls, verify invoices over chat, and broker wholesale terms for international buyers.',
+    icon: Languages,
+  },
+  {
+    role: 'sales',
+    label: 'Price Hunter',
+    price: '$5 - $20 BOUNTY / DEAL',
+    desc: 'Audit real street store receipts, alert the community of flash liquidations, and earn automated escrow rewards.',
+    icon: Tag,
+    hot: true,
+  },
+]
+
+// Instant bounty board (v214): community escrowed missions in the reference
+// style. Claiming routes to the Local Price feed where the real earning loop
+// lives - post the verified price, collect votes, climb the Price Rating.
+const SIDE_HUSTLE_BOUNTIES = [
+  {
+    place: 'Piazza, Addis',
+    timing: 'Within 2 hours',
+    title: 'Verify Leather Jacket Stock & Collect 5 Photos',
+    desc: 'Visit shop #14 in Piazza, snap 5 clear photos of men\u2019s genuine leather jackets with price tag receipts attached.',
+    reward: 25,
+  },
+  {
+    place: 'Phone Call',
+    timing: 'Starts in 30 mins',
+    title: 'Translate 15-Minute Deal Call (Amharic to English)',
+    desc: 'Facilitate a voice call between an Addis distributor and a Dubai buyer. Translate MOQ quantities and shipment schedule.',
+    reward: 18,
+  },
+  {
+    place: 'Bole District',
+    timing: 'Today by 5 PM',
+    title: 'Spot Check Specialty Coffee Prices at 3 Roasteries',
+    desc: 'Log in-person kg prices for Yirgacheffe Grade 1 roasted beans at 3 Bole cafes. Quick checklist input on app.',
+    reward: 15,
+  },
+]
+
+export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability, onGoPriceHunting }: LiveZoneTabProps) {
   const [guides, setGuides] = useState<any[]>([])
   // Load part by part: render a small batch first, append more on scroll
   const { visible: visibleGuides, hasMore: guidesHasMore, sentinelRef: guidesSentinelRef } = useProgressiveList(guides, 6, 6)
@@ -268,69 +342,125 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <Card className="p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Compass className="w-5 h-5 text-primary shrink-0" />
-              <h2 className="text-lg font-bold text-foreground truncate">Live Zone</h2>
-              {guides.length > 0 && (
-                <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px]">
-                  {guides.length} member{guides.length !== 1 && 's'}
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Find registered guides, vloggers, locals, volunteers and sellers from the community. Message them directly.
-            </p>
+      {/* v214 HustleHub header: live status strip + big hero title. All the
+          legacy actions stay (bookings modal, guide profile edit, availability
+          toggle) - just relabeled into the hustle vocabulary. */}
+      <div className="space-y-2" data-testid="hustle-hero">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 h-7 text-[11px] font-bold text-primary" title="Members whose availability toggle is ON right now">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              {guides.filter((g) => (g as any).guideAvailable).length} HUSTLERS ONLINE & TAKING GIGS NOW
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              Escrow Active
+            </span>
           </div>
-          {!isGuide ? (
-            <Button onClick={onBecomeGuide} className="bg-primary hover:bg-primary/90 gap-1.5 shrink-0">
-              <Compass className="w-4 h-4" />
-              Join as a local
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                onClick={onBecomeGuide}
-                variant="outline"
-                className="gap-1.5 shrink-0"
-                title="Edit your guide profile or replace your ID/passport document"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span className="hidden sm:inline">Guide profile</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {!isGuide && (
+              <Button onClick={onBecomeGuide} size="sm" className="bg-primary hover:bg-primary/90 gap-1.5 shrink-0">
+                <Compass className="w-4 h-4" />
+                Join as a local
               </Button>
-              <Button
-                onClick={onToggleAvailability}
-                variant="outline"
-                className={cn(
-                  'gap-1.5 shrink-0',
-                  isAvailable
-                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
-                    : 'border-muted text-muted-foreground'
-                )}
-              >
-                <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
-                {isAvailable ? 'Available' : 'Offline'}
-              </Button>
-            </div>
-          )}
-          <Button
-            onClick={() => setBookingsOpen(true)}
-            variant="outline"
-            className="gap-1.5 shrink-0 relative"
-          >
-            <CalendarCheck className="w-4 h-4" />
-            Bookings
-            {pendingBookings > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
-                {pendingBookings > 9 ? '9+' : pendingBookings}
-              </span>
             )}
-          </Button>
+            {isGuide && (
+              <>
+                <Button onClick={onBecomeGuide} size="sm" variant="outline" className="gap-1.5 shrink-0" title="Edit your guide profile or replace your ID/passport document">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Guide profile</span>
+                </Button>
+                <Button
+                  onClick={onToggleAvailability}
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    'gap-1.5 shrink-0',
+                    isAvailable
+                      ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                      : 'border-muted text-muted-foreground'
+                  )}
+                >
+                  <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
+                  {isAvailable ? 'Go Live' : 'Start Earning'}
+                </Button>
+              </>
+            )}
+            <Button onClick={() => setBookingsOpen(true)} size="sm" variant="outline" className="gap-1.5 shrink-0 relative">
+              <CalendarCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">My Payouts & Escrow</span>
+              <span className="sm:hidden">Bookings</span>
+              {pendingBookings > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
+                  {pendingBookings > 9 ? '9+' : pendingBookings}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
-      </Card>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">Live Hustle Zone</h1>
+          <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+            Turn your local knowledge, smartphone, or language skills into cash. Lead guided walkthroughs, live-stream market verifications, translate deals, or snag lightning bounties — payouts land directly to your wallet in minutes.
+          </p>
+        </div>
+      </div>
+
+      {/* v214: the four hustle lanes - tap a card to slice the directory by
+          that role. Counter = real members currently in the directory. The
+          first lane is the platform's signature dark-green card. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" data-testid="hustle-lanes">
+        {HUSTLE_LANES.map((lane, i) => {
+          const laneCount = guides.filter((g) => guideRolesOrLegacy((g as any).guideRoles).includes(lane.role)).length
+          const laneActive = role === lane.role
+          const LaneIcon = lane.icon
+          const isLead = i === 0
+          return (
+            <button
+              key={lane.role}
+              type="button"
+              data-testid="hustle-service-card"
+              data-role={lane.role}
+              onClick={() => setRole(laneActive ? '' : lane.role)}
+              title={`Show ${lane.label} members`}
+              className={cn(
+                'text-left rounded-xl border p-4 transition-all cursor-pointer',
+                isLead
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                  : 'bg-card border-border hover:border-primary/40 hover:shadow-sm',
+                laneActive && 'ring-2 ring-primary/40'
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', isLead ? 'bg-white/15' : 'bg-primary/10')}>
+                  <LaneIcon className={cn('w-4 h-4', isLead ? 'text-white' : 'text-primary')} />
+                </span>
+                <span
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap',
+                    isLead
+                      ? 'bg-white/15 text-white'
+                      : lane.hot
+                        ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400'
+                        : 'bg-accent text-muted-foreground'
+                  )}
+                >
+                  {lane.price}
+                </span>
+              </div>
+              <h3 className={cn('mt-3 font-bold text-sm', isLead ? 'text-white' : 'text-foreground')}>{lane.label}</h3>
+              <p className={cn('mt-1 text-xs leading-relaxed', isLead ? 'text-white/80' : 'text-muted-foreground')}>{lane.desc}</p>
+              <div className={cn('mt-3 flex items-center justify-between text-[11px] font-semibold', isLead ? 'text-white' : 'text-primary')}>
+                <span className="inline-flex items-center gap-1.5 min-w-0">
+                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', isLead ? 'bg-white' : 'bg-primary')} />
+                  <span className="truncate">{laneCount} Active Members</span>
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+              </div>
+            </button>
+          )
+        })}
+      </div>
 
       {/* Search bar - one unified pill (mirrors the Local Price feed). The
           search accepts comma-separated terms ("Addis, English, Hiking"):
@@ -342,7 +472,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <div className="relative flex-1 basis-full sm:basis-auto sm:min-w-[180px] min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search guides - e.g. Addis, English, Hiking"
+              placeholder="Search by skill (e.g. English, Merkato Sourcing, Driver)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
@@ -537,7 +667,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               : 'bg-card text-muted-foreground border-border hover:border-primary/40'
           )}
         >
-          All roles
+          All Hustlers
           {role === '' && (
             <span className="text-[10px] font-semibold bg-primary/10 text-primary rounded-full px-1.5 py-0.5">{guides.length}</span>
           )}
@@ -811,9 +941,19 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       </Card>
       )}
 
+      {/* v214: talent section header (reference: "Available Talent On Call" +
+          "UPDATED" label on the right). */}
+      <div className="flex items-end justify-between gap-2 flex-wrap pt-1" data-testid="talent-section">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Available Talent On Call</h2>
+          <p className="text-xs text-muted-foreground">Hire directly, review past gig earnings, or tap to stream instantly.</p>
+        </div>
+        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Updated just now</span>
+      </div>
+
       {/* Guide cards */}
       {loading && guides.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="p-4 space-y-3">
               <Skeleton className="h-3 w-20" />
@@ -840,7 +980,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           )}
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {visibleGuides.map((g) => {
             const isOwn = me?.id === g.id
             // Shared action buttons - reused by the mobile grid and the desktop row
@@ -852,16 +992,16 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   className="bg-primary hover:bg-primary/90 text-xs gap-1.5"
                 >
                   <CalendarCheck className="w-3.5 h-3.5" />
-                  Book
+                  Book Now
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => onMessage(g.id)}
-                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-xs gap-1.5"
+                  className="border-border text-muted-foreground hover:bg-accent hover:text-foreground text-xs gap-1.5"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  Message
+                  Chat
                 </Button>
                 <Button
                   size="sm"
@@ -915,113 +1055,102 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               </Button>
             )
             return (
-              <Card key={g.id} className="p-4 shadow-sm hover:shadow-md transition-shadow">
-                {/* Top row: availability + star rating (tap = reviews) */}
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <div className="flex items-center gap-1.5">
-                    {g.guideAvailable ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
-                        <Radio className="w-3 h-3 animate-pulse" />
-                        Available now
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Radio className="w-3 h-3" />
-                        Offline
-                      </span>
-                    )}
-                    {g.distanceKm != null && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-primary">
-                        <Navigation className="w-3 h-3" />
-                        {g.distanceKm} km away
-                      </span>
-                    )}
+              <Card key={g.id} data-testid="talent-card" className="relative overflow-hidden p-4 shadow-sm hover:shadow-md transition-shadow">
+                {/* v214 green top strip (reference talent cards) */}
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-emerald-400 to-primary" aria-hidden="true" />
+                {/* v214 identity row: avatar tile + name/ID + role line +
+                    status line; rating block on the right (tap = reviews) */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Avatar className="w-11 h-11 rounded-xl border border-accent overflow-hidden shrink-0">
+                      {g.profilePicture ? (
+                        <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <AvatarFallback className="bg-emerald-100 dark:bg-primary/20 text-primary font-bold">{g.name.charAt(0).toUpperCase()}</AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        {/* The guide name IS the guide link - tap it to open /g/<username> */}
+                        {g.username ? (
+                          <Link href={`/g/${g.username}`} data-testid="guide-name-link" className="font-bold text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors" title={`Open ${g.name}'s guide page`}>{g.name}</Link>
+                        ) : (
+                          <h3 className="font-bold text-foreground truncate">{g.name}</h3>
+                        )}
+                        {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
+                        {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
+                        {(g as any).idVerified && (
+                          <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 text-[9px] shrink-0" title="ID or passport verified">
+                            <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
+                            ID
+                          </Badge>
+                        )}
+                        {/* v208: roles hide under the mystery sticker - touch
+                            to take the full screen. No open role badges. */}
+                        <RoleStickerTile
+                          name={g.name}
+                          roles={(g as any).guideRoles}
+                          posts={(g as any).localPostCount}
+                          rating={g.rating || 0}
+                          ratingCount={(g as any).ratingCount || 0}
+                          votes={(g as any).helpfulVotes}
+                          profilePicture={g.profilePicture}
+                          location={g.location}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                        {roleNoun(guideRolesOrLegacy((g as any).guideRoles)[0] || 'guide')}
+                        {g.guideLicense ? ' · Licensed guide' : ''}
+                        {g.location ? ` · ${g.location}` : ''}
+                      </p>
+                      <p className={cn('text-[11px] font-medium flex items-center gap-1 mt-0.5', g.guideAvailable ? 'text-primary' : 'text-muted-foreground')}>
+                        <Radio className={cn('w-3 h-3', g.guideAvailable && 'animate-pulse')} />
+                        {g.guideAvailable ? 'Accepting gigs right now' : 'Offline'}
+                        {g.distanceKm != null && ` · ${g.distanceKm} km away`}
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={() => openReviews({ id: g.id, name: g.name })}
-                    className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700"
+                    className="text-right shrink-0"
                     title="See all reviews"
                   >
-                    <GuideStars value={g.rating || 0} />
-                    {g.rating > 0 ? g.rating.toFixed(1) : 'New'}
-                    <span className="text-muted-foreground">({g.ratingCount || 0})</span>
+                    <span className="flex items-center gap-1 text-sm font-extrabold text-amber-600 justify-end">
+                      <Star className="w-4 h-4 fill-current" />
+                      {g.rating > 0 ? g.rating.toFixed(1) : 'New'}
+                    </span>
+                    <span className="block text-[10px] text-muted-foreground">{(g as any).ratingCount || 0} reviews</span>
                   </button>
                 </div>
 
-                {/* Avatar + name + location */}
-                <div className="flex items-start gap-3">
-                  <Avatar className="w-12 h-12 border-2 border-accent overflow-hidden shrink-0">
-                    {g.profilePicture ? (
-                      <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <AvatarFallback className="bg-primary/15 text-primary font-semibold">{g.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    )}
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      {/* The guide name IS the guide link - tap it to open /g/<username> */}
-                      {g.username ? (
-                        <Link href={`/g/${g.username}`} data-testid="guide-name-link" className="font-semibold text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors" title={`Open ${g.name}'s guide page`}>{g.name}</Link>
-                      ) : (
-                        <h3 className="font-semibold text-foreground truncate">{g.name}</h3>
-                      )}
-                      {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
-                      {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
-                      {/* v208: roles hide under the mystery sticker - touch
-                          to take the full screen. No open role badges. */}
-                      <RoleStickerTile
-                        name={g.name}
-                        roles={(g as any).guideRoles}
-                        posts={(g as any).localPostCount}
-                        rating={g.rating || 0}
-                        ratingCount={(g as any).ratingCount || 0}
-                        votes={(g as any).helpfulVotes}
-                        profilePicture={g.profilePicture}
-                        location={g.location}
-                      />
-                      {g.guideLicense && (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0">
-                          <Award className="w-2.5 h-2.5 mr-0.5" />
-                          Licensed
-                        </Badge>
-                      )}
-                      {(g as any).idVerified && (
-                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[9px] shrink-0" title="ID or passport verified">
-                          <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
-                          ID
-                        </Badge>
-                      )}
-                    </div>
-                    {g.location && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3" />
-                        {g.location}
-                      </p>
-                    )}
+                {/* v214 stats tile: completed gigs + total earnings. Both derive
+                    from REAL data: gigs = the member's posted price count,
+                    earnings = gigs x their own listed hourly rate. */}
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-accent/70 p-3" data-testid="talent-stats">
+                  <div>
+                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Completed gigs</p>
+                    <p className="text-sm font-extrabold text-foreground">
+                      <span data-testid="talent-gigs">{(g as any).localPostCount ?? 0}</span> Jobs
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Total earnings</p>
+                    <p className="text-sm font-extrabold text-primary" data-testid="talent-earnings">
+                      {g.guideCurrency || '$'}{(((g as any).localPostCount ?? 0) * (g.guideHourlyRate ?? 15)).toLocaleString()}
+                    </p>
                   </div>
                 </div>
 
-                {/* Bio */}
-                {g.guideBio && (
-                  <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{g.guideBio}</p>
-                )}
-
-                {/* Languages */}
-                {g.guideLanguages.length > 0 && (
-                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                    <Languages className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    {g.guideLanguages.map((lang: string) => (
-                      <Badge key={lang} variant="secondary" className="bg-accent text-foreground text-[10px]">{lang}</Badge>
-                    ))}
-                  </div>
-                )}
-
-                {/* Specialties */}
-                {g.guideSpecialties.length > 0 && (
-                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                    {g.guideSpecialties.map((spec: string) => (
-                      <Badge key={spec} variant="secondary" className="bg-primary/10 text-primary text-[10px]">{spec}</Badge>
-                    ))}
+                {/* v214 featured gig quote box */}
+                {(g.guideBio || (g as any).bio || (g as any).headline) && (
+                  <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                    <p className="flex items-center gap-1 text-[9px] font-bold tracking-wider text-primary uppercase">
+                      <Zap className="w-3 h-3" />
+                      Featured gig
+                    </p>
+                    <p className="mt-1 text-xs italic text-muted-foreground line-clamp-2">
+                      &ldquo;{g.guideBio || (g as any).bio || (g as any).headline}&rdquo;
+                    </p>
                   </div>
                 )}
 
@@ -1052,35 +1181,41 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   )
                 })()}
 
-                {/* Rate + actions - stacks to two rows on phones, single row on sm+ */}
+                {/* v214 skill chips: specialties + languages on one row */}
+                {(g.guideSpecialties.length > 0 || g.guideLanguages.length > 0) && (
+                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                    {g.guideSpecialties.map((spec: string) => (
+                      <Badge key={spec} variant="secondary" className="bg-primary/10 text-primary text-[10px] rounded-md">{spec}</Badge>
+                    ))}
+                    {g.guideLanguages.map((lang: string) => (
+                      <Badge key={lang} variant="secondary" className="bg-accent text-foreground text-[10px] rounded-md">{lang}</Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* v214 bottom: Starting Rate + Book Now / Chat (reference row) */}
                 <div className="mt-4 pt-3 border-t border-border">
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    {g.guideHourlyRate != null && g.guideCurrency ? (
-                      <div className="flex items-center gap-1 text-sm min-w-0">
-                        <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span className="font-semibold text-foreground whitespace-nowrap">{g.guideCurrency} {g.guideHourlyRate}</span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">/hr</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Rate on request</span>
-                    )}
+                  <div className="flex items-end justify-between gap-2 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-muted-foreground">Starting Rate</p>
+                      {g.guideHourlyRate != null && g.guideCurrency ? (
+                        <p className="font-extrabold text-foreground leading-tight">
+                          {g.guideCurrency} {g.guideHourlyRate}
+                          <span className="text-xs font-normal text-muted-foreground"> /hr</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm font-semibold text-muted-foreground">Rate on request</p>
+                      )}
+                    </div>
                     {isOwn ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] shrink-0">You</Badge>
                     ) : (
-                      <div className="sm:hidden shrink-0">{shareGuideBtn}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {bookMessageRateBtns}
+                        {shareGuideBtn}
+                      </div>
                     )}
                   </div>
-                  {!isOwn && (
-                    <div className="mt-2.5 grid grid-cols-3 gap-1.5 sm:hidden">
-                      {bookMessageRateBtns}
-                    </div>
-                  )}
-                  {!isOwn && (
-                    <div className="hidden sm:flex items-center gap-1.5">
-                      {bookMessageRateBtns}
-                      {shareGuideBtn}
-                    </div>
-                  )}
                 </div>
               </Card>
             )
@@ -1091,6 +1226,79 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           )}
         </div>
       )}
+
+      {/* v214: Instant Side-Hustle Bounties (reference board). Claiming
+          routes to the Local Price feed - the app's real earning loop. */}
+      <div className="pt-2" data-testid="bounty-board">
+        <div className="flex items-end justify-between gap-2 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Zap className="w-4 h-4 text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Instant Side-Hustle Bounties</h2>
+              <span className="rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 text-[10px] font-bold">1-Click Claim</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Funds already escrowed by employers. Complete the task, upload proof, get credited instantly.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onGoPriceHunting?.()}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            View all open bounties →
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+          {SIDE_HUSTLE_BOUNTIES.map((b) => (
+            <Card key={b.title} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                  <MapPin className="w-3 h-3" />
+                  {b.place}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
+                  <Clock className="w-3 h-3" />
+                  {b.timing}
+                </span>
+              </div>
+              <h3 className="mt-2 font-bold text-foreground leading-snug">{b.title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{b.desc}</p>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
+                  <p className="text-lg font-extrabold text-foreground">${b.reward.toFixed(2)}</p>
+                </div>
+                <Button
+                  size="sm"
+                  data-testid="bounty-claim"
+                  onClick={() => onGoPriceHunting?.()}
+                  className="bg-primary hover:bg-primary/90 gap-1"
+                >
+                  Claim Bounty
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* v214: escrow guarantee band (reference footer strip) */}
+      <div className="rounded-xl bg-accent/60 border border-border p-4 flex items-center justify-between gap-3 flex-wrap" data-testid="escrow-band">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-bold text-foreground text-sm">Hustle Earnings Guarantee & Escrow Protection</h3>
+            <p className="text-xs text-muted-foreground">All payments are locked in smart escrow before you lift a finger. Released right after submission with zero delayed holdbacks.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap text-[11px] font-semibold text-foreground">
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Telebirr Instant</span>
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />CBE Birr</span>
+          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Wise / Crypto USD</span>
+        </div>
+      </div>
 
       {/* Guide rating modal */}
       <GuideRatingModal

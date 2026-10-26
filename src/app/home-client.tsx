@@ -549,7 +549,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
           {activeTab === 'guides' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} />
+              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} onGoPriceHunting={() => setActiveTab('local')} />
             </Suspense>
           )}
 
