@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 // Live Zone - registered tour guides.
 // New in this version:
 //  - AI Guide Match: ask any travel question (or pick one straight from the
@@ -42,9 +43,6 @@ interface LiveZoneTabProps {
   onMessage: (userId: string) => void
   onBecomeGuide: () => void
   onToggleAvailability: () => void
-  // v214: bounty Claim buttons land the member in the Local Price feed -
-  // the app's REAL earning loop (post prices -> votes -> rating/stickers).
-  onGoPriceHunting?: () => void
 }
 
 interface AiGuideResult {
@@ -134,9 +132,12 @@ const HUSTLE_LANES: Array<{
   },
 ]
 
-// Instant bounty board (v214): community escrowed missions in the reference
-// style. Claiming routes to the Local Price feed where the real earning loop
-// lives - post the verified price, collect votes, climb the Price Rating.
+// Instant bounty board (v214, live since v215): the homepage board is fed by
+// /api/quests - real quests members UPLOAD ("I need help around Merkato",
+// travelers post, guides get paid). Claiming + uploading happen on /quests
+// where the claimer instantly receives the poster's contact. The static
+// list below stays as the offline/empty fallback so the board never looks
+// dead.
 const SIDE_HUSTLE_BOUNTIES = [
   {
     place: 'Piazza, Addis',
@@ -161,7 +162,56 @@ const SIDE_HUSTLE_BOUNTIES = [
   },
 ]
 
-export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability, onGoPriceHunting }: LiveZoneTabProps) {
+type BountyRow = {
+  id: string
+  place: string
+  timing: string
+  title: string
+  desc: string
+  reward: number
+  claimed: boolean
+}
+
+type QuestRow = {
+  id: string
+  title: string
+  details: string | null
+  location: string
+  deadlineText: string
+  bountyUsd: number
+  posterName: string
+  claimed: boolean
+  claimedBy: string | null
+  createdAt: string
+}
+
+// Live quests first (newest 3 uploaded), static fallback when the API has
+// nothing yet - identical card anatomy either way.
+function bountyRows(quests: QuestRow[] | null): BountyRow[] {
+  if (quests && quests.length > 0) {
+    return quests.slice(0, 3).map((q) => ({
+      id: q.id,
+      place: q.location,
+      timing: q.deadlineText,
+      title: q.title,
+      desc: q.details || '',
+      reward: q.bountyUsd,
+      claimed: q.claimed,
+    }))
+  }
+  return SIDE_HUSTLE_BOUNTIES.map((b, i) => ({
+    id: `v214-static-${i}`,
+    place: b.place,
+    timing: b.timing,
+    title: b.title,
+    desc: b.desc,
+    reward: b.reward,
+    claimed: false,
+  }))
+}
+
+export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability }: LiveZoneTabProps) {
+  const router = useRouter()
   const [guides, setGuides] = useState<any[]>([])
   // Load part by part: render a small batch first, append more on scroll
   const { visible: visibleGuides, hasMore: guidesHasMore, sentinelRef: guidesSentinelRef } = useProgressiveList(guides, 6, 6)
@@ -239,6 +289,24 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
     const t = setTimeout(fetchGuides, 250)
     return () => clearTimeout(t)
   }, [fetchGuides])
+
+  // v215: live instant bounty quests - the homepage bounty board is fed by
+  // /api/quests (real uploaded quests with escrowed rewards). Static
+  // SIDE_HUSTLE_BOUNTIES stay as the fallback when the API is empty or
+  // unreachable, so the board never renders dead.
+  const [quests, setQuests] = useState<QuestRow[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/quests', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive) setQuests(Array.isArray(d?.quests) ? d.quests : null)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const handleNearMe = async () => {
     if (nearMe) { setNearMe(false); return } // toggle back to rating sort
@@ -1227,8 +1295,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         </div>
       )}
 
-      {/* v214: Instant Side-Hustle Bounties (reference board). Claiming
-          routes to the Local Price feed - the app's real earning loop. */}
+      {/* v215: Instant Side-Hustle Bounties - LIVE board fed by /api/quests.
+          Anyone uploads an instant quest ("I need help around Merkato") with
+          an escrowed bounty; guides 1-click claim on /quests and instantly
+          receive the poster's contact. Static list stays as fallback. */}
       <div className="pt-2" data-testid="bounty-board">
         <div className="flex items-end justify-between gap-2 flex-wrap">
           <div>
@@ -1237,19 +1307,30 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <h2 className="text-lg font-bold text-foreground">Instant Side-Hustle Bounties</h2>
               <span className="rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 text-[10px] font-bold">1-Click Claim</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Funds already escrowed by employers. Complete the task, upload proof, get credited instantly.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Travelers post real quests, funds escrowed by the poster. Claim a bounty and the poster&apos;s contact opens instantly - paid on completion.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => onGoPriceHunting?.()}
-            className="text-xs font-semibold text-primary hover:underline"
-          >
-            View all open bounties →
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.push('/quests')}
+              data-testid="bounty-post-link"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              + Post an Instant Quest
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/quests')}
+              data-testid="bounty-view-all"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              View all open bounties →
+            </button>
+          </div>
         </div>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-          {SIDE_HUSTLE_BOUNTIES.map((b) => (
-            <Card key={b.title} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
+          {bountyRows(quests).map((b) => (
+            <Card key={b.id} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
                   <MapPin className="w-3 h-3" />
@@ -1265,17 +1346,27 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <div className="mt-3 flex items-center justify-between gap-2">
                 <div>
                   <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
-                  <p className="text-lg font-extrabold text-foreground">${b.reward.toFixed(2)}</p>
+                  <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${b.reward.toFixed(2)}</p>
                 </div>
-                <Button
-                  size="sm"
-                  data-testid="bounty-claim"
-                  onClick={() => onGoPriceHunting?.()}
-                  className="bg-primary hover:bg-primary/90 gap-1"
-                >
-                  Claim Bounty
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
+                {b.claimed ? (
+                  <span
+                    data-testid="bounty-claimed"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Claimed
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    data-testid="bounty-claim"
+                    onClick={() => router.push('/quests')}
+                    className="bg-primary hover:bg-primary/90 gap-1"
+                  >
+                    Claim Bounty
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             </Card>
           ))}

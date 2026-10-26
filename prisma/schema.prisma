@@ -128,6 +128,10 @@ model User {
   helpQuestionsAsked HelpQuestion[]
   helpAnswersGiven   HelpAnswer[]
 
+  // v215: instant side-hustle bounty quests (poster / claimer)
+  questsPosted    Quest[]       @relation("QuestPoster")
+  questClaimsMade QuestClaim[]  @relation("QuestClaimer")
+
   // Direct messages
   msgsSent       Message[]    @relation("MsgSender")
   msgsReceived   Message[]    @relation("MsgReceiver")
@@ -551,4 +555,41 @@ model HelpAnswer {
   createdAt  DateTime     @default(now())
 
   @@index([questionId, createdAt])
+}
+
+// v215: instant side-hustle bounty quests - anyone posts a paid help quest
+// ("I need help around Merkato"), a local guide claims it with 1 click and
+// instantly receives the poster's contact to arrange the handover + payout.
+// POSTER PRIVACY: `contact` is never returned by the list endpoint - it is
+// only revealed to the single claimer in the claim response.
+model Quest {
+  id           String       @id @default(cuid())
+  title        String
+  details      String?
+  location     String
+  deadlineText String
+  bountyUsd    Float
+  posterName   String
+  contact      String
+  userId       String?
+  user         User?        @relation("QuestPoster", fields: [userId], references: [id], onDelete: SetNull)
+  claims       QuestClaim[]
+  createdAt    DateTime     @default(now())
+
+  @@index([createdAt])
+}
+
+model QuestClaim {
+  id             String   @id @default(cuid())
+  questId        String
+  quest          Quest    @relation(fields: [questId], references: [id], onDelete: Cascade)
+  claimerName    String
+  claimerContact String
+  userId         String?
+  user           User?    @relation("QuestClaimer", fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+
+  // One active claim per quest (first click wins, DB-enforced across
+  // serverless concurrency) - the escrowed bounty is single-winner.
+  @@unique([questId])
 }
