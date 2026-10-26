@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
-  ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck,
+  ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
   Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -1207,9 +1207,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               type="button"
               onClick={() => { setShowQuestForm((v) => !v); setQPostErr('') }}
               data-testid="bounty-post-link"
-              className="text-xs font-semibold text-primary hover:underline"
+              aria-expanded={showQuestForm}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold tracking-wide shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all shrink-0"
             >
-              + Post an Instant Quest
+              <Plus className="w-4 h-4 shrink-0" />
+              Post an Instant Quest
             </button>
             {quests && quests.length > 3 && (
               <button
