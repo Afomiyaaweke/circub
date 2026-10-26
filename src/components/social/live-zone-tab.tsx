@@ -132,12 +132,13 @@ const HUSTLE_LANES: Array<{
   },
 ]
 
-// Instant bounty board (v214, live since v215): the homepage board is fed by
-// /api/quests - real quests members UPLOAD ("I need help around Merkato",
-// travelers post, guides get paid). Claiming + uploading happen on /quests
-// where the claimer instantly receives the poster's contact. The static
-// list below stays as the offline/empty fallback so the board never looks
-// dead.
+// Instant bounty board (v214, live since v215, unified since v216): the
+// homepage board is fed by /api/quests - real quests members UPLOAD ("I need
+// help around Merkato", travelers post, guides get paid). Claiming + uploading
+// happen INSIDE the Help Board page (/help#quests) - same page as the link,
+// never a separate destination - where the claimer instantly receives the
+// poster's contact. The static list below stays as the offline/empty fallback
+// so the board never looks dead.
 const SIDE_HUSTLE_BOUNTIES = [
   {
     place: 'Piazza, Addis',
@@ -1296,9 +1297,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       )}
 
       {/* v215: Instant Side-Hustle Bounties - LIVE board fed by /api/quests.
-          Anyone uploads an instant quest ("I need help around Merkato") with
-          an escrowed bounty; guides 1-click claim on /quests and instantly
-          receive the poster's contact. Static list stays as fallback. */}
+          v216: uploading + claiming happen INSIDE /help (same page as the
+          link, no separate page) - these buttons deep-link to the Help Board
+          quest tab, where guides instantly receive the poster's contact.
+          Static list stays as fallback. */}
       <div className="pt-2" data-testid="bounty-board">
         <div className="flex items-end justify-between gap-2 flex-wrap">
           <div>
@@ -1312,7 +1314,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => router.push('/quests')}
+              onClick={() => router.push('/help#post-quest')}
               data-testid="bounty-post-link"
               className="text-xs font-semibold text-primary hover:underline"
             >
@@ -1320,7 +1322,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             </button>
             <button
               type="button"
-              onClick={() => router.push('/quests')}
+              onClick={() => router.push('/help#quests')}
               data-testid="bounty-view-all"
               className="text-xs font-semibold text-primary hover:underline"
             >
@@ -1360,7 +1362,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   <Button
                     size="sm"
                     data-testid="bounty-claim"
-                    onClick={() => router.push('/quests')}
+                    onClick={() => router.push('/help#quests')}
                     className="bg-primary hover:bg-primary/90 gap-1"
                   >
                     Claim Bounty

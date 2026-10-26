@@ -1,14 +1,10 @@
-// Instant Side-Hustle Bounties - server wrapper with metadata; the
-// interactive bounty board lives in quests-client.tsx (v215).
-import type { Metadata } from 'next'
-import { QuestsClient } from './quests-client'
-
-export const metadata: Metadata = {
-  title: 'Instant Side-Hustle Bounties · circubAwd',
-  description:
-    'Need a hand right now? Post an instant quest with a cash bounty - travelers post, local guides claim with 1 click and contact you instantly. Funds escrowed by the poster, paid on completion.',
-}
+// v216: instant quests now live INSIDE the Help Board (/help) - one page,
+// zero navigation to a separate destination (user: "keep it in the same
+// page of link don't take it on other page"). This route is kept only as a
+// redirect so old links (homepage bounty buttons, bookmarks) land on the
+// unified board: /help#quests opens the quest tab, ready to use.
+import { redirect } from 'next/navigation'
 
 export default function QuestsPage() {
-  return <QuestsClient />
+  redirect('/help#quests')
 }
