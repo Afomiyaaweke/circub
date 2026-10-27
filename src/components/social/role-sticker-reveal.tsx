@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   X, Sparkles, Compass, Video, MapPin, HeartHandshake, Tag, Star, FileText,
-  Zap, Flame, Heart, Award, Medal, Gem, TrendingUp, Rocket,
+  Zap, Flame, Heart, Award, Medal, Gem, TrendingUp, Rocket, Briefcase,
 } from 'lucide-react'
 import { circubawdRole, guideRolesOrLegacy, ROLE_META } from '@/lib/roles'
 import { avatarSrc } from '@/lib/fighters'
@@ -90,6 +90,7 @@ const ROLE_ICON: Record<circubawdRole, typeof Compass> = {
   local: MapPin,
   volunteer: HeartHandshake,
   sales: Tag,
+  agent: Briefcase,
 }
 
 // Per-sticker glyph in the badge grid (matches each def's identity).

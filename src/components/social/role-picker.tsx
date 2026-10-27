@@ -4,7 +4,7 @@
 // member registers (register-modal) and inside the Live Zone join modal
 // (guide-register-modal). The sign-up answer is stored on User.guideRoles and
 // arrives prefilled here when the member later joins the Live Zone program.
-import { CheckCircle2, Video, Compass, Users, Heart, ShoppingBag } from 'lucide-react'
+import { CheckCircle2, Video, Compass, Users, Heart, ShoppingBag, Plane } from 'lucide-react'
 import { circubawd_ROLES, ROLE_META, type circubawdRole } from '@/lib/roles'
 import { useLanguage } from '@/lib/i18n'
 
@@ -15,6 +15,7 @@ export const ROLE_ICONS: Record<circubawdRole, React.ComponentType<{ className?:
   local: Users,
   volunteer: Heart,
   sales: ShoppingBag,
+  agent: Plane,
 }
 
 interface RolePickerProps {

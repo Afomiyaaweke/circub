@@ -15,7 +15,7 @@ import {
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
   Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
-  Pencil, Trash2, UserX, X,
+  Pencil, Trash2, UserX, X, Plane,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -89,16 +89,20 @@ const TIER_LABEL: Record<string, string> = {
   none: 'No guides yet',
 }
 
-// v214 Live Hustle Zone, trimmed in v217 ("remove those all vloger things")
-// and again in v218 ("remove redundant filters"): the three slim lane rows
-// map 1:1 onto the community roles (guide / local / sales) and are the ONLY
-// role slicers now - the old role chips row under the search bar is gone
-// (it duplicated the lanes). Price ranges are the platform's public rate
-// guidance; the live counter comes from the REAL directory counts, and
-// tapping a lane applies that role filter.
+// v214 Live Hustle Zone, trimmed in v217 ("remove those all vloger things"),
+// v218 ("remove redundant filters") and v222 ("remove this section all and
+// make it only in one line" + "have agent bage also to register as travel
+// agent and get booked"): FOUR slim lane pills on ONE line map 1:1 onto the
+// community roles (guide / local / sales / agent) and are the ONLY role
+// slicers - the old role chips row under the search bar is gone (it
+// duplicated the lanes) and the tall escrow band is gone with it. Price
+// ranges are the platform's public rate guidance (lg+ screens only - the
+// pills must stay one line on phones); the live counter comes from the REAL
+// directory counts, and tapping a lane applies that role filter.
 const HUSTLE_LANES: Array<{
-  role: 'guide' | 'local' | 'sales'
+  role: 'guide' | 'local' | 'sales' | 'agent'
   label: string
+  short: string
   price: string
   desc: string
   icon: typeof Compass
@@ -107,6 +111,7 @@ const HUSTLE_LANES: Array<{
   {
     role: 'guide',
     label: 'Local Scout & Guide',
+    short: 'Scout',
     price: '$24-45 / HR',
     desc: 'Lead in-person or live-streamed walks, audit local shops, and accept verified street scouting commissions.',
     icon: Compass,
@@ -114,6 +119,7 @@ const HUSTLE_LANES: Array<{
   {
     role: 'local',
     label: 'Remote Helper',
+    short: 'Helper',
     price: '$15-30 / GIG',
     desc: 'Translate buyer calls, verify invoices over chat, and broker wholesale terms for international buyers.',
     icon: Languages,
@@ -121,10 +127,19 @@ const HUSTLE_LANES: Array<{
   {
     role: 'sales',
     label: 'Price Hunter',
+    short: 'Hunter',
     price: '$5-20 / DEAL',
     desc: 'Audit real street store receipts, alert the community of flash liquidations, and earn automated escrow rewards.',
     icon: Tag,
     hot: true,
+  },
+  {
+    role: 'agent',
+    label: 'Travel Agent',
+    short: 'Agent',
+    price: '$40-120 / TRIP',
+    desc: 'Plan full itineraries, book hotels and transport, and get booked directly by travelers - no middlemen.',
+    icon: Plane,
   },
 ]
 
@@ -938,30 +953,17 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         )}
       </div>
 
-      {/* v214: escrow guarantee band (reference footer strip) */}
-      <div className="rounded-xl bg-accent/60 border border-border p-4 flex items-center justify-between gap-3 flex-wrap" data-testid="escrow-band">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-primary" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="font-bold text-foreground text-sm">Hustle Earnings Guarantee & Escrow Protection</h3>
-            <p className="text-xs text-muted-foreground">All payments are locked in smart escrow before you lift a finger. Released right after submission with zero delayed holdbacks.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap text-[11px] font-semibold text-foreground">
-          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Telebirr Instant</span>
-          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />CBE Birr</span>
-          <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Wise / Crypto USD</span>
-        </div>
-      </div>
+      {/* v222: the tall escrow guarantee band was REMOVED (user: "remove
+          this section all and make it only in one line") - the escrow story
+          survives in the compact hero badge above and the payouts modal. */}
 
-      {/* v218: the three hustle lanes as SLIM rows - tap one to slice the
-          directory by that role (same as the old big cards + role chips,
-          now merged into one compact strip). Counter = real members in the
-          directory. The first lane is the platform's signature dark-green
-          row; descriptions stay one truncated line on >=sm screens. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2" data-testid="hustle-lanes">
+      {/* v222: the four hustle lanes as ONE LINE of compact pills - tap one
+          to slice the directory by that role (guide / local / sales / agent).
+          Counter = real members in the directory; the first lane keeps the
+          platform's signature dark-green fill; descriptions and price ranges
+          moved into the title tooltip so the row stays a single line on
+          phones (grid-cols-4 at every breakpoint). */}
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2" data-testid="hustle-lanes">
         {HUSTLE_LANES.map((lane, i) => {
           const laneCount = guides.filter((g) => guideRolesOrLegacy((g as any).guideRoles).includes(lane.role)).length
           const laneActive = role === lane.role
@@ -974,46 +976,39 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               data-testid="hustle-service-card"
               data-role={lane.role}
               onClick={() => setRole(laneActive ? '' : lane.role)}
-              title={`Show ${lane.label} members`}
+              title={`${lane.label} - ${lane.desc} (${lane.price})`}
               className={cn(
-                'flex items-center gap-3 text-left rounded-xl border p-2.5 transition-all cursor-pointer',
+                'flex items-center justify-center gap-1 sm:gap-1.5 text-left rounded-xl border px-1 sm:px-2 h-10 min-w-0 transition-all cursor-pointer',
                 isLead
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                   : 'bg-card border-border hover:border-primary/40 hover:shadow-sm',
                 laneActive && 'ring-2 ring-primary/40'
               )}
             >
-              <span className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', isLead ? 'bg-white/15' : 'bg-primary/10')}>
-                <LaneIcon className={cn('w-4 h-4', isLead ? 'text-white' : 'text-primary')} />
+              <LaneIcon className={cn('w-4 h-4 shrink-0', isLead ? 'text-white' : 'text-primary')} />
+              <span className={cn('min-w-0 truncate text-[11px] sm:text-xs font-bold', isLead ? 'text-white' : 'text-foreground')}>
+                {lane.short}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 min-w-0">
-                  <h3 className={cn('font-bold text-sm truncate', isLead ? 'text-white' : 'text-foreground')}>{lane.label}</h3>
-                  <span
-                    className={cn(
-                      'rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap shrink-0',
-                      isLead
-                        ? 'bg-white/15 text-white'
-                        : lane.hot
-                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400'
-                          : 'bg-accent text-muted-foreground'
-                    )}
-                  >
-                    {lane.price}
-                  </span>
-                </span>
-                <span className={cn('hidden sm:block mt-0.5 text-[11px] leading-snug truncate', isLead ? 'text-white/75' : 'text-muted-foreground')}>
-                  {lane.desc}
-                </span>
-                <span className={cn('sm:hidden mt-0.5 flex items-center gap-1 text-[10px] font-semibold', isLead ? 'text-white/80' : 'text-primary')}>
-                  <span className={cn('w-1 h-1 rounded-full shrink-0', isLead ? 'bg-white' : 'bg-primary')} />
-                  {laneCount} active now
-                </span>
+              <span
+                className={cn(
+                  'hidden lg:inline rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap shrink-0',
+                  isLead
+                    ? 'bg-white/15 text-white'
+                    : lane.hot
+                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400'
+                      : 'bg-accent text-muted-foreground'
+                )}
+              >
+                {lane.price}
               </span>
-              <span className={cn('hidden sm:flex items-center gap-1.5 text-[11px] font-semibold shrink-0', isLead ? 'text-white' : 'text-primary')}>
-                <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-                {laneCount} active
-                <ArrowRight className="w-3.5 h-3.5 opacity-70" />
+              <span
+                className={cn(
+                  'shrink-0 rounded-full px-1 min-w-[1.1rem] text-center text-[9px] font-bold leading-4',
+                  isLead ? 'bg-white/15 text-white' : 'bg-primary/10 text-primary'
+                )}
+                title={`${laneCount} active now`}
+              >
+                {laneCount}
               </span>
             </button>
           )

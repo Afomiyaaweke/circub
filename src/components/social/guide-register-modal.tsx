@@ -180,6 +180,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
     : roles[0] === 'local' ? 'What you can help with'
     : roles[0] === 'volunteer' ? 'How you want to help'
     : roles[0] === 'sales' ? 'What you sell'
+    : roles[0] === 'agent' ? 'Trips and services you arrange'
     : 'Tour specialties'
   const videoLabel = roles.length === 1 && roles[0] === 'vlogger' ? 'Your videos (YouTube or Instagram links)' : 'Tour videos (YouTube or Instagram links)'
   const saveLabel = saving ? 'Registering...' : roles.length === 1 ? `Register as ${roleNoun(roles[0])}` : 'Register'
@@ -194,7 +195,7 @@ export function GuideRegisterModal({ open, onOpenChange, user, onSaved }: GuideR
             Join as a local
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Register as a vlogger, guide, local, volunteer or sales - or any mix. Travelers find you in the Live Zone and can message you directly.
+            Register as a vlogger, guide, local, volunteer, sales or travel agent - or any mix. Travelers find you in the Live Zone, message you and book you directly.
           </DialogDescription>
         </DialogHeader>
 

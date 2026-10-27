@@ -8,11 +8,12 @@
 //   local     - shares prices, places and tips (the original circubAwd local)
 //   volunteer - helps out and meets travelers, no charge expected
 //   sales     - sells real products to travelers (souvenirs, goods, crafts)
+//   agent     - registered travel agent: plans whole trips and gets booked
 // Stored comma-separated on User.guideRoles (e.g. "guide,vlogger").
 // Null/empty = legacy member who registered before roles existed -> guide.
 // ============================================================================
 
-export const circubawd_ROLES = ['guide', 'vlogger', 'local', 'volunteer', 'sales'] as const
+export const circubawd_ROLES = ['guide', 'vlogger', 'local', 'volunteer', 'sales', 'agent'] as const
 export type circubawdRole = (typeof circubawd_ROLES)[number]
 
 export const ROLE_META: Record<circubawdRole, { label: string; blurb: string; noun?: string }> = {
@@ -21,6 +22,7 @@ export const ROLE_META: Record<circubawdRole, { label: string; blurb: string; no
   local: { label: 'Local', blurb: 'Share real prices, places and tips' },
   volunteer: { label: 'Volunteer', blurb: 'Help out and meet travelers' },
   sales: { label: 'Sales', blurb: 'Sell your products to travelers', noun: 'seller' },
+  agent: { label: 'Travel Agent', blurb: 'Plan whole trips and get booked', noun: 'travel agent' },
 }
 
 // Parse the stored string into valid role slugs (order follows circubawd_ROLES,

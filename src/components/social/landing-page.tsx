@@ -152,12 +152,12 @@ const FEATURES = [
   {
     icon: MessageCircle,
     title: "Ask a local",
-    body: "No price posted yet? Message someone who lives there and get a straight answer.",
+    body: "No price posted yet? Ask anything and a real local replies in minutes - true prices, shop checks, translation.",
   },
   {
     icon: Compass,
-    title: "Local guides",
-    body: "Find guides by city, language and specialty, with star ratings from other travelers.",
+    title: "Local guides & travel agents",
+    body: "Find guides by city, language and specialty - or book a registered travel agent to plan the whole trip.",
   },
   {
     icon: TrendingUp,
@@ -174,10 +174,10 @@ const FEATURES = [
 const STEPS = [
   {
     icon: Search,
-    title: "Find local businesses",
+    title: "Ask, get answers, spend smart",
     items: [
-      "Search businesses and prices by city, category and currency",
-      "See the name and star ratings behind every price",
+      "Ask any city or country question - real locals reply in minutes",
+      "Get true prices, shop checks and translation, not guesses",
       "Compare real offers side by side before you spend",
     ],
   },
@@ -421,7 +421,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#34d399]/30 bg-[#34d399]/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#34d399]">
               <Plane className="h-3 w-3" />
-              Real prices. Real businesses. Real registered sellers.
+              Real locals. Fast answers. True prices.
             </div>
 
             <h1
@@ -436,9 +436,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </p>
 
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#a9cdb8] sm:text-base">
-              Find the local businesses behind real prices, plan what you will buy with an
-              itemized proforma, and sell your stuff through registered Sales sellers -
-              everything posted in the local currency by people who actually live there.
+              Ask anything before you go - a real local answers in minutes, with true prices, shop
+              checks, translation and guide help. Know your city? Answer questions, collect
+              stickers, and earn from gigs - even get booked as a travel agent.
             </p>
 
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
@@ -599,9 +599,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               <Plane className="h-5 w-5" />
             </div>
             <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#34d399]">For travelers</p>
-            <h3 className="mt-1 text-base font-semibold text-white">Check prices before you go</h3>
+            <h3 className="mt-1 text-base font-semibold text-white">Ask before you go</h3>
             <p className="mt-2 flex-1 text-xs leading-relaxed text-[#a9cdb8]">
-              See what food, transport, hotels and services really cost - posted by people who live there.
+              See what food, transport, hotels and services really cost - or just ask and get a fast answer from someone who lives there.
             </p>
           </div>
 
@@ -611,9 +611,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               <Store className="h-5 w-5" />
             </div>
             <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#0c1f16]/70">For locals</p>
-            <h3 className="mt-1 text-base font-semibold">Put your business on the map</h3>
+            <h3 className="mt-1 text-base font-semibold">Know your city? Get paid for it</h3>
             <p className="mt-2 flex-1 text-xs leading-relaxed text-[#0c1f16]/80">
-              Post your business with real prices - neighbors and travelers find you, and every post builds your name.
+              Answer questions, collect stickers, and earn from gigs - your local knowledge is worth money here.
             </p>
             <Button
               onClick={onSignUp}
@@ -629,13 +629,13 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#34d399]/10 text-[#34d399]">
               <Compass className="h-5 w-5" />
             </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#34d399]">For guides</p>
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#34d399]">For guides & agents</p>
             <h3 className="mt-1 text-base font-semibold text-white">Get booked directly</h3>
             <p className="mt-2 flex-1 text-xs leading-relaxed text-[#a9cdb8]">
-              Offer your city knowledge, set your rate, and get booked by travelers - no middlemen.
+              Register as a guide or a travel agent, set your rate, and get booked by travelers - no middlemen.
             </p>
             <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#34d399] hover:underline">
-              Become a guide <ArrowRight className="h-3 w-3" />
+              Become a guide or agent <ArrowRight className="h-3 w-3" />
             </button>
           </div>
 
@@ -663,9 +663,9 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </div>
             <div>
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#34d399]">Join the community</p>
-              <h3 className="mt-1 text-base font-semibold text-white">Meet travelers and share your city</h3>
+              <h3 className="mt-1 text-base font-semibold text-white">Answer questions, collect stickers, earn from gigs</h3>
               <p className="mt-1 text-xs leading-relaxed text-[#a9cdb8]">
-                Answer questions, vouch for prices, and help the next visitor spend like a local.
+                Help the next visitor spend like a local - every answer, vouch and gig builds your name on the Top score board.
               </p>
             </div>
           </div>

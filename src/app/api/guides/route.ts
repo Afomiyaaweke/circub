@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     }
     const roles = [...new Set(roleInput)].filter((r) => (circubawd_ROLES as readonly string[]).includes(r))
     if (roles.length === 0) {
-      return NextResponse.json({ error: 'Pick at least one role: guide, vlogger, local, volunteer or sales' }, { status: 400 })
+      return NextResponse.json({ error: 'Pick at least one role: guide, vlogger, local, volunteer, sales or travel agent' }, { status: 400 })
     }
 
     // Tour videos: array (or comma string) of YouTube / Instagram links.
