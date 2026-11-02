@@ -370,10 +370,24 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
   const handleOpenMessages = useCallback(() => {
     // Header "Feed" button → open the community posting site (LinkedIn/Reddit
-    // style). The private DM modal stays reachable from profile cards via
-    // handleMessageUser (1:1 conversations).
+    // style). The private DM modal stays reachable from the profile's
+    // "Messages" button via handleOpenInbox (1:1 conversations).
     setFeedOpen(true)
   }, [])
+
+  // Profile "Messages" button → open the PRIVATE 1:1 DM inbox (not the
+  // community feed). This is the user's personal message inbox.
+  const handleOpenInbox = useCallback(() => {
+    if (me?.id === 'guest') {
+      promptRegister(
+        'Register to message',
+        'The demo cannot message anyone. Create a free account to message locals and guides.',
+      )
+      return
+    }
+    setMessageTargetId(null)
+    setMessagesOpen(true)
+  }, [me, promptRegister])
 
   // "Join as a local" (guide registration) is an account action - the demo
   // gets the REGISTRATION form, never the guide application.
@@ -558,7 +572,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
                 onSectionChange={setProfileLiveSection}
                 onOpenListing={setLocalPriceId}
                 onMessage={handleMessageUser}
-                onOpenMessages={handleOpenMessages}
+                onOpenMessages={handleOpenInbox}
                 onUserChanged={fetchMe}
                 onSignUp={() => setRegisterOpen(true)}
               />

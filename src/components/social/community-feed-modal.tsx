@@ -1,12 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Send, Heart, MessageSquare, Image as ImageIcon, Smile, Loader2, Sparkles, TrendingUp, Clock, Globe } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -35,14 +31,10 @@ function timeAgo(dateStr: string): string {
 }
 
 /**
- * A LinkedIn/Reddit-style community posting site. Replaces the old private
- * DM modal for the header "Feed" button. Users can:
- *   - Post publicly (text + image)
- *   - See everyone's posts in reverse-chronological or top-liked order
- *   - Like and comment inline
- *
- * The whole thing is shown inside a wide dialog so it feels like its own
- * community board.
+ * A LinkedIn/Reddit-style community posting site, rendered as a TRUE
+ * full-screen overlay (not a Dialog — the Dialog component's responsive
+ * classes constrain max-width and centering, which prevents full-screen).
+ * Uses a portal to document.body so it covers everything.
  */
 export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModalProps) {
   const [posts, setPosts] = useState<Post[]>([])
@@ -76,7 +68,22 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
     if (open) fetchPosts()
   }, [open, fetchPosts])
 
-  // Sort posts: top = by likes desc, recent = by createdAt desc (already API order)
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onOpenChange])
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
   const sortedPosts = sort === 'top'
     ? [...posts].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
     : posts
@@ -189,131 +196,130 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
     })
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-none w-screen h-screen sm:w-[100vw] sm:h-[100vh] p-0 gap-0 overflow-hidden rounded-none border-0 inset-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0 top-0 left-0">
-        <DialogTitle className="sr-only">Community feed</DialogTitle>
+  if (!open) return null
 
-        {/* Header */}
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-foreground leading-none">Community feed</h3>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Public posts from everyone</p>
-            </div>
+  return createPortal(
+    <div className="fixed inset-0 z-[200] bg-background flex flex-col" role="dialog" aria-modal="true" aria-label="Community feed">
+      {/* Header — fixed height */}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Sparkles className="w-4 h-4" />
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setSort('recent')}
-              className={cn(
-                'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
-                sort === 'recent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-              )}
-            >
-              <Clock className="w-3 h-3" /> Recent
-            </button>
-            <button
-              onClick={() => setSort('top')}
-              className={cn(
-                'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
-                sort === 'top' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-              )}
-            >
-              <TrendingUp className="w-3 h-3" /> Top
-            </button>
-            <button
-              onClick={() => onOpenChange(false)}
-              aria-label="Close"
-              className="ml-1 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground leading-none">Community feed</h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Public posts from everyone</p>
           </div>
         </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSort('recent')}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
+              sort === 'recent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+            )}
+          >
+            <Clock className="w-3 h-3" /> Recent
+          </button>
+          <button
+            onClick={() => setSort('top')}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
+              sort === 'top' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+            )}
+          >
+            <TrendingUp className="w-3 h-3" /> Top
+          </button>
+          <button
+            onClick={() => onOpenChange(false)}
+            aria-label="Close"
+            className="ml-1 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
-        {/* Composer */}
-        <div className="px-4 py-3 border-b border-border bg-card shrink-0">
-          <div className="flex items-start gap-3">
-            <Avatar className="w-10 h-10 border-2 border-accent shrink-0 overflow-hidden">
-              {(me as any)?.profilePicture ? (
-                <img src={(me as any).profilePicture} alt={me?.name || 'You'} className="w-full h-full object-cover" />
-              ) : (
-                <AvatarFallback className="bg-primary/15 text-primary font-semibold">
-                  {me?.name?.charAt(0).toUpperCase() || 'U'}
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <Textarea
-                placeholder={`Share something with the community, ${me?.name?.split(' ')[0] || '...'}...`}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                className="min-h-[60px] resize-y bg-background border-border text-sm"
-              />
-              {imageUrl && (
-                <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
-                  <img src={imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-1.5 right-1.5 h-6 w-6 p-0 bg-white/90 hover:bg-white"
-                    onClick={() => setImageUrl('')}
-                    aria-label="Remove"
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              )}
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    ref={fileRef}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) handleUpload(f)
-                      if (fileRef.current) fileRef.current.value = ''
-                    }}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 text-primary" />}
-                    <span className="hidden sm:inline">Photo</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDraft((c) => c + ' 😊')}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <Smile className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="hidden sm:inline">Emoji</span>
-                  </button>
-                </div>
+      {/* Composer — fixed height */}
+      <div className="px-4 py-3 border-b border-border bg-card shrink-0">
+        <div className="flex items-start gap-3 max-w-2xl mx-auto">
+          <Avatar className="w-10 h-10 border-2 border-accent shrink-0 overflow-hidden">
+            {(me as any)?.profilePicture ? (
+              <img src={(me as any).profilePicture} alt={me?.name || 'You'} className="w-full h-full object-cover" />
+            ) : (
+              <AvatarFallback className="bg-primary/15 text-primary font-semibold">
+                {me?.name?.charAt(0).toUpperCase() || 'U'}
+              </AvatarFallback>
+            )}
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <Textarea
+              placeholder={`Share something with the community, ${me?.name?.split(' ')[0] || '...'}...`}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="min-h-[60px] resize-y bg-background border-border text-sm"
+            />
+            {imageUrl && (
+              <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
+                <img src={imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
                 <Button
-                  onClick={handlePost}
-                  disabled={posting || uploading || (!draft.trim() && !imageUrl)}
+                  variant="ghost"
                   size="sm"
-                  className="bg-primary hover:bg-primary/90 gap-1.5"
+                  className="absolute top-1.5 right-1.5 h-6 w-6 p-0 bg-white/90 hover:bg-white"
+                  onClick={() => setImageUrl('')}
+                  aria-label="Remove"
                 >
-                  {posting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Posting...</> : <><Send className="w-3.5 h-3.5" /> Post</>}
+                  <X className="w-3 h-3" />
                 </Button>
               </div>
+            )}
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  ref={fileRef}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleUpload(f)
+                    if (fileRef.current) fileRef.current.value = ''
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 text-primary" />}
+                  <span className="hidden sm:inline">Photo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDraft((c) => c + ' 😊')}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Smile className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="hidden sm:inline">Emoji</span>
+                </button>
+              </div>
+              <Button
+                onClick={handlePost}
+                disabled={posting || uploading || (!draft.trim() && !imageUrl)}
+                size="sm"
+                className="bg-primary hover:bg-primary/90 gap-1.5"
+              >
+                {posting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Posting...</> : <><Send className="w-3.5 h-3.5" /> Post</>}
+              </Button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Feed - full height, scrolls internally */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10" style={{ height: 'calc(100vh - 130px)' }}>
-          <div className="max-w-2xl mx-auto">
+      {/* Feed — fills all remaining height, scrolls internally */}
+      <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10">
+        <div className="max-w-2xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -366,7 +372,6 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
                             <img src={post.imageUrl} alt="" className="w-full max-h-80 object-cover" />
                           </div>
                         )}
-                        {/* Actions */}
                         <div className="mt-2 flex items-center gap-4">
                           <button
                             onClick={() => handleLike(post.id)}
@@ -388,7 +393,6 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
                           </button>
                         </div>
 
-                        {/* Comments */}
                         {showComments && (
                           <div className="mt-2 space-y-2 pl-2 border-l-2 border-accent">
                             {post.comments?.map((c: Comment) => (
@@ -411,7 +415,6 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
                                 </div>
                               </div>
                             ))}
-                            {/* Comment composer */}
                             <div className="flex items-center gap-2 pt-1">
                               <input
                                 type="text"
@@ -444,9 +447,9 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
               })}
             </ul>
           )}
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body
   )
 }
