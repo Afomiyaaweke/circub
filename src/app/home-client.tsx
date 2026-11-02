@@ -29,6 +29,7 @@ const ProfileTab = lazy(() => import('@/components/social/profile-tab').then(m =
 const PriceDetailModal = lazy(() => import('@/components/social/price-detail-modal').then(m => ({ default: m.PriceDetailModal })))
 const LocalProfileModal = lazy(() => import('@/components/social/local-profile-modal').then(m => ({ default: m.LocalProfileModal })))
 const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
+const CommunityFeedModal = lazy(() => import('@/components/social/community-feed-modal').then(m => ({ default: m.CommunityFeedModal })))
 const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
 const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
 const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
@@ -84,6 +85,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
+  const [feedOpen, setFeedOpen] = useState(false)
   const [localPriceId, setLocalPriceId] = useState<string | null>(null)
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -367,18 +369,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   }, [me, toast, promptRegister])
 
   const handleOpenMessages = useCallback(() => {
-    // The Messages inbox needs an account - the demo gets the registration
-    // form instead of an inbox that would just 401 on everything.
-    if (me?.id === 'guest') {
-      promptRegister(
-        'Register to message',
-        'The demo cannot message anyone. Create a free account to message locals and guides.',
-      )
-      return
-    }
-    setMessageTargetId(null)
-    setMessagesOpen(true)
-  }, [me, promptRegister])
+    // Header "Feed" button → open the community posting site (LinkedIn/Reddit
+    // style). The private DM modal stays reachable from profile cards via
+    // handleMessageUser (1:1 conversations).
+    setFeedOpen(true)
+  }, [])
 
   // "Join as a local" (guide registration) is an account action - the demo
   // gets the REGISTRATION form, never the guide application.
@@ -586,6 +581,10 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
       <Suspense fallback={null}>
         <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <CommunityFeedModal open={feedOpen} onOpenChange={setFeedOpen} me={me} />
       </Suspense>
 
       <Suspense fallback={null}>

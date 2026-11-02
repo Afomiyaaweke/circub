@@ -31,12 +31,12 @@ const STORAGE_KEY = 'circubAwd.lang'
 // Dictionary keys
 // ---------------------------------------------------------------------------
 const en = {
-  'nav.feed': 'Feed',
+  'nav.feed': 'Battle',
   'nav.local': 'Local',
   'nav.link': 'Link',
   'nav.profile': 'Profile',
-  'nav.messages': 'Messages',
-  'nav.ariaMessages': 'Messages',
+  'nav.messages': 'Feed',
+  'nav.ariaMessages': 'Feed',
   'nav.notifications': 'Notifications',
   'notif.empty': 'No notifications yet',
   'notif.markAllRead': 'Mark all read',

@@ -389,11 +389,11 @@ export function Header({
             )
           })}
 
-          {/* Messages with badge */}
+          {/* Feed button (formerly Messages) — opens the community posting site */}
           <button
             onClick={onOpenMessages}
             className="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] leading-tight font-medium text-muted-foreground transition-colors"
-            aria-label="Messages"
+            aria-label="Feed"
           >
             <span className="relative">
               <MessageSquare className="w-[18px] h-[18px]" />
@@ -403,7 +403,7 @@ export function Header({
                 </span>
               )}
             </span>
-            <span>Messages</span>
+            <span>Feed</span>
           </button>
         </div>
       </nav>
