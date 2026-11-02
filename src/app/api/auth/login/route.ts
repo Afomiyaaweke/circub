@@ -21,6 +21,7 @@ import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit } from '@/lib/session'
 import { isPastRetention } from '@/lib/deactivation'
 import { normalizeUsername, USERNAME_RE } from '@/lib/username'
+import { caseInsensitiveWhere } from '@/lib/search'
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,6 +49,13 @@ export async function POST(req: NextRequest) {
     // Resolve the identifier: an email-shaped string matches the email
     // column; anything else is treated as the /u/<handle> username (a pasted
     // "@name" keeps working - normalizeUsername strips the leading @).
+    // v225 LAST-RESORT: exact display-NAME match (case-insensitive). The top
+    // real-world "sign in is broken" report is people typing their display
+    // name ("Afomiya") instead of their auto-generated handle - a flat 401
+    // told them nothing. If several accounts share the name we ask for the
+    // email instead of guessing. Error responses now also carry a machine
+    // `code` so the client can react (e.g. point Google-registered users at
+    // the Google button instead of a misleading "invalid password").
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     let user: User | null = null
     if (emailRe.test(identifier)) {
@@ -57,10 +65,46 @@ export async function POST(req: NextRequest) {
       if (USERNAME_RE.test(username)) {
         user = await db.user.findUnique({ where: { username } })
       }
+      if (!user) {
+        const candidates = await db.user.findMany({
+          where: caseInsensitiveWhere({ name: { contains: identifier } }),
+          take: 10,
+        })
+        const exact = candidates.filter(
+          (u) => (u.name || '').trim().toLowerCase() === identifier.toLowerCase()
+        )
+        if (exact.length === 1) {
+          user = exact[0]
+        } else if (exact.length > 1) {
+          return NextResponse.json(
+            {
+              error: `Several accounts share the name "${identifier}". Please sign in with your email instead.`,
+              code: 'AMBIGUOUS_NAME',
+            },
+            { status: 401 }
+          )
+        }
+      }
     }
-    if (!user || !user.password) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        {
+          error: `No account found for "${identifier}". Check the spelling, try your email, or create a free account.`,
+          code: 'NO_ACCOUNT',
+        },
+        { status: 401 }
+      )
+    }
+    if (!user.password) {
+      // A Google-registered account has no local password: the previous
+      // "Invalid email or password" here was THE misleading message that
+      // made Google users believe sign-in was broken.
+      return NextResponse.json(
+        {
+          error: 'This account was created with Google. Tap "Continue with Google" above to sign in.',
+          code: 'GOOGLE_ONLY',
+          googleOnly: true,
+        },
         { status: 401 }
       )
     }
@@ -68,7 +112,7 @@ export async function POST(req: NextRequest) {
     const ok = await bcrypt.compare(password, user.password)
     if (!ok) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Incorrect password. Please try again.', code: 'WRONG_PASSWORD' },
         { status: 401 }
       )
     }
@@ -82,7 +126,10 @@ export async function POST(req: NextRequest) {
         // (every User relation in the schema cascades), then answer with the
         // generic invalid-credentials 401 - the account is simply gone.
         await db.user.delete({ where: { id: user.id } })
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+        return NextResponse.json(
+          { error: 'No account found. This account no longer exists.', code: 'NO_ACCOUNT' },
+          { status: 401 }
+        )
       }
       // Self-service reactivation: same email, same password, back in.
       await db.user.update({

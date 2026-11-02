@@ -6,10 +6,12 @@ import { caseInsensitiveWhere } from '@/lib/search'
 import { guideDistanceKm } from '@/lib/geo'
 import { parseVideoUrl } from '@/lib/video'
 
-// GET /api/posts?authorId=...&search=...&limit=20&lat=9.03&lng=38.74
+// GET /api/posts?authorId=...&search=...&limit=20&lat=9.03&lng=38.74&saved=1
 // With lat/lng the feed becomes location-aware: posts from authors whose
 // profile location resolves near the viewer (same city area, <=50 km) are
 // grouped FIRST, then everything else - newest first inside each group.
+// With saved=1 the feed returns ONLY the current user's saved (bookmarked)
+// posts - the community feed tab's "Saved" filter reads this.
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -19,9 +21,15 @@ export async function GET(req: NextRequest) {
     const lat = Number(searchParams.get('lat'))
     const lng = Number(searchParams.get('lng'))
     const nearMe = Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)
+    const savedOnly = searchParams.get('saved') === '1'
 
     const where: any = {}
     if (authorId) where.authorId = authorId
+    if (savedOnly) {
+      const me = await getCurrentUser()
+      if (!me) return NextResponse.json({ posts: [], savedOnly: true })
+      where.saves = { some: { userId: me.id } }
+    }
     if (search) {
       where.OR = [
         { content: { contains: search } },
@@ -44,6 +52,9 @@ export async function GET(req: NextRequest) {
         },
         likes: true,
         reposts: true,
+        // v225: per-user saved state so the feed can render the bookmark
+        // button as filled/empty without a second round-trip.
+        saves: true,
         comments: {
           include: {
             author: {

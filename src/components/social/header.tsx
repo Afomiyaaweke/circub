@@ -25,14 +25,17 @@ interface HeaderProps {
   onOpenPost?: (postId: string) => void
 }
 
-// Bookmark and Network live inside the Profile tab now (Instagram-style) -
-// the top nav keeps the four top-level destinations.
+// v225: the community feed ("Feed") is a REAL TAB now - it joined the TABS
+// list so the desktop pills AND the always-on bottom dock render it exactly
+// like Battle / Local / Link / Profile. nav.messages carries the "Feed"
+// label (the old separate Feed button is gone - no more double entries).
 // labelKey - the i18n dictionary key for the tab label (translated at render).
-const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile'; icon: typeof MapPin }[] = [
+const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile' | 'nav.messages'; icon: typeof MapPin }[] = [
   { key: 'feed', labelKey: 'nav.feed', icon: Sparkles },
   { key: 'local', labelKey: 'nav.local', icon: MapPin },
   { key: 'guides', labelKey: 'nav.link', icon: Compass },
   { key: 'profile', labelKey: 'nav.profile', icon: UserCircle },
+  { key: 'community', labelKey: 'nav.messages', icon: MessageSquare },
 ]
 
 // The app-wide language option - a compact globe menu. Rendered in the
@@ -159,20 +162,21 @@ export function Header({
         </div>
 
         {/* Nav tabs · desktop only (lg+) - phones AND tablets get the bottom
-            tab bar below: five pills plus logo + language + theme + account
+            tab bar below: six pills plus logo + language + theme + account
             cannot fit a 768-1023px header without clipping. */}
         {user && (
           <nav className="hidden lg:flex items-center gap-2 overflow-x-auto scrollbar-thin flex-1 min-w-0 justify-start">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.key
+              const badge = tab.key === 'community' ? incomingInvitationsCount : 0
               return (
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
                   data-testid={`nav-pill-${tab.key}`}
                   className={cn(
-                    'flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium transition-colors shrink-0',
+                    'relative flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium transition-colors shrink-0',
                     isActive
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -182,25 +186,14 @@ export function Header({
                 >
                   <Icon className="w-4 h-4" />
                   <span className="hidden lg:inline">{t(tab.labelKey)}</span>
+                  {badge > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
+                      {badge}
+                    </span>
+                  )}
                 </button>
               )
             })}
-
-            {/* Messages button with badge */}
-            <button
-              onClick={onOpenMessages}
-              data-testid="nav-pill-feed"
-              className="relative flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors shrink-0"
-              aria-label={t('nav.messages')}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden lg:inline">{t('nav.messages')}</span>
-              {incomingInvitationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full">
-                  {incomingInvitationsCount}
-                </span>
-              )}
-            </button>
           </nav>
         )}
 
@@ -363,8 +356,8 @@ export function Header({
         docked to the bottom on phones and tablets (with safe-area padding
         for the home indicator), and a centered floating dock on desktop
         (lg+). The active tab wears the green pill, matching the app icon
-        look. Desktop also keeps the header pills; the bottom dock is the
-        ever-present navigation the user asked to see on phone AND web. */}
+        look. v225: "Feed" is a tab driven through onTabChange - opening it
+        shows the full-space community feed, not a slide-over. */}
     {user && (
       <nav
         className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)] lg:inset-x-auto lg:left-1/2 lg:right-auto lg:-translate-x-1/2 lg:bottom-4 lg:rounded-full lg:border lg:shadow-xl lg:pb-0"
@@ -375,6 +368,7 @@ export function Header({
             const Icon = tab.icon
             const isActive = activeTab === tab.key
             const tabText = t(tab.labelKey)
+            const badge = tab.key === 'community' ? incomingInvitationsCount : 0
             return (
               <button
                 key={tab.key}
@@ -389,29 +383,18 @@ export function Header({
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={tabText}
               >
-                <Icon className="w-[18px] h-[18px]" />
+                <span className="relative">
+                  <Icon className="w-[18px] h-[18px]" />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-semibold bg-primary text-primary-foreground rounded-full">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
                 <span>{tabText}</span>
               </button>
             )
           })}
-
-          {/* Feed button (formerly Messages) — opens the community posting site */}
-          <button
-            onClick={onOpenMessages}
-            data-testid="nav-dock-feed"
-            className="relative flex flex-col items-center justify-center gap-0.5 py-1.5 my-1 mx-1 rounded-full text-[10px] leading-tight font-medium text-muted-foreground transition-colors hover:text-foreground lg:hover:bg-accent"
-            aria-label="Feed"
-          >
-            <span className="relative">
-              <MessageSquare className="w-[18px] h-[18px]" />
-              {incomingInvitationsCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-semibold bg-primary text-primary-foreground rounded-full">
-                  {incomingInvitationsCount > 9 ? '9+' : incomingInvitationsCount}
-                </span>
-              )}
-            </span>
-            <span>Feed</span>
-          </button>
         </div>
       </nav>
     )}

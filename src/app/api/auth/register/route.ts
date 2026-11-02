@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
-import { validateUsername } from '@/lib/username'
+import { validateUsername, normalizeUsername } from '@/lib/username'
 import { circubawd_ROLES } from '@/lib/roles'
 import { isPastRetention } from '@/lib/deactivation'
 
@@ -155,7 +155,36 @@ export async function POST(req: NextRequest) {
 
     // Username: required, normalized + validated, globally unique - it is the
     // public ID people use to find and share the profile.
-    const uCheck = validateUsername(String(body.username || ''))
+    //
+    // v225 ROOT-CAUSE FIX for "sign in is not working": the simplified
+    // sign-up UI (06bc3ef) dropped the username field and its comment says
+    // "the API ... will derive one" - but NO derivation existed here, so
+    // every UI sign-up died with 400 "Username is required". New accounts
+    // could not be created at all, and the credentials people then tried at
+    // sign-in could never work. Missing usernames are now derived from the
+    // display name (slug + random suffix until unique); an explicit
+    // username still validates exactly as before.
+    let usernameInput = String(body.username || '').trim()
+    if (!usernameInput) {
+      const base = normalizeUsername(body.name || '').replace(/[^a-z0-9_]/g, '').slice(0, 16) || 'local'
+      for (let attempt = 0; attempt < 20 && !usernameInput; attempt++) {
+        const candidate = attempt === 0 ? base : `${base}${Math.floor(100 + Math.random() * 9000)}`
+        const cCheck = validateUsername(candidate)
+        if (!cCheck.ok) continue
+        const taken = await db.user.findUnique({
+          where: { username: cCheck.username },
+          select: { id: true },
+        })
+        if (!taken) usernameInput = cCheck.username
+      }
+      if (!usernameInput) {
+        return NextResponse.json(
+          { error: 'Could not derive a free username - please provide one' },
+          { status: 400 }
+        )
+      }
+    }
+    const uCheck = validateUsername(usernameInput)
     if (!uCheck.ok) {
       return NextResponse.json({ error: uCheck.error }, { status: 400 })
     }

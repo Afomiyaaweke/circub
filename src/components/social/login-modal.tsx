@@ -36,6 +36,11 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   const [submitting, setSubmitting] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // v225: set when the API answers code=GOOGLE_ONLY (the email belongs to a
+  // Google-registered account with no local password). The message already
+  // explains it - this flag highlights the Google button so the fix is one
+  // glance away instead of one dead end.
+  const [googleHint, setGoogleHint] = useState(false)
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null)
   const { toast } = useToast()
   const { t } = useLanguage()
@@ -50,6 +55,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   }, [])
 
   useEffect(() => { if (formError) setFormError(null) }, [email, password])
+  useEffect(() => { if (googleHint) setGoogleHint(false) }, [email, password])
 
   const handleSubmit = async () => {
     setFormError(null)
@@ -65,9 +71,10 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({} as any))
       if (!res.ok) {
         setFormError(data.error || 'Login failed. Please check your email/username and password.')
+        if (data.googleOnly) setGoogleHint(true)
         return
       }
       toast({ title: `Welcome back, ${data.user.name}!` })
@@ -129,7 +136,10 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
               onClick={handleGoogleSignIn}
               disabled={googleLoading || submitting}
               variant="outline"
-              className="w-full h-11 mb-3 gap-2 rounded-lg text-sm font-medium"
+              className={cn(
+                'w-full h-11 mb-3 gap-2 rounded-lg text-sm font-medium transition-shadow',
+                googleHint && 'ring-2 ring-amber-400 border-amber-400 bg-amber-50 dark:bg-amber-950/30'
+              )}
             >
               {googleLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

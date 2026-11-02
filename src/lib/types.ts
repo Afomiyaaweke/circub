@@ -101,6 +101,8 @@ export interface Post {
   }
   likes: { id: string; userId: string }[]
   reposts: { id: string; userId: string }[]
+  // v225: per-user saved (bookmarked) state rides along with the feed list
+  saves?: { id: string; userId: string }[]
   comments: Comment[]
   createdAt: string
 }
@@ -277,7 +279,7 @@ export interface LocalPriceHistory {
   history: PriceHistoryPoint[]
 }
 
-export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark' | 'profile'
+export type TabKey = 'feed' | 'local' | 'network' | 'guides' | 'bookmark' | 'profile' | 'community'
 
 // =====================================================
 // PRICELENS SCAN - camera product identification + pricing

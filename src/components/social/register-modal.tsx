@@ -107,7 +107,11 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
       }
       toast({
         title: `Welcome, ${data.user.name}!`,
-        description: 'Your account is ready. You can finish your profile anytime.',
+        // v225: the API derives the handle from the name now - tell people
+        // what it is, so the next sign-in works with email OR @handle.
+        description: data.user?.username
+          ? `Your account is ready. Your handle is @${data.user.username} - sign in with it or your email.`
+          : 'Your account is ready. You can finish your profile anytime.',
       })
       reset()
       onOpenChange(false)

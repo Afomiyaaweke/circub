@@ -29,7 +29,7 @@ const ProfileTab = lazy(() => import('@/components/social/profile-tab').then(m =
 const PriceDetailModal = lazy(() => import('@/components/social/price-detail-modal').then(m => ({ default: m.PriceDetailModal })))
 const LocalProfileModal = lazy(() => import('@/components/social/local-profile-modal').then(m => ({ default: m.LocalProfileModal })))
 const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
-const CommunityFeedModal = lazy(() => import('@/components/social/community-feed-modal').then(m => ({ default: m.CommunityFeedModal })))
+const CommunityFeedTab = lazy(() => import('@/components/social/community-feed-tab').then(m => ({ default: m.CommunityFeedTab })))
 const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
 const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
 const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
@@ -85,7 +85,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
-  const [feedOpen, setFeedOpen] = useState(false)
+  // v225: the community feed is a REAL TAB now (same space as Battle/Local/
+  // Link), so there is no more feedOpen modal state. What remains is the
+  // post id to highlight when the user arrives from a ?community=<id>
+  // share link - the tab scrolls to and flashes that post.
+  const [communityHighlight, setCommunityHighlight] = useState<string | null>(null)
   const [localPriceId, setLocalPriceId] = useState<string | null>(null)
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -155,10 +159,18 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // detail modal on mount so the recipient sees the full price details (the
   // same modal the Details button opens) instead of hunting for the card in
   // the feed. Runs once - the URL is left untouched so a refresh reopens it.
+  // v225: shared COMMUNITY posts land on /?community=<postId> - open the
+  // community feed tab on that post instead (the tab scrolls to + flashes it).
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const postId = new URLSearchParams(window.location.search).get('post')
+    const params = new URLSearchParams(window.location.search)
+    const postId = params.get('post')
     if (postId) setLocalPriceId(postId)
+    const communityId = params.get('community')
+    if (communityId) {
+      setActiveTab('community')
+      setCommunityHighlight(communityId)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -369,10 +381,10 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   }, [me, toast, promptRegister])
 
   const handleOpenMessages = useCallback(() => {
-    // Header "Feed" button → open the community posting site (LinkedIn/Reddit
-    // style). The private DM modal stays reachable from the profile's
-    // "Messages" button via handleOpenInbox (1:1 conversations).
-    setFeedOpen(true)
+    // Header/RightSidebar "Feed" button → the community posting site.
+    // v225: it is a full tab now (same space as Battle/Local/Link) instead
+    // of the cramped slide-over panel.
+    setActiveTab('community')
   }, [])
 
   // Profile "Messages" button → open the PRIVATE 1:1 DM inbox (not the
@@ -579,6 +591,17 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
             </Suspense>
           )}
 
+          {/* v225: community feed as a full tab - same space as Battle/Local/Link */}
+          {activeTab === 'community' && (
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <CommunityFeedTab
+                me={me}
+                highlightPostId={communityHighlight}
+                onHighlightDone={() => setCommunityHighlight(null)}
+              />
+            </Suspense>
+          )}
+
           <RightSidebar
             refreshSignal={refreshSignal}
             user={me}
@@ -596,10 +619,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
       <Suspense fallback={null}>
         <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <CommunityFeedModal open={feedOpen} onOpenChange={setFeedOpen} me={me} />
       </Suspense>
 
       <Suspense fallback={null}>
