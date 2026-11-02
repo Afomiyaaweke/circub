@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -23,30 +23,19 @@ interface LoginModalProps {
   onSwitchToRegister: () => void
 }
 
+/**
+ * Minimal sign-in form — just Email + Password.
+ * No Terms gate on sign-in (the user already agreed at sign-up; signing in
+ * is not a new legal action). The button is always enabled so users never
+ * see a "dead" button.
+ */
 export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }: LoginModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  // Legal gate: the Terms of Service + Privacy Policy must be confirmed
-  // before signing in.
-  const [agreed, setAgreed] = useState(false)
-  // v171: the terms gate made the Google button look DEAD - clicking it with
-  // the checkbox unticked fired only a transient toast (easy to miss) and
-  // nothing else, so users reported "sign in with google is not working".
-  // The nudge makes the requirement UNMISSABLE: the terms row scrolls into
-  // view, glows red for a moment and says what it needs - the toast stays as
-  // reinforcement for screen readers and users looking elsewhere.
-  const [termsNudge, setTermsNudge] = useState(false)
-  const termsRef = useRef<HTMLLabelElement>(null)
-  const nudgeTerms = () => {
-    setTermsNudge(true)
-    termsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    window.setTimeout(() => setTermsNudge(false), 3000)
-  }
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [googleConfigured, setGoogleConfigured] = useState<boolean | null>(null)
   const { toast } = useToast()
   const { t } = useLanguage()
@@ -61,22 +50,13 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   }, [])
 
   useEffect(() => { if (formError) setFormError(null) }, [email, password])
-  useEffect(() => { if (fieldErrors && Object.keys(fieldErrors).length > 0) setFieldErrors({}) }, [email, password])
 
   const handleSubmit = async () => {
-    if (!agreed) {
-      toast({
-        title: 'Please confirm first',
-        description: 'You must agree to the Terms of Service and Privacy Policy before signing in.',
-        variant: 'destructive',
-      })
+    setFormError(null)
+    if (!email.trim() || !password) {
+      setFormError('Please enter your email and password.')
       return
     }
-    setFormError(null)
-    const errors: Record<string, string> = {}
-    if (!email.trim()) errors.email = 'Email is required'
-    if (!password) errors.password = 'Password is required'
-    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
 
     setSubmitting(true)
     try {
@@ -87,61 +67,47 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
       })
       const data = await res.json()
       if (!res.ok) {
-        setFormError(data.error || 'Login failed. Please check your email and password and try again.')
+        setFormError(data.error || 'Login failed. Please check your email and password.')
         return
       }
-      toast({
-        title: `Welcome back, ${data.user.name}!`,
-        description: data.user.accountType === 'COMPANY' ? `Signed in as ${data.user.companyName}` : undefined,
-      })
+      toast({ title: `Welcome back, ${data.user.name}!` })
       setEmail('')
       setPassword('')
       onOpenChange(false)
       onAuthed(data.user)
     } catch (e) {
-      setFormError((e as Error).message || 'Network error. Please check your connection and try again.')
+      setFormError((e as Error).message || 'Network error. Please check your connection.')
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    if (!agreed) {
-      toast({
-        title: 'Please confirm first',
-        description: 'Agree to the Terms of Service and Privacy Policy before continuing with Google.',
-        variant: 'destructive',
-      })
-      nudgeTerms()
-      return
-    }
     if (googleConfigured === false) {
       toast({
         title: 'Google sign-in unavailable',
-        description: 'Google OAuth is not configured on the server. Use email and password to sign in.',
+        description: 'Google OAuth is not configured on the server. Use email + password.',
         variant: 'destructive',
       })
       return
     }
-    // NextAuth v4 handshake - see src/lib/google-signin.ts for why a plain
-    // GET redirect can never start the OAuth flow.
     setGoogleLoading(true)
     const ok = await startGoogleSignIn()
     if (!ok) {
+      setGoogleLoading(false)
       toast({
         title: 'Google sign-in failed',
-        description: 'Could not start Google sign-in. Please try again, or use email and password.',
+        description: 'Could not start Google sign-in. Please try again, or use email + password.',
         variant: 'destructive',
       })
-      setGoogleLoading(false)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-4 sm:p-6 md:p-8 gap-0">
+      <DialogContent className="max-w-md p-5 sm:p-7 gap-0">
         <DialogHeader className="mb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+          <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
             <Sparkles className="w-5 h-5 text-primary" />
             {t('login.welcomeBack')}
           </DialogTitle>
@@ -156,66 +122,69 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
           </div>
         )}
 
-        <div className="space-y-4">
-          {/* Google Sign In - only render if configured */}
-          {googleConfigured !== false && (
+        {/* Google Sign In - only render if configured */}
+        {googleConfigured === true && (
+          <>
             <Button
               onClick={handleGoogleSignIn}
-              disabled={googleLoading}
+              disabled={googleLoading || submitting}
               variant="outline"
-              className="w-full h-11 gap-2 border-border hover:bg-accent"
+              className="w-full h-11 mb-3 gap-2 rounded-lg text-sm font-medium"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              {googleLoading ? 'Connecting to Google…' : t('reg.continueGoogle')}
+              {googleLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+              )}
+              Continue with Google
             </Button>
-          )}
-          {googleConfigured === false && (
-            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs flex items-start gap-2">
-              <span className="flex-1 leading-relaxed">
-                <strong>Google sign-in unavailable.</strong> The server is missing the Google OAuth client secret. Use email + password instead.
-              </span>
+            <div className="flex items-center gap-2 my-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">or</span>
+              <div className="flex-1 h-px bg-border" />
             </div>
-          )}
-
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">{t("common.or")}</span>
-            <div className="flex-1 h-px bg-border" />
+          </>
+        )}
+        {googleConfigured === false && (
+          <div className="mb-3 p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 text-xs flex items-start gap-2">
+            <span className="flex-1 leading-relaxed">
+              <strong>Google sign-in unavailable.</strong> The server is missing the Google OAuth client secret. Use email + password instead.
+            </span>
           </div>
+        )}
 
-          {/* Email + Password */}
+        {/* Email + Password */}
+        <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">{t("login.email")}</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('login.email')}</label>
             <div className="relative">
-              <Mail className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none', fieldErrors.email ? 'text-red-500' : 'text-muted-foreground')} />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
-                className={cn('pl-9', fieldErrors.email && 'border-red-500 focus:border-red-500')}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleSubmit() }}
+                className="pl-9 h-11"
               />
             </div>
-            {fieldErrors.email && <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground font-medium">{t("login.password")}</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('login.password')}</label>
             <div className="relative">
-              <Lock className={cn('absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none', fieldErrors.password ? 'text-red-500' : 'text-muted-foreground')} />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
-                className={cn('pl-9 pr-9', fieldErrors.password && 'border-red-500 focus:border-red-500')}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleSubmit() }}
+                className="pl-9 pr-9 h-11"
               />
               <button
                 type="button"
@@ -226,51 +195,31 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
           </div>
-
-          <label
-            ref={termsRef}
-            data-testid="login-terms-row"
-            className={'flex items-start gap-2.5 cursor-pointer select-none rounded-lg border p-3 transition-all duration-300 ' + (termsNudge ? 'border-red-400 ring-2 ring-red-300 bg-red-50 dark:bg-red-950/30' : 'border-border bg-accent/40')}
-          >
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              className="mt-0.5 w-4 h-4 shrink-0 accent-primary cursor-pointer"
-            />
-            <span className="text-xs leading-relaxed text-foreground">
-              I have read and agree to the{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">Terms of Service</a>
-              {' '}and the{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">Privacy Policy</a>.
-            </span>
-          </label>
-          {termsNudge && (
-            <p data-testid="login-terms-nudge" className="text-xs text-red-600 dark:text-red-400 -mt-1.5">
-              Tick this box, then tap Continue with Google again - Google sign-in needs your agreement first.
-            </p>
-          )}
-
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || !agreed}
-            className="w-full bg-primary hover:bg-primary/90 gap-2 h-11"
-          >
-            {submitting ? t('login.signingIn') : <>{t('login.signInBtn')} <ArrowRight className="w-4 h-4" /></>}
-          </Button>
-
-          <p className="text-xs text-center text-muted-foreground pt-2">
-            Don&apos;t have an account?{' '}
-            <button
-              onClick={() => { setEmail(''); setPassword(''); setFormError(null); onOpenChange(false); onSwitchToRegister() }}
-              className="text-primary font-medium hover:underline"
-            >
-              {t('login.signUpFree')}
-            </button>
-          </p>
         </div>
+
+        {/* Submit — always enabled so the button never looks dead */}
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full h-11 mt-4 bg-primary hover:bg-primary/90 gap-1.5 text-sm font-semibold"
+        >
+          {submitting ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Signing in...</>
+          ) : (
+            <>Sign in <ArrowRight className="w-4 h-4" /></>
+          )}
+        </Button>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Don&apos;t have an account?{' '}
+          <button
+            onClick={() => { setEmail(''); setPassword(''); setFormError(null); onOpenChange(false); onSwitchToRegister() }}
+            className="text-primary font-medium hover:underline"
+          >
+            {t('login.signUpFree')}
+          </button>
+        </p>
       </DialogContent>
     </Dialog>
   )
