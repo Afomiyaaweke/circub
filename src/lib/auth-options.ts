@@ -3,6 +3,23 @@ import GoogleProvider from 'next-auth/providers/google'
 import { db } from '@/lib/db'
 import { isPastRetention } from '@/lib/deactivation'
 
+// One-time startup check: warn loudly if Google OAuth can't work.
+// The client ID is hardcoded as a fallback, but the client SECRET must be
+// provided via the GOOGLE_CLIENT_SECRET env var. Without it, Google sign-in
+// silently fails with ?error=Configuration on the callback.
+if (
+  typeof window === 'undefined' &&
+  !process.env.GOOGLE_CLIENT_SECRET &&
+  process.env.NEXT_PUBLIC_SUPPRESS_AUTH_WARNINGS !== '1'
+) {
+  console.warn(
+    '[auth] GOOGLE_CLIENT_SECRET is not set. Google sign-in will fail. ' +
+      'Get it from Google Cloud Console → APIs & Services → Credentials → ' +
+      'OAuth 2.0 Client ID → Client secret, then set GOOGLE_CLIENT_SECRET ' +
+      'in your .env file or Vercel env vars.'
+  )
+}
+
 // Shared NextAuth options - imported by BOTH:
 //   1. the [...nextauth] route handler (encrypts the session JWT), and
 //   2. every getServerSession() call (decrypts it).
