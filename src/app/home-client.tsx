@@ -514,7 +514,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
   // Logged-in → dashboard
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-[46px] lg:pb-0">
+    <div className="min-h-screen flex flex-col bg-background pb-[62px] lg:pb-24">
       {oauthErrorBanner}
       <div className="sticky top-0 z-40">
         <Header

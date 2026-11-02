@@ -54,7 +54,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
   const handleSubmit = async () => {
     setFormError(null)
     if (!email.trim() || !password) {
-      setFormError('Please enter your email and password.')
+      setFormError('Please enter your email or username and password.')
       return
     }
 
@@ -67,7 +67,7 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
       })
       const data = await res.json()
       if (!res.ok) {
-        setFormError(data.error || 'Login failed. Please check your email and password.')
+        setFormError(data.error || 'Login failed. Please check your email/username and password.')
         return
       }
       toast({ title: `Welcome back, ${data.user.name}!` })
@@ -161,12 +161,16 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
         {/* Email + Password */}
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">{t('login.email')}</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('login.identifier')}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
-                type="email"
-                placeholder="you@example.com"
+                type="text"
+                inputMode="email"
+                autoCapitalize="none"
+                autoComplete="username"
+                data-testid="login-identifier"
+                placeholder="you@example.com or username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleSubmit() }}

@@ -1,7 +1,14 @@
-// Login with email + password
+// Login with email OR username + password
+//
+// v224: registration REQUIRES a username (the /u/<handle> handle) but this
+// route used to match the email column ONLY - signing in with your handle
+// answered 401 "Invalid email or password" and read as "sign in is broken".
+// The identifier is now resolved as email first, then as a username (leading
+// @ stripped, normalized + validated through the SAME normalizeUsername /
+// USERNAME_RE pair the register API uses).
 //
 // Deactivated accounts (v134): a deactivated user signs back in with the SAME
-// email + password - no email verification, no support email. Login is the
+// identifier + password - no email verification, no support email. Login is the
 // reactivation path: the password IS the ownership proof, so the soft-off
 // flags are cleared right here and the session is issued as usual.
 // Accounts deactivated MORE than 6 months ago are past the retention window:
@@ -9,9 +16,11 @@
 // and the login answers with the generic 401, as if the account never existed.
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
+import type { User } from '@prisma/client'
 import { db } from '@/lib/db'
 import { setSessionCookie, checkRateLimit } from '@/lib/session'
 import { isPastRetention } from '@/lib/deactivation'
+import { normalizeUsername, USERNAME_RE } from '@/lib/username'
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,17 +35,29 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const email = body.email?.trim().toLowerCase()
+    const identifier = String(body.email ?? '').trim()
     const password = body.password
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Email or username and password are required' },
         { status: 400 }
       )
     }
 
-    const user = await db.user.findUnique({ where: { email } })
+    // Resolve the identifier: an email-shaped string matches the email
+    // column; anything else is treated as the /u/<handle> username (a pasted
+    // "@name" keeps working - normalizeUsername strips the leading @).
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    let user: User | null = null
+    if (emailRe.test(identifier)) {
+      user = await db.user.findUnique({ where: { email: identifier.toLowerCase() } })
+    } else {
+      const username = normalizeUsername(identifier)
+      if (USERNAME_RE.test(username)) {
+        user = await db.user.findUnique({ where: { username } })
+      }
+    }
     if (!user || !user.password) {
       return NextResponse.json(
         { error: 'Invalid email or password' },

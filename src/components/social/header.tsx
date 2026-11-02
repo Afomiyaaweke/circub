@@ -170,7 +170,7 @@ export function Header({
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
-                  data-testid={`nav-tab-${tab.key}`}
+                  data-testid={`nav-pill-${tab.key}`}
                   className={cn(
                     'flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium transition-colors shrink-0',
                     isActive
@@ -189,6 +189,7 @@ export function Header({
             {/* Messages button with badge */}
             <button
               onClick={onOpenMessages}
+              data-testid="nav-pill-feed"
               className="relative flex items-center gap-1.5 px-1.5 py-2 sm:px-4 rounded-full text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors shrink-0"
               aria-label={t('nav.messages')}
             >
@@ -357,15 +358,19 @@ export function Header({
       </div>
     </header>
 
-    {/* Mobile + tablet bottom tab bar - the same tabs, docked to the bottom
-        below the lg breakpoint (the header pills only fit from 1024px up).
-        Fixed + safe-area padding so it clears the home indicator. */}
+    {/* ALWAYS-ON bottom tab bar - the five destinations (Battle / Local /
+        Link / Profile / Feed) are visible on EVERY device: full-width bar
+        docked to the bottom on phones and tablets (with safe-area padding
+        for the home indicator), and a centered floating dock on desktop
+        (lg+). The active tab wears the green pill, matching the app icon
+        look. Desktop also keeps the header pills; the bottom dock is the
+        ever-present navigation the user asked to see on phone AND web. */}
     {user && (
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)]"
+        className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)] lg:inset-x-auto lg:left-1/2 lg:right-auto lg:-translate-x-1/2 lg:bottom-4 lg:rounded-full lg:border lg:shadow-xl lg:pb-0"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-5 lg:px-2 lg:py-1">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key
@@ -376,13 +381,14 @@ export function Header({
                 onClick={() => onTabChange(tab.key)}
                 data-testid={`nav-tab-${tab.key}`}
                 className={cn(
-                  'relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] leading-tight font-medium transition-colors',
-                  isActive ? 'text-primary' : 'text-muted-foreground'
+                  'relative flex flex-col items-center justify-center gap-0.5 py-1.5 my-1 mx-1 rounded-full text-[10px] leading-tight font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground lg:hover:bg-accent'
                 )}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={tabText}
               >
-                {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />}
                 <Icon className="w-[18px] h-[18px]" />
                 <span>{tabText}</span>
               </button>
@@ -392,7 +398,8 @@ export function Header({
           {/* Feed button (formerly Messages) — opens the community posting site */}
           <button
             onClick={onOpenMessages}
-            className="relative flex flex-col items-center justify-center gap-0.5 py-1 text-[10px] leading-tight font-medium text-muted-foreground transition-colors"
+            data-testid="nav-dock-feed"
+            className="relative flex flex-col items-center justify-center gap-0.5 py-1.5 my-1 mx-1 rounded-full text-[10px] leading-tight font-medium text-muted-foreground transition-colors hover:text-foreground lg:hover:bg-accent"
             aria-label="Feed"
           >
             <span className="relative">

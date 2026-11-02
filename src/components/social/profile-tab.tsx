@@ -1621,8 +1621,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </Avatar>
             </div>
           </div>
-          {/* Stats - Instagram puts them beside the avatar */}
-          <div className="flex-1 grid grid-cols-4 gap-1 text-center">
+          {/* Stats - Instagram puts them beside the avatar. v224 mobile pass:
+              4 columns crush "Following"-width labels on a 360px phone, so
+              phones get a roomy 2x2 and sm+ keeps the single row. */}
+          <div className="flex-1 grid grid-cols-2 gap-2 text-center sm:grid-cols-4 sm:gap-1">
             {stats.map((s) => (
               <div key={s.label}>
                 <p className="text-lg sm:text-xl font-bold text-foreground leading-tight">{loading ? '·' : s.value}</p>
@@ -1658,23 +1660,26 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           />
         </div>
 
-        <div className="mt-4 flex gap-2">
+        {/* Action row - v224 mobile pass: five buttons in one flex row
+            overflow a 360px phone, so each text button wraps to its own
+            half-width cell on phones and returns to the single row on sm+. */}
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={shareProfile} variant="outline" className="w-9 shrink-0 h-9 rounded-lg p-0 justify-center" aria-label="Share profile" title="Share profile">
             <Share2 className="w-4 h-4" />
           </Button>
-          <Button onClick={openEdit} variant="outline" className="flex-1 h-9 rounded-lg text-xs sm:text-sm">Edit profile</Button>
+          <Button onClick={openEdit} variant="outline" className="flex-1 min-w-[calc(50%-0.25rem)] sm:min-w-0 h-9 rounded-lg text-xs sm:text-sm">Edit profile</Button>
           {onOpenMessages && (
-            <Button onClick={onOpenMessages} variant="outline" className="flex-1 h-9 rounded-lg text-xs sm:text-sm gap-1.5">
+            <Button onClick={onOpenMessages} variant="outline" className="flex-1 min-w-[calc(50%-0.25rem)] sm:min-w-0 h-9 rounded-lg text-xs sm:text-sm gap-1.5">
               <Mail className="w-4 h-4" />
               Messages
             </Button>
           )}
           <Button onClick={openVerification} variant="outline"
-            className={cn('flex-1 h-9 rounded-lg text-xs sm:text-sm gap-1', isIdVerified && 'border-blue-500/40 text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-400')}>
+            className={cn('flex-1 min-w-[calc(50%-0.25rem)] sm:min-w-0 h-9 rounded-lg text-xs sm:text-sm gap-1', isIdVerified && 'border-blue-500/40 text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-400')}>
             {isIdVerified ? <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /> : <ShieldCheck className="w-4 h-4 text-primary shrink-0" />}
             {isIdVerified ? 'Verified' : 'Get verified'}
           </Button>
-          <Button onClick={pickStoryImage} className="flex-1 h-9 rounded-lg text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
+          <Button onClick={pickStoryImage} className="flex-1 min-w-[calc(50%-0.25rem)] sm:min-w-0 h-9 rounded-lg text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
             <Camera className="w-4 h-4" /> New story
           </Button>
         </div>

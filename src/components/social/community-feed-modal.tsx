@@ -309,8 +309,11 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
       />
 
       {/* Slide-over panel from the right. Top is offset to leave the navbar
-          visible (top-14 = 56px, the navbar height on most breakpoints). */}
-      <div className="absolute top-14 right-0 bottom-0 w-full sm:w-[480px] md:w-[560px] bg-background shadow-2xl border-l border-border flex flex-col animate-in slide-in-from-right duration-200">
+          visible (top-14 = 56px, the navbar height on most breakpoints).
+          v224: the panel is a REAL feed column now - it takes most of the
+          screen on every size (full width on phones, up to 800px on large
+          desktops) so posts get the space Facebook-style cards need. */}
+      <div className="absolute top-14 right-0 bottom-0 w-full sm:w-[540px] md:w-[680px] lg:w-[800px] bg-background shadow-2xl border-l border-border flex flex-col animate-in slide-in-from-right duration-200">
 
         {/* Header */}
         <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card shrink-0">
@@ -366,10 +369,10 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
             </Avatar>
             <div className="flex-1 min-w-0">
               <Textarea
-                placeholder={`Share a tip, ask a question, or post a deal, ${me?.name?.split(' ')[0] || '...'}...`}
+                placeholder={`What's on your mind, ${me?.name?.split(' ')[0] || '...'}?`}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                className="min-h-[60px] resize-y bg-background border-border text-sm"
+                className="min-h-[72px] resize-y bg-background border-border text-[15px]"
               />
               {imageUrl && (
                 <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
@@ -429,7 +432,9 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
           </div>
         </div>
 
-        {/* Feed — scrolls internally */}
+        {/* Feed — scrolls internally. v224: Facebook-style CARD feed - each
+            post is its own rounded card with breathing room, instead of
+            divider-flattened rows. */}
         <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -447,25 +452,28 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="p-3 sm:p-4 space-y-3">
               {sortedPosts.map((post) => {
                 const liked = me ? post.likes.some((l) => l.userId === me.id) : false
                 const showComments = openCommentsFor.has(post.id)
                 const isSeed = post.id.startsWith('seed-')
                 return (
-                  <li key={post.id} className={cn('px-4 py-3 hover:bg-card/50 transition-colors', isSeed && 'bg-emerald-50/40')}>
+                  <li key={post.id} className={cn(
+                    'rounded-xl border bg-card p-4 shadow-sm transition-colors',
+                    isSeed ? 'border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20' : 'border-border'
+                  )}>
                     <div className="flex items-start gap-3">
-                      <Avatar className="w-9 h-9 border border-accent shrink-0 overflow-hidden">
+                      <Avatar className="w-10 h-10 border border-accent shrink-0 overflow-hidden">
                         {(post.author as any).profilePicture ? (
                           <img src={(post.author as any).profilePicture} alt={post.author.name} className="w-full h-full object-cover" />
                         ) : (
-                          <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+                          <AvatarFallback className="bg-primary/15 text-primary text-sm font-semibold">
                             {post.author.name.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         )}
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                        <div className="flex items-center gap-1.5 text-[13px] flex-wrap">
                           <span className="font-semibold text-foreground">{post.author.name}</span>
                           {isSeed && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-semibold">
@@ -478,35 +486,35 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
                               <span className="text-muted-foreground truncate">{post.author.headline}</span>
                             </>
                           )}
-                          <span className="text-muted-foreground">·</span>
-                          <span className="text-muted-foreground">{timeAgo(post.createdAt)}</span>
                         </div>
-                        <p className="mt-1 text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
+                        <p className="text-[11px] text-muted-foreground">{timeAgo(post.createdAt)}</p>
+                        <p className="mt-1.5 text-[15px] text-foreground whitespace-pre-wrap break-words leading-relaxed">
                           {post.content}
                         </p>
                         {post.imageUrl && (
                           <div className="mt-2 rounded-lg overflow-hidden border border-border">
-                            <img src={post.imageUrl} alt="" className="w-full max-h-80 object-cover" />
+                            <img src={post.imageUrl} alt="" className="w-full max-h-96 object-cover" />
                           </div>
                         )}
-                        <div className="mt-2 flex items-center gap-4">
+                        {/* Like / Comment — full-width Facebook-style action bar */}
+                        <div className="mt-3 flex items-center gap-2 border-t border-border pt-2">
                           <button
                             onClick={() => handleLike(post.id)}
                             disabled={likingId === post.id}
                             className={cn(
-                              'flex items-center gap-1 text-xs font-medium transition-colors',
+                              'flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors hover:bg-accent',
                               liked ? 'text-rose-500' : 'text-muted-foreground hover:text-rose-500'
                             )}
                           >
-                            <Heart className={cn('w-3.5 h-3.5', liked && 'fill-current')} />
-                            {post.likes?.length || 0}
+                            <Heart className={cn('w-4 h-4', liked && 'fill-current')} />
+                            Like{post.likes?.length ? ` · ${post.likes.length}` : ''}
                           </button>
                           <button
                             onClick={() => toggleComments(post.id)}
-                            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            {post.comments?.length || 0}
+                            <MessageSquare className="w-4 h-4" />
+                            Comment{post.comments?.length ? ` · ${post.comments.length}` : ''}
                           </button>
                         </div>
 
