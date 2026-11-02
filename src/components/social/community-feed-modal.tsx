@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Send, Heart, MessageSquare, Image as ImageIcon, Smile, Loader2, Sparkles, TrendingUp, Clock, Globe } from 'lucide-react'
+import { X, Send, Heart, MessageSquare, Image as ImageIcon, Smile, Loader2, Sparkles, TrendingUp, Clock, Compass, Coffee, MapPin, Building2, Search } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,11 +30,89 @@ function timeAgo(dateStr: string): string {
   return date.toLocaleDateString()
 }
 
+// Seed posts shown when the feed is empty or as starter content.
+// These are helpful "how-to" tips a local guide would post — exactly the
+// kind of content the user asked for ("how to get a travel agency, how to
+// get a coffee shop"). They render at the top of the feed and mix in with
+// real user posts once people start posting.
+const SEED_POSTS: Post[] = [
+  {
+    id: 'seed-travel-agency',
+    content: `How to find a reliable travel agency in your city:
+
+1. Open the Local tab and search for "travel agent" or "agency"
+2. Look for guides with the Travel Agent role badge (Plane icon)
+3. Check their rating and helpful votes before booking
+4. Tap Book to start an escrow-protected booking
+
+Tip: verified locals (blue checkmark) have been confirmed as actually living there, so their recommendations come from real experience.`,
+    imageUrl: null,
+    authorId: 'seed',
+    author: {
+      id: 'seed-1',
+      name: 'circubAwd Guides',
+      avatarColor: 'teal',
+      headline: 'Official tips',
+      location: null,
+    },
+    likes: [],
+    reposts: [],
+    comments: [],
+    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+  },
+  {
+    id: 'seed-coffee-shop',
+    content: `How to find a good coffee shop with real local prices:
+
+1. Open PriceLens (the scanner) and point it at any coffee bag, menu, or cup
+2. The AI identifies the item and shows the fair price range in your city
+3. Switch to the Local tab to see what locals have posted about nearby cafés
+4. Tap any local price card to see who posted it and message them for more
+
+Tip: prices posted by verified locals carry a blue checkmark and a "Helpful" count, so you know which ones to trust.`,
+    imageUrl: null,
+    authorId: 'seed',
+    author: {
+      id: 'seed-2',
+      name: 'circubAwd Guides',
+      avatarColor: 'teal',
+      headline: 'Official tips',
+      location: null,
+    },
+    likes: [],
+    reposts: [],
+    comments: [],
+    createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+  },
+  {
+    id: 'seed-deals-hunt',
+    content: `3 ways to use circubAwd like a pro:
+
+1. Scan before you buy — PriceLens tells you if the asking price is fair in your area
+2. Follow locals in your city — their price posts show up in your Local feed automatically
+3. Ask a guide — tap "Ask a local guide" on any scan result to get a human answer from someone who lives there
+
+The Battle tab ranks the top deal-hunters each week. Post a price yourself to climb the leaderboard and earn stickers.`,
+    imageUrl: null,
+    authorId: 'seed',
+    author: {
+      id: 'seed-3',
+      name: 'circubAwd Guides',
+      avatarColor: 'teal',
+      headline: 'Official tips',
+      location: null,
+    },
+    likes: [],
+    reposts: [],
+    comments: [],
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+  },
+]
+
 /**
- * A LinkedIn/Reddit-style community posting site, rendered as a TRUE
- * full-screen overlay (not a Dialog — the Dialog component's responsive
- * classes constrain max-width and centering, which prevents full-screen).
- * Uses a portal to document.body so it covers everything.
+ * LinkedIn-style community feed, rendered as a slide-over panel from the
+ * right side. The navbar stays visible at the top — the panel sits below it
+ * so users can still navigate while reading the feed.
  */
 export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModalProps) {
   const [posts, setPosts] = useState<Post[]>([])
@@ -68,7 +146,6 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
     if (open) fetchPosts()
   }, [open, fetchPosts])
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false) }
@@ -76,17 +153,11 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onOpenChange])
 
-  // Lock body scroll while open
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [open])
-
+  // Merge seed posts with real posts (seeds first, then real posts by sort)
+  const allPosts = [...SEED_POSTS, ...posts]
   const sortedPosts = sort === 'top'
-    ? [...posts].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
-    : posts
+    ? [...allPosts].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
+    : allPosts
 
   const handleUpload = async (file: File) => {
     if (!file) return
@@ -142,6 +213,20 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
   }
 
   const handleLike = async (postId: string) => {
+    // Seed posts can't be liked via the API — just toggle locally
+    if (postId.startsWith('seed-')) {
+      setPosts((prev) => {
+        // seed posts live in SEED_POSTS, not in `posts` state; toggle in a
+        // local-likes map by mutating the seed array reference.
+        const seed = SEED_POSTS.find((p) => p.id === postId)
+        if (seed) {
+          const already = seed.likes.some((l) => l.userId === me?.id)
+          seed.likes = already ? seed.likes.filter((l) => l.userId !== me!.id) : [...seed.likes, { id: 'me', userId: me!.id }]
+        }
+        return [...prev]
+      })
+      return
+    }
     if (me?.id === 'guest') {
       window.dispatchEvent(new CustomEvent('circub:auth-expired'))
       return
@@ -162,6 +247,22 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
   const handleComment = async (postId: string) => {
     const text = (commentDrafts[postId] || '').trim()
     if (!text) return
+    // Seed posts can't receive real comments via API — add locally
+    if (postId.startsWith('seed-')) {
+      const seed = SEED_POSTS.find((p) => p.id === postId)
+      if (seed) {
+        seed.comments = [...seed.comments, {
+          id: `local-${Date.now()}`,
+          content: text,
+          authorId: me?.id || 'guest',
+          author: { id: me?.id || 'guest', name: me?.name || 'You', avatarColor: 'teal', headline: me?.headline || null },
+          createdAt: new Date().toISOString(),
+        } as Comment]
+      }
+      setCommentDrafts((prev) => ({ ...prev, [postId]: '' }))
+      setPosts((prev) => [...prev])
+      return
+    }
     if (me?.id === 'guest') {
       window.dispatchEvent(new CustomEvent('circub:auth-expired'))
       return
@@ -199,127 +300,137 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
   if (!open) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] bg-background flex flex-col" role="dialog" aria-modal="true" aria-label="Community feed">
-      {/* Header — fixed height */}
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground leading-none">Community feed</h3>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Public posts from everyone</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setSort('recent')}
-            className={cn(
-              'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
-              sort === 'recent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-            )}
-          >
-            <Clock className="w-3 h-3" /> Recent
-          </button>
-          <button
-            onClick={() => setSort('top')}
-            className={cn(
-              'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
-              sort === 'top' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-            )}
-          >
-            <TrendingUp className="w-3 h-3" /> Top
-          </button>
-          <button
-            onClick={() => onOpenChange(false)}
-            aria-label="Close"
-            className="ml-1 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true" aria-label="Community feed">
+      {/* Backdrop — click to close. Sits below the navbar so the navbar
+          stays interactive. */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={() => onOpenChange(false)}
+      />
 
-      {/* Composer — fixed height */}
-      <div className="px-4 py-3 border-b border-border bg-card shrink-0">
-        <div className="flex items-start gap-3 max-w-2xl mx-auto">
-          <Avatar className="w-10 h-10 border-2 border-accent shrink-0 overflow-hidden">
-            {(me as any)?.profilePicture ? (
-              <img src={(me as any).profilePicture} alt={me?.name || 'You'} className="w-full h-full object-cover" />
-            ) : (
-              <AvatarFallback className="bg-primary/15 text-primary font-semibold">
-                {me?.name?.charAt(0).toUpperCase() || 'U'}
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <Textarea
-              placeholder={`Share something with the community, ${me?.name?.split(' ')[0] || '...'}...`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="min-h-[60px] resize-y bg-background border-border text-sm"
-            />
-            {imageUrl && (
-              <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
-                <img src={imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
+      {/* Slide-over panel from the right. Top is offset to leave the navbar
+          visible (top-14 = 56px, the navbar height on most breakpoints). */}
+      <div className="absolute top-14 right-0 bottom-0 w-full sm:w-[480px] md:w-[560px] bg-background shadow-2xl border-l border-border flex flex-col animate-in slide-in-from-right duration-200">
+
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground leading-none">Community feed</h3>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Tips, questions, and posts from the community</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setSort('recent')}
+              className={cn(
+                'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
+                sort === 'recent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+              )}
+            >
+              <Clock className="w-3 h-3" /> Recent
+            </button>
+            <button
+              onClick={() => setSort('top')}
+              className={cn(
+                'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors',
+                sort === 'top' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+              )}
+            >
+              <TrendingUp className="w-3 h-3" /> Top
+            </button>
+            <button
+              onClick={() => onOpenChange(false)}
+              aria-label="Close"
+              className="ml-1 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Composer */}
+        <div className="px-4 py-3 border-b border-border bg-card shrink-0">
+          <div className="flex items-start gap-3">
+            <Avatar className="w-10 h-10 border-2 border-accent shrink-0 overflow-hidden">
+              {(me as any)?.profilePicture ? (
+                <img src={(me as any).profilePicture} alt={me?.name || 'You'} className="w-full h-full object-cover" />
+              ) : (
+                <AvatarFallback className="bg-primary/15 text-primary font-semibold">
+                  {me?.name?.charAt(0).toUpperCase() || 'U'}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <Textarea
+                placeholder={`Share a tip, ask a question, or post a deal, ${me?.name?.split(' ')[0] || '...'}...`}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="min-h-[60px] resize-y bg-background border-border text-sm"
+              />
+              {imageUrl && (
+                <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
+                  <img src={imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-1.5 right-1.5 h-6 w-6 p-0 bg-white/90 hover:bg-white"
+                    onClick={() => setImageUrl('')}
+                    aria-label="Remove"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+              <div className="mt-2 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    ref={fileRef}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleUpload(f)
+                      if (fileRef.current) fileRef.current.value = ''
+                    }}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 text-primary" />}
+                    <span>Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDraft((c) => c + ' 😊')}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Smile className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Emoji</span>
+                  </button>
+                </div>
                 <Button
-                  variant="ghost"
+                  onClick={handlePost}
+                  disabled={posting || uploading || (!draft.trim() && !imageUrl)}
                   size="sm"
-                  className="absolute top-1.5 right-1.5 h-6 w-6 p-0 bg-white/90 hover:bg-white"
-                  onClick={() => setImageUrl('')}
-                  aria-label="Remove"
+                  className="bg-primary hover:bg-primary/90 gap-1.5"
                 >
-                  <X className="w-3 h-3" />
+                  {posting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Posting...</> : <><Send className="w-3.5 h-3.5" /> Post</>}
                 </Button>
               </div>
-            )}
-            <div className="mt-2 flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  ref={fileRef}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) handleUpload(f)
-                    if (fileRef.current) fileRef.current.value = ''
-                  }}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 text-primary" />}
-                  <span className="hidden sm:inline">Photo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDraft((c) => c + ' 😊')}
-                  className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Smile className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="hidden sm:inline">Emoji</span>
-                </button>
-              </div>
-              <Button
-                onClick={handlePost}
-                disabled={posting || uploading || (!draft.trim() && !imageUrl)}
-                size="sm"
-                className="bg-primary hover:bg-primary/90 gap-1.5"
-              >
-                {posting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Posting...</> : <><Send className="w-3.5 h-3.5" /> Post</>}
-              </Button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Feed — fills all remaining height, scrolls internally */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10">
-        <div className="max-w-2xl mx-auto">
+        {/* Feed — scrolls internally */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -328,11 +439,11 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
           ) : sortedPosts.length === 0 ? (
             <div className="py-12 text-center px-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
-                <Globe className="w-5 h-5 text-primary" />
+                <Search className="w-5 h-5 text-primary" />
               </div>
               <p className="text-sm font-medium text-foreground">No posts yet</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                Be the first to share something with the community.
+                Share a tip or question to start the conversation.
               </p>
             </div>
           ) : (
@@ -340,8 +451,9 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
               {sortedPosts.map((post) => {
                 const liked = me ? post.likes.some((l) => l.userId === me.id) : false
                 const showComments = openCommentsFor.has(post.id)
+                const isSeed = post.id.startsWith('seed-')
                 return (
-                  <li key={post.id} className="px-4 py-3 hover:bg-card/50 transition-colors">
+                  <li key={post.id} className={cn('px-4 py-3 hover:bg-card/50 transition-colors', isSeed && 'bg-emerald-50/40')}>
                     <div className="flex items-start gap-3">
                       <Avatar className="w-9 h-9 border border-accent shrink-0 overflow-hidden">
                         {(post.author as any).profilePicture ? (
@@ -353,8 +465,13 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
                         )}
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs">
+                        <div className="flex items-center gap-1.5 text-xs flex-wrap">
                           <span className="font-semibold text-foreground">{post.author.name}</span>
+                          {isSeed && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-semibold">
+                              <Sparkles className="w-2.5 h-2.5" /> TIP
+                            </span>
+                          )}
                           {post.author.headline && (
                             <>
                               <span className="text-muted-foreground">·</span>
