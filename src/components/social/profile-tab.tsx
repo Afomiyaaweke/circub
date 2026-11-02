@@ -55,6 +55,8 @@ interface ProfileTabProps {
   onSectionChange?: (section: ContentType) => void
   onOpenListing: (postId: string) => void
   onMessage: (userId: string) => void
+  /** Open the community feed (1:1 inbox for the profile owner). */
+  onOpenMessages?: () => void
   onUserChanged: () => void
   onSignUp: () => void
 }
@@ -149,7 +151,7 @@ function ensureRenderableImage(file: File): File {
   return file
 }
 
-export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onSectionChange, onOpenListing, onMessage, onUserChanged, onSignUp }: ProfileTabProps) {
+export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onSectionChange, onOpenListing, onMessage, onOpenMessages, onUserChanged, onSignUp }: ProfileTabProps) {
   const { toast } = useToast()
   const isGuest = me.id === 'guest'
 
@@ -1661,6 +1663,12 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <Share2 className="w-4 h-4" />
           </Button>
           <Button onClick={openEdit} variant="outline" className="flex-1 h-9 rounded-lg text-xs sm:text-sm">Edit profile</Button>
+          {onOpenMessages && (
+            <Button onClick={onOpenMessages} variant="outline" className="flex-1 h-9 rounded-lg text-xs sm:text-sm gap-1.5">
+              <Mail className="w-4 h-4" />
+              Messages
+            </Button>
+          )}
           <Button onClick={openVerification} variant="outline"
             className={cn('flex-1 h-9 rounded-lg text-xs sm:text-sm gap-1', isIdVerified && 'border-blue-500/40 text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-400')}>
             {isIdVerified ? <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /> : <ShieldCheck className="w-4 h-4 text-primary shrink-0" />}

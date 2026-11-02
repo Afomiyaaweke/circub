@@ -558,6 +558,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
                 onSectionChange={setProfileLiveSection}
                 onOpenListing={setLocalPriceId}
                 onMessage={handleMessageUser}
+                onOpenMessages={handleOpenMessages}
                 onUserChanged={fetchMe}
                 onSignUp={() => setRegisterOpen(true)}
               />

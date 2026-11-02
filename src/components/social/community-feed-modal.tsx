@@ -191,11 +191,11 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-none w-screen h-screen sm:w-[100vw] sm:h-[100vh] p-0 gap-0 overflow-hidden rounded-none border-0 inset-0 translate-x-0 translate-y-0 sm:translate-x-0 sm:translate-y-0 top-0 left-0">
         <DialogTitle className="sr-only">Community feed</DialogTitle>
 
         {/* Header */}
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Sparkles className="w-4 h-4" />
@@ -235,7 +235,7 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
         </div>
 
         {/* Composer */}
-        <div className="px-4 py-3 border-b border-border bg-card">
+        <div className="px-4 py-3 border-b border-border bg-card shrink-0">
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-accent shrink-0 overflow-hidden">
               {(me as any)?.profilePicture ? (
@@ -311,8 +311,9 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
           </div>
         </div>
 
-        {/* Feed */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10">
+        {/* Feed - full height, scrolls internally */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin bg-accent/10" style={{ height: 'calc(100vh - 130px)' }}>
+          <div className="max-w-2xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
@@ -443,6 +444,7 @@ export function CommunityFeedModal({ open, onOpenChange, me }: CommunityFeedModa
               })}
             </ul>
           )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
