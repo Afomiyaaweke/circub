@@ -11,7 +11,7 @@
  * ⚠️ Bump VERSION on EVERY deploy that changes code: cached assets reference
  * hashed /_next files of that deployment.
  */
-const VERSION = 'circub-v227';
+const VERSION = 'circub-v228';
 const SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -36,8 +36,54 @@ self.addEventListener('activate', (event) => {
       .keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
+      .then(() => refreshStaleClients())
   );
 });
+
+// Pages ask us which build we are (pwa-register adoptVersion handshake).
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'GET_VERSION' && event.ports[0]) {
+    event.ports[0].postMessage({ type: 'CIRCUB_VERSION', version: VERSION });
+  }
+});
+
+// Ask every open tab which build it is. Tabs running the current register
+// answer PONG and keep working; tabs running an OLDER build never answer and
+// get force-navigated once, so even a long-lived PWA session that never
+// reloads heals itself onto the fresh build (no manual cache clear needed).
+function refreshStaleClients() {
+  return self.clients
+    .matchAll({ type: 'window', includeUncontrolled: true })
+    .then((clients) =>
+      Promise.all(
+        clients.map(
+          (client) =>
+            new Promise((resolve) => {
+              try {
+                const channel = new MessageChannel();
+                let answered = false;
+                channel.port1.onmessage = (event) => {
+                  if (event.data?.type === 'CIRCUB_PONG') answered = true;
+                };
+                client.postMessage({ type: 'CIRCUB_PING' }, [channel.port2]);
+                setTimeout(() => {
+                  if (!answered && typeof client.navigate === 'function') {
+                    try {
+                      client.navigate(client.url);
+                    } catch {
+                      /* best effort */
+                    }
+                  }
+                  resolve();
+                }, 6000);
+              } catch {
+                resolve();
+              }
+            })
+        )
+      )
+    );
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
