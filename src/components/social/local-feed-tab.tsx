@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Sheet, Tag } from 'lucide-react'
+import { MapPin, Plus, Search, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Tag } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { LocalProductCard } from './local-product-card'
 import { PriceStoriesStrip } from './price-stories-strip'
 import { CreatePricePostModal } from './create-price-post-modal'
-import { BulkPostModal } from './bulk-post-modal'
 import { CATEGORIES, CATEGORY_GROUPS, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 import { EditPricePostModal } from './edit-price-post-modal'
 import { PriceDetailModal } from './price-detail-modal'
@@ -72,7 +71,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // shop owners (the amber badge), 'shared' only ordinary shared prices.
   const [ownerFilter, setOwnerFilter] = useState<'all' | 'shop' | 'shared'>('all')
   const [modalOpen, setModalOpen] = useState(false)
-  const [bulkOpen, setBulkOpen] = useState(false)
   const [marketOpen, setMarketOpen] = useState(false)
   const [detailPostId, setDetailPostId] = useState<string | null>(null)
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
@@ -427,17 +425,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     setModalOpen(true)
   }
 
-  // Bulk post (v173): spreadsheet-style multi-post publishing. Same guest
-  // gate as the single composer - guests bounce to the Register modal.
-  const openBulk = () => {
-    if (isGuest) {
-      if (onRequireSignUp) onRequireSignUp()
-      toast({ title: 'Sign up to post', description: 'Create a free account to post local prices. It takes 10 seconds.' })
-      return
-    }
-    setBulkOpen(true)
-  }
-
   const handleEditPost = (post: LocalPricePost) => {
     setEditPost(post)
     setEditModalOpen(true)
@@ -673,25 +660,27 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 sm:p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary shrink-0" />
-              <h2 className="text-base sm:text-lg font-bold text-foreground truncate">Local Price Feed</h2>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Real prices from verified locals. Find what travelers actually pay · and what locals actually charge.</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button onClick={openBulk} variant="outline" className="gap-1.5 shadow-sm h-9 sm:h-10 px-3 sm:px-4" title="Post many prices at once from a spreadsheet" data-testid="bulk-post-open">
-              <Sheet className="w-4 h-4 text-emerald-600" /> <span className="text-xs sm:text-sm">Bulk post</span>
-            </Button>
-            <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm h-9 sm:h-10 px-3 sm:px-4">
-              <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
-            </Button>
-          </div>
-        </div>
-      </Card>
+      {/* v233: the big "Local Price Feed" header card is GONE - the user
+          asked to remove the local header and only keep the Post Price and
+          Proforma actions. ONE slim right-aligned row carries exactly those
+          two buttons; the Proforma entries that used to ride inside the
+          phone search pill and at the end of the filter row are gone with
+          it, so each action has exactly one entry point. The Link tab's
+          own header stays untouched. */}
+      <div className="flex items-center justify-end gap-2" data-testid="local-actions-row">
+        <Button
+          onClick={openMarket}
+          variant="outline"
+          className="gap-1.5 bg-card border-emerald-500/40 shadow-sm h-9 px-3 hover:bg-emerald-50"
+          title="Open the proforma - find prices, compare places and get the best result, from real price posts"
+          data-testid="market-open"
+        >
+          <ClipboardList className="w-4 h-4 text-emerald-600" /> <span className="text-xs sm:text-sm">Proforma</span>
+        </Button>
+        <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm h-9 px-3" data-testid="post-price-open">
+          <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
+        </Button>
+      </div>
 
       {/* Price stories - every newly posted price is shared as a 24h story
           banner here (the composer creates it on publish). Hidden entirely
@@ -699,11 +688,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       <PriceStoriesStrip onOpenPost={setDetailPostId} />
 
       {/* v232 ONE LINE filter row - the user: "keep them in one line". The
-          search pill (Proforma shortcut inside), the location + category
-          pickers and the poster-type segments share ONE row at every
-          breakpoint: on phones the pickers go icon-only (an active filter
-          tints its icon emerald) and the segments show short labels. State
-          chips and result panels render BELOW the row, never beside it. */}
+          search pill, the location + category pickers and the poster-type
+          segments share ONE row at every breakpoint: on phones the pickers
+          go icon-only (an active filter tints its icon emerald) and the
+          segments show short labels. v233: the Proforma shortcut that used
+          to ride inside the pill / at the row's end moved UP into the slim
+          action row - Proforma + Post Price are the only header actions.
+          State chips and result panels render BELOW the row, never beside it. */}
       <div className="space-y-1.5">
         <div className="flex items-center gap-1.5 sm:gap-2" data-testid="local-filter-row">
         <div className="flex items-center flex-1 min-w-0 rounded-lg border border-input bg-card shadow-xs">
@@ -712,12 +703,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
             </div>
-            {/* Phone: the Proforma shortcut collapses INTO the search bar -
-                it drops from the pill's right edge so it always fits the
-                screen. (v180: the camera-search entry was removed.) */}
-            <Button type="button" variant="ghost" size="icon" onClick={openMarket} disabled={searchingByImage} className="sm:hidden ml-0.5 shrink-0 w-9 h-9 rounded-tr-lg rounded-br-lg hover:bg-accent" title="Proforma - find, compare and get the best result" data-testid="market-open-compact">
-              <ClipboardList className="w-4 h-4 text-emerald-600" />
-            </Button>
           </div>
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           {/* v184: the country + city selects are ONE picker now - countries
@@ -794,19 +779,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
             </button>
           ))}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={openMarket}
-          disabled={searchingByImage}
-          className="hidden sm:inline-flex bg-card border-emerald-500/40 gap-1.5 h-9 px-3 text-xs shrink-0 hover:bg-emerald-50"
-          title="Open the proforma - find prices, compare places and get the best result, from real price posts"
-          data-testid="market-open"
-        >
-          <ClipboardList className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Proforma</span>
-        </Button>
         </div>
 
         {searchImage && (
@@ -1149,7 +1121,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       )}
 
       <CreatePricePostModal open={modalOpen} onOpenChange={setModalOpen} onCreated={() => { setPostPrefill(null); handleCreated() }} prefill={postPrefill} />
-      <BulkPostModal open={bulkOpen} onOpenChange={setBulkOpen} onCreated={handleCreated} />
       <EditPricePostModal open={editModalOpen} onOpenChange={setEditModalOpen} post={editPost} onSaved={() => { fetchPosts(); onRefreshUser() }} />
       <PriceDetailModal postId={detailPostId} onClose={() => setDetailPostId(null)} onAuthorClick={setProfileUserId} onMessage={onMessage} currentUserId={currentUserId} onOpenPost={setDetailPostId} />
       <LocalProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} onOpenPost={setDetailPostId} onMessage={onMessage} currentUserId={currentUserId} />

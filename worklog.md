@@ -182,3 +182,26 @@ All posts / Shop owner / Shared price tabs wrapping onto several lines).
   the register-to-vote toast. The not-accurate flag stays in the detail modal.
 - Probe 23/23 (one-line geometry on 390px + 1440px, icon-only forms, vote/un-vote end-to-end,
   search from the narrow input); tsc 20 baseline; build exit 0.
+
+## v233 - Local feed: header card gone, only Post Price + Proforma stay
+
+User: "keep the header for the link remove the local header and only keep the
+post price and proforma" (screenshots = the global nav header and the Local
+Price Feed page with its big title card).
+
+- `local-feed-tab.tsx`: the "Local Price Feed" header CARD is gone - the
+  Sparkles title, the subtitle and the "Bulk post" button go with it. What
+  remains of the header is ONE slim right-aligned row (`local-actions-row`)
+  with exactly the two kept actions: Proforma (outline, opens the market
+  panel) + Post Price (primary, opens the composer). The Proforma entries
+  that used to ride inside the phone search pill and at the end of the v232
+  filter row are removed, so each action has exactly ONE entry point.
+  Bulk post wiring (openBulk / bulkOpen / BulkPostModal import + render)
+  removed along with its last trigger. The v232 one-line filter row and the
+  per-post Helpful vote buttons are untouched.
+- The LINK tab header is untouched: the reel still opens on its slim bar
+  (back + Instant Bounties / Talent On Call switcher).
+- Probe 35/35 (header card + bulk gone at 390px & 1440px, one Proforma + one
+  Post Price, slim action row above the filter row, v232 one-line filter
+  intact, votes intact, Proforma panel + composer open/close, Link reel
+  header kept, reel back returns to Local); tsc 20 baseline; build exit 0.
