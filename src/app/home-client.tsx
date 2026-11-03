@@ -8,8 +8,9 @@
 // detail modal, so whoever receives the link sees the full details
 // immediately instead of a bare feed.
 
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
 import { LandingPage, type LandingStats } from '@/components/social/landing-page'
@@ -342,9 +343,16 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
   // Plain nav clicks reset the deep-linked Profile section so the tab opens
   // on Posts, while "My network" entry points still land on their section.
+  // v230: every non-Link tab is remembered so the Link reel's back button
+  // returns the user to wherever they came from ('feed' as the default).
+  const lastNonLinkTabRef = useRef<TabKey>('feed')
   const handleTabChange = useCallback((tab: TabKey) => {
     if (tab === 'profile') setProfileSection(null)
+    if (tab !== 'guides') lastNonLinkTabRef.current = tab
     setActiveTab(tab)
+  }, [])
+  const handleLinkBack = useCallback(() => {
+    setActiveTab(lastNonLinkTabRef.current)
   }, [])
 
   const openProfileSection = useCallback((section: 'saved' | 'network') => {
@@ -544,25 +552,33 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   }
 
   // Logged-in → dashboard
+  // v230: the Link tab ('guides') is a FULL-SCREEN reel view - it renders its
+  // own fixed inset-0 shell (back button + feed toggle + payouts), so while
+  // it is open the app header, right sidebar, dock and page paddings are not
+  // rendered at all (the user: "remove all the header from the link session
+  // and only keep the toggle and my escrow ... have back also").
+  const reelMode = activeTab === 'guides'
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-[62px] lg:pb-24">
+    <div className={cn('min-h-screen flex flex-col bg-background', !reelMode && 'pb-[62px] lg:pb-24')}>
       {oauthErrorBanner}
-      <div className="sticky top-0 z-40">
-        <Header
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onOpenMessages={handleOpenMessages}
-        incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
-        user={me}
-        onSignUp={() => setRegisterOpen(true)}
-        onLogin={() => setLoginOpen(true)}
-        onLogout={handleLogout}
-        onEditProfile={handleEditProfile}
-        onOpenNetwork={() => openProfileSection('network')}
-        onDeactivateAccount={() => setDeactivateOpen(true)}
-        onOpenPost={(postId) => setLocalPriceId(postId)}
-      />
-      </div>
+      {!reelMode && (
+        <div className="sticky top-0 z-40">
+          <Header
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          onOpenMessages={handleOpenMessages}
+          incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
+          user={me}
+          onSignUp={() => setRegisterOpen(true)}
+          onLogin={() => setLoginOpen(true)}
+          onLogout={handleLogout}
+          onEditProfile={handleEditProfile}
+          onOpenNetwork={() => openProfileSection('network')}
+          onDeactivateAccount={() => setDeactivateOpen(true)}
+          onOpenPost={(postId) => setLocalPriceId(postId)}
+        />
+        </div>
+      )}
 
       <Suspense fallback={null}>
         <DeactivateAccountModal
@@ -573,6 +589,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
         />
       </Suspense>
 
+      {reelMode ? (
+        <Suspense fallback={<div className="flex-1" />}>
+          <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} onBack={handleLinkBack} />
+        </Suspense>
+      ) : (
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {activeTab === 'feed' && (
@@ -584,12 +605,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           {activeTab === 'local' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} />
-            </Suspense>
-          )}
-
-          {activeTab === 'guides' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} />
             </Suspense>
           )}
 
@@ -635,6 +650,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           />
         </div>
       </div>
+      )}
 
       <Suspense fallback={null}>
         <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />

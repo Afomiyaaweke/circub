@@ -1,5 +1,31 @@
 # circubAwd worklog
 
+## v230 — Link tab becomes a full-screen reel: header removed, back button added (2026-11-03)
+User: "remove all the header from the link session and only keep the toggle and my escoret and
+make the swiping full screen like reel have back also".
+
+- REEL SHELL (`live-zone-tab.tsx`): the Link tab now renders `fixed inset-0 z-50` above the app
+  header (z-30) and the mobile dock (z-40); radix dialogs still portal above. The ONLY header is
+  one slim bar: back arrow (returns to the tab the user came from, `lastNonLinkTabRef` in
+  home-client) + the Instant Bounties / Talent On Call toggle + My Payouts & Escrow (icon-only on
+  phones). The v229 hero row (hustlers online, escrow badge, join/guide/go-live) is GONE; the
+  availability toggle lives in Profile.
+- FULL-SCREEN DECKS: bounty + talent decks swapped `h-[78vh] max-w-480` cards for `flex-1`
+  full-height snap decks — edge-to-edge on phones, centered 560px column with side borders on
+  desktop (TikTok-web). Rails moved up to bottom-4 (no dock underneath). Tier pills stay as a
+  slim overlay row with the Post pill at its right end; the inline quest form collapses to a
+  `max-h-46dvh` sheet with a close X; lanes + search stay as slim rows on the talent feed and the
+  AI panel is height-capped. Old `bounty-view-all`/`bounty-swipe-root` furniture removed.
+- ESCAPE GUARD: Escape leaves the reel, but a MutationObserver remembers the last time a
+  `[role=dialog]` was seen and stays put for 600ms — Radix flushes the dialog close during the
+  same Escape event, so a plain "dialog open" check already ran too late.
+- `home-client.tsx`: while the reel is open the app Header, RightSidebar, dock and page paddings
+  are not rendered at all (`reelMode` branch); LiveZoneTab gets `onBack`.
+- Verify: tsc 20 baseline (0 new), build clean, runtime probe task230_reel_probe.py 39/39
+  (header+dock unmounted, reel=viewport, deck 88% viewport full-bleed, claim end-to-end, back to
+  feed, talents full height, Escape closes dialog not the reel, desktop 560px column, no console
+  errors). Screenshots confirmed mobile + desktop.
+
 ## v229 — Link tab becomes the mockup's two-feed TikTok tab + escrow in Profile + SW/hydration fixes (2026-11-03)
 User: "it's does looks like this make it looks like this" (Instant-Bounties two-feed mockup) +
 "remove the footer icons form the web views" + follow-up: "remove all the like [counts], add the

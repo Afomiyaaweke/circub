@@ -14,7 +14,7 @@ import {
   Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
-  Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
+  Play, Video, Zap, ArrowRight, ArrowLeft, Clock, Tag, CheckCircle2, Send,
   Pencil, Trash2, UserX, X, Plane, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -44,11 +44,16 @@ interface LiveZoneTabProps {
   me: User | null
   onMessage: (userId: string) => void
   onBecomeGuide: () => void
-  onToggleAvailability: () => void
+  // v230: the Link tab is a full-screen reel view - the app header, sidebar
+  // and dock are all hidden, so the parent hands us a way back to the tab
+  // the user came from. The availability toggle button lives in the user's
+  // own profile now (the v229 hero row is gone).
+  onToggleAvailability?: () => void
   // v227: shared bounties land on /?quest=<id> - the swipe deck scrolls to
   // and flashes that bounty, then the parent clears the highlight.
   highlightQuestId?: string | null
   onHighlightDone?: () => void
+  onBack?: () => void
 }
 
 interface AiGuideResult {
@@ -173,7 +178,7 @@ type QuestRow = {
 }
 
 
-export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability, highlightQuestId, onHighlightDone }: LiveZoneTabProps) {
+export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, onHighlightDone, onBack }: LiveZoneTabProps) {
   const router = useRouter()
   const [guides, setGuides] = useState<any[]>([])
   // Load part by part: render a small batch first, append more on scroll
@@ -344,6 +349,30 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       return () => clearTimeout(t)
     }
   }, [highlightQuestId, feed, quests, onHighlightDone])
+
+  // v230: Escape leaves the reel too (desktop nicety) - UNLESS a modal dialog
+  // just handled the keystroke. Radix flushes the dialog close synchronously
+  // during the same Escape event, so a "is a dialog open" check in the bubble
+  // phase is already too late; instead we remember the last time a dialog was
+  // seen in the DOM and stay put for a short grace window after that.
+  const dialogSeenAtRef = useRef(0)
+  useEffect(() => {
+    if (!onBack) return
+    const scan = () => {
+      if (document.querySelector('[role="dialog"]')) dialogSeenAtRef.current = Date.now()
+    }
+    scan()
+    const mo = new MutationObserver(scan)
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state'] })
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      scan()
+      if (Date.now() - dialogSeenAtRef.current < 600) return
+      onBack()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); mo.disconnect() }
+  }, [onBack])
 
   const handleQuestSave = (q: QuestRow) => {
     const now = toggleSaved({
@@ -714,7 +743,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   }
 
   const isGuide = me?.isGuide
-  const isAvailable = (me as any)?.guideAvailable
 
   // v227 swipe deck: tier pills slice the bounty deck by the platform's own
   // lane rate cards - Hunter ($5-20) under $15, Helper ($15-30) in the
@@ -735,136 +763,98 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const posterCount = (name: string) => (quests || []).filter((x) => x.posterName === name).length
 
   return (
-    <div className="space-y-3">
-      {/* v229 COMPACT LIVE BANNER - the mockup's "Live Title Banner" slot.
-          The tall v214 hero is gone (the swipe deck owns the screen now);
-          the legacy actions stay reachable in one slim row: hustlers online,
-          escrow badge, payouts, join/guide/go-live. */}
-      <div className="flex items-center gap-2 flex-wrap" data-testid="hustle-hero">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 h-7 text-[11px] font-bold text-primary" title="Members whose availability toggle is ON right now">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          {guides.filter((g) => (g as any).guideAvailable).length} hustlers online
-        </span>
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-          Escrow Active
-        </span>
-        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
-          {!isGuide && (
-            <Button onClick={onBecomeGuide} size="sm" className="bg-primary hover:bg-primary/90 gap-1.5 shrink-0">
-              <Compass className="w-4 h-4" />
-              <span className="hidden sm:inline">Join as a local</span>
-            </Button>
-          )}
-          {isGuide && (
-            <>
-              <Button onClick={onBecomeGuide} size="sm" variant="outline" className="gap-1.5 shrink-0" title="Edit your guide profile or replace your ID/passport document">
-                <ShieldCheck className="w-4 h-4" />
-                <span className="hidden sm:inline">Guide profile</span>
-              </Button>
-              <Button
-                onClick={onToggleAvailability}
-                size="sm"
-                variant="outline"
-                className={cn(
-                  'gap-1.5 shrink-0',
-                  isAvailable
-                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
-                    : 'border-muted text-muted-foreground'
-                )}
-              >
-                <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
-                {isAvailable ? 'Go Live' : 'Start Earning'}
-              </Button>
-            </>
-          )}
-          <Button onClick={() => setBookingsOpen(true)} size="sm" variant="outline" className="gap-1.5 shrink-0 relative">
-            <CalendarCheck className="w-4 h-4" />
-            <span className="hidden sm:inline">My Payouts &amp; Escrow</span>
-            <span className="sm:hidden">Payouts</span>
-            {pendingBookings > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
-                {pendingBookings > 9 ? '9+' : pendingBookings}
-              </span>
+    /* v230 FULL-SCREEN REEL SHELL - the user: "remove all the header from the
+       link session and only keep the toggle and my escrow and make the
+       swiping full screen like reel have back also". The Link tab now covers
+       the whole viewport (fixed inset-0, above the app header z-30 and the
+       mobile dock z-40; radix dialogs portal above at z-50). The ONLY header
+       is one slim bar: back (to the tab the user came from) + the feed
+       toggle + My Payouts & Escrow. The old hero row (hustlers online,
+       escrow badge, join/guide/go-live) is gone. */
+    <div className="fixed inset-0 z-50 bg-background flex flex-col" data-testid="link-reel-root">
+      {/* v230 TOP BAR - the only header kept: back + toggle + payouts. */}
+      <div className="shrink-0 flex items-center gap-2 pl-2 pr-2.5 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 bg-background/95 backdrop-blur border-b border-border" data-testid="link-topbar">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            data-testid="link-back"
+            aria-label="Back"
+            title="Back"
+            className="w-9 h-9 rounded-full bg-accent hover:bg-accent/60 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* v229 FEED MODE SWITCHER - the mockup's TikTok mode pills, fed with
+            REAL counts (open bounties / registered talent). Bounties stay the
+            default feed (v220 deals-first contract). */}
+        <div className="flex items-center flex-1 min-w-0 p-0.5 rounded-full bg-accent/70 border border-border" role="tablist" aria-label="Link tab feed" data-testid="feed-switcher">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={feed === 'bounties'}
+            data-testid="feed-tab-bounties"
+            onClick={() => setFeed('bounties')}
+            className={cn(
+              'flex-1 h-8 px-2 rounded-full text-xs font-bold transition-all inline-flex items-center justify-center gap-1 min-w-0',
+              feed === 'bounties'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
-          </Button>
+          >
+            <Zap className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Instant Bounties</span>
+            <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', feed === 'bounties' ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground')}>
+              {quests?.length ?? 0}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={feed === 'talents'}
+            data-testid="feed-tab-talents"
+            onClick={() => setFeed('talents')}
+            className={cn(
+              'flex-1 h-8 px-2 rounded-full text-xs font-bold transition-all inline-flex items-center justify-center gap-1 min-w-0',
+              feed === 'talents'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Users className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Talent On Call</span>
+            <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', feed === 'talents' ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground')}>
+              {guides.length}
+            </span>
+          </button>
         </div>
-      </div>
 
-      {/* v229 FEED MODE SWITCHER - the mockup's TikTok mode pills, fed with
-          REAL counts (open bounties / registered talent). Bounties stay the
-          default feed (v220 deals-first contract). */}
-      <div className="flex items-center p-0.5 rounded-full bg-accent/70 border border-border" role="tablist" aria-label="Link tab feed" data-testid="feed-switcher">
+        {/* My Payouts & Escrow - the one action the user asked to keep in the
+            header ("only keep the toggle and my escrow"). Icon-only on
+            phones, full label from md up. */}
         <button
           type="button"
-          role="tab"
-          aria-selected={feed === 'bounties'}
-          data-testid="feed-tab-bounties"
-          onClick={() => setFeed('bounties')}
-          className={cn(
-            'flex-1 h-8 px-3 rounded-full text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5 min-w-0',
-            feed === 'bounties'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
+          onClick={() => setBookingsOpen(true)}
+          data-testid="payouts-escrow-btn"
+          aria-label="My payouts and escrow"
+          className="relative w-9 h-9 md:w-auto md:h-9 md:px-3 rounded-full md:rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center gap-1.5 shrink-0 transition-colors cursor-pointer"
         >
-          <Zap className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">Instant Bounties</span>
-          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', feed === 'bounties' ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground')}>
-            {quests?.length ?? 0}
-          </span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={feed === 'talents'}
-          data-testid="feed-tab-talents"
-          onClick={() => setFeed('talents')}
-          className={cn(
-            'flex-1 h-8 px-3 rounded-full text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5 min-w-0',
-            feed === 'talents'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
+          <CalendarCheck className="w-4 h-4" />
+          <span className="hidden md:inline text-xs font-semibold whitespace-nowrap">My Payouts &amp; Escrow</span>
+          {pendingBookings > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
+              {pendingBookings > 9 ? '9+' : pendingBookings}
+            </span>
           )}
-        >
-          <Users className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">Talent On Call</span>
-          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', feed === 'talents' ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground')}>
-            {guides.length}
-          </span>
         </button>
       </div>
 
-      {/* ============ v229 BOUNTIES FEED (Instant Bounties) ============ */}
-      <div className={cn('space-y-2.5', feed !== 'bounties' && 'hidden')} data-testid="bounty-board">
-        {/* v220 button-on-top contract: the post button is the FIRST element
-            of the board; "N open bounties" sits beside it. */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                // Opening the form fresh always means a NEW post - cancel any
-                // in-flight edit so stale pre-filled values don't leak in.
-                setShowQuestForm((v) => {
-                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
-                  return !v
-                })
-                setQPostErr('')
-              }}
-              data-testid="bounty-post-link"
-              aria-expanded={showQuestForm}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold tracking-wide shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all shrink-0"
-            >
-              <Plus className="w-4 h-4 shrink-0" />
-              {editingQuest ? 'Editing quest - cancel' : 'Post an Instant Quest'}
-            </button>
-            {quests && quests.length > 3 && (
-              <span className="text-xs font-semibold text-muted-foreground" data-testid="bounty-view-all">{quests.length} open bounties</span>
-            )}
-          </div>
-
+      {/* ============ v230 BOUNTIES FEED (Instant Bounties) ============ */}
+      <div className={cn('flex-1 min-h-0 flex flex-col', feed !== 'bounties' && 'hidden')} data-testid="bounty-board">
         {qPostOk && (
-          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" data-testid="quest-post-ok">
+          <p className="shrink-0 mx-2.5 mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" data-testid="quest-post-ok">
             {qPostOk}
           </p>
         )}
@@ -872,13 +862,24 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         {showQuestForm && (
           <form
             onSubmit={postQuestHere}
-            className="mt-3 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3"
+            className="shrink-0 mx-2.5 mt-1.5 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3 max-h-[46dvh] overflow-y-auto scrollbar-thin"
             data-testid="quest-post-form"
             id="bounty-board-form"
           >
-            <p className="text-sm font-bold text-foreground">
-              {editingQuest ? 'Edit your quest - update the terms, then save' : 'Upload an instant quest - ask for help, offer a bounty'}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-foreground">
+                {editingQuest ? 'Edit your quest - update the terms, then save' : 'Upload an instant quest - ask for help, offer a bounty'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowQuestForm(false)}
+                data-testid="quest-form-close"
+                aria-label="Close the quest form"
+                className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <input
               value={qTitle}
               onChange={(e) => setQTitle(e.target.value)}
@@ -960,15 +961,17 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         )}
 
         {!quests ? (
-          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-loading">Loading bounties...</p>
+          <p className="px-3 py-2 text-sm text-muted-foreground shrink-0" data-testid="bounty-loading">Loading bounties...</p>
         ) : quests.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
+          <p className="px-3 py-2 text-sm text-muted-foreground shrink-0" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
         ) : (
-          <div data-testid="bounty-swipe-root" className="space-y-2.5">
+          <>
             {/* v227 tier pills - the mockup's "Quick category filter pills".
                 Named after the platform's own hustle lanes; slices the deck
-                by bounty size: Hunter < $15, Helper $15-30, Scout $30+. */}
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1" data-testid="bounty-tiers">
+                by bounty size: Hunter < $15, Helper $15-30, Scout $30+.
+                v230: the Post pill lives at the right end of this row (the
+                dedicated button row above the deck is gone). */}
+            <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-thin px-2.5 py-1.5" data-testid="bounty-tiers">
               {BOUNTY_TIERS.map((tier) => {
                 const count = tier.key === 'all' ? quests.length : quests.filter((q) => tierOf(q.bountyUsd) === tier.key).length
                 return (
@@ -988,31 +991,54 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                   </button>
                 )
               })}
+              <button
+                type="button"
+                onClick={() => {
+                  // Opening the form fresh always means a NEW post - cancel any
+                  // in-flight edit so stale pre-filled values don't leak in.
+                  setShowQuestForm((v) => {
+                    if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
+                    return !v
+                  })
+                  setQPostErr('')
+                }}
+                data-testid="bounty-post-link"
+                aria-expanded={showQuestForm}
+                className="ml-auto shrink-0 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                {editingQuest ? 'Cancel edit' : 'Post'}
+              </button>
             </div>
 
-            {/* v229 the deck itself: one bounty per screen, snap scrolling,
-                mockup-styled cards (accent glow, location/deadline chips,
-                poster chip, escrow banner, 4-button action rail). Portrait
-                column centered on desktop, full-bleed on phones. */}
+            {/* v230 the deck itself: FULL SCREEN - the reel fills everything
+                under the slim top bar, one bounty per snap screen. A centered
+                560px column on desktop, edge-to-edge on phones. */}
             <div
               ref={deckRef}
               data-testid="bounty-swipe"
-              className="relative h-[78vh] min-h-[540px] max-h-[780px] w-full max-w-[480px] mx-auto overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-thin"
+              className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scroll-smooth scrollbar-thin bg-background"
             >
               {filteredQuests.map((q, idx) => {
                 const isClaimed = q.claimed || locallyClaimed[q.id]
                 const isLast = idx === filteredQuests.length - 1
                 const qCount = posterCount(q.posterName)
                 return (
+                  /* v230 full-bleed reel slide: the slide fills the viewport
+                     width; the card content lives in a centered 560px column
+                     on desktop (TikTok-web style) and goes edge-to-edge on
+                     phones. Content below is one level shallower than it
+                     looks - the wrapper exists purely for the desktop gutters. */
                   <div
                     key={q.id}
                     data-quest-id={q.id}
                     data-testid="bounty-card"
-                    className={cn(
-                      'relative h-full w-full snap-start snap-always flex flex-col rounded-3xl border bg-card shadow-md p-4 overflow-hidden',
-                      questFlash === q.id && 'ring-2 ring-primary'
-                    )}
+                    className="relative h-full w-full snap-start snap-always flex bg-background"
                   >
+                    <div className={cn(
+                      'relative h-full w-full max-w-[560px] mx-auto flex flex-col bg-card shadow-md p-4 sm:p-5 overflow-hidden border-border sm:border-x',
+                      questFlash === q.id && 'ring-2 ring-primary ring-inset'
+                    )}>
                     {/* mockup accent glow - rotated per card */}
                     <div className={cn('absolute -right-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[idx % DECK_GLOWS.length])} aria-hidden="true" />
 
@@ -1207,7 +1233,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         buttons with labels, honest actions only. Chat opens a
                         member poster's profile; guest posters get an honest
                         toast pointing at the claim flow. */}
-                    <div className="absolute right-2.5 bottom-12 z-10 flex flex-col items-center gap-2.5" data-testid="bounty-action-rail">
+                    <div className="absolute right-2.5 bottom-4 z-10 flex flex-col items-center gap-2.5" data-testid="bounty-action-rail">
                       <div className="flex flex-col items-center">
                         <button
                           type="button"
@@ -1281,12 +1307,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                         <span className="text-[9px] font-bold text-muted-foreground mt-0.5">Chat</span>
                       </div>
                     </div>
+                    </div>
                   </div>
                 )
               })}
 
               {/* end card - honest stopping point, one tap to refresh */}
-              <div className="h-full w-full snap-start snap-always flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="bounty-deck-end">
+              <div className="h-full w-full max-w-[560px] mx-auto snap-start snap-always flex flex-col items-center justify-center gap-3 p-6 text-center bg-card border-border sm:border-x" data-testid="bounty-deck-end">
                 <span className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6 text-primary" />
                 </span>
@@ -1297,7 +1324,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                 </Button>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -1305,15 +1332,15 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           this section all and make it only in one line") - the escrow story
           survives in the compact hero badge above and the payouts modal. */}
 
-      {/* ============ v229 TALENT FEED (Talent On Call) ============ */}
-      <div className={cn('space-y-2.5', feed !== 'talents' && 'hidden')} data-testid="talent-feed">
+      {/* ============ v230 TALENT FEED (Talent On Call) ============ */}
+      <div className={cn('flex-1 min-h-0 flex flex-col', feed !== 'talents' && 'hidden')} data-testid="talent-feed">
       {/* v222: the four hustle lanes as ONE LINE of compact pills - tap one
           to slice the directory by that role (guide / local / sales / agent).
           Counter = real members in the directory; the first lane keeps the
           platform's signature dark-green fill; descriptions and price ranges
           moved into the title tooltip so the row stays a single line on
           phones (grid-cols-4 at every breakpoint). */}
-      <div className="grid grid-cols-4 gap-1.5 sm:gap-2" data-testid="hustle-lanes">
+      <div className="shrink-0 grid grid-cols-4 gap-1.5 sm:gap-2 px-2.5 pt-1.5" data-testid="hustle-lanes">
         {HUSTLE_LANES.map((lane, i) => {
           const laneCount = guides.filter((g) => guideRolesOrLegacy((g as any).guideRoles).includes(lane.role)).length
           const laneActive = role === lane.role
@@ -1372,7 +1399,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           specialty dropdowns as redundant with this search. The whole filter
           row is ONE line even on phones: AI Match goes icon-only, Available /
           Near me hide their labels under sm. */}
-      <div className="flex items-center gap-2">
+      <div className="shrink-0 flex items-center gap-2 px-2.5 pt-1.5">
         <div className="flex items-center flex-1 min-w-0 rounded-lg border border-input bg-card shadow-xs overflow-hidden">
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -1436,7 +1463,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       {/* AI Guide Match panel - opens from the AI button inside the search
           pill. The ask form tucks away after a match; the result stays. */}
       {(aiOpen || aiResult) && (
-      <Card className="p-3 sm:p-5 shadow-sm border-primary/20">
+      <Card className="shrink-0 mx-2.5 mt-1.5 max-h-[46dvh] overflow-y-auto scrollbar-thin p-3 sm:p-5 shadow-sm border-primary/20">
         {aiOpen ? (
         <>
         <div className="flex items-center gap-2.5">
@@ -1680,7 +1707,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             profile per screen, same rail furniture as the bounty cards.
             Lanes + search + AI above slice this directory (contracts kept). */}
         {loading && guides.length === 0 ? (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="shrink-0 mx-2.5 mt-1.5 grid grid-cols-1 gap-3">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="p-4 space-y-3">
                 <Skeleton className="h-3 w-20" />
@@ -1691,7 +1718,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
             ))}
           </div>
         ) : guides.length === 0 ? (
-          <Card className="p-10 text-center shadow-sm">
+          <Card className="shrink-0 mx-2.5 mt-1.5 p-10 text-center shadow-sm">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
               <Compass className="w-6 h-6 text-primary" />
             </div>
@@ -1709,13 +1736,17 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         ) : (
           <div
             data-testid="talent-swipe"
-            className="relative h-[78vh] min-h-[540px] max-h-[780px] w-full max-w-[480px] mx-auto overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-thin"
+            className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scroll-smooth scrollbar-thin bg-background"
           >
             {visibleGuides.map((g, idx) => {
               const isOwn = me?.id === g.id
               const isLastTalent = idx === visibleGuides.length - 1 && !guidesHasMore
               return (
-                <div key={g.id} data-testid="talent-card" className="relative h-full w-full snap-start snap-always flex flex-col rounded-3xl border bg-card shadow-md p-4 overflow-hidden">
+                /* v230 full-bleed reel slide - same shell as the bounty
+                   slides: edge-to-edge on phones, centered 560px column with
+                   side borders on desktop. */
+                <div key={g.id} data-testid="talent-card" className="relative h-full w-full snap-start snap-always flex bg-background">
+                  <div className="relative h-full w-full max-w-[560px] mx-auto flex flex-col bg-card shadow-md p-4 sm:p-5 overflow-hidden border-border sm:border-x">
                   <div className={cn('absolute -left-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[(idx + 1) % DECK_GLOWS.length])} aria-hidden="true" />
                   <div className="relative flex-1 min-h-0 flex flex-col">
                     {/* profile header: avatar tile + name/ID + role line +
@@ -1871,7 +1902,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
 
                   {/* v229 talent action rail - Save / Book / Share / Chat
                       (Chat = the in-app message thread with that talent). */}
-                  <div className="absolute right-2.5 bottom-12 z-10 flex flex-col items-center gap-2.5" data-testid="talent-action-rail">
+                  <div className="absolute right-2.5 bottom-4 z-10 flex flex-col items-center gap-2.5" data-testid="talent-action-rail">
                     {isOwn ? (
                       <span className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">You</span>
                     ) : (
@@ -1927,12 +1958,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       </>
                     )}
                   </div>
+                  </div>
                 </div>
               )
             })}
 
             {/* talent end card - honest stopping point, one tap to refresh */}
-            <div className="h-full w-full snap-start snap-always flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="talent-deck-end">
+            <div className="h-full w-full max-w-[560px] mx-auto snap-start snap-always flex flex-col items-center justify-center gap-3 p-6 text-center bg-card border-border sm:border-x" data-testid="talent-deck-end">
               <span className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <Users className="w-6 h-6 text-primary" />
               </span>
