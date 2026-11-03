@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 //  - "Near me": GPS-based distance sort (haversine via the city table).
 //  - Tourist star ratings are visible on every card with review count;
 //    tapping them opens the full reviews dialog.
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { getCoordinates } from '@/lib/location'
 import { splitVideoUrls } from '@/lib/video'
-import { guideRolesOrLegacy, roleListLabel, roleNoun } from '@/lib/roles'
+import { guideRolesOrLegacy, roleNoun } from '@/lib/roles'
 import { VideoEmbed } from './video-embed'
 import { useProgressiveList } from '@/lib/use-progressive-list'
 import { GuideRatingModal } from './guide-rating-modal'
@@ -101,14 +101,13 @@ const TIER_LABEL: Record<string, string> = {
 
 // v214 Live Hustle Zone, trimmed in v217 ("remove those all vloger things"),
 // v218 ("remove redundant filters") and v222 ("remove this section all and
-// make it only in one line" + "have agent bage also to register as travel
-// agent and get booked"): FOUR slim lane pills on ONE line map 1:1 onto the
-// community roles (guide / local / sales / agent) and are the ONLY role
-// slicers - the old role chips row under the search bar is gone (it
-// duplicated the lanes) and the tall escrow band is gone with it. Price
-// ranges are the platform's public rate guidance (lg+ screens only - the
-// pills must stay one line on phones); the live counter comes from the REAL
-// directory counts, and tapping a lane applies that role filter.
+// make it only in one line"). v231 ("remove this and put it all in one
+// search bar only"): the four lane pill TABS are GONE from the screen - the
+// rows below keep this catalog as the one source of truth for what each lane
+// means and what it pays. Role slicing now happens INSIDE the search bar:
+// typing scout / helper / hunter / agent (plural allowed) applies that lane's
+// role filter, exactly like tapping a pill used to. Price ranges stay as
+// tooltips on the lane chip; the live counters live on the feed switcher.
 const HUSTLE_LANES: Array<{
   role: 'guide' | 'local' | 'sales' | 'agent'
   label: string
@@ -153,6 +152,31 @@ const HUSTLE_LANES: Array<{
   },
 ]
 
+// v231 one-search-bar role slicer. Maps the typed lane keywords onto the
+// SAME role slugs the old lane tabs filtered by (guide / local / sales /
+// agent). Only the lane SHORT names match - generic words from the labels
+// ("local", "travel", "price") are deliberately NOT keywords so ordinary
+// skill searches like "local food" or "price of coffee" keep working.
+// Returns the role slug plus the search text with the keyword stripped
+// (that remainder still narrows by skill/bio/location as before).
+export function parseLaneSearch(text: string): { role: 'guide' | 'local' | 'sales' | 'agent'; short: string; cleaned: string } | null {
+  const t = text.toLowerCase()
+  for (const lane of HUSTLE_LANES) {
+    const w = lane.short.toLowerCase()
+    const re = new RegExp(`\\b${w}s?\\b`)
+    if (re.test(t)) {
+      return {
+        role: lane.role,
+        short: lane.short,
+        cleaned: text.replace(new RegExp(`\\b${w}s?\\b`, 'i'), ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/^[,\s]+|[,\s]+$/g, ''),
+      }
+    }
+  }
+  return null
+}
+
 // v229 mockup accent glows - one soft blurred circle per swipe card,
 // rotated by index (emerald / sky / amber / rose), theme-safe opacities.
 const DECK_GLOWS = ['bg-emerald-500/15', 'bg-sky-500/15', 'bg-amber-500/15', 'bg-rose-500/15']
@@ -187,9 +211,10 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
   const [search, setSearch] = useState('')
   // v218: standalone language/specialty dropdown filters removed as redundant
   // - the search box matches languages, specialties and locations already.
-  // Role filter (v161): '' = all roles, otherwise a circubawd_ROLES slug wired
-  // to the hustle lanes (tap a lane) and the /api/guides `role` param.
-  const [role, setRole] = useState('')
+  // v231: the lane role filter (v161) is DERIVED from the same search text -
+  // typing "scout", "helper", "hunter" or "agent" slices the directory by
+  // that lane's role; no separate role state, no tabs, one search bar.
+  const laneHit = useMemo(() => parseLaneSearch(search), [search])
   const [availableOnly, setAvailableOnly] = useState(false)
 
   // Near-me (GPS distance sort)
@@ -236,8 +261,9 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
     if (!hasGuidesRef.current) setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (search) params.set('search', search)
-      if (role) params.set('role', role)
+      const q = laneHit ? laneHit.cleaned : search
+      if (q) params.set('search', q)
+      if (laneHit) params.set('role', laneHit.role)
       if (availableOnly) params.set('available', 'true')
       if (nearMe && myCoords) {
         params.set('lat', String(myCoords.lat))
@@ -249,7 +275,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
       setGuides(next)
       hasGuidesRef.current = next.length > 0
     } catch { setGuides([]); hasGuidesRef.current = false } finally { setLoading(false) }
-  }, [search, role, availableOnly, nearMe, myCoords, meRolesKey])
+  }, [search, laneHit, availableOnly, nearMe, myCoords, meRolesKey])
 
   useEffect(() => {
     const t = setTimeout(fetchGuides, 250)
@@ -1334,130 +1360,88 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
 
       {/* ============ v230 TALENT FEED (Talent On Call) ============ */}
       <div className={cn('flex-1 min-h-0 flex flex-col', feed !== 'talents' && 'hidden')} data-testid="talent-feed">
-      {/* v222: the four hustle lanes as ONE LINE of compact pills - tap one
-          to slice the directory by that role (guide / local / sales / agent).
-          Counter = real members in the directory; the first lane keeps the
-          platform's signature dark-green fill; descriptions and price ranges
-          moved into the title tooltip so the row stays a single line on
-          phones (grid-cols-4 at every breakpoint). */}
-      <div className="shrink-0 grid grid-cols-4 gap-1.5 sm:gap-2 px-2.5 pt-1.5" data-testid="hustle-lanes">
-        {HUSTLE_LANES.map((lane, i) => {
-          const laneCount = guides.filter((g) => guideRolesOrLegacy((g as any).guideRoles).includes(lane.role)).length
-          const laneActive = role === lane.role
-          const LaneIcon = lane.icon
-          const isLead = i === 0
-          return (
-            <button
-              key={lane.role}
-              type="button"
-              data-testid="hustle-service-card"
-              data-role={lane.role}
-              onClick={() => setRole(laneActive ? '' : lane.role)}
-              title={`${lane.label} - ${lane.desc} (${lane.price})`}
-              className={cn(
-                'flex items-center justify-center gap-1 sm:gap-1.5 text-left rounded-xl border px-1 sm:px-2 h-10 min-w-0 transition-all cursor-pointer',
-                isLead
-                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                  : 'bg-card border-border hover:border-primary/40 hover:shadow-sm',
-                laneActive && 'ring-2 ring-primary/40'
-              )}
-            >
-              <LaneIcon className={cn('w-4 h-4 shrink-0', isLead ? 'text-white' : 'text-primary')} />
-              <span className={cn('min-w-0 truncate text-[11px] sm:text-xs font-bold', isLead ? 'text-white' : 'text-foreground')}>
-                {lane.short}
-              </span>
-              <span
-                className={cn(
-                  'hidden lg:inline rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap shrink-0',
-                  isLead
-                    ? 'bg-white/15 text-white'
-                    : lane.hot
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400'
-                      : 'bg-accent text-muted-foreground'
-                )}
-              >
-                {lane.price}
-              </span>
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-1 min-w-[1.1rem] text-center text-[9px] font-bold leading-4',
-                  isLead ? 'bg-white/15 text-white' : 'bg-primary/10 text-primary'
-                )}
-                title={`${laneCount} active now`}
-              >
-                {laneCount}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Search bar - one unified pill (mirrors the Local Price feed). The
-          search accepts comma-separated terms ("Addis, English, Hiking"):
-          each term matches name, bio, languages, specialties or location and
-          the terms are AND-ed - v218 removed the standalone language and
-          specialty dropdowns as redundant with this search. The whole filter
-          row is ONE line even on phones: AI Match goes icon-only, Available /
-          Near me hide their labels under sm. */}
-      <div className="shrink-0 flex items-center gap-2 px-2.5 pt-1.5">
-        <div className="flex items-center flex-1 min-w-0 rounded-lg border border-input bg-card shadow-xs overflow-hidden">
+      {/* v231 ONE SEARCH BAR - the user: "remove this and put it all in one
+          search bar only". The four lane tabs are gone; this single pill is
+          the ONLY filter surface for the talent feed and it keeps the results
+          in the SAME swipe deck below (no new page). Inside, left to right:
+          the input (matches name/bio/languages/specialties/location AND the
+          lane keywords scout/helper/hunter/agent), the active-lane chip,
+          then AI Match / Available / Near me as icon toggles. */}
+      <div className="shrink-0 px-2.5 pt-1.5" data-testid="talent-search-bar">
+        {/* Desktop: the pill rides the same centered 560px column as the
+            swipe cards instead of stretching across the viewport. */}
+        <div className="flex items-center gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-1 pr-1 mx-auto w-full max-w-[560px]">
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Search by skill (e.g. English, Merkato Sourcing, Driver)..."
+              data-testid="talent-search-input"
+              placeholder="Search talent or type Scout / Helper / Hunter / Agent..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
+              className="pl-8 pr-1 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
             />
           </div>
-        {/* AI Guide Match - lives inside the search pill. Tap to open the ask
-            form in the panel below; a finished match keeps the button lit. */}
-        <button
-          type="button"
-          onClick={() => setAiOpen(!aiOpen)}
-          aria-expanded={aiOpen}
-          title="AI Guide Match - ask anything · get matched guides + places"
-          className={
-            'flex items-center gap-1.5 h-9 px-2.5 sm:pr-3 shrink-0 text-xs sm:text-sm font-medium border-0 border-l border-input rounded-none transition-colors cursor-pointer ' +
-            (aiOpen || aiResult ? 'bg-primary/10 text-primary' : 'bg-transparent text-muted-foreground hover:text-primary')
-          }
-        >
-          <Sparkles className="w-4 h-4 shrink-0" />
-          <span className="hidden sm:inline shrink-0">AI Match</span>
-          {aiResult && !aiOpen && (
-            <span className="text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5 shrink-0 hidden sm:inline">Match ready</span>
+          {/* Active lane chip - shows which lane keyword matched; tap the x
+              to strip the keyword from the input. */}
+          {laneHit && (
+            <button
+              type="button"
+              data-testid="lane-chip"
+              onClick={() => setSearch(laneHit.cleaned)}
+              title="Lane filter active - tap to clear"
+              className="shrink-0 inline-flex items-center gap-0.5 h-7 px-2 rounded-full bg-primary/10 text-primary text-[10px] font-bold cursor-pointer hover:bg-primary/20 transition-colors"
+            >
+              {laneHit.short}
+              <X className="w-3 h-3" />
+            </button>
           )}
-          {aiOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" />}
-        </button>
+          {/* AI Guide Match - tap to open the ask form in the panel below;
+              a finished match keeps the button lit. */}
+          <button
+            type="button"
+            data-testid="ai-match-toggle"
+            onClick={() => setAiOpen(!aiOpen)}
+            aria-expanded={aiOpen}
+            title="AI Guide Match - ask anything · get matched guides + places"
+            className={
+              'flex items-center gap-1 h-9 px-2 shrink-0 text-xs font-medium rounded-full transition-colors cursor-pointer ' +
+              (aiOpen || aiResult ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary')
+            }
+          >
+            <Sparkles className="w-4 h-4 shrink-0" />
+            <span className="hidden md:inline shrink-0">AI Match</span>
+            {aiOpen ? <ChevronUp className="w-3 h-3 shrink-0" /> : <ChevronDown className="w-3 h-3 shrink-0" />}
+          </button>
+          {/* Available - only talent whose availability toggle is ON */}
+          <button
+            type="button"
+            data-testid="available-toggle"
+            onClick={() => setAvailableOnly(!availableOnly)}
+            title="Show only talent whose availability toggle is ON"
+            aria-pressed={availableOnly}
+            className={cn(
+              'flex items-center justify-center h-9 w-9 shrink-0 rounded-full transition-colors cursor-pointer',
+              availableOnly ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
+            )}
+          >
+            <Radio className={cn('w-4 h-4', availableOnly && 'animate-pulse')} />
+          </button>
+          {/* Near me - GPS distance sort */}
+          <button
+            type="button"
+            data-testid="nearme-toggle"
+            onClick={handleNearMe}
+            disabled={locating}
+            title="Sort talent by distance from you"
+            aria-pressed={nearMe}
+            className={cn(
+              'flex items-center justify-center h-9 w-9 shrink-0 rounded-full transition-colors cursor-pointer disabled:opacity-60',
+              nearMe ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-primary'
+            )}
+          >
+            {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className={cn('w-4 h-4', nearMe && 'animate-pulse')} />}
+          </button>
         </div>
-        <button
-          onClick={() => setAvailableOnly(!availableOnly)}
-          title="Show only hustlers whose availability toggle is ON"
-          className={cn(
-            'flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-medium border transition-colors shrink-0',
-            availableOnly
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-card text-muted-foreground border-border'
-          )}
-        >
-          <Radio className={cn('w-3.5 h-3.5', availableOnly && 'animate-pulse')} />
-          <span className="hidden sm:inline">Available</span>
-        </button>
-        {/* Near me - GPS distance sort */}
-        <button
-          onClick={handleNearMe}
-          disabled={locating}
-          title="Sort guides by distance from you"
-          className={cn(
-            'flex items-center gap-1 h-9 px-2.5 rounded-md text-xs font-medium border transition-colors disabled:opacity-60 shrink-0',
-            nearMe
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-card text-muted-foreground border-border hover:border-primary/40'
-          )}
-        >
-          {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className={cn('w-3.5 h-3.5', nearMe && 'animate-pulse')} />}
-          <span className="hidden sm:inline">{nearMe ? 'Nearest' : 'Near me'}</span>
-        </button>
       </div>
 
       {/* AI Guide Match panel - opens from the AI button inside the search
@@ -1705,7 +1689,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
 
         {/* v229 talent snap deck - the mockup's Talent On Call feed: one
             profile per screen, same rail furniture as the bounty cards.
-            Lanes + search + AI above slice this directory (contracts kept). */}
+            v231: the ONE search bar above (lane keywords + AI Match +
+            Available + Near me) slices this directory (contracts kept). */}
         {loading && guides.length === 0 ? (
           <div className="shrink-0 mx-2.5 mt-1.5 grid grid-cols-1 gap-3">
             {[1, 2, 3].map((i) => (

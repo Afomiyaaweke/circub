@@ -144,3 +144,21 @@ Commit f47d8d5, pushed to main, live (sw.js `circub-v226`).
   filters; skeletons match the grid.
 - Verify: tsc baseline clean, build clean, runtime probe: post→save flows, localStorage save,
   detail modal, all testids intact.
+
+## v231 - Talent feed: one search bar, no lane tabs
+
+User: "remove this and put it all in on search bar only and make the page like all don't creat
+new page keep showing like the feed" (screenshot = the Link tab's Talent On Call filter block:
+Scout/Helper/Hunter/Agent lane tabs + skill search + AI Match / Available / Near me).
+
+- `live-zone-tab.tsx`: the four hustle-lane TABS are gone from the screen (HUSTLE_LANES stays
+  as the one catalog of lane meanings/rates). The whole filter surface is now ONE pill:
+  input + active-lane chip + AI Match / Available / Near me as icon toggles, all inside the
+  bar (`talent-search-bar` / `talent-search-input` / `lane-chip` / `ai-match-toggle` /
+  `available-toggle` / `nearme-toggle`). Role slicing moved INTO the search text: typing
+  scout / helper / hunter / agent (plurals ok) applies the same role slug the tabs used
+  (`parseLaneSearch`, generic label words deliberately NOT keywords so "local food" stays a
+  skill search); the chip shows/clears the active lane. Results keep rendering in the SAME
+  swipe deck - zero navigation, no new page. Desktop: the pill rides the centered 560px card
+  column (max-w-[560px] mx-auto) instead of stretching. Derived `laneHit` replaces the old
+  role state; AI panel/empty states untouched. Probe 35/35; tsc 20 baseline; build exit 0.
