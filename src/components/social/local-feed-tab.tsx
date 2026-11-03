@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { LocalPriceCard } from './local-price-card'
+import { LocalProductCard } from './local-product-card'
 import { PriceStoriesStrip } from './price-stories-strip'
 import { CreatePricePostModal } from './create-price-post-modal'
 import { BulkPostModal } from './bulk-post-modal'
@@ -78,6 +78,9 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const [profileUserId, setProfileUserId] = useState<string | null>(null)
   const [editPost, setEditPost] = useState<LocalPricePost | null>(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  // v226: the Dantty product grid tracks the post being deleted so its
+  // trash icon spins instead of the whole grid flashing.
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   // Tracks whether the /api/auth/me probe finished - distinguishes a real
   // guest (probe done, no user id) from a logged-in user during the first
@@ -442,6 +445,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
 
   const handleDelete = async (postId: string) => {
     if (!confirm('Delete this price post? This cannot be undone.')) return
+    setDeletingId(postId)
     try {
       const res = await fetch(`/api/local-prices/${postId}`, { method: 'DELETE' })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed to delete') }
@@ -450,7 +454,21 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       onRefreshUser()
     } catch (e) {
       toast({ title: 'Delete failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setDeletingId(null)
     }
+  }
+
+  // v226: "See All" in the Local Products header - one tap back to the
+  // full, unfiltered marketplace feed.
+  const handleSeeAll = () => {
+    setSearch('')
+    setSearchRaw('')
+    setCountry('All countries')
+    setCity('All cities')
+    setCategory(ALL_CATEGORIES)
+    ownerTapRef.current = true
+    setOwnerFilter('all')
   }
 
   // The location a search should compare prices in: the user's explicit
@@ -1054,8 +1072,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           tabs). The desktop right sidebar still renders the shared card. */}
 
       {loading && posts.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => <Card key={i} className="p-3 space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-5 w-3/4" /><Skeleton className="h-10 w-full" /><Skeleton className="h-3 w-full" /></Card>)}
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <Card key={i} className="p-2 space-y-2"><Skeleton className="aspect-square w-full" /><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /><Skeleton className="h-7 w-full" /></Card>)}
         </div>
       ) : posts.length === 0 ? (
         <Card className="p-6 sm:p-10 text-center shadow-sm">
@@ -1079,26 +1097,33 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         </Card>
       ) : (
         <>
-          <p className="text-xs text-muted-foreground px-1">{posts.length} local price post{posts.length !== 1 && 's'} found</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* v226: Dantty-style "Local Products" marketplace section - the
+              price posts ARE the products. Square-photo cards in a dense
+              grid (2 cols on phones, 4 on desktop) with one Compare
+              Sellers action each. "See All" appears only while a filter
+              is active and clears it in one tap. */}
+          <div className="flex items-end justify-between gap-3 px-1">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight">Local Products</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{posts.length} item{posts.length !== 1 && 's'} found</p>
+            </div>
+            {(search || country !== 'All countries' || city !== 'All cities' || category !== ALL_CATEGORIES || ownerFilter !== 'all') && (
+              <Button variant="outline" size="sm" onClick={handleSeeAll} className="shrink-0 h-8 px-3 text-xs" data-testid="local-see-all">See All</Button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4" data-testid="local-products-grid">
             {posts.map((p) => {
-              const cmp = compareByCard.get(p.id) ?? null
+              const isOwn = !!currentUserId && p.authorId === currentUserId
               return (
-                <LocalPriceCard
+                <LocalProductCard
                   key={p.id}
                   post={p}
                   onOpen={setDetailPostId}
-                  onVote={handleVote}
-                  onAuthorClick={setProfileUserId}
-                  onMessage={onMessage}
-                  onDelete={handleDelete}
-                  canDelete={!!currentUserId && p.authorId === currentUserId}
                   onEdit={handleEditPost}
-                  canEdit={!!currentUserId && p.authorId === currentUserId}
-                  isOwnPost={!!currentUserId && p.authorId === currentUserId}
-                  currentUserId={currentUserId}
-                  compare={cmp}
-                  gameRank={voteRanks.get(p.id) ?? null}
+                  onDelete={handleDelete}
+                  canEdit={isOwn}
+                  canDelete={isOwn}
+                  deleting={deletingId === p.id}
                 />
               )
             })}

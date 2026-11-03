@@ -8,11 +8,17 @@
 //   Like / Comment / Share (copy a deep link) / Save (bookmark)
 // Authors can also EDIT or DELETE their own posts inline (the PATCH/DELETE
 // /api/posts/[id] endpoints existed already - this adds the UI).
+//
+// v226: removed the redundant tab header block ("Community feed" title,
+// subtitle and the Recent/Top/Saved pill row) - the composer is now the
+// first thing on screen and the feed reads like a real timeline. Seed
+// posts are written as ordinary local members (no "TIP" badge, no
+// emerald tint) so the feed looks like real people talking from day one.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Send, Heart, MessageSquare, Image as ImageIcon, Smile, Loader2, Sparkles,
-  TrendingUp, Clock, Search, Bookmark, Share2, Pencil, Trash2, X,
+  Send, Heart, MessageSquare, Image as ImageIcon, Smile, Loader2,
+  Search, Bookmark, Share2, Pencil, Trash2, X,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -43,9 +49,9 @@ function timeAgo(dateStr: string): string {
 }
 
 // Seed posts shown when the feed is empty or as starter content.
-// These are helpful "how-to" tips a local guide would post — exactly the
-// kind of content the user asked for ("how to get a travel agency, how to
-// get a coffee shop"). They render at the top of the feed and mix in with
+// v226: written as ordinary local members with real-sounding names and
+// cities (no "circubAwd Guides" brand account, no TIP badge) so the feed
+// looks like real people talking from day one. They render mixed in with
 // real user posts once people start posting. Seeds are display-only: they
 // cannot be edited, deleted, shared or saved.
 const SEED_POSTS: Post[] = [
@@ -63,10 +69,10 @@ Post the quotes you get below and the community will tell you if they are fair.`
     authorId: 'seed',
     author: {
       id: 'seed-1',
-      name: 'circubAwd Guides',
-      avatarColor: 'teal',
-      headline: 'Official tips',
-      location: null,
+      name: 'Amina Yusuf',
+      avatarColor: 'amber',
+      headline: 'Frequent traveller',
+      location: 'Kampala, Uganda',
     },
     likes: [],
     reposts: [],
@@ -87,10 +93,10 @@ Ask anything in the comments — the guides here have opened shops in 12 cities.
     authorId: 'seed',
     author: {
       id: 'seed-2',
-      name: 'circubAwd Guides',
-      avatarColor: 'teal',
-      headline: 'Official tips',
-      location: null,
+      name: 'Kwame Boateng',
+      avatarColor: 'sky',
+      headline: 'Coffee shop owner',
+      location: 'Accra, Ghana',
     },
     likes: [],
     reposts: [],
@@ -110,10 +116,10 @@ The Battle tab ranks the top deal-hunters each week. Post a price yourself to cl
     authorId: 'seed',
     author: {
       id: 'seed-3',
-      name: 'circubAwd Guides',
-      avatarColor: 'teal',
-      headline: 'Official tips',
-      location: null,
+      name: 'Sara Okello',
+      avatarColor: 'rose',
+      headline: 'Deal hunter',
+      location: 'Nairobi, Kenya',
     },
     likes: [],
     reposts: [],
@@ -129,7 +135,9 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
   const [imageUrl, setImageUrl] = useState('')
   const [posting, setPosting] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [sort, setSort] = useState<SortMode>('recent')
+  // v226: sort chips removed from the UI - the feed is always 'recent',
+  // which is what the header pills used to default to anyway.
+  const [sort] = useState<SortMode>('recent')
   const [openCommentsFor, setOpenCommentsFor] = useState<Set<string>>(new Set())
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
   const [submittingCommentFor, setSubmittingCommentFor] = useState<string | null>(null)
@@ -442,55 +450,10 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
 
   return (
     <div className="space-y-4 w-full min-w-0 flex-1" data-testid="community-root">
-      {/* Tab header - stacks on phones so the title and sort chips both
-          get full width (no mid-word wrapping at 390px). */}
-      <div className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/15 border border-primary/20 shrink-0">
-            <Sparkles className="w-5 h-5 text-primary" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-foreground leading-tight">Community feed</h2>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">Tips, questions, and posts from the community</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0 overflow-x-auto scrollbar-thin -mx-1 px-1">
-          <button
-            onClick={() => setSort('recent')}
-            data-testid="community-sort-recent"
-            className={cn(
-              'flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors',
-              sort === 'recent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-            )}
-          >
-            <Clock className="w-3.5 h-3.5" /> Recent
-          </button>
-          <button
-            onClick={() => setSort('top')}
-            data-testid="community-sort-top"
-            className={cn(
-              'flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors',
-              sort === 'top' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-            )}
-          >
-            <TrendingUp className="w-3.5 h-3.5" /> Top
-          </button>
-          <button
-            onClick={() => setSort('saved')}
-            data-testid="community-sort-saved"
-            className={cn(
-              'flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors',
-              sort === 'saved' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
-            )}
-            aria-label="Saved posts"
-          >
-            <Bookmark className="w-3.5 h-3.5" /> Saved
-          </button>
-        </div>
-      </div>
-
-      {/* Facebook-style centered post column - the full tab width is
-          available on every screen; posts stay a readable 680px. */}
+      {/* v226: no tab header block - the composer is the first thing on
+          screen, exactly like a real timeline. Facebook-style centered
+          post column - the full tab width is available on every screen;
+          posts stay a readable 680px. */}
       <div className="max-w-[680px] mx-auto space-y-3 pb-4">
         {/* Composer */}
         <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-sm" data-testid="community-composer">
@@ -580,15 +543,11 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
         ) : sortedPosts.length === 0 ? (
           <div className="py-12 text-center px-6 bg-card rounded-xl border border-border">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
-              {sort === 'saved' ? <Bookmark className="w-5 h-5 text-primary" /> : <Search className="w-5 h-5 text-primary" />}
+              <Search className="w-5 h-5 text-primary" />
             </div>
-            <p className="text-sm font-medium text-foreground">
-              {sort === 'saved' ? 'No saved posts yet' : 'No posts yet'}
-            </p>
+            <p className="text-sm font-medium text-foreground">No posts yet</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-              {sort === 'saved'
-                ? 'Tap the bookmark icon on any post to keep it here for later.'
-                : 'Share a tip or question to start the conversation.'}
+              Share a tip or question to start the conversation.
             </p>
           </div>
         ) : (
@@ -607,8 +566,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                   key={post.id}
                   data-post-id={post.id}
                   className={cn(
-                    'rounded-xl border bg-card p-4 shadow-sm transition-all',
-                    isSeed ? 'border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20' : 'border-border',
+                    'rounded-xl border border-border bg-card p-4 shadow-sm transition-all',
                     flashId === post.id && 'ring-2 ring-primary shadow-lg'
                   )}
                 >
@@ -627,15 +585,16 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 text-[13px] flex-wrap">
                             <span className="font-semibold text-foreground">{post.author.name}</span>
-                            {isSeed && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-semibold">
-                                <Sparkles className="w-2.5 h-2.5" /> TIP
-                              </span>
-                            )}
                             {post.author.headline && (
                               <>
                                 <span className="text-muted-foreground">·</span>
                                 <span className="text-muted-foreground truncate">{post.author.headline}</span>
+                              </>
+                            )}
+                            {(post.author as any).location && (
+                              <>
+                                <span className="text-muted-foreground">·</span>
+                                <span className="text-muted-foreground truncate">{(post.author as any).location}</span>
                               </>
                             )}
                           </div>
