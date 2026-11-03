@@ -148,6 +148,10 @@ const HUSTLE_LANES: Array<{
   },
 ]
 
+// v229 mockup accent glows - one soft blurred circle per swipe card,
+// rotated by index (emerald / sky / amber / rose), theme-safe opacities.
+const DECK_GLOWS = ['bg-emerald-500/15', 'bg-sky-500/15', 'bg-amber-500/15', 'bg-rose-500/15']
+
 type QuestRow = {
   id: string
   title: string
@@ -156,6 +160,9 @@ type QuestRow = {
   deadlineText: string
   bountyUsd: number
   posterName: string
+  // v229: member posters carry their public username (guest posters are
+  // null) so the action rail's Chat button can open their profile page.
+  posterUsername?: string | null
   claimed: boolean
   // v219 privacy: the claimer's name/contact are never sent to the client -
   // the board only knows the two session-scoped flags below. Applicant
@@ -288,6 +295,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [questFlash, setQuestFlash] = useState<string | null>(null)
   const deckRef = useRef<HTMLDivElement | null>(null)
 
+  // v229 TikTok feed mode - the mockup's top switcher: 'Instant Bounties'
+  // vs 'Talent On Call'. Deals stay the default (v220 deals-first contract).
+  const [feed, setFeed] = useState<'bounties' | 'talents'>('bounties')
+  // v229 talent rail: per-guide saved flags from the localStorage saved-items
+  // store (type 'guide'), mirroring the bounty rail.
+  const [savedGuides, setSavedGuides] = useState<Record<string, boolean>>({})
+
   // Claim form: prefill the member's own name (visitors type theirs).
   const meName = me?.name
   useEffect(() => {
@@ -314,9 +328,13 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   }, [quests])
 
   // v227 deep link: /?quest=<id> opens this tab with the target bounty
-  // flashed - scroll the snap deck to the card, ring it for ~2.5s, report back.
+  // flashed - switch to the bounties feed, scroll the snap deck to the card,
+  // ring it for ~2.5s, report back.
   useEffect(() => {
-    if (!highlightQuestId || !quests || quests.length === 0) return
+    if (highlightQuestId) setFeed('bounties')
+  }, [highlightQuestId])
+  useEffect(() => {
+    if (!highlightQuestId || feed !== 'bounties' || !quests || quests.length === 0) return
     const deck = deckRef.current
     const card = deck?.querySelector<HTMLElement>(`[data-quest-id="${highlightQuestId}"]`)
     if (deck && card) {
@@ -325,7 +343,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const t = setTimeout(() => { setQuestFlash(null); onHighlightDone?.() }, 2600)
       return () => clearTimeout(t)
     }
-  }, [highlightQuestId, quests, onHighlightDone])
+  }, [highlightQuestId, feed, quests, onHighlightDone])
 
   const handleQuestSave = (q: QuestRow) => {
     const now = toggleSaved({
@@ -353,6 +371,60 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       }
       await navigator.clipboard.writeText(`${text} ${url}`)
       toast({ title: 'Link copied', description: 'Paste it anywhere to send someone this bounty.' })
+    } catch { /* user cancelled the share sheet */ }
+  }
+
+  // v229 bounty rail Chat action: member posters open their public profile;
+  // guest posters (no account) get an honest explanation instead of a dead
+  // link - their contact unlocks through the claim flow.
+  const chatWithPoster = (q: QuestRow) => {
+    if (q.posterUsername) {
+      router.push(`/u/${q.posterUsername}`)
+      return
+    }
+    toast({ title: 'This poster is a guest', description: 'They posted without an account. Claim the bounty to get their contact instantly.' })
+  }
+
+  // v229 talent rail: seed per-guide saved flags whenever the directory
+  // lands (the rail's Save toggles live here, same as the bounty rail).
+  useEffect(() => {
+    if (!guides.length) return
+    setSavedGuides(() => {
+      const next: Record<string, boolean> = {}
+      guides.forEach((g) => { next[g.id] = checkSaved(g.id) })
+      return next
+    })
+  }, [guides])
+
+  const handleGuideSave = (g: any) => {
+    const now = toggleSaved({
+      id: g.id,
+      type: 'guide',
+      title: g.name,
+      subtitle: g.location || null,
+      priceLabel: g.guideHourlyRate != null && g.guideCurrency ? `${g.guideCurrency} ${g.guideHourlyRate}/hr` : 'Rate on request',
+      imageUrl: g.profilePicture ? avatarSrc(g.profilePicture) : null,
+      href: g.username ? `/g/${g.username}` : null,
+    })
+    setSavedGuides((prev) => ({ ...prev, [g.id]: now }))
+    toast({ title: now ? 'Talent saved' : 'Removed from saved' })
+  }
+
+  const shareGuide = async (g: any) => {
+    const url = typeof window === 'undefined'
+      ? 'https://circubawd.vercel.app'
+      : g.username
+        ? `${window.location.origin}/g/${g.username}`
+        : `${window.location.origin}/?guide=${g.id}`
+    const rls = guideRolesOrLegacy((g as any).guideRoles)
+    const text = `${g.name} - ${roleNoun(rls[0] || 'local')} on circubAwd`
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'circubAwd talent', text, url })
+        return
+      }
+      await navigator.clipboard.writeText(`${text} ${url}`)
+      toast({ title: 'Link copied', description: url.replace(/^https?:\/\//, '') })
     } catch { /* user cancelled the share sheet */ }
   }
 
@@ -663,84 +735,110 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const posterCount = (name: string) => (quests || []).filter((x) => x.posterName === name).length
 
   return (
-    <div className="space-y-4">
-      {/* v214 HustleHub header: live status strip + big hero title. All the
-          legacy actions stay (bookings modal, guide profile edit, availability
-          toggle) - just relabeled into the hustle vocabulary. */}
-      <div className="space-y-2" data-testid="hustle-hero">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 h-6 text-[11px] font-bold text-primary" title="Members whose availability toggle is ON right now">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              {guides.filter((g) => (g as any).guideAvailable).length} hustlers online
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-              Escrow Active
-            </span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {!isGuide && (
-              <Button onClick={onBecomeGuide} size="sm" className="bg-primary hover:bg-primary/90 gap-1.5 shrink-0">
-                <Compass className="w-4 h-4" />
-                Join as a local
-              </Button>
-            )}
-            {isGuide && (
-              <>
-                <Button onClick={onBecomeGuide} size="sm" variant="outline" className="gap-1.5 shrink-0" title="Edit your guide profile or replace your ID/passport document">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span className="hidden sm:inline">Guide profile</span>
-                </Button>
-                <Button
-                  onClick={onToggleAvailability}
-                  size="sm"
-                  variant="outline"
-                  className={cn(
-                    'gap-1.5 shrink-0',
-                    isAvailable
-                      ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
-                      : 'border-muted text-muted-foreground'
-                  )}
-                >
-                  <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
-                  {isAvailable ? 'Go Live' : 'Start Earning'}
-                </Button>
-              </>
-            )}
-            <Button onClick={() => setBookingsOpen(true)} size="sm" variant="outline" className="gap-1.5 shrink-0 relative">
-              <CalendarCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">My Payouts & Escrow</span>
-              <span className="sm:hidden">Bookings</span>
-              {pendingBookings > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
-                  {pendingBookings > 9 ? '9+' : pendingBookings}
-                </span>
-              )}
+    <div className="space-y-3">
+      {/* v229 COMPACT LIVE BANNER - the mockup's "Live Title Banner" slot.
+          The tall v214 hero is gone (the swipe deck owns the screen now);
+          the legacy actions stay reachable in one slim row: hustlers online,
+          escrow badge, payouts, join/guide/go-live. */}
+      <div className="flex items-center gap-2 flex-wrap" data-testid="hustle-hero">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 h-7 text-[11px] font-bold text-primary" title="Members whose availability toggle is ON right now">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          {guides.filter((g) => (g as any).guideAvailable).length} hustlers online
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+          Escrow Active
+        </span>
+        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+          {!isGuide && (
+            <Button onClick={onBecomeGuide} size="sm" className="bg-primary hover:bg-primary/90 gap-1.5 shrink-0">
+              <Compass className="w-4 h-4" />
+              <span className="hidden sm:inline">Join as a local</span>
             </Button>
-          </div>
-        </div>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">Live Hustle Zone</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground max-w-2xl">
-            Turn local knowledge, your phone, or language skills into cash — payouts land straight in your wallet.
-          </p>
+          )}
+          {isGuide && (
+            <>
+              <Button onClick={onBecomeGuide} size="sm" variant="outline" className="gap-1.5 shrink-0" title="Edit your guide profile or replace your ID/passport document">
+                <ShieldCheck className="w-4 h-4" />
+                <span className="hidden sm:inline">Guide profile</span>
+              </Button>
+              <Button
+                onClick={onToggleAvailability}
+                size="sm"
+                variant="outline"
+                className={cn(
+                  'gap-1.5 shrink-0',
+                  isAvailable
+                    ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                    : 'border-muted text-muted-foreground'
+                )}
+              >
+                <Radio className={cn('w-4 h-4', isAvailable && 'animate-pulse')} />
+                {isAvailable ? 'Go Live' : 'Start Earning'}
+              </Button>
+            </>
+          )}
+          <Button onClick={() => setBookingsOpen(true)} size="sm" variant="outline" className="gap-1.5 shrink-0 relative">
+            <CalendarCheck className="w-4 h-4" />
+            <span className="hidden sm:inline">My Payouts &amp; Escrow</span>
+            <span className="sm:hidden">Payouts</span>
+            {pendingBookings > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
+                {pendingBookings > 9 ? '9+' : pendingBookings}
+              </span>
+            )}
+          </Button>
         </div>
       </div>
 
-      {/* v220: the DEALS come first - this board sits right under the hero,
-          above the lanes and the talent directory (user: "make the deals
-          first then the ppl next and the button on top"), with the
-          "+ Post an Instant Quest" button as the FIRST element of the
-          board header. v217: the FULL board, INLINE on this
-          page (user: "make this on the same page as the link and don't take
-          it on the new landing page"). Posting and claiming happen right
-          here with zero navigation: "+ Post an Instant Quest" opens the
-          upload form in place, "Claim Bounty" opens the claim form in place
-          and instantly reveals the poster's contact. Fed by /api/quests;
-          the Help Board (/help) hosts the same experience via its quest tab. */}
-      <div className="pt-2" data-testid="bounty-board">
-        <div className="space-y-2.5">
+      {/* v229 FEED MODE SWITCHER - the mockup's TikTok mode pills, fed with
+          REAL counts (open bounties / registered talent). Bounties stay the
+          default feed (v220 deals-first contract). */}
+      <div className="flex items-center p-0.5 rounded-full bg-accent/70 border border-border" role="tablist" aria-label="Link tab feed" data-testid="feed-switcher">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={feed === 'bounties'}
+          data-testid="feed-tab-bounties"
+          onClick={() => setFeed('bounties')}
+          className={cn(
+            'flex-1 h-8 px-3 rounded-full text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5 min-w-0',
+            feed === 'bounties'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Zap className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Instant Bounties</span>
+          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', feed === 'bounties' ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground')}>
+            {quests?.length ?? 0}
+          </span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={feed === 'talents'}
+          data-testid="feed-tab-talents"
+          onClick={() => setFeed('talents')}
+          className={cn(
+            'flex-1 h-8 px-3 rounded-full text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5 min-w-0',
+            feed === 'talents'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Users className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Talent On Call</span>
+          <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0', feed === 'talents' ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground')}>
+            {guides.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ============ v229 BOUNTIES FEED (Instant Bounties) ============ */}
+      <div className={cn('space-y-2.5', feed !== 'bounties' && 'hidden')} data-testid="bounty-board">
+        {/* v220 button-on-top contract: the post button is the FIRST element
+            of the board; "N open bounties" sits beside it. */}
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
@@ -764,15 +862,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               <span className="text-xs font-semibold text-muted-foreground" data-testid="bounty-view-all">{quests.length} open bounties</span>
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Zap className="w-4 h-4 text-primary" />
-              <h2 className="text-lg font-bold text-foreground">Instant Side-Hustle Bounties</h2>
-              <span className="rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 px-2 py-0.5 text-[10px] font-bold">1-Click Claim</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Travelers post real quests, funds escrowed by the poster. Post and claim right here - the poster&apos;s contact opens instantly, paid on completion.</p>
-          </div>
-        </div>
 
         {qPostOk && (
           <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300" data-testid="quest-post-ok">
@@ -875,11 +964,11 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         ) : quests.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
         ) : (
-          <div className="mt-3" data-testid="bounty-swipe-root">
-            {/* v227 tier pills - the Instant-Bounties style slicers, named
-                after the platform's own hustle lanes. Slices the deck by
-                bounty size: Hunter &lt; $15, Helper $15-30, Scout $30+. */}
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-2" data-testid="bounty-tiers">
+          <div data-testid="bounty-swipe-root" className="space-y-2.5">
+            {/* v227 tier pills - the mockup's "Quick category filter pills".
+                Named after the platform's own hustle lanes; slices the deck
+                by bounty size: Hunter < $15, Helper $15-30, Scout $30+. */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1" data-testid="bounty-tiers">
               {BOUNTY_TIERS.map((tier) => {
                 const count = tier.key === 'all' ? quests.length : quests.filter((q) => tierOf(q.bountyUsd) === tier.key).length
                 return (
@@ -901,13 +990,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               })}
             </div>
 
-            {/* v227 the deck itself: one bounty per screen, snap scrolling,
-                TikTok-style. Portrait column centered on desktop, full-bleed
-                on phones. */}
+            {/* v229 the deck itself: one bounty per screen, snap scrolling,
+                mockup-styled cards (accent glow, location/deadline chips,
+                poster chip, escrow banner, 4-button action rail). Portrait
+                column centered on desktop, full-bleed on phones. */}
             <div
               ref={deckRef}
               data-testid="bounty-swipe"
-              className="relative h-[78vh] min-h-[540px] max-h-[780px] w-full max-w-[480px] mx-auto overflow-y-auto snap-y snap-mandatory scroll-smooth rounded-3xl border border-border bg-card shadow-sm"
+              className="relative h-[78vh] min-h-[540px] max-h-[780px] w-full max-w-[480px] mx-auto overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-thin"
             >
               {filteredQuests.map((q, idx) => {
                 const isClaimed = q.claimed || locallyClaimed[q.id]
@@ -919,40 +1009,42 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     data-quest-id={q.id}
                     data-testid="bounty-card"
                     className={cn(
-                      'h-full w-full snap-start relative flex flex-col p-4 sm:p-5 overflow-hidden',
+                      'relative h-full w-full snap-start snap-always flex flex-col rounded-3xl border bg-card shadow-md p-4 overflow-hidden',
                       questFlash === q.id && 'ring-2 ring-primary'
                     )}
                   >
+                    {/* mockup accent glow - rotated per card */}
+                    <div className={cn('absolute -right-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[idx % DECK_GLOWS.length])} aria-hidden="true" />
+
                     {/* chips row - where + when, straight off the real post */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                        <MapPin className="w-3 h-3" />
-                        {q.location}
+                    <div className="relative flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300 min-w-0">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="truncate">{q.location}</span>
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
-                        <Clock className="w-3 h-3" />
-                        {q.deadlineText}
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400 shrink-0 max-w-[45%]">
+                        <Clock className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{q.deadlineText}</span>
                       </span>
                     </div>
 
-                    <h3 className="mt-2 text-lg font-extrabold text-foreground leading-snug">{q.title}</h3>
+                    <h3 className="relative mt-2.5 text-lg font-black text-foreground leading-snug tracking-tight">{q.title}</h3>
                     {q.details && (
-                      <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed line-clamp-4">{q.details}</p>
+                      <p className="relative mt-1.5 text-xs text-muted-foreground leading-relaxed line-clamp-3">{q.details}</p>
                     )}
 
-                    {/* poster identity row (the ppl) - avatar initials,
-                        who posted, how many tasks they have live */}
-                    <div className="mt-3 flex items-center gap-2.5 min-w-0" data-testid="bounty-poster-row">
-                      <span className="w-9 h-9 rounded-full bg-primary/15 text-primary font-bold flex items-center justify-center text-[11px] shrink-0">
+                    {/* poster info chip (the ppl) - avatar initials, who
+                        posted, how many tasks they have live */}
+                    <div className="relative mt-3 flex items-center gap-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-100 dark:bg-primary/10 dark:border-primary/20 min-w-0" data-testid="bounty-poster-row">
+                      <span className="w-8 h-8 rounded-full bg-slate-900 dark:bg-primary text-white flex items-center justify-center font-black text-xs shrink-0">
                         {initialsOf(q.posterName)}
                       </span>
-                      <div className="min-w-0">
+                      <div className="text-[11px] leading-tight min-w-0">
                         <p className="text-[10px] text-muted-foreground">Posted by {q.isMine ? 'you' : 'local hustler'}</p>
-                        <p className="text-xs font-semibold text-foreground truncate">
-                          {q.posterName} · {qCount} task{qCount !== 1 ? 's' : ''} posted
+                        <p className="font-bold text-foreground truncate">
+                          {q.posterName} <span className="text-emerald-700 dark:text-emerald-400 font-semibold">• {qCount} task{qCount !== 1 ? 's' : ''} posted</span>
                         </p>
                       </div>
-                      {/* v219 poster-only manage row - other visitors never see it */}
                       {q.isMine && !isClaimed && (
                         <div className="ml-auto flex items-center gap-1 shrink-0" data-testid="quest-manage-row">
                           <button
@@ -980,19 +1072,19 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     </div>
 
                     {/* GUARANTEED ESCROW REWARD banner - the green strip */}
-                    <div className="mt-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-3 text-white shadow-sm flex items-center justify-between gap-2" data-testid="bounty-reward-banner">
+                    <div className="relative mt-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3.5 py-3 text-white shadow-sm flex items-center justify-between gap-2" data-testid="bounty-reward-banner">
                       <div className="min-w-0">
-                        <p className="text-[9px] font-bold tracking-widest uppercase text-white/80">Guaranteed escrow reward</p>
-                        <p className="text-2xl font-extrabold leading-tight" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
+                        <p className="text-[10px] uppercase font-bold tracking-wider opacity-90">Guaranteed escrow reward</p>
+                        <p className="text-2xl font-black tracking-tight leading-none" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold">
+                      <span className="shrink-0 bg-white/20 text-[10px] px-2 py-1 rounded-full font-bold">
                         {isClaimed ? 'In Escrow' : 'Instant Auto-Release'}
                       </span>
                     </div>
 
                     {/* claim area - same states and testids as before, now
                         inside the swipe card */}
-                    <div className="mt-2.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+                    <div className="relative mt-2.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
                       {isClaimed ? (
                         <div
                           className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
@@ -1097,7 +1189,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                     </div>
 
                     {/* swipe hint - bottom center of every card */}
-                    <div className="pt-2 flex items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground" data-testid="bounty-swipe-hint">
+                    <div className="relative pt-2 flex items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground" data-testid="bounty-swipe-hint">
                       {isLast ? (
                         <>
                           <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
@@ -1111,51 +1203,90 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
                       )}
                     </div>
 
-                    {/* v227 action rail - the TikTok-style right column:
-                        save / claim bolt / share. Only honest actions - no
-                        fabricated counts. */}
-                    <div className="absolute right-2.5 bottom-14 z-10 flex flex-col items-center gap-3" data-testid="bounty-action-rail">
-                      <button
-                        type="button"
-                        onClick={() => handleQuestSave(q)}
-                        data-testid="bounty-save"
-                        aria-label={savedQuests[q.id] ? 'Remove from saved' : 'Save bounty'}
-                        className="flex flex-col items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Bookmark className={cn('w-5 h-5', savedQuests[q.id] && 'fill-primary text-primary')} />
-                        <span className="text-[9px] font-semibold">{savedQuests[q.id] ? 'Saved' : 'Save'}</span>
-                      </button>
-                      {!isClaimed && (
+                    {/* v229 action rail - the mockup's TikTok stack: round
+                        buttons with labels, honest actions only. Chat opens a
+                        member poster's profile; guest posters get an honest
+                        toast pointing at the claim flow. */}
+                    <div className="absolute right-2.5 bottom-12 z-10 flex flex-col items-center gap-2.5" data-testid="bounty-action-rail">
+                      <div className="flex flex-col items-center">
                         <button
                           type="button"
-                          onClick={() => setClaimFor(q.id)}
-                          data-testid="bounty-claim-bolt"
-                          aria-label="Claim bounty"
-                          className="flex flex-col items-center gap-0.5"
+                          onClick={() => handleQuestSave(q)}
+                          data-testid="bounty-save"
+                          aria-label={savedQuests[q.id] ? 'Remove from saved' : 'Save bounty'}
+                          className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                         >
-                          <span className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform">
-                            <Zap className="w-5 h-5 fill-current" />
-                          </span>
-                          <span className="text-[9px] font-bold text-primary">Claim</span>
+                          <Bookmark className={cn('w-5 h-5', savedQuests[q.id] ? 'fill-primary text-primary' : 'text-muted-foreground')} />
                         </button>
+                        <span className="text-[9px] font-bold text-muted-foreground mt-0.5">{savedQuests[q.id] ? 'Saved' : 'Save'}</span>
+                      </div>
+                      {!isClaimed && (
+                        <div className="flex flex-col items-center">
+                          <button
+                            type="button"
+                            onClick={() => setClaimFor(q.id)}
+                            data-testid="bounty-claim-bolt"
+                            aria-label="Claim bounty"
+                            className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          >
+                            <Zap className="w-5 h-5 fill-current" />
+                          </button>
+                          <span className="text-[9px] font-bold text-primary mt-0.5">Claim</span>
+                        </div>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => void shareQuest(q)}
-                        data-testid="bounty-share"
-                        aria-label="Share bounty"
-                        className="flex flex-col items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Share2 className="w-5 h-5" />
-                        <span className="text-[9px] font-semibold">Share</span>
-                      </button>
+                      {/* v229 the mockup's add sign, right next to Claim:
+                          opens the same inline post form as the top button
+                          ("add the add sign next to the claim to add post"). */}
+                      <div className="flex flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQuestForm((v) => {
+                              if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
+                              return true
+                            })
+                            setQPostErr('')
+                            try { document.getElementById('bounty-board-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch { /* noop */ }
+                          }}
+                          data-testid="bounty-post-rail"
+                          aria-label="Post an instant quest"
+                          className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                        <span className="text-[9px] font-bold text-primary mt-0.5">Post</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => void shareQuest(q)}
+                          data-testid="bounty-share"
+                          aria-label="Share bounty"
+                          className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                        >
+                          <Share2 className="w-5 h-5 text-muted-foreground" />
+                        </button>
+                        <span className="text-[9px] font-bold text-muted-foreground mt-0.5">Share</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <button
+                          type="button"
+                          onClick={() => chatWithPoster(q)}
+                          data-testid="bounty-chat"
+                          aria-label="Open the poster's profile"
+                          className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                        >
+                          <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                        </button>
+                        <span className="text-[9px] font-bold text-muted-foreground mt-0.5">Chat</span>
+                      </div>
                     </div>
                   </div>
                 )
               })}
 
               {/* end card - honest stopping point, one tap to refresh */}
-              <div className="h-full w-full snap-start flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="bounty-deck-end">
+              <div className="h-full w-full snap-start snap-always flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="bounty-deck-end">
                 <span className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6 text-primary" />
                 </span>
@@ -1174,6 +1305,8 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
           this section all and make it only in one line") - the escrow story
           survives in the compact hero badge above and the payouts modal. */}
 
+      {/* ============ v229 TALENT FEED (Talent On Call) ============ */}
+      <div className={cn('space-y-2.5', feed !== 'talents' && 'hidden')} data-testid="talent-feed">
       {/* v222: the four hustle lanes as ONE LINE of compact pills - tap one
           to slice the directory by that role (guide / local / sales / agent).
           Counter = real members in the directory; the first lane keeps the
@@ -1543,291 +1676,281 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       </Card>
       )}
 
-      {/* v214: talent section header (reference: "Available Talent On Call" +
-          "UPDATED" label on the right). */}
-      <div className="flex items-end justify-between gap-2 flex-wrap pt-1" data-testid="talent-section">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Available Talent On Call</h2>
-          <p className="text-xs text-muted-foreground">Hire directly, review past gig earnings, or tap to stream instantly.</p>
-        </div>
-        <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase">Updated just now</span>
-      </div>
-
-      {/* Guide cards */}
-      {loading && guides.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-4 space-y-3">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-              <Skeleton className="h-16 w-full" />
-            </Card>
-          ))}
-        </div>
-      ) : guides.length === 0 ? (
-        <Card className="p-10 text-center shadow-sm">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
-            <Compass className="w-6 h-6 text-primary" />
+        {/* v229 talent snap deck - the mockup's Talent On Call feed: one
+            profile per screen, same rail furniture as the bounty cards.
+            Lanes + search + AI above slice this directory (contracts kept). */}
+        {loading && guides.length === 0 ? (
+          <div className="grid grid-cols-1 gap-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-4 space-y-3">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-16 w-full" />
+              </Card>
+            ))}
           </div>
-          <h3 className="font-semibold text-foreground">No locals found</h3>
-          <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            No one matches your filters. Try adjusting search, or be the first to join as a guide, local, volunteer or seller!
-          </p>
-          {!isGuide && (
-            <Button onClick={onBecomeGuide} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
-              <Compass className="w-4 h-4" />
-              Join as a local
-            </Button>
-          )}
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visibleGuides.map((g) => {
-            const isOwn = me?.id === g.id
-            // Shared action buttons - reused by the mobile grid and the desktop row
-            const bookMessageRateBtns = (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => openBooking(g)}
-                  className="bg-primary hover:bg-primary/90 text-xs gap-1.5"
-                >
-                  <CalendarCheck className="w-3.5 h-3.5" />
-                  Book Now
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onMessage(g.id)}
-                  className="border-border text-muted-foreground hover:bg-accent hover:text-foreground text-xs gap-1.5"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Chat
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openRating({ id: g.id, name: g.name, profilePicture: g.profilePicture })}
-                  className="border-amber-400/60 text-amber-600 hover:bg-amber-50 text-xs gap-1.5"
-                >
-                  <Star className="w-3.5 h-3.5" />
-                  Rate
-                </Button>
-              </>
-            )
-            const shareGuideBtn = (
-              <Button
-                size="sm"
-                variant="outline"
-                data-testid="guide-share-btn"
-                onClick={async () => {
-                  // The guide link: a real shareable page that works logged
-                  // out - /g/<username>. Members without a username keep the
-                  // legacy in-app deep link. Share copy reads their roles.
-                  const url = g.username
-                    ? `${window.location.origin}/g/${g.username}`
-                    : `${window.location.origin}/?guide=${g.id}`
-                  const rls = guideRolesOrLegacy((g as any).guideRoles)
-                  const shareTitle = `${g.name} - ${roleListLabel(rls)} on circubAwd`
-                  const shareText = `Check out ${g.name}, a ${roleNoun(rls[0])} on circubAwd`
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({ title: shareTitle, text: shareText, url })
-                    } else if (navigator.clipboard) {
-                      await navigator.clipboard.writeText(url)
-                      toast({ title: 'Guide link copied!', description: url.replace(/^https?:\/\//, '') })
-                    } else {
-                      window.prompt('Copy this guide link:', url)
-                    }
-                  } catch (e) {
-                    if (e instanceof Error && e.name !== 'AbortError') {
-                      try {
-                        await navigator.clipboard.writeText(url)
-                        toast({ title: 'Guide link copied!' })
-                      } catch {
-                        window.prompt('Copy this guide link:', url)
-                      }
-                    }
-                  }
-                }}
-                className="border-muted text-muted-foreground hover:bg-accent text-xs gap-1.5"
-              >
-                <Share2 className="w-3.5 h-3.5" />
+        ) : guides.length === 0 ? (
+          <Card className="p-10 text-center shadow-sm">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
+              <Compass className="w-6 h-6 text-primary" />
+            </div>
+            <h3 className="font-semibold text-foreground">No locals found</h3>
+            <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+              No one matches your filters. Try adjusting search, or be the first to join as a guide, local, volunteer or seller!
+            </p>
+            {!isGuide && (
+              <Button onClick={onBecomeGuide} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
+                <Compass className="w-4 h-4" />
+                Join as a local
               </Button>
-            )
-            return (
-              <Card key={g.id} data-testid="talent-card" className="relative overflow-hidden p-4 shadow-sm hover:shadow-md transition-shadow">
-                {/* v214 green top strip (reference talent cards) */}
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-emerald-400 to-primary" aria-hidden="true" />
-                {/* v214 identity row: avatar tile + name/ID + role line +
-                    status line; rating block on the right (tap = reviews) */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <Avatar className="w-11 h-11 rounded-xl border border-accent overflow-hidden shrink-0">
-                      {g.profilePicture ? (
-                        <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <AvatarFallback className="bg-emerald-100 dark:bg-primary/20 text-primary font-bold">{g.name.charAt(0).toUpperCase()}</AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1">
-                        {/* The guide name IS the guide link - tap it to open /g/<username> */}
-                        {g.username ? (
-                          <Link href={`/g/${g.username}`} data-testid="guide-name-link" className="font-bold text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors" title={`Open ${g.name}'s guide page`}>{g.name}</Link>
+            )}
+          </Card>
+        ) : (
+          <div
+            data-testid="talent-swipe"
+            className="relative h-[78vh] min-h-[540px] max-h-[780px] w-full max-w-[480px] mx-auto overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-thin"
+          >
+            {visibleGuides.map((g, idx) => {
+              const isOwn = me?.id === g.id
+              const isLastTalent = idx === visibleGuides.length - 1 && !guidesHasMore
+              return (
+                <div key={g.id} data-testid="talent-card" className="relative h-full w-full snap-start snap-always flex flex-col rounded-3xl border bg-card shadow-md p-4 overflow-hidden">
+                  <div className={cn('absolute -left-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[(idx + 1) % DECK_GLOWS.length])} aria-hidden="true" />
+                  <div className="relative flex-1 min-h-0 flex flex-col">
+                    {/* profile header: avatar tile + name/ID + role line +
+                        status line; rating block on the right (tap = reviews) */}
+                    <div className="flex items-start gap-3">
+                      <Avatar className="w-12 h-12 rounded-2xl border border-accent overflow-hidden shrink-0">
+                        {g.profilePicture ? (
+                          <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
                         ) : (
-                          <h3 className="font-bold text-foreground truncate">{g.name}</h3>
+                          <AvatarFallback className="bg-slate-900 dark:bg-primary/20 text-white font-black">{g.name.charAt(0).toUpperCase()}</AvatarFallback>
                         )}
-                        {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
-                        {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
-                        {(g as any).idVerified && (
-                          <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 text-[9px] shrink-0" title="ID or passport verified">
-                            <ShieldCheck className="w-2.5 h-2.5 mr-0.5" />
-                            ID
-                          </Badge>
-                        )}
-                        {/* v208: roles hide under the mystery sticker - touch
-                            to take the full screen. No open role badges. */}
-                        <RoleStickerTile
-                          name={g.name}
-                          roles={(g as any).guideRoles}
-                          posts={(g as any).localPostCount}
-                          rating={g.rating || 0}
-                          ratingCount={(g as any).ratingCount || 0}
-                          votes={(g as any).helpfulVotes}
-                          profilePicture={g.profilePicture}
-                          location={g.location}
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                        {roleNoun(guideRolesOrLegacy((g as any).guideRoles)[0] || 'guide')}
-                        {g.guideLicense ? ' · Licensed guide' : ''}
-                        {g.location ? ` · ${g.location}` : ''}
-                      </p>
-                      <p className={cn('text-[11px] font-medium flex items-center gap-1 mt-0.5', g.guideAvailable ? 'text-primary' : 'text-muted-foreground')}>
-                        <Radio className={cn('w-3 h-3', g.guideAvailable && 'animate-pulse')} />
-                        {g.guideAvailable ? 'Accepting gigs right now' : 'Offline'}
-                        {g.distanceKm != null && ` · ${g.distanceKm} km away`}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => openReviews({ id: g.id, name: g.name })}
-                    className="text-right shrink-0"
-                    title="See all reviews"
-                  >
-                    <span className="flex items-center gap-1 text-sm font-extrabold text-amber-600 justify-end">
-                      <Star className="w-4 h-4 fill-current" />
-                      {g.rating > 0 ? g.rating.toFixed(1) : 'New'}
-                    </span>
-                    <span className="block text-[10px] text-muted-foreground">{(g as any).ratingCount || 0} reviews</span>
-                  </button>
-                </div>
-
-                {/* v214 stats tile: completed gigs + total earnings. Both derive
-                    from REAL data: gigs = the member's posted price count,
-                    earnings = gigs x their own listed hourly rate. */}
-                <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-accent/70 p-3" data-testid="talent-stats">
-                  <div>
-                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Completed gigs</p>
-                    <p className="text-sm font-extrabold text-foreground">
-                      <span data-testid="talent-gigs">{(g as any).localPostCount ?? 0}</span> Jobs
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Total earnings</p>
-                    <p className="text-sm font-extrabold text-primary" data-testid="talent-earnings">
-                      {g.guideCurrency || '$'}{(((g as any).localPostCount ?? 0) * (g.guideHourlyRate ?? 15)).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                {/* v214 featured gig quote box */}
-                {(g.guideBio || (g as any).bio || (g as any).headline) && (
-                  <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-                    <p className="flex items-center gap-1 text-[9px] font-bold tracking-wider text-primary uppercase">
-                      <Zap className="w-3 h-3" />
-                      Featured gig
-                    </p>
-                    <p className="mt-1 text-xs italic text-muted-foreground line-clamp-2">
-                      &ldquo;{g.guideBio || (g as any).bio || (g as any).headline}&rdquo;
-                    </p>
-                  </div>
-                )}
-
-                {/* Tour videos (YouTube / Instagram links) - collapsible strip */}
-                {(() => {
-                  const raw = (g as any).guideVideoUrls
-                  const vids: string[] = Array.isArray(raw) ? raw.filter(Boolean) : splitVideoUrls(raw)
-                  if (vids.length === 0) return null
-                  const open = !!openVideoCards[g.id]
-                  return (
-                    <div className="mt-3" data-testid="guide-card-videos">
-                      <button
-                        type="button"
-                        onClick={() => setOpenVideoCards((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                      >
-                        {open ? <Video className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                        {open ? 'Hide videos' : `Watch videos (${vids.length})`}
-                      </button>
-                      {open && (
-                        <div className="mt-2 space-y-2">
-                          {vids.map((v, i) => (
-                            <VideoEmbed key={i} url={v} title={`${g.name} tour video ${i + 1}`} />
-                          ))}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {g.username ? (
+                            <Link href={`/g/${g.username}`} data-testid="guide-name-link" className="text-base font-black text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors" title={`Open ${g.name}'s guide page`}>{g.name}</Link>
+                          ) : (
+                            <h3 className="text-base font-black text-foreground truncate">{g.name}</h3>
+                          )}
+                          {g.verifiedLocal && <BadgeCheck className="w-4 h-4 text-primary shrink-0" />}
+                          {(g as any).idVerified && <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified with ID or passport" />}
+                          <RoleStickerTile
+                            name={g.name}
+                            roles={(g as any).guideRoles}
+                            posts={(g as any).localPostCount}
+                            rating={g.rating || 0}
+                            ratingCount={(g as any).ratingCount || 0}
+                            votes={(g as any).helpfulVotes}
+                            profilePicture={g.profilePicture}
+                            location={g.location}
+                          />
                         </div>
-                      )}
-                    </div>
-                  )
-                })()}
-
-                {/* v214 skill chips: specialties + languages on one row */}
-                {(g.guideSpecialties.length > 0 || g.guideLanguages.length > 0) && (
-                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                    {g.guideSpecialties.map((spec: string) => (
-                      <Badge key={spec} variant="secondary" className="bg-primary/10 text-primary text-[10px] rounded-md">{spec}</Badge>
-                    ))}
-                    {g.guideLanguages.map((lang: string) => (
-                      <Badge key={lang} variant="secondary" className="bg-accent text-foreground text-[10px] rounded-md">{lang}</Badge>
-                    ))}
-                  </div>
-                )}
-
-                {/* v214 bottom: Starting Rate + Book Now / Chat (reference row) */}
-                <div className="mt-4 pt-3 border-t border-border">
-                  <div className="flex items-end justify-between gap-2 flex-wrap">
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-muted-foreground">Starting Rate</p>
-                      {g.guideHourlyRate != null && g.guideCurrency ? (
-                        <p className="font-extrabold text-foreground leading-tight">
-                          {g.guideCurrency} {g.guideHourlyRate}
-                          <span className="text-xs font-normal text-muted-foreground"> /hr</span>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {roleNoun(guideRolesOrLegacy((g as any).guideRoles)[0] || 'guide')}
+                          {g.guideLicense ? ' · Licensed guide' : ''}
+                          {g.location ? ` · ${g.location}` : ''}
                         </p>
-                      ) : (
-                        <p className="text-sm font-semibold text-muted-foreground">Rate on request</p>
-                      )}
-                    </div>
-                    {isOwn ? (
-                      <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] shrink-0">You</Badge>
-                    ) : (
-                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                        {bookMessageRateBtns}
-                        {shareGuideBtn}
+                        <span className={cn('mt-1 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border max-w-full', g.guideAvailable ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/30' : 'text-muted-foreground bg-accent border-border')}>
+                          <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', g.guideAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/50')} />
+                          <span className="truncate">
+                            {g.guideAvailable ? 'Accepting gigs right now' : 'Offline'}
+                            {g.distanceKm != null && ` · ${g.distanceKm} km away`}
+                          </span>
+                        </span>
                       </div>
+                      <button
+                        onClick={() => openReviews({ id: g.id, name: g.name })}
+                        className="text-right shrink-0"
+                        title="See all reviews"
+                      >
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400 px-2 py-0.5 rounded-full justify-end">
+                          <Star className="w-3 h-3 fill-current" />
+                          {g.rating > 0 ? g.rating.toFixed(1) : 'New'}
+                        </span>
+                        <span className="block text-[9px] text-muted-foreground mt-0.5">{(g as any).ratingCount || 0} reviews</span>
+                      </button>
+                    </div>
+
+                    {/* stats tile: completed gigs + total earnings - both
+                        derive from REAL data (same formulas as the v214 grid) */}
+                    <div className="relative mt-3 grid grid-cols-2 gap-2 bg-accent/70 p-2.5 rounded-2xl border border-border" data-testid="talent-stats">
+                      <div>
+                        <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Completed gigs</p>
+                        <p className="text-base font-black text-foreground leading-tight">
+                          <span data-testid="talent-gigs">{(g as any).localPostCount ?? 0}</span> Jobs
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Total earnings</p>
+                        <p className="text-base font-black text-emerald-700 dark:text-emerald-400 leading-tight" data-testid="talent-earnings">
+                          {g.guideCurrency || '$'}{(((g as any).localPostCount ?? 0) * (g.guideHourlyRate ?? 15)).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* featured gig quote box */}
+                    {(g.guideBio || (g as any).bio || (g as any).headline) && (
+                      <div className="relative mt-3 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-primary">Featured skill</p>
+                        <p className="mt-0.5 text-xs italic text-foreground font-medium leading-relaxed line-clamp-2">
+                          &ldquo;{g.guideBio || (g as any).bio || (g as any).headline}&rdquo;
+                        </p>
+                      </div>
+                    )}
+
+                    {/* tour videos (YouTube / Instagram links) - collapsible */}
+                    {(() => {
+                      const raw = (g as any).guideVideoUrls
+                      const vids: string[] = Array.isArray(raw) ? raw.filter(Boolean) : splitVideoUrls(raw)
+                      if (vids.length === 0) return null
+                      const open = !!openVideoCards[g.id]
+                      return (
+                        <div className="relative mt-3" data-testid="guide-card-videos">
+                          <button
+                            type="button"
+                            onClick={() => setOpenVideoCards((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                          >
+                            {open ? <Video className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                            {open ? 'Hide videos' : `Watch videos (${vids.length})`}
+                          </button>
+                          {open && (
+                            <div className="mt-2 space-y-2">
+                              {vids.map((v, i) => (
+                                <VideoEmbed key={i} url={v} title={`${g.name} tour video ${i + 1}`} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+
+                    {/* skill chips: specialties + languages on one row */}
+                    {(g.guideSpecialties.length > 0 || g.guideLanguages.length > 0) && (
+                      <div className="relative mt-3 flex items-center gap-1.5 flex-wrap">
+                        {g.guideSpecialties.map((spec: string) => (
+                          <Badge key={spec} variant="secondary" className="bg-emerald-100 text-emerald-900 dark:bg-primary/15 dark:text-emerald-300 text-[10px] font-bold rounded-md">{spec}</Badge>
+                        ))}
+                        {g.guideLanguages.map((lang: string) => (
+                          <Badge key={lang} variant="secondary" className="bg-card border border-border text-muted-foreground text-[10px] font-semibold rounded-md">{lang}</Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* starting rate + swipe hint pinned to the bottom */}
+                    <div className="relative mt-auto pt-3">
+                      <p className="text-[11px] text-muted-foreground">
+                        Starting rate:{' '}
+                        {g.guideHourlyRate != null && g.guideCurrency ? (
+                          <span className="font-extrabold text-foreground">
+                            {g.guideCurrency} {g.guideHourlyRate}
+                            <span className="text-xs font-normal text-muted-foreground"> /hr</span>
+                          </span>
+                        ) : (
+                          <span className="font-extrabold text-foreground">Rate on request</span>
+                        )}
+                      </p>
+                      <div className="mt-2 flex items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground" data-testid="talent-swipe-hint">
+                        {isLastTalent ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            You reached the last talent
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
+                            Swipe up for next talent
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* v229 talent action rail - Save / Book / Share / Chat
+                      (Chat = the in-app message thread with that talent). */}
+                  <div className="absolute right-2.5 bottom-12 z-10 flex flex-col items-center gap-2.5" data-testid="talent-action-rail">
+                    {isOwn ? (
+                      <span className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">You</span>
+                    ) : (
+                      <>
+                        <div className="flex flex-col items-center">
+                          <button
+                            type="button"
+                            onClick={() => handleGuideSave(g)}
+                            data-testid="talent-save"
+                            aria-label={savedGuides[g.id] ? 'Remove from saved' : 'Save talent'}
+                            className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          >
+                            <Bookmark className={cn('w-5 h-5', savedGuides[g.id] ? 'fill-primary text-primary' : 'text-muted-foreground')} />
+                          </button>
+                          <span className="text-[9px] font-bold text-muted-foreground mt-0.5">{savedGuides[g.id] ? 'Saved' : 'Save'}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <button
+                            type="button"
+                            onClick={() => openBooking(g)}
+                            data-testid="talent-book"
+                            aria-label="Book this talent"
+                            className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          >
+                            <CalendarCheck className="w-5 h-5" />
+                          </button>
+                          <span className="text-[9px] font-bold text-primary mt-0.5">Book</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <button
+                            type="button"
+                            onClick={() => void shareGuide(g)}
+                            data-testid="guide-share-btn"
+                            aria-label="Share this talent"
+                            className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          >
+                            <Share2 className="w-5 h-5 text-muted-foreground" />
+                          </button>
+                          <span className="text-[9px] font-bold text-muted-foreground mt-0.5">Share</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <button
+                            type="button"
+                            onClick={() => onMessage(g.id)}
+                            data-testid="talent-chat"
+                            aria-label="Chat with this talent"
+                            className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          >
+                            <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                          </button>
+                          <span className="text-[9px] font-bold text-muted-foreground mt-0.5">Chat</span>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
-              </Card>
-            )
-          })}
-          <div ref={guidesSentinelRef} />
-          {guidesHasMore && (
-            <p className="text-center text-xs text-muted-foreground py-2 col-span-full">Loading more guides…</p>
-          )}
-        </div>
-      )}
+              )
+            })}
+
+            {/* talent end card - honest stopping point, one tap to refresh */}
+            <div className="h-full w-full snap-start snap-always flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="talent-deck-end">
+              <span className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary" />
+              </span>
+              <p className="text-sm font-bold text-foreground">
+                {guides.filter((g) => (g as any).guideAvailable).length} verified talents online
+              </p>
+              <Button size="sm" variant="outline" onClick={() => fetchGuides()} className="gap-1.5" data-testid="talent-refresh">
+                <RefreshCw className="w-3.5 h-3.5" />
+                Refresh talent
+              </Button>
+            </div>
+            <div ref={guidesSentinelRef} />
+            {guidesHasMore && (
+              <p className="text-center text-xs text-muted-foreground py-2">Loading more talent…</p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Guide rating modal */}
       <GuideRatingModal

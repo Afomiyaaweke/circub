@@ -11,7 +11,7 @@
  * ⚠️ Bump VERSION on EVERY deploy that changes code: cached assets reference
  * hashed /_next files of that deployment.
  */
-const VERSION = 'circub-v228';
+const VERSION = 'circub-v229';
 const SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -51,6 +51,11 @@ self.addEventListener('message', (event) => {
 // answer PONG and keep working; tabs running an OLDER build never answer and
 // get force-navigated once, so even a long-lived PWA session that never
 // reloads heals itself onto the fresh build (no manual cache clear needed).
+// v229: pages still HYDRATING cannot answer the first ping (their listener
+// registers with the bundle, which evaluates pre-hydration, but a slow
+// device may still be parsing), so we ping AGAIN at 4s and only navigate at
+// 9s if BOTH pings went unanswered - a false "stale" verdict must never
+// reload a fresh page (the v228 single-ping 6s path did exactly that).
 function refreshStaleClients() {
   return self.clients
     .matchAll({ type: 'window', includeUncontrolled: true })
@@ -67,6 +72,15 @@ function refreshStaleClients() {
                 };
                 client.postMessage({ type: 'CIRCUB_PING' }, [channel.port2]);
                 setTimeout(() => {
+                  if (!answered) {
+                    try {
+                      client.postMessage({ type: 'CIRCUB_PING' }, [channel.port2]);
+                    } catch {
+                      /* best effort */
+                    }
+                  }
+                }, 4000);
+                setTimeout(() => {
                   if (!answered && typeof client.navigate === 'function') {
                     try {
                       client.navigate(client.url);
@@ -75,7 +89,7 @@ function refreshStaleClients() {
                     }
                   }
                   resolve();
-                }, 6000);
+                }, 9000);
               } catch {
                 resolve();
               }

@@ -352,15 +352,16 @@ export function Header({
     </header>
 
     {/* ALWAYS-ON bottom tab bar - the five destinations (Battle / Local /
-        Link / Profile / Feed) are visible on EVERY device: full-width bar
-        docked to the bottom on phones and tablets (with safe-area padding
-        for the home indicator), and a centered floating dock on desktop
-        (lg+). The active tab wears the green pill, matching the app icon
-        look. v225: "Feed" is a tab driven through onTabChange - opening it
-        shows the full-space community feed, not a slide-over. */}
+        Link / Profile / Feed). v229: removed from the WEB VIEW on desktop
+        (lg+) per user request ("remove the footer icons from the web views")
+        - the top header nav pills (nav-pill-*) are the desktop navigation;
+        phones, tablets and the installed PWA keep the docked tab bar.
+        Full-width bar docked to the bottom on phones and tablets (with
+        safe-area padding for the home indicator). The active tab wears the
+        green pill, matching the app icon look. */}
     {user && (
       <nav
-        className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)] lg:inset-x-auto lg:left-1/2 lg:right-auto lg:-translate-x-1/2 lg:bottom-4 lg:rounded-full lg:border lg:shadow-xl lg:pb-0"
+        className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)] lg:hidden"
         aria-label="Primary"
       >
         <div className="grid grid-cols-5 lg:px-2 lg:py-1">

@@ -3,6 +3,31 @@
 import { useEffect } from 'react';
 import { APP_VERSION } from '@/lib/app-version';
 
+// v229 FIX - answer the worker's staleness ping at MODULE LEVEL, the moment
+// this chunk evaluates, NOT inside a React effect. The v228 activate flow
+// pings every open tab right after a cold install/claim, which can land
+// ~100ms into a page load - long BEFORE hydration registers an effect-based
+// listener. An unanswered ping made the worker force-navigate a perfectly
+// fresh page ~6s later (seen as a surprise reload right after claiming).
+// Module scope runs pre-hydration, so any page on the CURRENT bundle
+// answers instantly; only pages running an OLDER bundle (the real stale
+// targets) stay silent and get navigated.
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data?.type === 'CIRCUB_PING' && event.ports[0]) {
+        try {
+          event.ports[0].postMessage({ type: 'CIRCUB_PONG', version: APP_VERSION });
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+  } catch {
+    /* ignore - progressive enhancement */
+  }
+}
+
 /**
  * Registers the circubAwd service worker (production only).
  *
@@ -46,34 +71,31 @@ export function PwaRegister() {
     };
 
     // Ask the controlling worker which build it is (v228 workers answer).
-    const askControllerVersion = () => {
+    // Retries once after 1.5s: a worker still in its 'activating' phase may
+    // swallow the first handshake (observed on cold installs).
+    const askControllerVersion = (retried = false) => {
       const sw = navigator.serviceWorker.controller;
       if (!sw) return;
       try {
         const channel = new MessageChannel();
+        let got = false;
         channel.port1.onmessage = (event) => {
+          got = true;
           const version: unknown = event.data?.version;
           if (typeof version === 'string' && version) adoptVersion(version);
         };
         sw.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+        if (!retried) {
+          setTimeout(() => {
+            if (!got) askControllerVersion(true);
+          }, 1500);
+        }
       } catch {
         /* ignore - handshake is best effort */
       }
     };
 
     const onControllerChange = () => askControllerVersion();
-
-    // Answer the worker's staleness ping: a PONG marks this page as running
-    // the current register, so the worker will not force-navigate it.
-    const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'CIRCUB_PING' && event.ports[0]) {
-        try {
-          event.ports[0].postMessage({ type: 'CIRCUB_PONG', version: APP_VERSION });
-        } catch {
-          /* ignore */
-        }
-      }
-    };
 
     const checkForUpdate = () => {
       const now = Date.now();
@@ -103,7 +125,6 @@ export function PwaRegister() {
     };
 
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-    navigator.serviceWorker.addEventListener('message', onMessage);
 
     if (document.readyState === 'complete') {
       register();
@@ -113,7 +134,6 @@ export function PwaRegister() {
 
     return () => {
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-      navigator.serviceWorker.removeEventListener('message', onMessage);
       document.removeEventListener('visibilitychange', onVisible);
       if (updateTimer) clearInterval(updateTimer);
       window.removeEventListener('load', register);

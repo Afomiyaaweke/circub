@@ -22,6 +22,10 @@ export async function GET() {
       take: 100,
       include: {
         claims: { select: { userId: true } },
+        // v229: the poster's username (public anyway) so the deck's Chat
+        // action can open a member poster's profile. Guests post without an
+        // account, so this stays null for them.
+        user: { select: { username: true } },
       },
     })
     return NextResponse.json(
@@ -34,6 +38,7 @@ export async function GET() {
           deadlineText: q.deadlineText,
           bountyUsd: q.bountyUsd,
           posterName: q.posterName,
+          posterUsername: q.user?.username ?? null,
           claimed: q.claims.length > 0,
           isMine: !!me && q.userId === me.id,
           myClaim: !!me && q.claims.some((c) => c.userId === me.id),

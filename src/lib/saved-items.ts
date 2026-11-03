@@ -7,8 +7,9 @@ const STORAGE_KEY = 'circubawd_saved_items'
 export interface SavedItem {
   id: string
   // v227: 'quest' = an instant side-hustle bounty saved from the Link tab's
-  // swipe deck rail.
-  type: 'post' | 'localPrice' | 'quest'
+  // swipe deck rail. v229: 'guide' = a talent saved from the Talent On Call
+  // swipe feed (same rail, Book/Chat actions).
+  type: 'post' | 'localPrice' | 'quest' | 'guide'
   title: string
   subtitle?: string | null
   priceLabel?: string | null

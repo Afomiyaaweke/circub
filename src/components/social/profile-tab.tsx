@@ -98,7 +98,7 @@ interface MyQuestClaimed {
   claimedAt: string; createdAt: string
 }
 
-type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore' | 'quests'
+type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore' | 'quests' | 'escrow'
 type Deletable =
   | { kind: 'post'; id: string; label: string }
   | { kind: 'listing'; id: string; label: string }
@@ -137,6 +137,9 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   // v219: bounty management - posted quests + their applicants, and quests I
   // claimed (with the poster contact). Lives in the tab strip like the rest.
   { key: 'quests', label: 'Bounties', icon: Zap },
+  // v229: my escrow - pledged / in-escrow / pending-payout money derived
+  // from the same owner-scoped /api/quests/mine data (no new endpoint).
+  { key: 'escrow', label: 'Escrow', icon: ShieldCheck },
 ]
 
 // An HEIC/HEIF file that SURVIVED compression means the browser could not
@@ -1075,7 +1078,126 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     )
   }
 
-  // ------------------------------------------------------- saved list markup
+  // ------------------------------------------------------ v229 my escrow
+  // The escrow story in one place: money pledged on open bounties, money
+  // held while a claimer works, and payouts waiting on quests I claimed.
+  // Derived from the same owner-scoped GET /api/quests/mine payload the
+  // Bounties tab uses - no new endpoint, no invented numbers.
+  const renderEscrow = () => {
+    const posted = myQuests?.posted ?? []
+    const claimed = myQuests?.claimed ?? []
+    const pledged = posted.filter((q) => !q.claim).reduce((s, q) => s + q.bountyUsd, 0)
+    const inEscrow = posted.filter((q) => q.claim).reduce((s, q) => s + q.bountyUsd, 0)
+    const pendingPayout = claimed.reduce((s, q) => s + q.bountyUsd, 0)
+    const fmt = (n: number) => `$${n.toFixed(2)}`
+    if (!myQuests) {
+      return (
+        <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2" data-testid="profile-escrow">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading your escrow...
+        </div>
+      )
+    }
+    return (
+      <div className="py-4 space-y-4" data-testid="profile-escrow">
+        <div className="flex items-start gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-foreground">My Escrow</h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              Every bounty is pledged upfront and held while a claimer works. It auto-releases to them on completion - or comes back to you if nobody claims it.
+            </p>
+          </div>
+        </div>
+
+        {/* summary tiles - the three escrow states that matter to me */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-border bg-card p-3 text-center" data-testid="escrow-pledged">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Open pledge</p>
+            <p className="mt-1 text-base font-black text-foreground leading-tight">{fmt(pledged)}</p>
+            <p className="mt-0.5 text-[9px] text-muted-foreground">{posted.filter((q) => !q.claim).length} waiting for a taker</p>
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-center dark:border-amber-500/30 dark:bg-amber-500/10" data-testid="escrow-in-escrow">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">In escrow</p>
+            <p className="mt-1 text-base font-black text-amber-700 dark:text-amber-300 leading-tight">{fmt(inEscrow)}</p>
+            <p className="mt-0.5 text-[9px] text-amber-700/80 dark:text-amber-400/80">{posted.filter((q) => q.claim).length} being worked on</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-center dark:border-emerald-500/30 dark:bg-emerald-500/10" data-testid="escrow-payout">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Pending payout</p>
+            <p className="mt-1 text-base font-black text-emerald-700 dark:text-emerald-300 leading-tight">{fmt(pendingPayout)}</p>
+            <p className="mt-0.5 text-[9px] text-emerald-700/80 dark:text-emerald-400/80">{claimed.length} claimed by you</p>
+          </div>
+        </div>
+
+        {/* -------- bounties I posted: where my pledge sits -------- */}
+        <section data-testid="escrow-posted-section">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <DollarSign className="w-4 h-4 text-primary" />
+            Bounties you posted
+            <span className="font-semibold text-muted-foreground">({posted.length})</span>
+          </h3>
+          {posted.length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              Nothing pledged yet. Post an instant quest in the Link tab and its bounty shows up here.
+            </p>
+          ) : (
+            <div className="mt-2.5 space-y-2">
+              {posted.map((q) => (
+                <div key={q.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3" data-testid="escrow-posted-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{q.title}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {fmt(q.bountyUsd)} &middot; {q.location} &middot; {q.deadlineText}
+                    </p>
+                  </div>
+                  {q.claim ? (
+                    <Badge variant="secondary" className="shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 text-[9px] font-bold" title={`Claimed by ${q.claim.claimerName} - released on completion`}>
+                      In escrow
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="shrink-0 bg-accent text-muted-foreground text-[9px] font-bold">
+                      Open pledge
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* -------- quests I claimed: payouts waiting on completion -------- */}
+        <section data-testid="escrow-claimed-section">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Check className="w-4 h-4 text-primary" />
+            Payouts coming to you
+            <span className="font-semibold text-muted-foreground">({claimed.length})</span>
+          </h3>
+          {claimed.length === 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              Claim a bounty from the Link tab - its escrow reward shows here until completion pays it out.
+            </p>
+          ) : (
+            <div className="mt-2.5 space-y-2">
+              {claimed.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/30 dark:bg-emerald-500/10" data-testid="escrow-payout-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{c.title}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {fmt(c.bountyUsd)} &middot; {c.location} &middot; poster {c.posterName}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 text-[9px] font-bold">
+                    On completion
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    )
+  }
   // One row per bookmarked item - shared by the Saved content section and
   // the guest CTA's "saved on this device" list.
   const renderSavedItems = () => (
@@ -1091,7 +1213,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 via-emerald-500/10 to-teal-500/15 flex items-center justify-center">
-                  {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : item.type === 'quest' ? <Zap className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
+                  {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : item.type === 'quest' ? <Zap className="w-5 h-5 text-primary/50" /> : item.type === 'guide' ? <Compass className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
                 </div>
               )}
             </div>
@@ -1100,7 +1222,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
               <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 mt-0.5">
                 <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide bg-accent text-muted-foreground">
-                  {item.type === 'post' ? 'Post' : item.type === 'quest' ? 'Quest' : 'Price'}
+                  {item.type === 'post' ? 'Post' : item.type === 'quest' ? 'Quest' : item.type === 'guide' ? 'Talent' : 'Price'}
                 </Badge>
                 {item.priceLabel && <span className="font-semibold text-foreground/80">{item.priceLabel}</span>}
                 <span>Saved {timeAgo(new Date(item.savedAt).toISOString())}</span>
@@ -1763,6 +1885,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         ) : contentType === 'quests' ? (
           /* v219: bounty management - applicants inbox + my claims. */
           renderQuests()
+        ) : contentType === 'escrow' ? (
+          /* v229: my escrow - pledged / in escrow / pending payout. */
+          renderEscrow()
         ) : loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading your content...

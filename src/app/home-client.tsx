@@ -68,7 +68,18 @@ export default function HomeClient({ stats = null }: { stats?: LandingStats | nu
 }
 
 function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
-  const [me, setMe] = useState<User | null>(getCachedUser)
+  // v229 hydration fix: the server ALWAYS renders the landing (page.tsx is
+  // session-blind), so the client's FIRST render must be the landing too.
+  // Seeding `me` synchronously from the localStorage cache made returning
+  // members hydrate dashboard HTML into landing HTML - React error #418 and
+  // a full tree regeneration on EVERY repeat visit. The cache now applies
+  // right after hydration: still zero spinners, still effectively instant
+  // for returning users, and server/client finally agree on first paint.
+  const [me, setMe] = useState<User | null>(null)
+  useEffect(() => {
+    const cached = getCachedUser()
+    if (cached) setMe(cached)
+  }, [])
   // authChecked now only tracks whether the background /api/auth/me
   // revalidation has completed - it no longer gates the first paint.
   // Blocking every visit (most of which are anonymous) behind a network

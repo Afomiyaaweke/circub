@@ -1,5 +1,55 @@
 # circubAwd worklog
 
+## v229 — Link tab becomes the mockup's two-feed TikTok tab + escrow in Profile + SW/hydration fixes (2026-11-03)
+User: "it's does looks like this make it looks like this" (Instant-Bounties two-feed mockup) +
+"remove the footer icons form the web views" + follow-up: "remove all the like [counts], add the
+add sign next to the claim to add post, put my escrow in the profile session". Scopes confirmed
+per Q&A: Link tab only; dock hidden on desktop only; talent becomes the second swipe feed;
+4+1 action buttons with Chat -> profile, zero fabricated counts.
+
+- LINK TAB (`live-zone-tab.tsx` rebuilt): compact live banner (hustlers online + escrow badge +
+  payouts/join actions, `hustle-hero` kept) replaces the tall hero; NEW feed mode switcher
+  (`feed-switcher`, `feed-tab-bounties` / `feed-tab-talents`) with REAL counts; bounties feed
+  (default, v220 deals-first kept) and talent feed swap in place.
+- BOUNTY CARDS match the mockup: white rounded-3xl card with rotated accent glow, location chip +
+  deadline chip on top, title, line-clamped brief, poster chip (dark initials avatar, "N tasks
+  posted" from real posts), green GUARANTEED ESCROW REWARD gradient with In Escrow /
+  Instant Auto-Release chip, swipe hint, right action rail = Save / Claim bolt / **+ Post
+  (opens the inline quest form, `bounty-post-rail`)** / Share / Chat. No like-counts anywhere
+  (no fabricated numbers). All v219/v220/v221/v227 testids + claim/privacy logic preserved
+  verbatim (manage row, claim form, contact reveal, drop/remove claim).
+- TALENT ON CALL: the directory is now the second snap feed (`talent-swipe`) - profile header
+  (avatar, verified badges, rating chip -> reviews, roles sticker), real stats tile
+  (`talent-stats`/`talent-gigs`/`talent-earnings`), featured skill quote, videos strip, skill
+  chips, starting rate; rail = Save (new `guide` saved-items type) / Book / Share / Chat
+  (in-app message). Hustle lanes + search + AI Match moved INTO the talent feed (contracts
+  intact, one line at every breakpoint).
+- DECK OFF WEB VIEW ON DESKTOP: bottom nav dock gets `lg:hidden` ("remove the footer icons
+  from the web views") - desktop navigates with the header pills (`nav-pill-*`), phones,
+  tablets and the installed PWA keep the dock.
+- PROFILE > ESCROW (new tab, `profile-tab-escrow`): Open pledge / In escrow / Pending payout
+  tiles + per-bounty lists, derived from the same owner-scoped /api/quests/mine payload -
+  no new endpoint, no invented numbers.
+- API: GET /api/quests now carries `posterUsername` (member posters only) so the rail's Chat
+  opens /u/<username>; guest posters get an honest toast pointing at the claim flow.
+- INFRA FIX 1 - SW forced-reload bug ("claim then surprise reload"): the v228 activate ping
+  fired ~100ms into a page load, BEFORE React hydration registered the effect-based PONG
+  listener, so the 6s timeout force-navigated a fresh page. PONG now answers at MODULE scope
+  (pre-hydration) in `pwa-register.tsx`, the worker double-pings (4s) and only navigates at 9s,
+  and the GET_VERSION handshake retries once. Verified: claim now survives the whole SW
+  activate window (probe M7b).
+- INFRA FIX 2 - React #418 on every returning visit: the server always renders the landing
+  (page.tsx is session-blind) while the client seeded `me` from the localStorage cache and
+  hydrated dashboard HTML into landing HTML. `home-client.tsx` now applies the cache in a
+  post-hydration effect - still no spinners, no mismatch (probe M8 is clean).
+- Verify: `task229_two_feed_probe.py` 31/31 on a production server (two feeds, mockup card
+  furniture, 5-button rail, tier slicing, claim e2e + SW-activate survival, talent cards,
+  deep link + flash, Chat -> /u/<username>, escrow numbers, dock hidden on desktop, deck
+  centered in its column, zero console/page errors). tsc 20 pre-existing baseline (zero new),
+  `next build` clean (exit 0). Note: an orphaned `next-server` on :3100 served stale chunks
+  (500s -> inert pages) mid-session and cost the day several phantom failures - always
+  `pkill -f next-server` after rebuilds.
+
 ## v228 — self-healing service-worker update pipeline ("still the same nothing changed" fix) (2026-11-03)
 Pushed to main, live (sw.js `circub-v228`). No UI changes - this version exists because the
 browser kept showing an OLD build after v227 deployed: the SW update flow had three traps.
