@@ -15,7 +15,7 @@ import {
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
   Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
-  Pencil, Trash2, UserX, X, Plane,
+  Pencil, Trash2, UserX, X, Plane, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,7 @@ import { GuideBookingModal, BookingGuideInfo } from './guide-booking-modal'
 import { GuideBookingsModal } from './guide-bookings-modal'
 import type { User } from '@/lib/types'
 import { avatarSrc } from '@/lib/fighters'
+import { toggleSaved, isSaved as checkSaved } from '@/lib/saved-items'
 import { RoleStickerTile } from './role-sticker-reveal'
 
 interface LiveZoneTabProps {
@@ -44,6 +45,10 @@ interface LiveZoneTabProps {
   onMessage: (userId: string) => void
   onBecomeGuide: () => void
   onToggleAvailability: () => void
+  // v227: shared bounties land on /?quest=<id> - the swipe deck scrolls to
+  // and flashes that bounty, then the parent clears the highlight.
+  highlightQuestId?: string | null
+  onHighlightDone?: () => void
 }
 
 interface AiGuideResult {
@@ -161,7 +166,7 @@ type QuestRow = {
 }
 
 
-export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability }: LiveZoneTabProps) {
+export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability, highlightQuestId, onHighlightDone }: LiveZoneTabProps) {
   const router = useRouter()
   const [guides, setGuides] = useState<any[]>([])
   // Load part by part: render a small batch first, append more on scroll
@@ -265,12 +270,23 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const [claimErrs, setClaimErrs] = useState<Record<string, string>>({})
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [locallyClaimed, setLocallyClaimed] = useState<Record<string, boolean>>({})
-  const [showAllQuests, setShowAllQuests] = useState(false)
   // v219 poster/claimer management: inline Edit (reuses the post form),
   // Delete, Drop claim and Remove claimer. questBusy marks the quest whose
   // action is in flight so only that card's buttons spin.
   const [editingQuest, setEditingQuest] = useState<string | null>(null)
   const [questBusy, setQuestBusy] = useState<string>('')
+
+  // v227 TikTok-style swipe deck: the bounty board renders as a full-height
+  // vertical snap feed (one bounty per screen, swipe up for the next) with
+  // the Instant-Bounties furniture: tier pills on top, the poster identity
+  // row, the green GUARANTEED ESCROW REWARD banner and the right-side
+  // action rail (save / claim bolt / share). Tier pills slice by the
+  // platform's own lane rate cards (Hunter $5-20, Helper $15-30, Scout
+  // $24-45) - no new fields, just honest filters on bountyUsd.
+  const [bountyTier, setBountyTier] = useState<'all' | 'scout' | 'helper' | 'hunter'>('all')
+  const [savedQuests, setSavedQuests] = useState<Record<string, boolean>>({})
+  const [questFlash, setQuestFlash] = useState<string | null>(null)
+  const deckRef = useRef<HTMLDivElement | null>(null)
 
   // Claim form: prefill the member's own name (visitors type theirs).
   const meName = me?.name
@@ -284,6 +300,60 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
       const d = await r.json()
       setQuests(Array.isArray(d?.quests) ? d.quests : null)
     } catch { /* keep the current list */ }
+  }
+
+  // v227: seed the per-quest saved flags from the localStorage saved-items
+  // store whenever the quest list lands (the rail's Save toggles live here).
+  useEffect(() => {
+    if (!quests) return
+    setSavedQuests(() => {
+      const next: Record<string, boolean> = {}
+      quests.forEach((q) => { next[q.id] = checkSaved(q.id) })
+      return next
+    })
+  }, [quests])
+
+  // v227 deep link: /?quest=<id> opens this tab with the target bounty
+  // flashed - scroll the snap deck to the card, ring it for ~2.5s, report back.
+  useEffect(() => {
+    if (!highlightQuestId || !quests || quests.length === 0) return
+    const deck = deckRef.current
+    const card = deck?.querySelector<HTMLElement>(`[data-quest-id="${highlightQuestId}"]`)
+    if (deck && card) {
+      deck.scrollTo({ top: card.offsetTop, behavior: 'smooth' })
+      setQuestFlash(highlightQuestId)
+      const t = setTimeout(() => { setQuestFlash(null); onHighlightDone?.() }, 2600)
+      return () => clearTimeout(t)
+    }
+  }, [highlightQuestId, quests, onHighlightDone])
+
+  const handleQuestSave = (q: QuestRow) => {
+    const now = toggleSaved({
+      id: q.id,
+      type: 'quest',
+      title: q.title,
+      subtitle: q.location,
+      priceLabel: `$${q.bountyUsd.toFixed(2)}`,
+      imageUrl: null,
+      href: null,
+    })
+    setSavedQuests((prev) => ({ ...prev, [q.id]: now }))
+    toast({ title: now ? 'Bounty saved' : 'Removed from saved' })
+  }
+
+  const shareQuest = async (q: QuestRow) => {
+    const url = typeof window === 'undefined'
+      ? 'https://circubawd.vercel.app'
+      : `${window.location.origin}/?quest=${q.id}`
+    const text = `Bounty: ${q.title} - $${q.bountyUsd.toFixed(2)} in ${q.location}`
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'circubAwd bounty', text, url })
+        return
+      }
+      await navigator.clipboard.writeText(`${text} ${url}`)
+      toast({ title: 'Link copied', description: 'Paste it anywhere to send someone this bounty.' })
+    } catch { /* user cancelled the share sheet */ }
   }
 
   async function postQuestHere(e: React.FormEvent) {
@@ -574,6 +644,24 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
   const isGuide = me?.isGuide
   const isAvailable = (me as any)?.guideAvailable
 
+  // v227 swipe deck: tier pills slice the bounty deck by the platform's own
+  // lane rate cards - Hunter ($5-20) under $15, Helper ($15-30) in the
+  // middle, Scout ($24-45) at $30+. No new fields, just honest filters.
+  const BOUNTY_TIERS: Array<{ key: 'all' | 'scout' | 'helper' | 'hunter'; label: string }> = [
+    { key: 'all', label: 'All bounties' },
+    { key: 'hunter', label: 'Hunter · under $15' },
+    { key: 'helper', label: 'Helper · $15-30' },
+    { key: 'scout', label: 'Scout · $30+' },
+  ]
+  const tierOf = (bountyUsd: number): 'scout' | 'helper' | 'hunter' =>
+    bountyUsd >= 30 ? 'scout' : bountyUsd >= 15 ? 'helper' : 'hunter'
+  const filteredQuests = quests
+    ? (bountyTier === 'all' ? quests : quests.filter((q) => tierOf(q.bountyUsd) === bountyTier))
+    : []
+  const initialsOf = (name: string) =>
+    name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?'
+  const posterCount = (name: string) => (quests || []).filter((x) => x.posterName === name).length
+
   return (
     <div className="space-y-4">
       {/* v214 HustleHub header: live status strip + big hero title. All the
@@ -673,14 +761,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
               {editingQuest ? 'Editing quest - cancel' : 'Post an Instant Quest'}
             </button>
             {quests && quests.length > 3 && (
-              <button
-                type="button"
-                onClick={() => setShowAllQuests((v) => !v)}
-                data-testid="bounty-view-all"
-                className="text-xs font-semibold text-primary hover:underline"
-              >
-                {showAllQuests ? 'Show top bounties' : 'View all open bounties →'}
-              </button>
+              <span className="text-xs font-semibold text-muted-foreground" data-testid="bounty-view-all">{quests.length} open bounties</span>
             )}
           </div>
           <div>
@@ -794,161 +875,297 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, onToggleAvailability
         ) : quests.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
         ) : (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {(showAllQuests ? quests : quests.slice(0, 3)).map((q) => {
-              const isClaimed = q.claimed || locallyClaimed[q.id]
-              return (
-                <Card key={q.id} data-testid="bounty-card" className="p-4 shadow-sm flex flex-col">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                      <MapPin className="w-3 h-3" />
-                      {q.location}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
-                      <Clock className="w-3 h-3" />
-                      {q.deadlineText}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 font-bold text-foreground leading-snug">{q.title}</h3>
-                  {q.details && (
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{q.details}</p>
-                  )}
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    Posted by <span className="font-semibold text-foreground">{q.posterName}</span>
-                  </p>
-                  {/* v219: poster-only manage row - other visitors never see it. */}
-                  {q.isMine && !isClaimed && (
-                    <div className="mt-1.5 flex items-center gap-2 flex-wrap" data-testid="quest-manage-row">
-                      <button
-                        type="button"
-                        onClick={() => startEditQuest(q)}
-                        disabled={questBusy === q.id}
-                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="quest-edit-btn"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteQuestHere(q.id)}
-                        disabled={questBusy === q.id}
-                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-red-600 hover:border-red-300 transition-colors"
-                        data-testid="quest-delete-btn"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        Delete
-                      </button>
-                      <span className="text-[10px] font-semibold text-muted-foreground/70">Your post</span>
+          <div className="mt-3" data-testid="bounty-swipe-root">
+            {/* v227 tier pills - the Instant-Bounties style slicers, named
+                after the platform's own hustle lanes. Slices the deck by
+                bounty size: Hunter &lt; $15, Helper $15-30, Scout $30+. */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-2" data-testid="bounty-tiers">
+              {BOUNTY_TIERS.map((tier) => {
+                const count = tier.key === 'all' ? quests.length : quests.filter((q) => tierOf(q.bountyUsd) === tier.key).length
+                return (
+                  <button
+                    key={tier.key}
+                    type="button"
+                    onClick={() => setBountyTier(tier.key)}
+                    data-testid={`bounty-tier-${tier.key}`}
+                    className={cn(
+                      'shrink-0 h-8 px-3 rounded-full text-xs font-bold transition-colors',
+                      bountyTier === tier.key
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-accent text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {tier.label} · {count}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* v227 the deck itself: one bounty per screen, snap scrolling,
+                TikTok-style. Portrait column centered on desktop, full-bleed
+                on phones. */}
+            <div
+              ref={deckRef}
+              data-testid="bounty-swipe"
+              className="relative h-[78vh] min-h-[540px] max-h-[780px] w-full max-w-[480px] mx-auto overflow-y-auto snap-y snap-mandatory scroll-smooth rounded-3xl border border-border bg-card shadow-sm"
+            >
+              {filteredQuests.map((q, idx) => {
+                const isClaimed = q.claimed || locallyClaimed[q.id]
+                const isLast = idx === filteredQuests.length - 1
+                const qCount = posterCount(q.posterName)
+                return (
+                  <div
+                    key={q.id}
+                    data-quest-id={q.id}
+                    data-testid="bounty-card"
+                    className={cn(
+                      'h-full w-full snap-start relative flex flex-col p-4 sm:p-5 overflow-hidden',
+                      questFlash === q.id && 'ring-2 ring-primary'
+                    )}
+                  >
+                    {/* chips row - where + when, straight off the real post */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                        <MapPin className="w-3 h-3" />
+                        {q.location}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-600">
+                        <Clock className="w-3 h-3" />
+                        {q.deadlineText}
+                      </span>
                     </div>
-                  )}
-                  <div className="mt-3">
-                    <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
-                    <p className="text-lg font-extrabold text-foreground" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
-                  </div>
-                  {isClaimed ? (
-                    <div
-                      className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-                      data-testid="bounty-claimed"
-                    >
-                      {/* v219: no claimer name is shown to the public - only
-                          the two session-scoped views below know more. */}
-                      <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {q.myClaim || locallyClaimed[q.id] ? 'You claimed this - payout on completion' : 'Claimed - payout on completion'}
-                      </p>
-                      {revealed[q.id] && (
-                        <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
-                          Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
+
+                    <h3 className="mt-2 text-lg font-extrabold text-foreground leading-snug">{q.title}</h3>
+                    {q.details && (
+                      <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed line-clamp-4">{q.details}</p>
+                    )}
+
+                    {/* poster identity row (the ppl) - avatar initials,
+                        who posted, how many tasks they have live */}
+                    <div className="mt-3 flex items-center gap-2.5 min-w-0" data-testid="bounty-poster-row">
+                      <span className="w-9 h-9 rounded-full bg-primary/15 text-primary font-bold flex items-center justify-center text-[11px] shrink-0">
+                        {initialsOf(q.posterName)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-muted-foreground">Posted by {q.isMine ? 'you' : 'local hustler'}</p>
+                        <p className="text-xs font-semibold text-foreground truncate">
+                          {q.posterName} · {qCount} task{qCount !== 1 ? 's' : ''} posted
                         </p>
-                      )}
-                      {(q.myClaim || locallyClaimed[q.id]) && (
-                        <button
-                          type="button"
-                          onClick={() => dropClaimHere(q.id)}
-                          disabled={questBusy === q.id}
-                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          data-testid="quest-drop-claim"
-                        >
-                          <X className="w-3 h-3" />
-                          {questBusy === q.id ? 'Removing...' : 'Drop claim'}
-                        </button>
-                      )}
-                      {q.isMine && !locallyClaimed[q.id] && (
-                        <button
-                          type="button"
-                          onClick={() => dropClaimHere(q.id)}
-                          disabled={questBusy === q.id}
-                          className={"mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors" + ((q.myClaim || locallyClaimed[q.id]) ? ' sm:ml-3' : '')}
-                          data-testid="quest-remove-claimer"
-                        >
-                          <UserX className="w-3 h-3" />
-                          {questBusy === q.id ? 'Removing...' : 'Remove claimer'}
-                        </button>
-                      )}
-                    </div>
-                  ) : claimFor === q.id ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        claimQuestHere(q.id)
-                      }}
-                      className="mt-1 space-y-2"
-                      data-testid="quest-claim-form"
-                    >
-                      <input
-                        value={claimName}
-                        onChange={(e) => setClaimName(e.target.value)}
-                        placeholder="Your name"
-                        maxLength={100}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        data-testid="quest-claim-name"
-                      />
-                      <input
-                        value={claimContact}
-                        onChange={(e) => setClaimContact(e.target.value)}
-                        placeholder="Your contact - phone / WhatsApp / Telegram"
-                        maxLength={200}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        data-testid="quest-claim-contact"
-                      />
-                      {claimErrs[q.id] && (
-                        <p className="text-xs text-red-600 dark:text-red-400">{claimErrs[q.id]}</p>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="submit"
-                          disabled={claiming}
-                          className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
-                          data-testid="quest-claim-submit"
-                        >
-                          {claiming ? 'Claiming...' : 'Claim & get contact'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setClaimFor(null)}
-                          className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
-                        >
-                          Cancel
-                        </button>
                       </div>
-                    </form>
-                  ) : (
-                    <div className="mt-1">
-                      <Button
-                        size="sm"
-                        data-testid="bounty-claim"
-                        onClick={() => setClaimFor(q.id)}
-                        className="bg-primary hover:bg-primary/90 gap-1"
-                      >
-                        Claim Bounty
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Button>
+                      {/* v219 poster-only manage row - other visitors never see it */}
+                      {q.isMine && !isClaimed && (
+                        <div className="ml-auto flex items-center gap-1 shrink-0" data-testid="quest-manage-row">
+                          <button
+                            type="button"
+                            onClick={() => startEditQuest(q)}
+                            disabled={questBusy === q.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid="quest-edit-btn"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteQuestHere(q.id)}
+                            disabled={questBusy === q.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-red-600 hover:border-red-300 transition-colors"
+                            data-testid="quest-delete-btn"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </Card>
-              )
-            })}
+
+                    {/* GUARANTEED ESCROW REWARD banner - the green strip */}
+                    <div className="mt-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-3 text-white shadow-sm flex items-center justify-between gap-2" data-testid="bounty-reward-banner">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold tracking-widest uppercase text-white/80">Guaranteed escrow reward</p>
+                        <p className="text-2xl font-extrabold leading-tight" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold">
+                        {isClaimed ? 'In Escrow' : 'Instant Auto-Release'}
+                      </span>
+                    </div>
+
+                    {/* claim area - same states and testids as before, now
+                        inside the swipe card */}
+                    <div className="mt-2.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+                      {isClaimed ? (
+                        <div
+                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+                          data-testid="bounty-claimed"
+                        >
+                          {/* v219: no claimer name is shown to the public - only
+                              the two session-scoped views below know more. */}
+                          <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {q.myClaim || locallyClaimed[q.id] ? 'You claimed this - payout on completion' : 'Claimed - payout on completion'}
+                          </p>
+                          {revealed[q.id] && (
+                            <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
+                              Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
+                            </p>
+                          )}
+                          {(q.myClaim || locallyClaimed[q.id]) && (
+                            <button
+                              type="button"
+                              onClick={() => dropClaimHere(q.id)}
+                              disabled={questBusy === q.id}
+                              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                              data-testid="quest-drop-claim"
+                            >
+                              <X className="w-3 h-3" />
+                              {questBusy === q.id ? 'Removing...' : 'Drop claim'}
+                            </button>
+                          )}
+                          {q.isMine && !locallyClaimed[q.id] && (
+                            <button
+                              type="button"
+                              onClick={() => dropClaimHere(q.id)}
+                              disabled={questBusy === q.id}
+                              className={"mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors" + ((q.myClaim || locallyClaimed[q.id]) ? ' sm:ml-3' : '')}
+                              data-testid="quest-remove-claimer"
+                            >
+                              <UserX className="w-3 h-3" />
+                              {questBusy === q.id ? 'Removing...' : 'Remove claimer'}
+                            </button>
+                          )}
+                        </div>
+                      ) : claimFor === q.id ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault()
+                            claimQuestHere(q.id)
+                          }}
+                          className="space-y-2"
+                          data-testid="quest-claim-form"
+                        >
+                          <input
+                            value={claimName}
+                            onChange={(e) => setClaimName(e.target.value)}
+                            placeholder="Your name"
+                            maxLength={100}
+                            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            data-testid="quest-claim-name"
+                          />
+                          <input
+                            value={claimContact}
+                            onChange={(e) => setClaimContact(e.target.value)}
+                            placeholder="Your contact - phone / WhatsApp / Telegram"
+                            maxLength={200}
+                            className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            data-testid="quest-claim-contact"
+                          />
+                          {claimErrs[q.id] && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{claimErrs[q.id]}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="submit"
+                              disabled={claiming}
+                              className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-60"
+                              data-testid="quest-claim-submit"
+                            >
+                              {claiming ? 'Claiming...' : 'Claim & get contact'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setClaimFor(null)}
+                              className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            data-testid="bounty-claim"
+                            onClick={() => setClaimFor(q.id)}
+                            className="bg-primary hover:bg-primary/90 gap-1"
+                          >
+                            Claim Bounty
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Button>
+                          <p className="text-[11px] text-muted-foreground">1-click claim - the poster&apos;s contact opens instantly</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* swipe hint - bottom center of every card */}
+                    <div className="pt-2 flex items-center justify-center gap-1 text-[10px] font-semibold text-muted-foreground" data-testid="bounty-swipe-hint">
+                      {isLast ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                          You reached the last bounty
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
+                          Swipe up for next bounty
+                        </>
+                      )}
+                    </div>
+
+                    {/* v227 action rail - the TikTok-style right column:
+                        save / claim bolt / share. Only honest actions - no
+                        fabricated counts. */}
+                    <div className="absolute right-2.5 bottom-14 z-10 flex flex-col items-center gap-3" data-testid="bounty-action-rail">
+                      <button
+                        type="button"
+                        onClick={() => handleQuestSave(q)}
+                        data-testid="bounty-save"
+                        aria-label={savedQuests[q.id] ? 'Remove from saved' : 'Save bounty'}
+                        className="flex flex-col items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Bookmark className={cn('w-5 h-5', savedQuests[q.id] && 'fill-primary text-primary')} />
+                        <span className="text-[9px] font-semibold">{savedQuests[q.id] ? 'Saved' : 'Save'}</span>
+                      </button>
+                      {!isClaimed && (
+                        <button
+                          type="button"
+                          onClick={() => setClaimFor(q.id)}
+                          data-testid="bounty-claim-bolt"
+                          aria-label="Claim bounty"
+                          className="flex flex-col items-center gap-0.5"
+                        >
+                          <span className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+                            <Zap className="w-5 h-5 fill-current" />
+                          </span>
+                          <span className="text-[9px] font-bold text-primary">Claim</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void shareQuest(q)}
+                        data-testid="bounty-share"
+                        aria-label="Share bounty"
+                        className="flex flex-col items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Share2 className="w-5 h-5" />
+                        <span className="text-[9px] font-semibold">Share</span>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* end card - honest stopping point, one tap to refresh */}
+              <div className="h-full w-full snap-start flex flex-col items-center justify-center gap-3 p-6 text-center" data-testid="bounty-deck-end">
+                <span className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-primary" />
+                </span>
+                <p className="text-sm font-bold text-foreground">All bounties viewed</p>
+                <Button size="sm" variant="outline" onClick={() => void reloadQuests()} className="gap-1.5" data-testid="bounty-refresh">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Refresh for new drops
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>

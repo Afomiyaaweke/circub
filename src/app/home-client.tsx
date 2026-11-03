@@ -90,6 +90,9 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // post id to highlight when the user arrives from a ?community=<id>
   // share link - the tab scrolls to and flashes that post.
   const [communityHighlight, setCommunityHighlight] = useState<string | null>(null)
+  // v227: shared bounties land on /?quest=<id> - open the Link (guides) tab
+  // and flash that bounty inside the swipe deck.
+  const [questHighlight, setQuestHighlight] = useState<string | null>(null)
   const [localPriceId, setLocalPriceId] = useState<string | null>(null)
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -170,6 +173,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
     if (communityId) {
       setActiveTab('community')
       setCommunityHighlight(communityId)
+    }
+    const questId = params.get('quest')
+    if (questId) {
+      setActiveTab('guides')
+      setQuestHighlight(questId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -570,7 +578,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
           {activeTab === 'guides' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} />
+              <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} />
             </Suspense>
           )}
 

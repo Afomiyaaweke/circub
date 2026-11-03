@@ -1091,7 +1091,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 <img src={item.imageUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-primary/20 via-emerald-500/10 to-teal-500/15 flex items-center justify-center">
-                  {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
+                  {item.type === 'post' ? <ImageIcon className="w-5 h-5 text-primary/50" /> : item.type === 'quest' ? <Zap className="w-5 h-5 text-primary/50" /> : <MapPin className="w-5 h-5 text-primary/50" />}
                 </div>
               )}
             </div>
@@ -1100,7 +1100,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               {item.subtitle && <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>}
               <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 mt-0.5">
                 <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide bg-accent text-muted-foreground">
-                  {item.type === 'post' ? 'Post' : 'Price'}
+                  {item.type === 'post' ? 'Post' : item.type === 'quest' ? 'Quest' : 'Price'}
                 </Badge>
                 {item.priceLabel && <span className="font-semibold text-foreground/80">{item.priceLabel}</span>}
                 <span>Saved {timeAgo(new Date(item.savedAt).toISOString())}</span>
