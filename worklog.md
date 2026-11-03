@@ -162,3 +162,23 @@ Scout/Helper/Hunter/Agent lane tabs + skill search + AI Match / Available / Near
   swipe deck - zero navigation, no new page. Desktop: the pill rides the centered 560px card
   column (max-w-[560px] mx-auto) instead of stretching. Derived `laneHit` replaces the old
   role state; AI panel/empty states untouched. Probe 35/35; tsc 20 baseline; build exit 0.
+
+## v232 - Local Price Feed: one-line filters + vote on every post
+
+User: "keep them in one line and have vote for all the price post" (screenshot = the Local
+Price Feed header with the search bar, All locations / All categories pickers and the
+All posts / Shop owner / Shared price tabs wrapping onto several lines).
+
+- `local-feed-tab.tsx`: the filter block is ONE line at every breakpoint now (`local-filter-row`):
+  search pill (Proforma shortcut inside) | location picker | category picker | poster-type
+  segments | Proforma button. On phones the two pickers go ICON-ONLY (active filter tints the
+  icon emerald, full labels from sm up) and the segments show short labels (All / Shop /
+  Shared). The conditional chips (image search, compare locations, comma hint) and the
+  Proforma / AI result panels moved OUT of the row into a stacked block below, so the row can
+  never wrap again.
+- `local-product-card.tsx`: EVERY price post now carries a Helpful vote button beside
+  Compare Sellers (thumbs-up + live count, filled emerald when myVote=HELPFUL, tap again to
+  undo) wired to the feed's existing /api/local-prices/[id]/vote handler; guests still get
+  the register-to-vote toast. The not-accurate flag stays in the detail modal.
+- Probe 23/23 (one-line geometry on 390px + 1440px, icon-only forms, vote/un-vote end-to-end,
+  search from the narrow input); tsc 20 baseline; build exit 0.

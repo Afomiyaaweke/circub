@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, Search, Sparkles, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Sheet } from 'lucide-react'
+import { MapPin, Plus, Search, Sparkles, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Sheet, Tag } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -698,13 +698,16 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           while nothing is live. */}
       <PriceStoriesStrip onOpenPost={setDetailPostId} />
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Unified search bar - the country/city/category filters live INSIDE
-            the search field as segmented sections of one pill. Desktop: a
-            single row (input | country | city | category). Phone: the pill
-            wraps - search on top, filters on a second row inside the bar. */}
-        <div className="flex items-center flex-1 basis-full sm:basis-auto min-w-[150px] flex-wrap rounded-lg border border-input bg-card shadow-xs">
-          <div className="flex items-center flex-1 basis-full sm:basis-auto sm:min-w-[150px] min-w-0">
+      {/* v232 ONE LINE filter row - the user: "keep them in one line". The
+          search pill (Proforma shortcut inside), the location + category
+          pickers and the poster-type segments share ONE row at every
+          breakpoint: on phones the pickers go icon-only (an active filter
+          tints its icon emerald) and the segments show short labels. State
+          chips and result panels render BELOW the row, never beside it. */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5 sm:gap-2" data-testid="local-filter-row">
+        <div className="flex items-center flex-1 min-w-0 rounded-lg border border-input bg-card shadow-xs">
+          <div className="flex items-center flex-1 min-w-0">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
@@ -719,16 +722,18 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
           {/* v184: the country + city selects are ONE picker now - countries
               as bold green rows, their cities indented underneath, all in a
-              single dropdown ("make this in one"). */}
+              single dropdown ("make this in one"). v232: icon-only on phones
+              so the whole filter row stays ONE line. */}
           <Select value={locValue} onValueChange={setLocPick}>
             <SelectTrigger
               data-testid="location-filter"
+              aria-label="Filter by location"
               className={
-                'flex-1 basis-1/2 sm:basis-auto sm:flex-none sm:w-[150px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                'flex-none w-9 sm:w-[150px] h-9 justify-center sm:justify-start px-0 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
                 (locActive ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
               }
             >
-              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0 hidden sm:block" /><SelectValue placeholder="All locations" />
+              <MapPin className="w-3.5 h-3.5 shrink-0" /><span className="hidden sm:inline min-w-0 truncate"><SelectValue placeholder="All locations" /></span>
             </SelectTrigger>
             <SelectContent className="max-h-[320px]">
               <SelectItem value="all">{t('filter.allLocations')}</SelectItem>
@@ -750,24 +755,26 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger
               data-testid="category-filter"
+              aria-label="Filter by category"
               className={
-                'flex-1 basis-1/3 sm:basis-auto sm:flex-none sm:w-[132px] h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 border-t border-input sm:border-t-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
+                'flex-none w-9 sm:w-[132px] h-9 justify-center sm:justify-start px-0 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
                 (category !== ALL_CATEGORIES ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
               }
             >
-              <SelectValue placeholder="All categories" />
+              <Tag className="w-3.5 h-3.5 shrink-0 sm:hidden" /><span className="hidden sm:inline min-w-0 truncate"><SelectValue placeholder="All categories" /></span>
             </SelectTrigger>
             <SelectContent className="max-h-[320px]"><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{CATEGORY_GROUPS.map((g) => <SelectGroup key={g.group}><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{g.group}</SelectLabel>{g.items.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>)}{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).length > 0 && <SelectGroup><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Older categories</SelectLabel>{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>}</SelectContent>
           </Select>
         </div>
         {/* v187: small poster-type filter - three tiny segments beside the
             search pill: shop owner posts / just shared prices / all. The
-            active segment goes emerald like the other active filters. */}
-        <div className="inline-flex items-center rounded-lg border border-input bg-card shadow-xs overflow-hidden shrink-0 basis-full sm:basis-auto" data-testid="poster-type-filter">
+            active segment goes emerald like the other active filters.
+            v232: short labels on phones so the row stays ONE line. */}
+        <div className="inline-flex items-center rounded-lg border border-input bg-card shadow-xs overflow-hidden shrink-0" data-testid="poster-type-filter">
           {([
-            { v: 'all' as const, label: t('filter.posterAll'), testid: 'type-filter-all' },
-            { v: 'shop' as const, label: t('filter.posterShop'), testid: 'type-filter-shop' },
-            { v: 'shared' as const, label: t('filter.posterShared'), testid: 'type-filter-shared' },
+            { v: 'all' as const, label: t('filter.posterAll'), short: 'All', testid: 'type-filter-all' },
+            { v: 'shop' as const, label: t('filter.posterShop'), short: 'Shop', testid: 'type-filter-shop' },
+            { v: 'shared' as const, label: t('filter.posterShared'), short: 'Shared', testid: 'type-filter-shared' },
           ]).map((seg, i) => (
             <button
               key={seg.v}
@@ -775,14 +782,15 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
               data-testid={seg.testid}
               onClick={() => { ownerTapRef.current = true; setOwnerFilter(seg.v) }}
               className={
-                'h-9 px-2.5 sm:px-3 text-xs whitespace-nowrap transition-colors ' +
+                'h-9 px-2 sm:px-3 text-[11px] sm:text-xs whitespace-nowrap transition-colors ' +
                 (i > 0 ? 'border-l border-input ' : '') +
                 (ownerFilter === seg.v
                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold'
                   : 'text-muted-foreground hover:bg-accent')
               }
             >
-              {seg.label}
+              <span className="sm:hidden">{seg.short}</span>
+              <span className="hidden sm:inline">{seg.label}</span>
             </button>
           ))}
         </div>
@@ -799,6 +807,8 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <ClipboardList className="w-3.5 h-3.5 text-emerald-600" />
           <span>Proforma</span>
         </Button>
+        </div>
+
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
             <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
@@ -819,7 +829,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         {/* Comma-location hint - honest feedback when the text after the
             comma is not a city or country the feed knows about. */}
         {searchLocHint && (
-          <p data-testid="local-search-loc-hint" className="basis-full text-xs text-muted-foreground -mt-1">
+          <p data-testid="local-search-loc-hint" className="text-xs text-muted-foreground">
             {`No city or country named "${searchLocHint}" in the feed yet - showing ${search ? `"${search}"` : 'everything'} from all locations.`}
           </p>
         )}
@@ -1119,6 +1129,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
                   key={p.id}
                   post={p}
                   onOpen={setDetailPostId}
+                  onVote={handleVote}
                   onEdit={handleEditPost}
                   onDelete={handleDelete}
                   canEdit={isOwn}

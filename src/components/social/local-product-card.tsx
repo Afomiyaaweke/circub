@@ -12,7 +12,7 @@
 // does not take the author tools away.
 
 import { useEffect, useState } from 'react'
-import { Heart, MapPin, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Heart, MapPin, Pencil, Trash2, Loader2, ThumbsUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { toggleSaved, isSaved } from '@/lib/saved-items'
@@ -22,6 +22,9 @@ import type { LocalPricePost } from '@/lib/types'
 interface LocalProductCardProps {
   post: LocalPricePost
   onOpen: (id: string) => void
+  // v232: EVERY price post gets a vote - the feed's handleVote posts to
+  // /api/local-prices/[id]/vote (guests get the register toast there).
+  onVote?: (postId: string, voteType: 'HELPFUL' | 'NOT_ACCURATE') => void
   // Author-only tools - same gate the old price card used
   // (!!currentUserId && post.authorId === currentUserId).
   onEdit?: (post: LocalPricePost) => void
@@ -31,7 +34,7 @@ interface LocalProductCardProps {
   deleting?: boolean
 }
 
-export function LocalProductCard({ post, onOpen, onEdit, onDelete, canEdit, canDelete, deleting }: LocalProductCardProps) {
+export function LocalProductCard({ post, onOpen, onVote, onEdit, onDelete, canEdit, canDelete, deleting }: LocalProductCardProps) {
   const [saved, setSaved] = useState(false)
   const { toast } = useToast()
 
@@ -148,12 +151,33 @@ export function LocalProductCard({ post, onOpen, onEdit, onDelete, canEdit, canD
         <p className="text-[13px] font-bold text-foreground">{priceLabel}</p>
       </div>
 
-      {/* Full-width green Compare Sellers - opens the price detail modal */}
-      <div className="px-2.5 pb-2.5">
+      {/* v232 vote + compare row - the user: "have vote for all the price
+          post". Every card carries a Helpful vote (count + filled state
+          come from the post's live vote fields; the detail modal still has
+          the not-accurate flag) beside the green Compare Sellers. */}
+      <div className="px-2.5 pb-2.5 flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onVote?.(post.id, 'HELPFUL')}
+          data-testid="product-vote-btn"
+          aria-pressed={post.myVote === 'HELPFUL'}
+          title={post.myVote === 'HELPFUL' ? 'You marked this helpful - tap to undo' : 'Was this price helpful?'}
+          className={cn(
+            'shrink-0 h-8 px-2.5 text-xs gap-1',
+            post.myVote === 'HELPFUL'
+              ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white'
+              : 'text-emerald-700 dark:text-emerald-400 border-emerald-600/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+          )}
+        >
+          <ThumbsUp className={cn('w-3.5 h-3.5', post.myVote === 'HELPFUL' && 'fill-current')} />
+          <span data-testid="product-vote-count">{post.helpfulCount ?? 0}</span>
+          <span className="hidden sm:inline">Helpful</span>
+        </Button>
         <Button
           size="sm"
           onClick={() => onOpen(post.id)}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
+          className="flex-1 min-w-0 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-2"
           data-testid="product-compare-btn"
         >
           Compare Sellers
