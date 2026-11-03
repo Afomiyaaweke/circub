@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, Search, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Tag } from 'lucide-react'
+import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalProductCard } from './local-product-card'
 import { PriceStoriesStrip } from './price-stories-strip'
@@ -687,100 +685,15 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           while nothing is live. */}
       <PriceStoriesStrip onOpenPost={setDetailPostId} />
 
-      {/* v232 ONE LINE filter row - the user: "keep them in one line". The
-          search pill, the location + category pickers and the poster-type
-          segments share ONE row at every breakpoint: on phones the pickers
-          go icon-only (an active filter tints its icon emerald) and the
-          segments show short labels. v233: the Proforma shortcut that used
-          to ride inside the pill / at the row's end moved UP into the slim
-          action row - Proforma + Post Price are the only header actions.
-          State chips and result panels render BELOW the row, never beside it. */}
+      {/* v234: the whole FILTER BAR is gone - the user: "remove this
+          bar ... don't take it to new page, keep it in the same page".
+          Search, the location/category pickers and the All/Shop/Shared
+          segments no longer render; the price feed shows directly under
+          the slim action row on the SAME page, zero navigation. The
+          conditional state chips (image search / compare places / comma
+          hint) and the Proforma + AI panels still render inside this
+          block whenever their state is set. */}
       <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5 sm:gap-2" data-testid="local-filter-row">
-        <div className="flex items-center flex-1 min-w-0 rounded-lg border border-input bg-card shadow-xs">
-          <div className="flex items-center flex-1 min-w-0">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input placeholder="Search item, location" data-testid="local-search-input" value={searchRaw} onChange={(e) => { const v = e.target.value; setSearchRaw(v); const ci = v.indexOf(','); setSearch((ci === -1 ? v : v.slice(0, ci)).trim()) }} className="pl-9 bg-transparent h-9 text-sm border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent" />
-            </div>
-          </div>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          {/* v184: the country + city selects are ONE picker now - countries
-              as bold green rows, their cities indented underneath, all in a
-              single dropdown ("make this in one"). v232: icon-only on phones
-              so the whole filter row stays ONE line. */}
-          <Select value={locValue} onValueChange={setLocPick}>
-            <SelectTrigger
-              data-testid="location-filter"
-              aria-label="Filter by location"
-              className={
-                'flex-none w-9 sm:w-[150px] h-9 justify-center sm:justify-start px-0 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (locActive ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
-              }
-            >
-              <MapPin className="w-3.5 h-3.5 shrink-0" /><span className="hidden sm:inline min-w-0 truncate"><SelectValue placeholder="All locations" /></span>
-            </SelectTrigger>
-            <SelectContent className="max-h-[320px]">
-              <SelectItem value="all">{t('filter.allLocations')}</SelectItem>
-              {filterValues.locations.map((g) => (
-                <SelectGroup key={g.country}>
-                  <SelectItem value={'country:' + g.country} className="font-semibold text-emerald-700 dark:text-emerald-400">{g.country}</SelectItem>
-                  {g.cities.map((c) => <SelectItem key={g.country + ':' + c} value={'city:' + c} className="pl-8 text-muted-foreground">{c}</SelectItem>)}
-                </SelectGroup>
-              ))}
-              {orphanCities.length > 0 && (
-                <SelectGroup>
-                  <SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Other cities</SelectLabel>
-                  {orphanCities.map((c) => <SelectItem key={c} value={'city:' + c} className="pl-8">{c}</SelectItem>)}
-                </SelectGroup>
-              )}
-            </SelectContent>
-          </Select>
-          <div className="hidden sm:block w-px h-5 bg-border shrink-0" />
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger
-              data-testid="category-filter"
-              aria-label="Filter by category"
-              className={
-                'flex-none w-9 sm:w-[132px] h-9 justify-center sm:justify-start px-0 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-2 border-0 rounded-none shadow-none bg-transparent focus-visible:ring-0 focus-visible:border-transparent ' +
-                (category !== ALL_CATEGORIES ? 'text-emerald-700 dark:text-emerald-400 font-medium' : '')
-              }
-            >
-              <Tag className="w-3.5 h-3.5 shrink-0 sm:hidden" /><span className="hidden sm:inline min-w-0 truncate"><SelectValue placeholder="All categories" /></span>
-            </SelectTrigger>
-            <SelectContent className="max-h-[320px]"><SelectItem value={ALL_CATEGORIES}>{t("filter.allCategories")}</SelectItem>{CATEGORY_GROUPS.map((g) => <SelectGroup key={g.group}><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{g.group}</SelectLabel>{g.items.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>)}{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).length > 0 && <SelectGroup><SelectLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Older categories</SelectLabel>{categoryFilterOptions(filterValues.categories).filter((c) => !CATEGORIES.includes(c)).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup>}</SelectContent>
-          </Select>
-        </div>
-        {/* v187: small poster-type filter - three tiny segments beside the
-            search pill: shop owner posts / just shared prices / all. The
-            active segment goes emerald like the other active filters.
-            v232: short labels on phones so the row stays ONE line. */}
-        <div className="inline-flex items-center rounded-lg border border-input bg-card shadow-xs overflow-hidden shrink-0" data-testid="poster-type-filter">
-          {([
-            { v: 'all' as const, label: t('filter.posterAll'), short: 'All', testid: 'type-filter-all' },
-            { v: 'shop' as const, label: t('filter.posterShop'), short: 'Shop', testid: 'type-filter-shop' },
-            { v: 'shared' as const, label: t('filter.posterShared'), short: 'Shared', testid: 'type-filter-shared' },
-          ]).map((seg, i) => (
-            <button
-              key={seg.v}
-              type="button"
-              data-testid={seg.testid}
-              onClick={() => { ownerTapRef.current = true; setOwnerFilter(seg.v) }}
-              className={
-                'h-9 px-2 sm:px-3 text-[11px] sm:text-xs whitespace-nowrap transition-colors ' +
-                (i > 0 ? 'border-l border-input ' : '') +
-                (ownerFilter === seg.v
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold'
-                  : 'text-muted-foreground hover:bg-accent')
-              }
-            >
-              <span className="sm:hidden">{seg.short}</span>
-              <span className="hidden sm:inline">{seg.label}</span>
-            </button>
-          ))}
-        </div>
-        </div>
-
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
             <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />

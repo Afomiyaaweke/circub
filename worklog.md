@@ -205,3 +205,27 @@ Price Feed page with its big title card).
   Post Price, slim action row above the filter row, v232 one-line filter
   intact, votes intact, Proforma panel + composer open/close, Link reel
   header kept, reel back returns to Local); tsc 20 baseline; build exit 0.
+
+## v234 - Local feed: the filter bar is gone, same-page feed stays
+
+User: "remove this bar and keep the nav bar on the link don't take it to new
+page keep it in the same page" (screenshot = the v232 one-line filter bar:
+Search item, location + All locations + All categories + All posts /
+Shop owner / Shared price).
+
+- `local-feed-tab.tsx`: the whole `local-filter-row` is gone - the search
+  pill, the location + category pickers and the All/Shop/Shared segments no
+  longer render (-96 lines). The price feed now shows DIRECTLY under the
+  slim v233 action row (Proforma + Post Price), on the SAME page with zero
+  navigation - no new page, no route change. The conditional state chips
+  (image search / compare places / comma hint) and the Proforma + AI panels
+  keep their conditional rendering; the filter state itself stays at its
+  defaults so the fetch logic is untouched. Unused imports dropped
+  (Search icon, Input, Select family, Tag); MapPin/X stay (chips use them).
+- The LINK tab nav bar is untouched: reel still opens on its slim bar
+  (back + Instant Bounties / Talent On Call) and back returns to the Local
+  tab on the same page.
+- Probe 41/41 (bar fully gone at 390px & 1440px incl. placeholder text,
+  action row is the only bar, grid populated below it, URL constant
+  throughout incl. Proforma/composer/reel-back, votes intact, Link nav bar
+  kept); tsc 20 baseline; build exit 0.
