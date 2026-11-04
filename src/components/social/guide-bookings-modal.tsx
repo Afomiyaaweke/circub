@@ -118,7 +118,7 @@ function BookingCard({ b, me, onMessage, refresh }: {
       {b.message && <p className="text-xs text-muted-foreground bg-accent/60 rounded p-2 break-words">&ldquo;{b.message}&rdquo;</p>}
       {b.reply && (
         <p className={cn('text-xs rounded p-2 break-words', b.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-800' : 'bg-accent/60 text-muted-foreground')}>
-          Guide replied: &ldquo;{b.reply}&rdquo;
+          Talent replied: &ldquo;{b.reply}&rdquo;
         </p>
       )}
 
@@ -235,7 +235,7 @@ export function GuideBookingsModal({ open, onOpenChange, isGuide, meId, onMessag
           <p className="text-sm text-muted-foreground text-center py-6">
             {tab === 'incoming'
               ? (isGuide ? 'No booking requests yet. Keep your guide profile sharp and stay Available!' : 'Tourists haven\'t booked you yet.')
-              : 'You haven\'t requested any tours yet - tap Book on any guide card.'}
+              : 'You haven\'t requested any tours yet - tap Book on any talent card.'}
           </p>
         ) : (
           <div className="space-y-3 pr-1">

@@ -69,7 +69,7 @@ export function GuideRatingModal({ open, onOpenChange, guide, onRated }: RatingM
           <div className="flex justify-center mb-3">
             <Avatar className="w-16 h-16 border-2 border-accent overflow-hidden">
               {guide?.profilePicture ? (
-                <img src={avatarSrc(guide.profilePicture)} alt={guide?.name || 'Guide'} className="w-full h-full object-cover" />
+                <img src={avatarSrc(guide.profilePicture)} alt={guide?.name || 'Talent'} className="w-full h-full object-cover" />
               ) : (
                 <AvatarFallback className="bg-primary/15 text-primary font-bold text-xl">
                   {guide?.name?.charAt(0).toUpperCase() || '?'}
@@ -79,7 +79,7 @@ export function GuideRatingModal({ open, onOpenChange, guide, onRated }: RatingM
           </div>
           <DialogTitle className="text-lg font-bold text-foreground">Rate {guide?.name}</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            How was your experience with this guide?
+            How was your experience with this talent?
           </DialogDescription>
         </DialogHeader>
 

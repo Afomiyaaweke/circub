@@ -1,9 +1,9 @@
 'use client'
 
 // The "I am joining as *" role question - the SAME picker is shown while a
-// member registers (register-modal) and inside the Live Zone join modal
-// (guide-register-modal). The sign-up answer is stored on User.guideRoles and
-// arrives prefilled here when the member later joins the Live Zone program.
+// member registers (register-modal) and inside Edit profile's talent section
+// (v236). The sign-up answer is stored on User.guideRoles and arrives
+// prefilled here when the member later joins the Live Zone talent program.
 import { CheckCircle2, Video, Compass, Users, Heart, ShoppingBag, Plane } from 'lucide-react'
 import { circubawd_ROLES, ROLE_META, type circubawdRole } from '@/lib/roles'
 import { useLanguage } from '@/lib/i18n'

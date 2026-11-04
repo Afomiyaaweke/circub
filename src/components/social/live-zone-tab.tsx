@@ -14,7 +14,7 @@ import {
   Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
-  Play, Video, Zap, ArrowRight, ArrowLeft, Clock, Tag, CheckCircle2, Send,
+  Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
   Pencil, Trash2, UserX, X, Plane, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -43,17 +43,14 @@ import { RoleStickerTile } from './role-sticker-reveal'
 interface LiveZoneTabProps {
   me: User | null
   onMessage: (userId: string) => void
-  onBecomeGuide: () => void
-  // v230: the Link tab is a full-screen reel view - the app header, sidebar
-  // and dock are all hidden, so the parent hands us a way back to the tab
-  // the user came from. The availability toggle button lives in the user's
-  // own profile now (the v229 hero row is gone).
+  // v236: "Become a talent" opens Edit profile - the registration form lives
+  // inside the profile tab now (the old guide-register-modal is gone).
+  onJoinTalent: () => void
   onToggleAvailability?: () => void
   // v227: shared bounties land on /?quest=<id> - the swipe deck scrolls to
   // and flashes that bounty, then the parent clears the highlight.
   highlightQuestId?: string | null
   onHighlightDone?: () => void
-  onBack?: () => void
 }
 
 interface AiGuideResult {
@@ -202,7 +199,7 @@ type QuestRow = {
 }
 
 
-export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, onHighlightDone, onBack }: LiveZoneTabProps) {
+export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onHighlightDone }: LiveZoneTabProps) {
   const router = useRouter()
   const [guides, setGuides] = useState<any[]>([])
   // Load part by part: render a small batch first, append more on scroll
@@ -375,30 +372,6 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
       return () => clearTimeout(t)
     }
   }, [highlightQuestId, feed, quests, onHighlightDone])
-
-  // v230: Escape leaves the reel too (desktop nicety) - UNLESS a modal dialog
-  // just handled the keystroke. Radix flushes the dialog close synchronously
-  // during the same Escape event, so a "is a dialog open" check in the bubble
-  // phase is already too late; instead we remember the last time a dialog was
-  // seen in the DOM and stay put for a short grace window after that.
-  const dialogSeenAtRef = useRef(0)
-  useEffect(() => {
-    if (!onBack) return
-    const scan = () => {
-      if (document.querySelector('[role="dialog"]')) dialogSeenAtRef.current = Date.now()
-    }
-    scan()
-    const mo = new MutationObserver(scan)
-    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state'] })
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      scan()
-      if (Date.now() - dialogSeenAtRef.current < 600) return
-      onBack()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => { window.removeEventListener('keydown', onKey); mo.disconnect() }
-  }, [onBack])
 
   const handleQuestSave = (q: QuestRow) => {
     const now = toggleSaved({
@@ -682,7 +655,7 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
       }
       setMyCoords({ lat: coords.lat, lng: coords.lng })
       setNearMe(true)
-      toast({ title: 'Sorted by distance', description: 'Guides nearest to you are shown first.' })
+      toast({ title: 'Sorted by distance', description: 'Talents nearest to you are shown first.' })
     } finally {
       setLocating(false)
     }
@@ -789,29 +762,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
   const posterCount = (name: string) => (quests || []).filter((x) => x.posterName === name).length
 
   return (
-    /* v230 FULL-SCREEN REEL SHELL - the user: "remove all the header from the
-       link session and only keep the toggle and my escrow and make the
-       swiping full screen like reel have back also". The Link tab now covers
-       the whole viewport (fixed inset-0, above the app header z-30 and the
-       mobile dock z-40; radix dialogs portal above at z-50). The ONLY header
-       is one slim bar: back (to the tab the user came from) + the feed
-       toggle + My Payouts & Escrow. The old hero row (hustlers online,
-       escrow badge, join/guide/go-live) is gone. */
-    <div className="fixed inset-0 z-50 bg-background flex flex-col" data-testid="link-reel-root">
-      {/* v230 TOP BAR - the only header kept: back + toggle + payouts. */}
-      <div className="shrink-0 flex items-center gap-2 pl-2 pr-2.5 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 bg-background/95 backdrop-blur border-b border-border" data-testid="link-topbar">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            data-testid="link-back"
-            aria-label="Back"
-            title="Back"
-            className="w-9 h-9 rounded-full bg-accent hover:bg-accent/60 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-        )}
+    /* v235: the Link tab renders like every other tab - INSIDE the normal
+       page flow. The app shell above provides the header, the dock and the
+       page paddings; the v230 fixed full-screen reel shell, its back button
+       and the Escape machinery are gone (nav pills are the way around now).
+       The root is a plain in-page column with a viewport-derived height. */
+    <div className="flex flex-col h-[calc(100dvh-150px)] lg:h-[calc(100dvh-120px)] min-h-[540px]" data-testid="link-tab-root">
+      {/* v235 in-page top row - feed switcher + payouts, no back button. */}
+      <div className="shrink-0 flex items-center gap-2 pl-2 pr-2.5 pb-2 bg-background/95 backdrop-blur border-b border-border" data-testid="link-topbar">
 
         {/* v229 FEED MODE SWITCHER - the mockup's TikTok mode pills, fed with
             REAL counts (open bounties / registered talent). Bounties stay the
@@ -1707,14 +1665,14 @@ export function LiveZoneTab({ me, onMessage, onBecomeGuide, highlightQuestId, on
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent mb-3">
               <Compass className="w-6 h-6 text-primary" />
             </div>
-            <h3 className="font-semibold text-foreground">No locals found</h3>
+            <h3 className="font-semibold text-foreground">No talents found</h3>
             <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-              No one matches your filters. Try adjusting search, or be the first to join as a guide, local, volunteer or seller!
+              No one matches your filters. Try adjusting search, or be the first to join as a talent, local, volunteer or seller!
             </p>
             {!isGuide && (
-              <Button onClick={onBecomeGuide} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
+              <Button onClick={onJoinTalent} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
                 <Compass className="w-4 h-4" />
-                Join as a local
+                Become a talent
               </Button>
             )}
           </Card>

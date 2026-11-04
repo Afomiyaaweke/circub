@@ -43,7 +43,7 @@ export function DemoBanner({ onSignUp, onExit }: DemoBannerProps) {
         </span>
         <span className="font-extrabold">Demo view — read only.</span>{' '}
         <span className="font-semibold max-sm:hidden">
-          You cannot post, vote, message, or join as a guide. Register first — it is free and takes 10 seconds.
+          You cannot post, vote, message, or join as a talent. Register first — it is free and takes 10 seconds.
         </span>
         <span className="font-semibold sm:hidden">
           Register to post, vote &amp; message — free, 10 seconds.

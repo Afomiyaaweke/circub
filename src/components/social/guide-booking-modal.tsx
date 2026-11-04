@@ -96,7 +96,7 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
             {done ? 'Request sent' : `Book ${guide.name}`}
           </DialogTitle>
           <DialogDescription>
-            {done ? 'The guide has been notified and will reply soon.' : 'Request a tour - the guide confirms before anything is final.'}
+            {done ? 'The guide has been notified and will reply soon.' : 'Request a tour - the talent confirms before anything is final.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +112,7 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
               {onMessage && (
                 <Button size="sm" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground gap-1.5" onClick={() => { onOpenChange(false); onMessage(guide.id) }}>
                   <MessageSquare className="w-3.5 h-3.5" />
-                  Message guide
+                  Message talent
                 </Button>
               )}
               <Button size="sm" onClick={() => onOpenChange(false)} className="bg-primary hover:bg-primary/90">Done</Button>
@@ -177,10 +177,10 @@ export function GuideBookingModal({ open, onOpenChange, guide, onBooked, onMessa
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5" />Message to the guide
+                  <MessageSquare className="w-3.5 h-3.5" />Message to the talent
                 </label>
                 <Textarea
-                  placeholder="Tell the guide what you want to see, your pace, interests..."
+                  placeholder="Tell the talent what you want to see, your pace, interests..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   className="min-h-[64px] resize-y bg-card"

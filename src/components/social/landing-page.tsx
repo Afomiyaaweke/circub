@@ -154,7 +154,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Which countries and cities does circubAwd cover?",
-    a: "circubAwd is community-driven: it covers every place where locals have posted prices, and it grows city by city as people contribute. If your destination is not covered yet, you can ask a local guide directly.",
+    a: "circubAwd is community-driven: it covers every place where locals have posted prices, and it grows city by city as people contribute. If your destination is not covered yet, you can ask a local talent directly.",
   },
 ]
 
@@ -187,8 +187,8 @@ const FEATURES = [
   },
   {
     icon: Compass,
-    title: "Local guides & travel agents",
-    body: "Find guides by city, language and specialty - or book a registered travel agent to plan the whole trip.",
+    title: "Local talents & travel agents",
+    body: "Find talents by city, language and specialty - or book a registered travel agent to plan the whole trip.",
   },
   {
     icon: TrendingUp,
@@ -263,7 +263,7 @@ const ASK_CHIPS = [
   { icon: Tag, label: "True prices" },
   { icon: Camera, label: "Shop checks" },
   { icon: Languages, label: "Translation" },
-  { icon: Compass, label: "Guide help" },
+  { icon: Compass, label: "Talent help" },
   { icon: Plane, label: "Travel agents" },
   { icon: Sparkles, label: "Gigs & stickers" },
 ]
@@ -512,7 +512,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
 
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#42604f] sm:text-base">
               Ask anything before you go - a real local answers in minutes, with true prices, shop
-              checks, translation and guide help. Know your city? Answer questions, collect
+              checks, translation and talent help. Know your city? Answer questions, collect
               stickers, and earn from gigs - even get booked as a travel agent.
             </p>
 
@@ -750,13 +750,13 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#059669]/10 text-[#059669]">
               <Compass className="h-5 w-5" />
             </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#059669]">For guides & agents</p>
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#059669]">For talents & agents</p>
             <h3 className="mt-1 text-base font-semibold text-[#0b2b1d]">Get booked directly</h3>
             <p className="mt-2 flex-1 text-xs leading-relaxed text-[#42604f]">
-              Register as a guide or a travel agent, set your rate, and get booked by travelers - no middlemen.
+              Register as a talent or a travel agent, set your rate, and get booked by travelers - no middlemen.
             </p>
             <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#059669] hover:underline">
-              Become a guide or agent <ArrowRight className="h-3 w-3" />
+              Become a talent or agent <ArrowRight className="h-3 w-3" />
             </button>
           </div>
 
@@ -946,7 +946,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             {
               quote: "The budget planner plus Ask a Local planned my whole trip in one app. No app store, it just installs and works.",
               name: "Martha",
-              role: "Local guide",
+              role: "Local talent",
               color: "purple",
             },
           ].map((s) => (

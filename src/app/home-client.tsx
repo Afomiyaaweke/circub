@@ -8,7 +8,7 @@
 // detail modal, so whoever receives the link sees the full details
 // immediately instead of a bare feed.
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Header } from '@/components/social/header'
@@ -31,7 +31,6 @@ const PriceDetailModal = lazy(() => import('@/components/social/price-detail-mod
 const LocalProfileModal = lazy(() => import('@/components/social/local-profile-modal').then(m => ({ default: m.LocalProfileModal })))
 const MessageModal = lazy(() => import('@/components/social/message-modal').then(m => ({ default: m.MessageModal })))
 const CommunityFeedTab = lazy(() => import('@/components/social/community-feed-tab').then(m => ({ default: m.CommunityFeedTab })))
-const GuideRegisterModal = lazy(() => import('@/components/social/guide-register-modal').then(m => ({ default: m.GuideRegisterModal })))
 const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
 const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
 const DeactivateAccountModal = lazy(() => import('@/components/social/deactivate-account-modal').then(m => ({ default: m.DeactivateAccountModal })))
@@ -124,18 +123,16 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // so the position memory records the truth even when the user switches
   // sections with the chips inside the tab.
   const [profileLiveSection, setProfileLiveSection] = useState<ProfileSection | null>(null)
-  const [guideRegisterOpen, setGuideRegisterOpen] = useState(false)
   const { toast } = useToast()
 
   // v119: the device/browser back button closes the topmost open overlay
-  // (price detail, local profile, messages, guide join, auth dialogs) and
-  // returns to the position underneath, instead of leaving the app. Each
-  // overlay pushes one history entry when it opens; back unwinds them in
-  // reverse order. Closing via the UI consumes its own entry (no dead press).
+  // (price detail, local profile, messages, auth dialogs) and returns to the
+  // position underneath, instead of leaving the app. Each overlay pushes one
+  // history entry when it opens; back unwinds them in reverse order. Closing
+  // via the UI consumes its own entry (no dead press).
   useBackClose(!!localPriceId, () => setLocalPriceId(null))
   useBackClose(!!localProfileUserId, () => setLocalProfileUserId(null))
   useBackClose(messagesOpen, () => setMessagesOpen(false))
-  useBackClose(guideRegisterOpen, () => setGuideRegisterOpen(false))
   useBackClose(registerOpen, () => setRegisterOpen(false))
   useBackClose(loginOpen, () => setLoginOpen(false))
   useBackClose(deactivateOpen, () => setDeactivateOpen(false))
@@ -250,7 +247,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   const promptRegister = useCallback((title: string, description: string) => {
     setMessagesOpen(false)
     setLoginOpen(false)
-    setGuideRegisterOpen(false)
     setRegisterOpen(true)
     toast({ title, description })
   }, [toast])
@@ -343,16 +339,12 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
   // Plain nav clicks reset the deep-linked Profile section so the tab opens
   // on Posts, while "My network" entry points still land on their section.
-  // v230: every non-Link tab is remembered so the Link reel's back button
-  // returns the user to wherever they came from ('feed' as the default).
-  const lastNonLinkTabRef = useRef<TabKey>('feed')
+  // v235: the Link tab is a normal in-page tab again, so there is no
+  // "last non-Link tab" memory and no back handler - the nav pills are the
+  // way around, exactly like Battle/Local/Community.
   const handleTabChange = useCallback((tab: TabKey) => {
     if (tab === 'profile') setProfileSection(null)
-    if (tab !== 'guides') lastNonLinkTabRef.current = tab
     setActiveTab(tab)
-  }, [])
-  const handleLinkBack = useCallback(() => {
-    setActiveTab(lastNonLinkTabRef.current)
   }, [])
 
   const openProfileSection = useCallback((section: 'saved' | 'network') => {
@@ -428,18 +420,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
     setMessagesOpen(true)
   }, [me, promptRegister])
 
-  // "Join as a local" (guide registration) is an account action - the demo
-  // gets the REGISTRATION form, never the guide application.
-  const handleBecomeGuide = useCallback(() => {
-    if (me?.id === 'guest') {
-      promptRegister(
-        'Register to join as a guide',
-        'The demo cannot register as a guide. Create a free account first - then join the local program.',
-      )
-      return
-    }
-    setGuideRegisterOpen(true)
-  }, [me, promptRegister])
+  // v236: talent registration lives INSIDE Edit profile (the profile tab's
+  // talent section) - there is no separate join modal any more. Guests who
+  // tap "Become a talent" are sent to sign-up first via handleEditProfile's
+  // promptRegister path below; the same entry point serves registering and
+  // keeping the talent details current afterwards.
 
   const handleToggleGuideAvailability = useCallback(async () => {
     if (!me) return
@@ -552,18 +537,16 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   }
 
   // Logged-in → dashboard
-  // v230: the Link tab ('guides') is a FULL-SCREEN reel view - it renders its
-  // own fixed inset-0 shell (back button + feed toggle + payouts), so while
-  // it is open the app header, right sidebar, dock and page paddings are not
-  // rendered at all (the user: "remove all the header from the link session
-  // and only keep the toggle and my escrow ... have back also").
-  const reelMode = activeTab === 'guides'
+  // v235: the Link tab ('guides') renders like every other tab - the app
+  // header, right sidebar, dock and page paddings are ALWAYS rendered and
+  // LiveZoneTab mounts in the normal content column. The v230 full-screen
+  // reel mode ("remove all the header from the link session...") is fully
+  // retired; the in-page switcher + payouts row is the tab's own toolbar.
   return (
-    <div className={cn('min-h-screen flex flex-col bg-background', !reelMode && 'pb-[62px] lg:pb-24')}>
+    <div className={cn('min-h-screen flex flex-col bg-background', 'pb-[62px] lg:pb-24')}>
       {oauthErrorBanner}
-      {!reelMode && (
-        <div className="sticky top-0 z-40">
-          <Header
+      <div className="sticky top-0 z-40">
+        <Header
           activeTab={activeTab}
           onTabChange={handleTabChange}
           onOpenMessages={handleOpenMessages}
@@ -577,8 +560,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           onDeactivateAccount={() => setDeactivateOpen(true)}
           onOpenPost={(postId) => setLocalPriceId(postId)}
         />
-        </div>
-      )}
+      </div>
 
       <Suspense fallback={null}>
         <DeactivateAccountModal
@@ -589,11 +571,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
         />
       </Suspense>
 
-      {reelMode ? (
-        <Suspense fallback={<div className="flex-1" />}>
-          <LiveZoneTab me={me} onMessage={handleMessageUser} onBecomeGuide={handleBecomeGuide} onToggleAvailability={handleToggleGuideAvailability} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} onBack={handleLinkBack} />
-        </Suspense>
-      ) : (
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {activeTab === 'feed' && (
@@ -605,6 +582,13 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           {activeTab === 'local' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} />
+            </Suspense>
+          )}
+
+          {/* v235: the Link tab back in the normal content column (guides slot) */}
+          {activeTab === 'guides' && (
+            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
+              <LiveZoneTab me={me} onMessage={handleMessageUser} onJoinTalent={handleEditProfile} onToggleAvailability={handleToggleGuideAvailability} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} />
             </Suspense>
           )}
 
@@ -650,7 +634,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           />
         </div>
       </div>
-      )}
 
       <Suspense fallback={null}>
         <MessageModal open={messagesOpen} onOpenChange={setMessagesOpen} targetUserId={messageTargetId} me={me} />
@@ -662,10 +645,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
       <Suspense fallback={null}>
         <LocalProfileModal userId={localProfileUserId} onClose={() => setLocalProfileUserId(null)} onOpenPost={setLocalPriceId} onMessage={handleMessageUser} currentUserId={me?.id ?? null} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <GuideRegisterModal open={guideRegisterOpen} onOpenChange={setGuideRegisterOpen} user={me} onSaved={() => { fetchMe(); setActiveTab('guides') }} />
       </Suspense>
 
       {/* Auth modals also in the dashboard: guests who hit an auth-gated action

@@ -58,7 +58,7 @@ const en = {
   'header.language': 'Language',
 
   'landing.headline': 'Got a question about a city or country? Get a fast answer ⚡',
-  'landing.copy': 'Real locals reply in minutes with true prices, shop checks, translation and guide help. No guessing, no overpaying.',
+  'landing.copy': 'Real locals reply in minutes with true prices, shop checks, translation and talent help. No guessing, no overpaying.',
   'roles.agent': 'Travel Agent',
   'roles.agentBlurb': 'Plan whole trips and get booked',
   'landing.cta': 'Post a real price',
@@ -114,8 +114,8 @@ const en = {
   'login.signUpFree': 'Sign up free',
 
   'roles.question': 'I am joining as *',
-  'roles.hint': 'Pick one or combine - e.g. guide + vlogger. You can change this any time.',
-  'roles.guide': 'Guide',
+  'roles.hint': 'Pick one or combine - e.g. talent + vlogger. You can change this any time.',
+  'roles.guide': 'Talent',
   'roles.vlogger': 'Vlogger',
   'roles.local': 'Local',
   'roles.volunteer': 'Volunteer',
@@ -185,7 +185,7 @@ const am: Partial<Record<DictKey, string>> = {
   'login.email': 'ኢሜይል',
   'login.password': 'የመግቢያ ቃል',
   'roles.question': 'እንደ ማን እየተቀላቀሉ ነው *',
-  'roles.guide': 'መምሪያ',
+  'roles.guide': 'ታለንት',
   'roles.local': 'አካባቢው',
   'roles.sales': 'ሻጭ',
 }
@@ -241,7 +241,7 @@ const sw: Partial<Record<DictKey, string>> = {
   'login.email': 'Barua pepe',
   'login.password': 'Neno la siri',
   'roles.question': 'Najiunga kama *',
-  'roles.guide': 'Mwongozi',
+  'roles.guide': 'Talanta',
   'roles.local': 'Mtaa',
   'roles.sales': 'Muuzaji',
 }
@@ -297,7 +297,7 @@ const ar: Partial<Record<DictKey, string>> = {
   'login.email': 'البريد الإلكتروني',
   'login.password': 'كلمة المرور',
   'roles.question': 'أنا أنضم بصفة *',
-  'roles.guide': 'مرشد',
+  'roles.guide': 'موهبة',
   'roles.local': 'محلي',
   'roles.sales': 'بائع',
 }
@@ -327,7 +327,7 @@ const fr: Partial<Record<DictKey, string>> = {
   'header.personal': 'Personnel',
   'header.language': 'Langue',
   'landing.headline': 'Une question sur une ville ou un pays ? Obtenez une réponse rapide.',
-  'landing.copy': 'Des habitants répondent en minutes - vrais prix, vérifications, traduction et guides. Sans deviner.',
+  'landing.copy': 'Des habitants répondent en minutes - vrais prix, vérifications, traduction et talents. Sans deviner.',
   'landing.cta': 'Publier un vrai prix',
   'landing.signUpFree': 'Inscription gratuite',
   'landing.signIn': 'Se connecter',
@@ -352,7 +352,7 @@ const fr: Partial<Record<DictKey, string>> = {
   'login.email': 'E-mail',
   'login.password': 'Mot de passe',
   'roles.question': "Je rejoins en tant que *",
-  'roles.guide': 'Guide',
+  'roles.guide': 'Talent',
   'roles.local': 'Local',
   'roles.sales': 'Vendeur',
 }
@@ -407,7 +407,7 @@ const zh: Partial<Record<DictKey, string>> = {
   'login.email': '邮箱',
   'login.password': '密码',
   'roles.question': '我以什么身份加入 *',
-  'roles.guide': '向导',
+  'roles.guide': '达人',
   'roles.local': '本地人',
   'roles.sales': '卖家',
 }

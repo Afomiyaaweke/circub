@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
   AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Gem, Image as ImageIcon, Languages, LayoutGrid, Loader2,
-  Check, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Pencil, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, UserX, X, Zap,
+  Check, CheckCircle2, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Pencil, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, UserX, Video, X, Zap,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -31,6 +31,10 @@ import { dispatchAuthExpired } from '@/lib/auth-fetch'
 import { normalizeUsername, validateUsername, profileLink } from '@/lib/username'
 import { getSavedItems, unsaveItem, type SavedItem } from '@/lib/saved-items'
 import { GuideStars } from './guide-reviews-modal'
+import { TagInput } from '@/components/ui/tag-input'
+import { RolePicker } from './role-picker'
+import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
+import { guideRolesOrLegacy, roleNoun, togglecircubawdRole, type circubawdRole } from '@/lib/roles'
 import { NetworkTab } from './network-tab'
 import { TopPostersCard } from './top-posters-card'
 // v122: one unified composer - the profile's "Add product" flow now opens
@@ -233,8 +237,18 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [whatsapp, setWhatsapp] = useState('')
   const [expertiseTags, setExpertiseTags] = useState('')
   const [guideBio, setGuideBio] = useState('')
-  const [guideSpecialties, setGuideSpecialties] = useState('')
-  const [guideLanguages, setGuideLanguages] = useState('')
+  // v236: the talent registration (formerly the guide-register modal) lives
+  // INSIDE Edit profile now. Roles/languages/specialties/videos are managed
+  // in the talent section; the API keeps the historic guide* field slugs.
+  const [talentRoles, setTalentRoles] = useState<circubawdRole[]>(['guide'])
+  const [talentLangs, setTalentLangs] = useState<string[]>([])
+  const [talentSpecs, setTalentSpecs] = useState<string[]>([])
+  const [talentVideos, setTalentVideos] = useState<string[]>([''])
+  const [regDocType, setRegDocType] = useState<'ID' | 'PASSPORT'>('ID')
+  const [regDocUrl, setRegDocUrl] = useState<string | null>(null)
+  const [regDocBusy, setRegDocBusy] = useState(false)
+  const [savingTalent, setSavingTalent] = useState(false)
+  const regDocInputRef = useRef<HTMLInputElement>(null)
   const [guideRate, setGuideRate] = useState('')
   const [guideCurrency, setGuideCurrency] = useState('USD')
   const [guideLicense, setGuideLicense] = useState('')
@@ -400,11 +414,21 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     const tags = me.expertiseTags
     setExpertiseTags(Array.isArray(tags) ? tags.join(', ') : (tags as string) || '')
     setGuideBio(me.guideBio || '')
-    setGuideSpecialties(Array.isArray(me.guideSpecialties) ? me.guideSpecialties.join(', ') : (me.guideSpecialties as string) || '')
-    setGuideLanguages(Array.isArray(me.guideLanguages) ? me.guideLanguages.join(', ') : (me.guideLanguages as string) || '')
+    setTalentRoles(guideRolesOrLegacy((me as any).guideRoles))
+    const tLangs = (me as any).guideLanguages
+    const tSpecs = (me as any).guideSpecialties
+    setTalentLangs(Array.isArray(tLangs) ? tLangs : tLangs ? String(tLangs).split(',').map((s) => s.trim()).filter(Boolean) : [])
+    setTalentSpecs(Array.isArray(tSpecs) ? tSpecs : tSpecs ? String(tSpecs).split(',').map((s) => s.trim()).filter(Boolean) : [])
     setGuideRate(me.guideHourlyRate != null ? String(me.guideHourlyRate) : '')
     setGuideCurrency(me.guideCurrency || 'USD')
     setGuideLicense(me.guideLicense || '')
+    // Saved videos arrive as raw urls; keep one empty row so adding the
+    // next video is one tap.
+    const savedVideos = splitVideoUrls((me as any).guideVideoUrls)
+    setTalentVideos(savedVideos.length > 0 ? [...savedVideos] : [''])
+    const regT = (me as any).guideIdDocType
+    setRegDocType(regT === 'PASSPORT' ? 'PASSPORT' : 'ID')
+    setRegDocUrl(null)
     setGuideAvg(typeof me.rating === 'number' && me.rating > 0 ? me.rating : null)
     setGuideCount(null)
     setEditing(true)
@@ -576,12 +600,12 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       const res = await fetch('/api/guides/me', { method: 'DELETE' })
       if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed') }
-      toast({ title: 'You are no longer a guide', description: 'Your card was removed from the Live Zone. Your details are kept for when you come back.' })
+      toast({ title: 'You are no longer a talent', description: 'Your card was removed from the Live Zone. Your details are kept for when you come back.' })
       setConfirmStopGuide(false)
       setEditing(false)
       onUserChanged()
     } catch (err) {
-      toast({ title: 'Could not update your guide status', description: (err as Error).message, variant: 'destructive' })
+      toast({ title: 'Could not update your talent status', description: (err as Error).message, variant: 'destructive' })
     } finally { setStoppingGuide(false) }
   }
 
@@ -646,6 +670,91 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     return `every XP payout grows by ${pct}% while it is equipped: each Helpful vote is +100 XP, each post +50 XP`
   }
 
+  // ---------------------------------------------------- v236 talent section
+  // The registration flow that used to live in the guide-register modal is
+  // part of Edit profile now. One POST /api/guides serves BOTH the first
+  // registration (document required) and keeping an existing card current.
+  const talentDocOnFile = Boolean((me as any).hasIdDoc) || me.idVerified
+
+  const handleTalentDocPick = async (file: File) => {
+    if (!file) return
+    setRegDocBusy(true)
+    try {
+      // Higher maxDim + quality than avatars: the document text must stay readable.
+      const compressed = ensureRenderableImage(await compressImage(file, 2000, 0.85))
+      const fd = new FormData()
+      fd.append('file', compressed)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      setRegDocUrl(data.url)
+      toast({ title: 'Document ready', description: 'It will be submitted when you save.' })
+    } catch (err) {
+      toast({ title: 'Upload failed', description: (err as Error).message, variant: 'destructive' })
+    } finally { setRegDocBusy(false) }
+  }
+
+  const saveTalent = async () => {
+    if (talentRoles.length === 0) { toast({ title: 'Pick at least one role', variant: 'destructive' }); return }
+    if (talentLangs.length === 0) { toast({ title: 'Add at least one language', variant: 'destructive' }); return }
+    if (talentSpecs.length === 0) { toast({ title: 'Add at least one specialty', variant: 'destructive' }); return }
+    const currencyClean = guideCurrency.trim().toUpperCase()
+    if (!currencyClean) { toast({ title: 'Type your currency code (e.g. USD, ETB)', variant: 'destructive' }); return }
+    if (!regDocUrl && !talentDocOnFile) {
+      toast({ title: 'Upload your ID or passport', description: 'A photo of your ID or passport is required to register.', variant: 'destructive' })
+      return
+    }
+    // Video links: drop empty rows, validate every pasted link (YouTube or
+    // Instagram only - mirrors the API so users get instant feedback).
+    const videos = talentVideos.map((v) => v.trim()).filter(Boolean)
+    if (videos.length > MAX_GUIDE_VIDEOS) {
+      toast({ title: `Up to ${MAX_GUIDE_VIDEOS} videos`, description: 'Remove the extra links and try again.', variant: 'destructive' })
+      return
+    }
+    const badVideo = videos.find((v) => !parseVideoUrl(v))
+    if (badVideo) {
+      toast({
+        title: 'Video link not supported',
+        description: 'Use the YouTube or Instagram link of the video (e.g. youtube.com/watch?v=... or instagram.com/reel/...).',
+        variant: 'destructive',
+      })
+      return
+    }
+    setSavingTalent(true)
+    try {
+      const res = await fetch('/api/guides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guideRoles: talentRoles,
+          guideLicense: guideLicense,
+          guideLanguages: talentLangs.join(','),
+          guideSpecialties: talentSpecs.join(','),
+          guideHourlyRate: guideRate.trim() || null,
+          guideCurrency: currencyClean,
+          guideBio: guideBio,
+          guideAvailable: (me as any).guideAvailable !== false,
+          guideIdDocType: regDocType,
+          guideVideoUrls: videos,
+          ...(regDocUrl ? { guideIdDocUrl: regDocUrl } : {}),
+        }),
+      })
+      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save')
+      toast({
+        title: isGuide ? 'Talent profile saved' : 'You are in!',
+        description: isGuide
+          ? 'Your Live Zone card is live with the changes.'
+          : `Travelers can find you in the Live Zone as ${talentRoles.map(roleNoun).join(' · ')}.`,
+      })
+      setEditing(false)
+      onUserChanged()
+    } catch (err) {
+      toast({ title: 'Registration failed', description: (err as Error).message, variant: 'destructive' })
+    } finally { setSavingTalent(false) }
+  }
+
   const saveProfile = async () => {
     if (!name.trim()) { toast({ title: 'Name is required', variant: 'destructive' }); return }
     const uCheck = validateUsername(username)
@@ -654,19 +763,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     setSaving(true)
     try {
       const payload: Record<string, unknown> = { name, headline, location, bio, profilePicture, expertiseTags, phone: phone.trim() || null, whatsapp: whatsapp.trim() || null, username: uCheck.username }
-      if (isGuide) {
-        payload.guideBio = guideBio
-        payload.guideSpecialties = guideSpecialties
-        payload.guideLanguages = guideLanguages
-        payload.guideLicense = guideLicense
-        payload.guideCurrency = guideCurrency
-        payload.guideHourlyRate = guideRate.trim() ? Number(guideRate) : null
-      }
+      // v236: talent fields (roles/languages/specialties/rate/videos/doc) are
+      // saved by the talent section's own Save button (POST /api/guides) -
+      // the basic profile PATCH no longer carries them.
       const res = await fetch('/api/auth/me', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save')
-      toast({ title: 'Profile updated', description: isGuide ? 'Your guide profile is live with the changes.' : 'Your changes have been saved.' })
+      toast({ title: 'Profile updated', description: 'Your changes have been saved.' })
       setEditing(false)
       onUserChanged()
     } catch (err) {
@@ -1277,6 +1381,23 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
 
   // ------------------------------------------------ full-tab edit profile
   if (editing && !isGuest) {
+    // v236 role-adaptive form: the license is a talent-only field, the hourly
+    // rate makes sense for talents and locals, and the labels speak the
+    // selected roles' language (a vlogger films, a seller sells).
+    const showLicense = talentRoles.includes('guide')
+    const showRate = talentRoles.includes('guide') || talentRoles.includes('local')
+    const talentSpecLabel =
+      talentRoles.length > 1 ? 'Your specialties'
+      : talentRoles[0] === 'vlogger' ? 'What you film'
+      : talentRoles[0] === 'local' ? 'What you can help with'
+      : talentRoles[0] === 'volunteer' ? 'How you want to help'
+      : talentRoles[0] === 'sales' ? 'What you sell'
+      : talentRoles[0] === 'agent' ? 'Trips and services you arrange'
+      : 'Tour specialties'
+    const talentVideoLabel = talentRoles.length === 1 && talentRoles[0] === 'vlogger' ? 'Your videos (YouTube or Instagram links)' : 'Videos (YouTube or Instagram links)'
+    const talentSaveLabel = isGuide
+      ? 'Save talent profile'
+      : talentRoles.length === 1 ? `Register as ${roleNoun(talentRoles[0])}` : 'Register'
     return (
       <div className="flex-1 min-w-0 pb-10">
         <input ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" className="hidden"
@@ -1478,15 +1599,18 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </div>
             </div>
 
-            {/* Guide profile (registered guides only) */}
-            {isGuide && (
-              <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-4">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Compass className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-foreground">Guide profile</h3>
-                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px]">Live Zone</Badge>
-                  </div>
+            {/* v236 TALENT SECTION - registration + maintenance in one place,
+                visible to EVERYONE in Edit profile. First save registers the
+                member in the Live Zone (document required); later saves keep
+                the card current. API slugs stay guide* (no schema change). */}
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-4" data-testid="talent-section">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">{isGuide ? 'Talent profile' : 'Join the talent program'}</h3>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary text-[9px]">Live Zone</Badge>
+                </div>
+                {isGuide && (
                   <div className="flex items-center gap-1 text-xs">
                     {guideAvg != null && guideAvg > 0 ? (
                       <>
@@ -1498,40 +1622,260 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                       <span className="flex items-center gap-1 text-amber-600"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />No reviews yet</span>
                     )}
                   </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground -mt-1">These details are what tourists see on your Live Zone card - keep them sharp.</p>
-                <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5" />Guide bio</label><Textarea placeholder="What tours do you run? What makes exploring with you special..." value={guideBio} onChange={(e) => setGuideBio(e.target.value)} className="min-h-[64px] resize-y bg-card" /></div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Compass className="w-3.5 h-3.5" />Specialties (comma-separated)</label><Input placeholder="e.g. Historical, Food, Hiking" value={guideSpecialties} onChange={(e) => setGuideSpecialties(e.target.value)} className="bg-card" /></div>
-                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Languages className="w-3.5 h-3.5" />Languages (comma-separated)</label><Input placeholder="e.g. Amharic, English" value={guideLanguages} onChange={(e) => setGuideLanguages(e.target.value)} className="bg-card" /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" />Hourly rate</label><Input type="number" min={0} placeholder="e.g. 30" value={guideRate} onChange={(e) => setGuideRate(e.target.value)} className="bg-card" /></div>
-                  <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium">Currency</label><select value={guideCurrency} onChange={(e) => setGuideCurrency(e.target.value)} className="h-9 w-full px-3 rounded-md border border-border bg-card text-sm text-foreground">
-                    {['USD', 'ETB', 'EUR', 'GBP', 'KES', 'AED', 'TRY', 'ZAR'].map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select></div>
-                </div>
-                <div className="space-y-1.5"><label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Award className="w-3.5 h-3.5" />License number (optional)</label><Input placeholder="e.g. ET-GUIDE-2024-0182" value={guideLicense} onChange={(e) => setGuideLicense(e.target.value)} className="bg-card" /></div>
-                {/* Leave the guide program - keeps details + document for rejoining */}
-                <button
-                  onClick={() => setConfirmStopGuide(true)}
-                  disabled={stoppingGuide}
-                  className="text-xs text-destructive hover:underline flex items-center gap-1.5 pt-1 disabled:opacity-60"
-                >
-                  <Compass className="w-3.5 h-3.5" />Stop being a guide
-                </button>
+                )}
               </div>
-            )}
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                {isGuide
+                  ? 'These details are what travelers see on your Live Zone card - keep them sharp.'
+                  : 'Register as a talent, vlogger, local, volunteer, seller or travel agent - or any mix. Travelers find you in the Live Zone, message you and book you directly.'}
+              </p>
+
+              {/* Role picker - the SAME question the sign-up form asks */}
+              <RolePicker roles={talentRoles} onToggle={(role) => setTalentRoles((prev) => togglecircubawdRole(prev, role))} />
+
+              {/* License (optional, talent role only) */}
+              {showLicense && (
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5" />License number (optional)
+                  </label>
+                  <Input placeholder="e.g. GT-2024-00123" value={guideLicense} onChange={(e) => setGuideLicense(e.target.value)} className="bg-card" />
+                </div>
+              )}
+
+              {/* ID / passport verification - required for FIRST registration
+                  only; members with a document on file see a verified chip */}
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />ID or passport{!talentDocOnFile ? ' *' : ''}
+                </label>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  A clear photo of your document so the team can verify you. Used for verification only - travelers never see it.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {(['ID', 'PASSPORT'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setRegDocType(t)}
+                      className={`h-9 rounded-md border text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                        regDocType === t
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-accent'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      {t === 'ID' ? 'ID card' : 'Passport'}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  ref={regDocInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) void handleTalentDocPick(f)
+                    if (regDocInputRef.current) regDocInputRef.current.value = ''
+                  }}
+                />
+                {regDocUrl ? (
+                  <div className="relative rounded-lg border border-primary/40 bg-primary/5 p-2 flex items-center gap-2.5">
+                    <img src={regDocUrl} alt="ID document preview" className="w-14 h-14 rounded-md object-cover border border-border" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-primary flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        {regDocType === 'ID' ? 'ID card' : 'Passport'} photo added
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Submitted when you save.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRegDocUrl(null)}
+                      className="p-1.5 rounded-full hover:bg-accent text-muted-foreground shrink-0"
+                      aria-label="Remove document photo"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : talentDocOnFile ? (
+                  <button
+                    type="button"
+                    onClick={() => regDocInputRef.current?.click()}
+                    className="w-full rounded-lg border border-primary/40 bg-primary/5 px-3 py-2.5 flex items-center gap-2 text-left hover:bg-primary/10 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-xs text-foreground flex-1">
+                      {regDocType === 'ID' ? 'ID card' : 'Passport'} on file - verified
+                    </span>
+                    <span className="text-[11px] text-primary font-medium shrink-0">Replace</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => regDocInputRef.current?.click()}
+                    disabled={regDocBusy}
+                    className="w-full rounded-lg border-2 border-dashed border-border px-3 py-4 flex flex-col items-center gap-1 text-center hover:border-primary/50 hover:bg-accent/40 transition-colors disabled:opacity-60"
+                  >
+                    {regDocBusy ? (
+                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-muted-foreground" />
+                    )}
+                    <span className="text-xs font-medium text-foreground">
+                      {regDocBusy ? 'Processing photo…' : 'Take or upload a photo'}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Make sure the whole document is visible and readable</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Languages + specialties - chips, both required */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="talent-languages-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                    <Languages className="w-3.5 h-3.5" />Languages you speak *
+                  </label>
+                  <TagInput
+                    inputId="talent-languages-input"
+                    value={talentLangs}
+                    onChange={setTalentLangs}
+                    placeholder="e.g. Amharic, English, French…"
+                    hint="Type a language and tap Add (or press Enter). Tap the x on a chip to remove it."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="talent-specialties-input" className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5" />{talentSpecLabel} *
+                  </label>
+                  <TagInput
+                    inputId="talent-specialties-input"
+                    value={talentSpecs}
+                    onChange={setTalentSpecs}
+                    placeholder="e.g. Historical, Food, Safari…"
+                    hint="Type a specialty and tap Add (or press Enter). Use your own words - no preset list."
+                  />
+                </div>
+              </div>
+
+              {/* Hourly rate + free-text currency (talent/local roles) */}
+              {showRate && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5" />Hourly rate
+                    </label>
+                    <Input type="number" placeholder="e.g. 25" value={guideRate} onChange={(e) => setGuideRate(e.target.value)} min={0} className="bg-card" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="talent-currency-input" className="text-xs text-muted-foreground font-medium">Currency</label>
+                    <Input
+                      id="talent-currency-input"
+                      type="text"
+                      placeholder="e.g. USD"
+                      value={guideCurrency}
+                      onChange={(e) => setGuideCurrency(e.target.value.toUpperCase())}
+                      maxLength={5}
+                      autoCapitalize="characters"
+                      className="uppercase bg-card"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5" />Talent bio</label>
+                <Textarea placeholder="Tell travelers about your experience, what makes your city special, and what they can expect..." value={guideBio} onChange={(e) => setGuideBio(e.target.value)} className="min-h-[80px] resize-y bg-card" />
+              </div>
+
+              {/* Videos (YouTube / Instagram links) */}
+              <div className="space-y-2" data-testid="talent-videos-section">
+                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <Video className="w-3.5 h-3.5 text-primary" />
+                  {talentVideoLabel}
+                </label>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Paste up to {MAX_GUIDE_VIDEOS} links - travelers watch them right on your card and page.
+                </p>
+                {talentVideos.map((link, i) => {
+                  const parsed = parseVideoUrl(link)
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          data-testid={`talent-video-input-${i}`}
+                          placeholder={i === 0 ? 'e.g. https://www.youtube.com/watch?v=...' : 'Another video link (optional)'}
+                          value={link}
+                          onChange={(e) => {
+                            setTalentVideos((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
+                          }}
+                          className="h-9 text-sm flex-1 bg-card"
+                        />
+                        {talentVideos.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setTalentVideos((prev) => prev.filter((_, j) => j !== i))}
+                            className="p-1.5 rounded-full hover:bg-accent text-muted-foreground shrink-0"
+                            aria-label="Remove video link"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {link.trim() && (
+                        <p className={`text-[10px] flex items-center gap-1 ${parsed ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {parsed ? (
+                            <><CheckCircle2 className="w-3 h-3 shrink-0" />{parsed.label} - looks good</>
+                          ) : (
+                            <>Not a YouTube or Instagram link yet</>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+                {talentVideos.length < MAX_GUIDE_VIDEOS && (
+                  <button
+                    type="button"
+                    data-testid="talent-video-add"
+                    onClick={() => setTalentVideos((prev) => [...prev, ''])}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Plus className="w-3.5 h-3.5" />Add another video
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-border">
+                {/* Leave the program - existing members only (details kept) */}
+                {isGuide ? (
+                  <button
+                    onClick={() => setConfirmStopGuide(true)}
+                    disabled={stoppingGuide || savingTalent}
+                    className="text-xs text-destructive hover:underline flex items-center gap-1.5 disabled:opacity-60"
+                  >
+                    <Compass className="w-3.5 h-3.5" />Leave the talent program
+                  </button>
+                ) : <span />}
+                <Button onClick={saveTalent} disabled={savingTalent || regDocBusy} data-testid="talent-save" className="bg-primary hover:bg-primary/90 gap-1.5">
+                  {savingTalent ? <><Loader2 className="w-4 h-4 animate-spin" />{isGuide ? 'Saving...' : 'Registering...'}</> : <>{talentSaveLabel}</>}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
-      {/* Confirm: stop being a guide (Edit profile) */}
+      {/* Confirm: leave the talent program (Edit profile) */}
       <AlertDialog open={confirmStopGuide} onOpenChange={setConfirmStopGuide}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Stop being a guide?</AlertDialogTitle>
+            <AlertDialogTitle>Leave the talent program?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your card is removed from the Live Zone and travelers can&apos;t book new tours with you. Your guide details, reviews and document are kept - registering again restores your card instantly.
+              Your card is removed from the Live Zone and travelers can&apos;t reach you there. Your talent details, reviews and document are kept - registering again restores your card instantly.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1540,7 +1884,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               onClick={(e) => { e.preventDefault(); stopBeingGuide() }}
               disabled={stoppingGuide}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {stoppingGuide ? <><Loader2 className="w-4 h-4 animate-spin" />Stopping...</> : 'Stop being a guide'}
+              {stoppingGuide ? <><Loader2 className="w-4 h-4 animate-spin" />Leaving...</> : 'Leave the talent program'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1579,7 +1923,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                         {docOnFile?.docType
                           ? `Document on file: ${docOnFile.docType === 'PASSPORT' ? 'Passport' : 'ID card'}`
                           : docOnFile?.guideDocOnFile
-                            ? 'Verified with the ID/passport from your guide registration.'
+                            ? 'Verified with the ID/passport from your talent registration.'
                             : 'A verifiable document is on file.'}
                         {docOnFile?.verifiedAt ? ` · Verified ${new Date(docOnFile.verifiedAt).toLocaleDateString()}` : ''}
                       </p>
@@ -1591,7 +1935,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                       <img src={docOnFile.docUrl} alt="Your verification document" className="max-h-64 w-auto rounded-lg border border-border" />
                     </div>
                   ) : docOnFile ? (
-                    <p className="mt-3 text-xs text-muted-foreground">Your guide registration document is on file - it is kept just as private.</p>
+                    <p className="mt-3 text-xs text-muted-foreground">Your talent registration document is on file - it is kept just as private.</p>
                   ) : (
                     <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" />Loading your document...</p>
                   )}
