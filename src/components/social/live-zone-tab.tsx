@@ -1001,7 +1001,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
             <div
               ref={deckRef}
               data-testid="bounty-swipe"
-              className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scroll-smooth scrollbar-thin bg-background"
+              className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-thin bg-background"
             >
               {filteredQuests.map((q, idx) => {
                 const isClaimed = q.claimed || locallyClaimed[q.id]
@@ -1019,12 +1019,19 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                     data-testid="bounty-card"
                     className="relative h-full w-full snap-start snap-always flex bg-background"
                   >
+                    {/* v237 no-overlap card: the action rail is a REAL flex
+                        sibling column now (it used to be absolutely stacked
+                        over the copy) - icons can never cover the text on any
+                        phone width, and min-w-0 keeps long lines truncating
+                        instead of colliding. */}
                     <div className={cn(
-                      'relative h-full w-full max-w-[560px] mx-auto flex flex-col bg-card shadow-md p-4 sm:p-5 overflow-hidden border-border sm:border-x',
+                      'relative h-full w-full max-w-[560px] mx-auto flex bg-card shadow-md overflow-hidden border-border sm:border-x',
                       questFlash === q.id && 'ring-2 ring-primary ring-inset'
                     )}>
                     {/* mockup accent glow - rotated per card */}
                     <div className={cn('absolute -right-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[idx % DECK_GLOWS.length])} aria-hidden="true" />
+
+                    <div className="relative flex-1 min-w-0 min-h-0 flex flex-col p-3.5 sm:p-5">
 
                     {/* chips row - where + when, straight off the real post */}
                     <div className="relative flex items-center justify-between gap-2">
@@ -1094,7 +1101,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
 
                     {/* claim area - same states and testids as before, now
                         inside the swipe card */}
-                    <div className="relative mt-2.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin">
+                    <div className="relative mt-2.5 flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-thin">
                       {isClaimed ? (
                         <div
                           className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
@@ -1213,18 +1220,22 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                       )}
                     </div>
 
-                    {/* v229 action rail - the mockup's TikTok stack: round
-                        buttons with labels, honest actions only. Chat opens a
-                        member poster's profile; guest posters get an honest
-                        toast pointing at the claim flow. */}
-                    <div className="absolute right-2.5 bottom-4 z-10 flex flex-col items-center gap-2.5" data-testid="bounty-action-rail">
+                    </div>
+
+                    {/* v237 action rail - the mockup's TikTok stack as a flex
+                        sibling column pinned to the bottom right, NEVER on top
+                        of the copy (user: "dont over lap icons with the text").
+                        Buttons shrink one notch on phones. Honest actions
+                        unchanged: Chat opens a member poster's profile; guest
+                        posters get an honest toast pointing at the claim flow. */}
+                    <div className="relative z-10 shrink-0 w-[52px] sm:w-16 flex flex-col items-center justify-end gap-2 sm:gap-2.5 py-3.5 pr-2 sm:pr-3" data-testid="bounty-action-rail">
                       <div className="flex flex-col items-center">
                         <button
                           type="button"
                           onClick={() => handleQuestSave(q)}
                           data-testid="bounty-save"
                           aria-label={savedQuests[q.id] ? 'Remove from saved' : 'Save bounty'}
-                          className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                         >
                           <Bookmark className={cn('w-5 h-5', savedQuests[q.id] ? 'fill-primary text-primary' : 'text-muted-foreground')} />
                         </button>
@@ -1237,7 +1248,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                             onClick={() => setClaimFor(q.id)}
                             data-testid="bounty-claim-bolt"
                             aria-label="Claim bounty"
-                            className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                           >
                             <Zap className="w-5 h-5 fill-current" />
                           </button>
@@ -1260,7 +1271,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                           }}
                           data-testid="bounty-post-rail"
                           aria-label="Post an instant quest"
-                          className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                         >
                           <Plus className="w-5 h-5" />
                         </button>
@@ -1272,7 +1283,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                           onClick={() => void shareQuest(q)}
                           data-testid="bounty-share"
                           aria-label="Share bounty"
-                          className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                         >
                           <Share2 className="w-5 h-5 text-muted-foreground" />
                         </button>
@@ -1284,7 +1295,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                           onClick={() => chatWithPoster(q)}
                           data-testid="bounty-chat"
                           aria-label="Open the poster's profile"
-                          className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                         >
                           <MessageSquare className="w-5 h-5 text-muted-foreground" />
                         </button>
@@ -1679,7 +1690,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
         ) : (
           <div
             data-testid="talent-swipe"
-            className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scroll-smooth scrollbar-thin bg-background"
+            className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-thin bg-background"
           >
             {visibleGuides.map((g, idx) => {
               const isOwn = me?.id === g.id
@@ -1689,9 +1700,11 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                    slides: edge-to-edge on phones, centered 560px column with
                    side borders on desktop. */
                 <div key={g.id} data-testid="talent-card" className="relative h-full w-full snap-start snap-always flex bg-background">
-                  <div className="relative h-full w-full max-w-[560px] mx-auto flex flex-col bg-card shadow-md p-4 sm:p-5 overflow-hidden border-border sm:border-x">
+                  {/* v237 no-overlap card: rail is a flex sibling column (never
+                      over the text), content keeps min-w-0. */}
+                  <div className="relative h-full w-full max-w-[560px] mx-auto flex bg-card shadow-md overflow-hidden border-border sm:border-x">
                   <div className={cn('absolute -left-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[(idx + 1) % DECK_GLOWS.length])} aria-hidden="true" />
-                  <div className="relative flex-1 min-h-0 flex flex-col">
+                  <div className="relative flex-1 min-w-0 min-h-0 flex flex-col p-3.5 sm:p-5">
                     {/* profile header: avatar tile + name/ID + role line +
                         status line; rating block on the right (tap = reviews) */}
                     <div className="flex items-start gap-3">
@@ -1843,11 +1856,12 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                     </div>
                   </div>
 
-                  {/* v229 talent action rail - Save / Book / Share / Chat
-                      (Chat = the in-app message thread with that talent). */}
-                  <div className="absolute right-2.5 bottom-4 z-10 flex flex-col items-center gap-2.5" data-testid="talent-action-rail">
+                  {/* v237 talent action rail - flex sibling column (never
+                      overlaps the copy), Save / Book / Share / Chat (Chat =
+                      the in-app message thread with that talent). */}
+                  <div className="relative z-10 shrink-0 w-[52px] sm:w-16 flex flex-col items-center justify-end gap-2 sm:gap-2.5 py-3.5 pr-2 sm:pr-3" data-testid="talent-action-rail">
                     {isOwn ? (
-                      <span className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">You</span>
+                      <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">You</span>
                     ) : (
                       <>
                         <div className="flex flex-col items-center">
@@ -1856,7 +1870,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                             onClick={() => handleGuideSave(g)}
                             data-testid="talent-save"
                             aria-label={savedGuides[g.id] ? 'Remove from saved' : 'Save talent'}
-                            className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                           >
                             <Bookmark className={cn('w-5 h-5', savedGuides[g.id] ? 'fill-primary text-primary' : 'text-muted-foreground')} />
                           </button>
@@ -1868,7 +1882,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                             onClick={() => openBooking(g)}
                             data-testid="talent-book"
                             aria-label="Book this talent"
-                            className="w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                           >
                             <CalendarCheck className="w-5 h-5" />
                           </button>
@@ -1880,7 +1894,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                             onClick={() => void shareGuide(g)}
                             data-testid="guide-share-btn"
                             aria-label="Share this talent"
-                            className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                           >
                             <Share2 className="w-5 h-5 text-muted-foreground" />
                           </button>
@@ -1892,7 +1906,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                             onClick={() => onMessage(g.id)}
                             data-testid="talent-chat"
                             aria-label="Chat with this talent"
-                            className="w-11 h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+                            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card/95 border border-border shadow-sm flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
                           >
                             <MessageSquare className="w-5 h-5 text-muted-foreground" />
                           </button>

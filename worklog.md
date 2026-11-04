@@ -229,3 +229,57 @@ Shop owner / Shared price).
   action row is the only bar, grid populated below it, URL constant
   throughout incl. Proforma/composer/reel-back, votes intact, Link nav bar
   kept); tsc 20 baseline; build exit 0.
+
+## v236 - Link tab back in the page flow + talent registration inside Edit profile (covers v235)
+
+User: "make the guide registration in side the edit profile and make the name 'guide' to 'talent'".
+
+- LINK TAB (v235, `live-zone-tab.tsx` + `home-client.tsx`): the v230 fixed-reel
+  shell is gone - the tab renders in the NORMAL page flow again (header,
+  sidebar and dock always mount, no `fixed inset-0`, no back button). The slim
+  in-page switcher (Instant Bounties / Talent On Call + My Payouts & Escrow)
+  stays at the top of the tab; the full-screen one-bounty-per-screen swipe
+  decks stay.
+- TALENT IN EDIT PROFILE (v236, `profile-tab.tsx`): a new talent section for
+  everyone - RolePicker, ID/passport doc switch + camera upload, languages and
+  specialties TagInputs, hourly rate + free-text currency (uppercase, max 5),
+  bio, up to 3 YouTube/Instagram video links with live parse feedback, and its
+  own Save button. `saveTalent()` POSTs /api/guides (first registration
+  requires the document; later saves keep guideAvailable intact); success
+  toasts "Talent profile saved" / "You are in!". Registered talent also gets
+  "Leave the talent program" (stop-guide AlertDialog, renamed copy). The old
+  guide-register modal is DELETED; Live Zone's "Become a talent" now opens
+  Edit profile via `onJoinTalent` (guests go through promptRegister first).
+- RENAME: every user-visible "Guide/Guides" is now "Talent(s)" - ROLE_META,
+  i18n `roles.guide` in all 6 languages (EN Talent / AM / SW / AR / ZH),
+  landing copy, demo banner, booking + rating modals, empty states. Internal
+  API slugs (guideRoles, /api/guides, guideBio...) are untouched.
+- Verify: tsc 20 baseline; build exit 0; probes 25/25 (v235) + 28/28 (v236);
+  sw.js circub-v236.
+
+## v237 - Bounty + talent cards: icons never overlap text, mobile-first, one full-screen slide per swipe
+
+User: "dont over lap icons with the text and make it mobile responsev and make
+it swiping not sliding one task full screen like tiktok short" (screenshot =
+bounty card with the right-side icon stack sitting on the copy).
+
+- NO-OVERLAP RAIL (`live-zone-tab.tsx`): on BOTH swipe decks the action rail
+  (Save / Claim / Post / Share / Chat and Save / Book / Share / Chat) is no
+  longer `absolute right-2.5 bottom-4 z-10` stacked over the card - it is now
+  a real flex SIBLING column (w-[52px] phone / w-16 desktop, buttons
+  40px phone / 44px desktop, pinned bottom-right TikTok-style). Text lives in
+  a `flex-1 min-w-0` content column beside it, so an icon can never cover a
+  word at any width; long lines truncate instead of colliding.
+- MOBILE-FIRST: phone padding drops to p-3.5 (sm:p-5), buttons and gaps
+  shrink one notch under sm; the card is `overflow-hidden` so nothing bleeds.
+- TRUE SWIPE, NOT SLIDE: both decks drop `scroll-smooth` (programmatic
+  deep-link scroll keeps its explicit smooth), the claim area gets
+  `overscroll-contain`, and the decks keep `snap-y snap-mandatory` +
+  `snap-start snap-always` - one gesture lands exactly one full-screen card.
+- Probe `scripts/task237_rail_probe.py` 21/21: zero text-under-rail box
+  overlaps (bounty + talent, 390x844 + 1440x900), card height == deck height
+  (603px full screen), scroll-snap-type y mandatory, snap-stop always,
+  wheel swipe lands exactly on slide 2, rail button 40/44px, 560px column
+  centered in its container, sw.js circub-v237, zero console errors.
+  Screenshots: download/task237_{bounty,talent}_mobile.png, task237_bounty_desktop.png.
+- tsc 20 baseline (0 new); build exit 0.
