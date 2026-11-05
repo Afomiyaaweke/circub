@@ -387,3 +387,16 @@ withDbRetry in v240; the FEED endpoints had not:
   task239_probe.py 30/30; task234_no_filter_bar_probe.py 49/49.
 Prod gate: task239_prod_verify.py 23/23 + task241_prod_search_check.py
 (with one reload-retry across documented DB flips).
+
+## v243 (2026-11-05) - serverless Postgres connection cap (the recurring "DB flip" window, root-cause mitigation)
+
+During the v242 prod gates the DB entered ANOTHER sustained 500 window
+(register 500 x8 - even WITH its v240 withDbRetry). Pattern matches
+connection exhaustion: every warm Vercel instance holds its own Prisma pool
+and db.ts never capped it. v243: PrismaClient now builds its datasource URL
+through withServerlessPool() - Postgres URLs get connection_limit=5 +
+pool_timeout=20 appended (unless already present); SQLite untouched. With 20
+warm instances the worst case is 100 connections instead of unbounded. THE
+REAL fix remains a Vercel env change: point DATABASE_URL at the provider's
+POOLED endpoint (Neon -pooler host / port 6543). tsc 20 baseline; build exit
+0; task239_probe.py 30/30; sw.js circub-v243.
