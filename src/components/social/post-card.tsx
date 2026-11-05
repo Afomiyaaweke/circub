@@ -72,7 +72,7 @@ export function PostCard({
   const [shareOpen, setShareOpen] = useState(false)
   const profilePath = post.author.username ? `/u/${post.author.username}` : ''
   const shareLink = typeof window === 'undefined'
-    ? `https://circub.vercel.app${profilePath}`
+    ? `https://circubawd.vercel.app${profilePath}`
     : `${window.location.origin}${profilePath}`
   const shareDate = new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 

@@ -15,11 +15,17 @@ const geistSans = Geist({
 // v114 SEO: every absolute URL (OG, twitter, canonical, JSON-LD) must resolve
 // against the PRODUCTION origin - without metadataBase Next.js falls back to
 // localhost and social cards / search results break silently.
+// v238: origin fixed to the CANONICAL host circubawd.vercel.app (the old
+// circub.vercel.app hostname 301-redirects to it - canonicals, OG URLs and
+// JSON-LD @ids must never point at a redirecting domain), and the title /
+// description / keywords / structured data now carry the market research
+// positioning so Google ranks circubAwd for what it is: the fastest way to
+// research real prices and real answers in any city.
 export const metadata: Metadata = {
-  metadataBase: new URL("https://circub.vercel.app"),
-  title: "circubAwd · Know what things actually cost while you travel, from the locals",
-  description: "Find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers - free on circubAwd.",
-  keywords: ["circubAwd", "local prices", "travel prices", "what things cost", "verified locals", "community prices", "travel intelligence", "local knowledge", "find local businesses", "proforma", "registered sales"],
+  metadataBase: new URL("https://circubawd.vercel.app"),
+  title: "circubAwd · Market research in minutes - real prices and answers from locals",
+  description: "The best market research tool is the crowd that lives there. Real local prices, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - free on circubAwd.",
+  keywords: ["market research", "market research tool", "best market research tool", "price intelligence", "consumer insights", "field research", "real local prices", "travel prices", "what things cost", "verified locals", "community prices", "find local businesses", "proforma", "registered sales", "circubAwd"],
   authors: [{ name: "circubAwd Team" }],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -57,8 +63,8 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "circubAwd · Know what things actually cost while you travel, from the locals",
-    description: "Find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers - free on circubAwd.",
+    title: "circubAwd · Market research in minutes - real prices and answers from locals",
+    description: "The best market research tool is the crowd that lives there. Real local prices, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - free on circubAwd.",
     url: "/",
     siteName: "circubAwd",
     type: "website",
@@ -73,8 +79,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "circubAwd · Know what things actually cost while you travel, from the locals",
-    description: "Find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers - free on circubAwd.",
+    title: "circubAwd · Market research in minutes - real prices and answers from locals",
+    description: "The best market research tool is the crowd that lives there. Real local prices, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - free on circubAwd.",
     images: ["/og-image.png"],
   },
 };
@@ -89,47 +95,48 @@ const SITE_JSON_LD = {
   "@graph": [
     {
       "@type": "WebSite",
-      "@id": "https://circub.vercel.app/#website",
+      "@id": "https://circubawd.vercel.app/#website",
       "name": "circubAwd",
-      "url": "https://circub.vercel.app/",
+      "url": "https://circubawd.vercel.app/",
       "inLanguage": "en",
       "description":
-        "Locals post real prices for products, services, restaurants, transport and more. Travelers see what things actually cost before and while they travel.",
+        "Market research in minutes: locals post real prices for products, services, restaurants and transport, answer cash-bounty questions, and the community votes so accurate data rises to the top.",
     },
     {
       "@type": "WebApplication",
-      "@id": "https://circub.vercel.app/#app",
+      "@id": "https://circubawd.vercel.app/#app",
       "name": "circubAwd",
-      "url": "https://circub.vercel.app/",
-      "applicationCategory": "TravelApplication",
+      "url": "https://circubawd.vercel.app/",
+      "applicationCategory": "BusinessApplication",
       "operatingSystem": "Any (installable web app - Android, iOS, desktop)",
       "browserRequirements": "Requires JavaScript",
       "description":
-        "Know what things actually cost while you travel, from the locals. Real local prices, an AI price scanner, ask-a-local messaging, local guides, and a trip budget planner. Free, no app store needed.",
+        "The fastest market research tool for any city: real local prices, cash-bounty questions answered by locals in minutes, an AI price scanner, an itemized proforma cost estimator, on-demand research talent, and registered sellers. Free, no app store needed.",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "USD",
       },
       "featureList": [
-        "Real local prices posted by locals",
+        "Price intelligence - real local prices posted by locals",
+        "Cash-bounty questions answered by locals in minutes",
         "AI price scanner (PriceLens)",
-        "Ask a local directly when a price is missing",
-        "Local guides with star ratings",
-        "Trip budget planner",
-        "Community votes and ratings to surface accurate prices",
+        "Itemized proforma cost estimator",
+        "On-demand research panel - verified local talents",
+        "Community votes and ratings to surface accurate data",
+        "Registered sellers with name and ratings behind every post",
       ],
       "publisher": {
         "@type": "Organization",
-        "@id": "https://circub.vercel.app/#org",
+        "@id": "https://circubawd.vercel.app/#org",
       },
     },
     {
       "@type": "Organization",
-      "@id": "https://circub.vercel.app/#org",
+      "@id": "https://circubawd.vercel.app/#org",
       "name": "circubAwd",
-      "url": "https://circub.vercel.app/",
-      "logo": "https://circub.vercel.app/logo.png",
+      "url": "https://circubawd.vercel.app/",
+      "logo": "https://circubawd.vercel.app/logo.png",
       "email": "support@tenetbid.com",
     },
   ],

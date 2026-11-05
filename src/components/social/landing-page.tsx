@@ -138,7 +138,7 @@ interface LandingPageProps {
 const FAQ_ITEMS = [
   {
     q: "What is circubAwd?",
-    a: "circubAwd is a free community platform that helps you find local businesses with real, current prices, plan what you'll buy with an itemized proforma, and sell your stuff through registered Sales sellers. The community votes and rates posts, so accurate prices rise to the top.",
+    a: "circubAwd is a free market research tool powered by locals: real, current prices for everyday things, cash-bounty questions answered by people who live there, an AI price scanner, and an itemized proforma planner. The community votes and rates posts, so accurate data rises to the top.",
   },
   {
     q: "How much does circubAwd cost?",
@@ -146,7 +146,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How do I install the circubAwd app on my phone?",
-    a: "Open circub.vercel.app in your phone's browser. On Android tap 'Get the mobile app' and confirm, or use Chrome's menu > Install app. On iPhone tap the share button in Safari and choose 'Add to Home Screen'. The app opens full-screen with its own icon, like a native app.",
+    a: "Open circubawd.vercel.app in your phone's browser. On Android tap 'Get the mobile app' and confirm, or use Chrome's menu > Install app. On iPhone tap the share button in Safari and choose 'Add to Home Screen'. The app opens full-screen with its own icon, like a native app.",
   },
   {
     q: "How are prices verified?",
@@ -172,7 +172,7 @@ const FAQ_JSON_LD = {
 const FEATURES = [
   {
     icon: Wallet,
-    title: "Real local prices",
+    title: "Price intelligence",
     body: "Locals and businesses post what things actually cost - food, transport, hotels, services - in their own city and currency.",
   },
   {
@@ -182,17 +182,17 @@ const FEATURES = [
   },
   {
     icon: MessageCircle,
-    title: "Ask a local",
-    body: "No price posted yet? Ask anything and a real local replies in minutes - true prices, shop checks, translation.",
+    title: "Bounty questions",
+    body: "No answer posted yet? Put a cash bounty on any question and a real local replies in minutes - true prices, shop checks, photos.",
   },
   {
     icon: Compass,
-    title: "Local talents & travel agents",
-    body: "Find talents by city, language and specialty - or book a registered travel agent to plan the whole trip.",
+    title: "On-demand research panel",
+    body: "Find verified locals by city, language and specialty - book them for fieldwork, shop checks or a whole planned trip.",
   },
   {
     icon: TrendingUp,
-    title: "Proforma planner",
+    title: "Proforma cost estimator",
     body: "List what you'll buy, compare real local prices place by place, and get the best result - an itemized proforma of what to set aside.",
   },
   {
@@ -205,11 +205,11 @@ const FEATURES = [
 const STEPS = [
   {
     icon: Search,
-    title: "Ask, get answers, spend smart",
+    title: "Research any market in minutes",
     items: [
       "Ask any city or country question - real locals reply in minutes",
-      "Get true prices, shop checks and translation, not guesses",
-      "Compare real offers side by side before you spend",
+      "Post a cash bounty for shop checks, photos or field research",
+      "Get true prices and verified answers, not guesses",
     ],
   },
   {
@@ -495,8 +495,8 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20 lg:pt-14">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#059669]/25 bg-white px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[#059669] shadow-sm">
-              <Plane className="h-3 w-3" />
-              Real locals. Fast answers. True prices.
+              <TrendingUp className="h-3 w-3" />
+              Real people. Real data. Market research in minutes.
             </div>
 
             <h1
@@ -511,9 +511,10 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </p>
 
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#42604f] sm:text-base">
-              Ask anything before you go - a real local answers in minutes, with true prices, shop
-              checks, translation and talent help. Know your city? Answer questions, collect
-              stickers, and earn from gigs - even get booked as a travel agent.
+              circubAwd is market research without the agency: post a question or a cash bounty and
+              real locals answer in minutes with true prices, shop checks and photos. Know your
+              city? Answer bounties, climb the Top score board, and earn from gigs - even get
+              booked as a talent or travel agent.
             </p>
 
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
@@ -652,17 +653,18 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             What is circubAwd?
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-[#42604f] sm:text-base">
-            circubAwd is a free community that helps you find local businesses -
-            street food spots, taxi rides, hotels, salons, repairs - with real,
-            current prices posted in the local currency by people who live
-            there. Planning something? Build a proforma: list the items you
-            need and the budget planner turns real local prices into an
-            itemized cost estimate, place by place. Selling? Register as a
-            Sales seller and post your products where buyers are already
-            looking - your name and ratings travel with every post. The
-            community votes and rates posts, so the most accurate prices rise
-            to the top. circubAwd works in any browser and installs as a
-            full-screen mobile app on Android and iPhone - no app store needed.
+            circubAwd is a free market research tool powered by the people who
+            actually live there. Want to know what anything costs, sells or
+            earns in a city? Locals post real prices - street food spots, taxi
+            rides, hotels, salons, repairs - in the local currency, and the
+            community votes and rates every post so accurate data rises to the
+            top. Need an answer nobody has posted yet? Put a cash bounty on it
+            and a local fields your question in minutes. Planning a purchase or
+            a trip? The proforma planner turns real prices into an itemized
+            cost estimate, place by place. Selling? Register as a Sales seller
+            and reach buyers who are already researching what you sell.
+            circubAwd works in any browser and installs as a full-screen mobile
+            app on Android and iPhone - no app store needed.
           </p>
         </div>
       </section>
@@ -671,7 +673,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       <section id="how" aria-labelledby="how-h" className="bg-[#eef6f0]">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
           <div className="text-center">
-            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#059669]">Buy, plan, sell - in 3 steps</p>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#059669]">Research, plan, sell - in 3 steps</p>
             <h2 id="how-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-[#0b2b1d] sm:text-3xl">
               How circubAwd works in 3 simple steps
             </h2>
@@ -708,8 +710,8 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       {/* ============================== ROLES ============================== */}
       <section aria-labelledby="roles-h" className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
         <SectionHeading
-          eyebrow="Buy, plan, and sell in one place"
-          title="Find businesses, plan your proforma, sell with trust"
+          eyebrow="One tool, every research job"
+          title="Research any market, plan your budget, sell with trust"
           sub="circubAwd works for everyone who touches a city - explore it, plan what you will spend, or earn from what you already sell."
         />
 
@@ -833,15 +835,15 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
       {/* ============================== GUESSING VS CIRCUBAWD ============================== */}
       <section aria-labelledby="compare-h" className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:py-16">
         <SectionHeading
-          eyebrow="Why circubAwd"
+          eyebrow="Market research, minus the agency"
           title="Stop guessing. Start knowing."
           sub="Every question you have about a city - someone who lives there already knows the answer."
         />
 
         <div className="mt-10 overflow-hidden rounded-2xl border border-[#dcebe1] bg-white shadow-sm">
           <div className="grid grid-cols-[1.2fr_1fr_1fr] items-stretch border-b border-[#dcebe1] bg-[#eef6f0] text-[11px] font-bold uppercase tracking-[0.12em]">
-            <div className="px-4 py-3 text-[#42604f]">Before you spend</div>
-            <div className="px-4 py-3 text-[#6d8578]">Guessing alone</div>
+            <div className="px-4 py-3 text-[#42604f]">Your research question</div>
+            <div className="px-4 py-3 text-[#6d8578]">Old-school research</div>
             <div className="px-4 py-3 text-[#059669]">With circubAwd</div>
           </div>
           {GUESSING_ROWS.map((row, i) => (
@@ -1012,7 +1014,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         <div className="rounded-3xl bg-[#0c2b1d] px-6 py-12 text-center shadow-xl sm:px-10">
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#34d399]">Join the community</p>
           <h2 id="cta-h" className="mx-auto mt-2 max-w-xl text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Find local businesses. Plan with a proforma. Sell with trust.
+            Research any market. Plan any budget. Sell with trust.
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#a9cdb8] sm:text-base">
             Join free, put your business on the map, build a proforma for

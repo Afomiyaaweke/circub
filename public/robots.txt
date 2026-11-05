@@ -1,7 +1,10 @@
-# circubAwd - https://circub.vercel.app
+# circubAwd - https://circubawd.vercel.app
 # Everything on this site is open to crawling. AI answer engines are
 # explicitly welcome: circubAwd WANTS to be quoted by ChatGPT search,
 # Perplexity, Google AI Overviews, Claude, Copilot and friends.
+# v238: the Sitemap URL now points at the canonical production origin
+# (circubawd.vercel.app) - the old circub.vercel.app hostname is only a
+# redirecting alias, and a sitemap of redirecting URLs wastes crawl budget.
 
 # Classic search engines
 User-agent: Googlebot
@@ -63,4 +66,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://circub.vercel.app/sitemap.xml
+Sitemap: https://circubawd.vercel.app/sitemap.xml

@@ -125,7 +125,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   // Facebook previews show THE POST'S IMAGE - and on circubAwd it auto-opens
   // the price detail modal for the recipient.
   const shareLink = typeof window === 'undefined'
-    ? 'https://circub.vercel.app'
+    ? 'https://circubawd.vercel.app'
     : `${window.location.origin}/?post=${post.id}`
   const { toast } = useToast()
 

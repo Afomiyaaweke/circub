@@ -10,7 +10,7 @@ import { nextAuthOptions } from '@/lib/auth-options'
 // src/lib/auth-options.ts and is SHARED with every getServerSession() call -
 // see the note there for why this is required for Google sign-in to work.
 //
-//   - For production: https://circub.vercel.app/api/auth/callback/google
+//   - For production: https://circubawd.vercel.app/api/auth/callback/google
 //   - For each preview URL you want to test: https://<preview>.vercel.app/api/auth/callback/google
 //   - For local dev: http://localhost:3000/api/auth/callback/google
 const handler = NextAuth(nextAuthOptions)

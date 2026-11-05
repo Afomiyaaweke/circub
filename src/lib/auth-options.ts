@@ -44,12 +44,12 @@ if (
 //   4. undefined (let NextAuth infer from the request host)
 //
 // IMPORTANT - the matching redirect URI must exist in Google Console:
-//   - For production: https://circub.vercel.app/api/auth/callback/google
+//   - For production: https://circubawd.vercel.app/api/auth/callback/google
 //   - For each preview URL you want to test: https://<preview>.vercel.app/api/auth/callback/google
 //   - For local dev: http://localhost:3000/api/auth/callback/google
 //
 // To get a STABLE redirect_uri that doesn't change per deploy, set
-// NEXTAUTH_URL=https://circub.vercel.app in Vercel env vars (Production only).
+// NEXTAUTH_URL=https://circubawd.vercel.app in Vercel env vars (Production only).
 function getAuthUrl(): string | undefined {
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
 

@@ -121,7 +121,7 @@ async function pollinationsChat(
 ): Promise<unknown> {
   const res = await fetch(POLLINATIONS_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Referer: 'https://circub.vercel.app' },
+    headers: { 'Content-Type': 'application/json', Referer: 'https://circubawd.vercel.app' },
     body: JSON.stringify({ model, ...body }),
     signal: AbortSignal.timeout(timeoutMs),
   })

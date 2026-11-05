@@ -1,46 +1,49 @@
 # circubAwd
 
-> circubAwd is a free web app that helps you find local businesses with real,
-> current prices for everyday things - food, transport, hotels, services -
-> plan what you'll buy with an itemized proforma, and sell your stuff through
-> registered Sales sellers. Installable as a mobile app (PWA) on Android, iOS
-> and desktop; no app store needed.
+> circubAwd is a free market research tool powered by real locals: real,
+> current prices for everyday things in any city - food, transport, hotels,
+> services - cash-bounty questions answered by people who live there in
+> minutes, an AI price scanner, an itemized proforma cost estimator, and
+> registered Sales sellers. Installable as a mobile app (PWA) on Android,
+> iOS and desktop; no app store needed.
 
-circubAwd ("know before you go") is built on one idea: the most reliable price
-information comes from people who actually live there. Locals post prices for
-products, services, restaurants and transport in their own city and currency.
-The community votes and rates posts, so accurate prices rise to the top.
-Travelers build a trip list and see what their budget covers in each place,
-scan any item with the AI price scanner (PriceLens), or ask a local directly
-when a price is not posted yet.
+circubAwd ("the best market research tool is the crowd that lives there") is
+built on one idea: the most reliable market data comes from people who
+actually live there. Locals post prices for products, services, restaurants
+and transport in their own city and currency. The community votes and rates
+posts, so accurate data rises to the top. Researchers, travelers and buyers
+build a proforma list and see what their budget covers in each place, scan
+any item with the AI price scanner (PriceLens), or put a cash bounty on any
+question a local can answer in minutes.
 
 ## What you can do with circubAwd
 
 - **Post real prices** (free account): name an item, its price, currency and
-  place - optional photo - so the next traveler isn't guessing.
-- **Plan a trip budget**: list what you plan to buy and see what to set aside
+  place - optional photo - so the next person isn't guessing.
+- **Do market research**: ask any city or country question, or post a cash
+  bounty for shop checks, photos and field answers - locals reply in minutes.
+- **Plan a budget**: list what you plan to buy and see what to set aside
   per place, with a budget locator that ranks where your money covers the
   whole list.
 - **Scan with PriceLens**: point your camera at any item and see what it
   typically costs nearby, backed by community prices.
-- **Ask a local**: when no price is posted, message locals and guides
-  directly and get an answer from someone who lives there.
-- **Find local guides**: discover guides by city, language and specialty,
-  with star ratings.
+- **Book local talents**: find verified locals by city, language and
+  specialty, with star ratings - for fieldwork, shop checks or full trips.
 - **Vote and rate**: community votes and star ratings surface the most
   accurate prices and the most helpful locals.
 
 ## Key facts
 
-- Website: https://circub.vercel.app
+- Website: https://circubawd.vercel.app
 - Platforms: any browser; installable PWA (Android, iOS, desktop)
 - Price: free
 - Languages: English, Amharic, Kiswahili, Arabic, French, Chinese
-- Contact: https://circub.vercel.app/contact (support@tenetbid.com)
+- Contact: https://circubawd.vercel.app/contact (support@tenetbid.com)
 
 ## Pages
 
-- [Home](https://circub.vercel.app/)
-- [Contact](https://circub.vercel.app/contact)
-- [Privacy policy](https://circub.vercel.app/privacy)
-- [Terms of service](https://circub.vercel.app/terms)
+- [Home](https://circubawd.vercel.app/)
+- [Help Board](https://circubawd.vercel.app/help)
+- [Contact](https://circubawd.vercel.app/contact)
+- [Privacy policy](https://circubawd.vercel.app/privacy)
+- [Terms of service](https://circubawd.vercel.app/terms)
