@@ -5,6 +5,7 @@ import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { isValidGps } from '@/lib/location'
 import { slimPostImage, slimAuthor } from '@/lib/media-url'
+import { withDbRetry } from '@/lib/db-retry'
 
 // Cache the public feed list for 30s on the CDN/edge, allow serving stale
 // for up to 60s while revalidating in the background. With 5,000 concurrent
@@ -66,7 +67,10 @@ export async function GET(req: NextRequest) {
     // link count only breaks ties between equally-timestamped rows. The
     // full candidate window (this API never serves more than 100 rows) is
     // fetched in the base order, scored, re-ranked, then sliced per page.
-    const rows = await db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: 101 })
+    // v242: the main feed query runs under withDbRetry - a transient
+    // serverless-DB blip used to 500 the whole Local feed ("{"error":"Failed"}")
+    // while the client silently kept stale posts.
+    const rows = await withDbRetry(() => db.localPricePost.findMany({ where: caseInsensitiveWhere(where), orderBy, include: { author: { select: { id: true, name: true, username: true, avatarColor: true, profilePicture: true, isLocal: true, verifiedLocal: true, idVerified: true, rating: true, helpfulVotes: true, localPostCount: true, headline: true, location: true, expertiseTags: true } }, votes: true, _count: { select: { linksA: true, linksB: true } } }, take: 101 }))
     const scored = rows.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       const { linksA, linksB } = (p as any)._count || { linksA: 0, linksB: 0 }

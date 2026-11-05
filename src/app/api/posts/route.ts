@@ -6,6 +6,7 @@ import { caseInsensitiveWhere } from '@/lib/search'
 import { guideDistanceKm } from '@/lib/geo'
 import { parseVideoUrl } from '@/lib/video'
 import { slimAuthor } from '@/lib/media-url'
+import { withDbRetry } from '@/lib/db-retry'
 
 // GET /api/posts?authorId=...&search=...&limit=20&lat=9.03&lng=38.74&saved=1
 // With lat/lng the feed becomes location-aware: posts from authors whose
@@ -37,7 +38,9 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    const posts = await db.post.findMany({
+    // v242: under withDbRetry - transient DB blips used to 500 the
+    // community feed while the client silently kept stale posts.
+    const posts = await withDbRetry(() => db.post.findMany({
       where: caseInsensitiveWhere(where),
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -68,7 +71,7 @@ export async function GET(req: NextRequest) {
           orderBy: { createdAt: 'asc' },
         },
       },
-    })
+    }))
 
     // v239 PERF: avatars travel as cacheable /api/users/<id>/image URLs -
     // the base64 data: URLs made every feed fetch ship megabytes of JSON.

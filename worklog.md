@@ -370,3 +370,20 @@ re-work needed.
   zero new; build exit 0; sw.js circub-v241.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
+
+## v242 (2026-11-05) - feed APIs get the same transient-DB resilience as auth (v241 follow-up)
+
+The v241 prod search check exposed it: GET /api/local-prices answered
+{"error":"Failed"} 500 five times in a row on prod (while register with its
+v240 withDbRetry succeeded) - a transient serverless-DB blip on the endpoint
+the client silently papers over by keeping stale posts. The auth routes got
+withDbRetry in v240; the FEED endpoints had not:
+- GET /api/local-prices: main findMany under withDbRetry (the Local feed -
+  the exact page the user is working in).
+- GET /api/posts: community feed findMany under withDbRetry.
+- GET /api/landing-stats: the three counts under withDbRetry (fallback
+  zeros stay).
+- sw.js circub-v242; app-version v242; tsc 20 baseline; build exit 0;
+  task239_probe.py 30/30; task234_no_filter_bar_probe.py 49/49.
+Prod gate: task239_prod_verify.py 23/23 + task241_prod_search_check.py
+(with one reload-retry across documented DB flips).
