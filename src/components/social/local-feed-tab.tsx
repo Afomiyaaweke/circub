@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList } from 'lucide-react'
+import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Search } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalProductCard } from './local-product-card'
 import { PriceStoriesStrip } from './price-stories-strip'
@@ -375,6 +376,20 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     }
   }, [searchLocPart, filterValues])
 
+  // v241: the search bar is BACK (user: "have search bar on local post
+  // site") after v234 removed it with the rest of the filter bar. searchRaw
+  // is the input's live value; a short debounce copies it into `search` -
+  // the fetch effects' dependency - so results update live without one
+  // request per keystroke. The v232 comma contract is unchanged: the text
+  // before the comma filters the item, the text after it resolves to a
+  // city/country pick (the parser effect above), so "coffee, Addis Ababa"
+  // just works from the single input.
+  const searchItemPart = (searchCommaIdx === -1 ? searchRaw : searchRaw.slice(0, searchCommaIdx)).trim()
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchItemPart), 350)
+    return () => clearTimeout(t)
+  }, [searchItemPart])
+
   // v184: ONE location picker replaces the country + city pair. The value
   // is prefixed ("country:X" / "city:Y") so a country pick and a city pick
   // can never collide; picking one always clears the other - they must
@@ -678,6 +693,37 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5 shadow-sm h-9 px-3" data-testid="post-price-open">
           <Plus className="w-4 h-4" /> <span className="text-xs sm:text-sm">Post Price</span>
         </Button>
+      </div>
+
+      {/* v241: the SEARCH BAR is back (user: "have search bar on local post
+          site") - ONE slim pill under the action row. The v234 declutter
+          stands for everything else: no location/category pickers, no
+          All/Shop/Shared segments. Same comma contract as v232 - "item,
+          city" filters the item AND jumps the location; Enter searches
+          immediately; X clears the search, the chips and the AI panels. */}
+      <div className="relative" data-testid="local-search-bar">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          type="text"
+          inputMode="search"
+          autoComplete="off"
+          data-testid="local-search-input"
+          placeholder='Search prices... try "coffee, Addis Ababa"'
+          value={searchRaw}
+          onChange={(e) => setSearchRaw(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') setSearch((searchCommaIdx === -1 ? searchRaw : searchRaw.slice(0, searchCommaIdx)).trim()) }}
+          className="pl-9 pr-9 h-10 rounded-lg bg-card shadow-sm"
+        />
+        {searchRaw && (
+          <button
+            onClick={handleClearSearch}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Clear search"
+            data-testid="local-search-clear"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Price stories - every newly posted price is shared as a 24h story

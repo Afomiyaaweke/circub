@@ -341,3 +341,32 @@ register 201 -> landing-signin-mobile -> modal -> wrong password shows the
 zero page errors: 9/9. Sign-in with email+password VERIFIED WORKING on
 production. Remaining outside code: RESEND_API_KEY must be added on Vercel for
 reset emails; installed APKs need a rebuild to pick up the canonical origin.
+
+## v241 (2026-11-05) - search bar back on the Local feed (user: "have search bar on local post site")
+
+Session note: sandbox recycled a 5th time (/home/z/circub wiped). Re-cloned -
+origin HEAD was 571e850 = v240 worklog commit, so v240 was fully pushed; no
+re-work needed.
+
+- src/components/social/local-feed-tab.tsx:
+  - ONE slim search pill under the Proforma + Post Price action row (testids
+    local-search-bar / local-search-input / local-search-clear, Search icon
+    left, X clear right, placeholder 'Search prices... try "coffee, Addis
+    Ababa"'). The v234 declutter STANDS for everything else: no location/
+    category pickers, no All/Shop/Shared segments.
+  - the v232 comma contract is unchanged and still driven by the surviving
+    state machine: text before the comma filters the item, text after it
+    resolves to a city/country pick (parser effect), honest hint when the
+    location is unknown.
+  - re-added the debounce effect v234 had removed: searchRaw -> 350ms ->
+    setSearch (the fetch effects' dependency), so results update live
+    without one request per keystroke; Enter searches immediately; X calls
+    handleClearSearch (search + chips + AI panels).
+- Probe task234_no_filter_bar_probe.py updated to the v241 contract (search
+  input present exactly once + new placeholder, all other filter pieces still
+  gone, D2 link-back assertion fixed to the v235+ in-page flow) + functional
+  checks: garbage search empties the feed, X restores it - mobile + desktop.
+  Result 49/49. task239_probe.py (markers -> v241): 30/30. tsc 20 baseline,
+  zero new; build exit 0; sw.js circub-v241.
+- Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
+  10 of 20 posts, See All appears).
