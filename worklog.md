@@ -331,3 +331,13 @@ error-code probes against the real account):
   RESEND_FROM) in Vercel -> Settings -> Environment Variables for the
   forgot-password flow to actually send mail; no code can bypass that
   securely.
+
+v240 DELIVERY: commit 677ba5d pushed 715da9e..677ba5d -> origin/main with the
+user PAT (tracking ref synced via fetch). Vercel deployed circub-v240 (sw.js
+poll, try 7, ~70s). Prod verify task239_prod_verify.py (markers bumped v240):
+23/23. NEW task240_prod_signin_e2e.py - REAL browser journey on prod (390x844):
+register 201 -> landing-signin-mobile -> modal -> wrong password shows the
+"Forgot password?" hint -> correct password shows the "Welcome back" toast ->
+zero page errors: 9/9. Sign-in with email+password VERIFIED WORKING on
+production. Remaining outside code: RESEND_API_KEY must be added on Vercel for
+reset emails; installed APKs need a rebuild to pick up the canonical origin.
