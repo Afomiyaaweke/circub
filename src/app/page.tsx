@@ -83,21 +83,13 @@ export async function generateMetadata({
   }
 }
 
-// v139: real community counts for the landing stats band, computed on the
-// server so the numbers can never drift into marketing fiction - the band
-// shows what the community has actually posted. Any DB hiccup hides the
-// band entirely instead of faking numbers.
+// v239 PERF: the three real community counts moved to GET /api/landing-stats
+// and are fetched CLIENT-side by the landing stats band. This page used to
+// await three Prisma queries before sending a single byte - on a cold Vercel
+// serverless DB that stretched first paint to multiple seconds for EVERY
+// visitor, which read as "the app is laggy". The homepage render now touches
+// no database at all; the stats band fills in without ever blocking paint
+// (and the endpoint edge-caches for 2 minutes).
 export default async function Home() {
-  let stats: { prices: number; people: number; countries: number } | null = null;
-  try {
-    const [prices, people, countryRows] = await Promise.all([
-      db.localPricePost.count(),
-      db.user.count(),
-      db.localPricePost.findMany({ distinct: ["country"], select: { country: true } }),
-    ]);
-    stats = { prices, people, countries: countryRows.length };
-  } catch {
-    stats = null;
-  }
-  return <HomeClient stats={stats} />;
+  return <HomeClient />;
 }

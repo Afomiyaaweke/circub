@@ -21,6 +21,8 @@ interface LoginModalProps {
   onOpenChange: (open: boolean) => void
   onAuthed: (user: any) => void
   onSwitchToRegister: () => void
+  /** v239: opens the forgot-password modal from the sign-in screen */
+  onForgotPassword?: () => void
 }
 
 /**
@@ -29,7 +31,7 @@ interface LoginModalProps {
  * is not a new legal action). The button is always enabled so users never
  * see a "dead" button.
  */
-export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }: LoginModalProps) {
+export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister, onForgotPassword }: LoginModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -224,6 +226,18 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister }:
             <>Sign in <ArrowRight className="w-4 h-4" /></>
           )}
         </Button>
+
+        {/* v239: self-service password recovery - before this link existed, a
+            forgotten password locked the user out with no path back in. */}
+        {onForgotPassword && (
+          <button
+            onClick={() => { onOpenChange(false); onForgotPassword() }}
+            data-testid="forgot-password-link"
+            className="mt-3 w-full text-center text-xs font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
+          >
+            Forgot password?
+          </button>
+        )}
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Don&apos;t have an account?{' '}

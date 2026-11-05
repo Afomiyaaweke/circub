@@ -5,6 +5,7 @@ import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { guideDistanceKm } from '@/lib/geo'
 import { parseVideoUrl } from '@/lib/video'
+import { slimAuthor } from '@/lib/media-url'
 
 // GET /api/posts?authorId=...&search=...&limit=20&lat=9.03&lng=38.74&saved=1
 // With lat/lng the feed becomes location-aware: posts from authors whose
@@ -69,9 +70,19 @@ export async function GET(req: NextRequest) {
       },
     })
 
+    // v239 PERF: avatars travel as cacheable /api/users/<id>/image URLs -
+    // the base64 data: URLs made every feed fetch ship megabytes of JSON.
+    // (post.imageUrl stays inline: community posts can carry VIDEOS, which
+    // the image route cannot serve.)
+    const slimmed = posts.map((p) => ({
+      ...p,
+      author: slimAuthor(p.author),
+      comments: p.comments.map((c) => ({ ...c, author: slimAuthor(c.author) })),
+    }))
+
     if (nearMe) {
       const NEAR_YOU_KM = 50
-      const enriched = posts.map((p) => {
+      const enriched = slimmed.map((p) => {
         const km = guideDistanceKm({ lat, lng }, p.author.location)
         return { ...p, distanceKm: km, nearYou: km != null && km <= NEAR_YOU_KM }
       })
@@ -81,7 +92,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ posts: [...near, ...rest], sortedBy: 'near' })
     }
 
-    return NextResponse.json({ posts })
+    return NextResponse.json({ posts: slimmed })
   } catch (error) {
     console.error('Failed to fetch posts:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
@@ -139,7 +150,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ post }, { status: 201 })
+    return NextResponse.json({ post: { ...post, author: slimAuthor(post.author), comments: post.comments.map((c) => ({ ...c, author: slimAuthor(c.author) })) } }, { status: 201 })
   } catch (error) {
     console.error('Failed to create post:', error)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })

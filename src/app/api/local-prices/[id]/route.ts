@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { isValidGps } from '@/lib/location'
+import { slimPostImage, slimAuthor } from '@/lib/media-url'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,7 +12,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     let me: any = null
     try { const s = await getCurrentUser(); if (s) me = await db.user.findUnique({ where: { id: s.id }, include: { localPriceVotes: true } }) } catch {}
     const myVote = me ? (post.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
-    return NextResponse.json({ post: { ...post, author: { ...post.author, expertiseTags: post.author.expertiseTags ? post.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote } })
+    // v239: photo/avatar travel as cacheable /image URLs, not megabytes of base64
+    return NextResponse.json({ post: slimPostImage({ ...post, author: { ...slimAuthor(post.author), expertiseTags: post.author.expertiseTags ? post.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote } as any) })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }
 

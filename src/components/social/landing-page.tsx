@@ -45,8 +45,8 @@
 //   - seo-about / seo-features / seo-faq keep their testids; seo-features
 //     keeps exactly six <h3> cards; the FAQ keeps its 5 items + JSON-LD
 //     generated from the same strings (M35h/i/j/k).
-//   - the Top score board (same public /api/top-posters feed the
-//     v138 profile board uses) still lives here as social proof.
+//   - v239: Top score / Stories / roles grid / ask-chip strip removed for a
+//     calmer, faster-to-understand page (social proof lives in the hero).
 //   - v222 landing re-emphasis copy is preserved verbatim: the Q&A
 //     headline + minutes-fast copy (i18n, 6 languages), the two-sided
 //     hero paragraph (ask / answer-stickers-gigs), the locals
@@ -61,15 +61,13 @@ import {
   Check,
   ChevronDown,
   Compass,
-  Languages,
+  LogIn,
   MessageCircle,
   Plane,
   Play,
   Search,
-  Sparkles,
   Star,
   Store,
-  Tag,
   TrendingUp,
   Trophy,
   Users,
@@ -232,8 +230,27 @@ const STEPS = [
   },
 ]
 
-// The reference's comparison table, translated to circubAwd - every cell
-// restates what the product actually does, nothing invented.
+// v239: the ASK-CHIPS strip, the 4-card roles grid, the Top score section
+// and the Stories section were REMOVED for clarity (user: "the landing page
+// its cluttered - make it easy to understand"). One scroll, nine moments:
+// nav / hero+phone+social proof / real stats / what is circubAwd / 3 steps /
+// what circubAwd does (6 cards) / research comparison / FAQ / CTA + footer.
+// Every conversion idea the removed sections carried already lives in the
+// hero copy, the 6 feature cards and the FAQ.
+/**
+ * Entry points (unchanged semantics):
+ *   landing-cta      the CTA banner's "Join for free" - opens sign-up
+ *   landing-signup   the hero's primary "Sign up free" - opens sign-up
+ *   landing-signin   the nav's "Sign in" (desktop) - opens login
+ *   landing-signin-mobile  NEW v239: the nav's icon Sign in on PHONES - the
+ *                    old button was hidden below sm, so phone users had no
+ *                    visible sign-in entry point at all
+ *   landing-install  the nav's PWA install button (Android one-tap,
+ *                    iOS step-by-step; hides once standalone)
+ *   landing-version  footer version marker
+ *   landing-progress the hero progress bar toward the next price milestone
+ *   landing-nav-cta  the nav's "Join free" pill - opens sign-up
+ */
 const GUESSING_ROWS = [
   {
     topic: "What does lunch really cost here?",
@@ -255,17 +272,6 @@ const GUESSING_ROWS = [
     guess: "Mental math that misses things",
     real: "A proforma built from real prices",
   },
-]
-
-// Fun chip strip under the hero - the reference's payout-logos slot,
-// translated to what circubAwd actually answers.
-const ASK_CHIPS = [
-  { icon: Tag, label: "True prices" },
-  { icon: Camera, label: "Shop checks" },
-  { icon: Languages, label: "Translation" },
-  { icon: Compass, label: "Talent help" },
-  { icon: Plane, label: "Travel agents" },
-  { icon: Sparkles, label: "Gigs & stickers" },
 ]
 
 // Same avatar palette as the app (top-posters-card, /u share profiles) -
@@ -406,30 +412,32 @@ function PhoneMockup() {
  */
 export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProps) {
   const { t } = useLanguage()
-  const [posters, setPosters] = useState<Array<{ id: string; name: string; avatarColor: string; postsCount: number }>>([])
-
-  // Top score board - same public API the profile board uses (v138).
-  // Best effort: a failed fetch leaves the empty state, never breaks the page.
+  // v239 PERF: the stats come from GET /api/landing-stats on the client now
+  // (the homepage no longer blocks its first byte on three Prisma queries -
+  // that wait was the multi-second lag on cold serverless DB starts). The
+  // optional server prop still wins when a parent provides it.
+  const [liveStats, setLiveStats] = useState<LandingStats | null>(stats)
   useEffect(() => {
+    if (stats) return
     let alive = true
-    fetch('/api/top-posters')
+    fetch('/api/landing-stats')
       .then((r) => r.json())
       .then((d) => {
-        if (alive) setPosters(d.posters || [])
+        if (alive && d && typeof d.prices === 'number') setLiveStats(d)
       })
       .catch(() => {})
     return () => {
       alive = false
     }
-  }, [])
+  }, [stats])
 
-  const RANK_STYLES = ['text-amber-500', 'text-slate-400', 'text-orange-500']
+  const stats_ = liveStats
 
   // v186, kept on real data: how far the community is toward the next
   // 1,000 posted prices. Never faked: when stats are missing the bar is
   // replaced by the plain social-proof row.
-  const goal = stats ? Math.max(1000, Math.ceil(stats.prices / 1000) * 1000) : 0
-  const progressPct = stats && goal > 0 ? Math.min(99, Math.round((stats.prices / goal) * 100)) : 0
+  const goal = stats_ ? Math.max(1000, Math.ceil(stats_.prices / 1000) * 1000) : 0
+  const progressPct = stats_ && goal > 0 ? Math.min(99, Math.round((stats_.prices / goal) * 100)) : 0
 
   return (
     <div data-testid="landing-root" className="relative min-h-[100dvh] bg-[#f6faf7] text-[#0b2b1d]">
@@ -449,13 +457,24 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
           >
             <a href="#how" className="transition-colors hover:text-[#059669]">How it works</a>
             <a href="#features" className="transition-colors hover:text-[#059669]">Features</a>
-            <a href="#top-score" className="transition-colors hover:text-[#059669]">Top score</a>
-            <a href="#stories" className="transition-colors hover:text-[#059669]">Stories</a>
             <a href="#faq" className="transition-colors hover:text-[#059669]">FAQs</a>
           </nav>
 
           {/* right: controls + the bright join pill */}
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            {/* v239: PHONES get a visible sign-in entry point - the text button
+                below is hidden below sm, which left mobile users with no sign
+                in at all in the nav (a top report behind "sign in is broken"). */}
+            <Button
+              data-testid="landing-signin-mobile"
+              onClick={onLogin}
+              variant="ghost"
+              size="sm"
+              aria-label={t('landing.signIn')}
+              className="inline-flex h-9 w-9 justify-center px-0 text-[#0b2b1d] hover:bg-white hover:text-[#0b2b1d] sm:hidden"
+            >
+              <LogIn className="h-4 w-4" />
+            </Button>
             <LanguageMenu />
             <ThemeToggle className="border border-[#0b2b1d]/10 bg-white/70 shadow-none hover:bg-white hover:text-[#0b2b1d]" />
             <Button
@@ -511,10 +530,8 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
             </p>
 
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#42604f] sm:text-base">
-              circubAwd is market research without the agency: post a question or a cash bounty and
-              real locals answer in minutes with true prices, shop checks and photos. Know your
-              city? Answer bounties, climb the Top score board, and earn from gigs - even get
-              booked as a talent or travel agent.
+              Post a question or a cash bounty - real locals answer in minutes with true prices,
+              shop checks and photos. Know your city? Answer bounties and earn from gigs.
             </p>
 
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
@@ -560,14 +577,14 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                   <span className="ml-1 text-[11px] font-bold text-[#0b2b1d]">Community loved</span>
                 </div>
                 <p className="text-[11px] text-[#6d8578]">
-                  {stats
-                    ? `Joined by ${stats.people.toLocaleString('en-US')}+ locals and travelers`
+                  {stats_
+                    ? `Joined by ${stats_.people.toLocaleString('en-US')}+ locals and travelers`
                     : 'Free to join - works on any phone'}
                 </p>
               </div>
             </div>
 
-            {stats ? (
+            {stats_ ? (
               <div className="mt-4 max-w-sm" data-testid="landing-progress">
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#e2ece5]">
                   <div
@@ -576,7 +593,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
                   />
                 </div>
                 <p className="mt-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[#42604f]">
-                  {progressPct}% completed - {stats.prices.toLocaleString('en-US')} real prices posted
+                  {progressPct}% completed - {stats_.prices.toLocaleString('en-US')} real prices posted
                 </p>
               </div>
             ) : (
@@ -602,40 +619,21 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         </div>
       </main>
 
-      {/* ============================== ASK-ANYTHING CHIP STRIP ============================== */}
-      <section aria-label="What you can ask" className="border-y border-[#dcebe1] bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-6 sm:px-6">
-          <p className="text-center font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#6d8578]">
-            Ask anything before you go
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {ASK_CHIPS.map((chip) => (
-              <span
-                key={chip.label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#dcebe1] bg-[#f6faf7] px-3 py-1.5 text-xs font-semibold text-[#0b2b1d] transition-transform hover:-translate-y-0.5"
-              >
-                <chip.icon className="h-3.5 w-3.5 text-[#059669]" />
-                {chip.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ============================== REAL STATS BAND ============================== */}
-      {stats && (
+      {stats_ && (
         <section aria-label="Community stats" className="bg-[#eef6f0]">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 md:grid-cols-4">
             <div className="text-center">
-              <div className="text-3xl font-bold tracking-tight text-[#0b2b1d]">{stats.prices.toLocaleString('en-US')}+</div>
+              <div className="text-3xl font-bold tracking-tight text-[#0b2b1d]">{stats_.prices.toLocaleString('en-US')}+</div>
               <div className="mt-1 text-xs text-[#42604f]">real prices posted</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold tracking-tight text-[#0b2b1d]">{stats.people.toLocaleString('en-US')}+</div>
+              <div className="text-3xl font-bold tracking-tight text-[#0b2b1d]">{stats_.people.toLocaleString('en-US')}+</div>
               <div className="mt-1 text-xs text-[#42604f]">locals and travelers</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold tracking-tight text-[#0b2b1d]">{stats.countries}</div>
+              <div className="text-3xl font-bold tracking-tight text-[#0b2b1d]">{stats_.countries}</div>
               <div className="mt-1 text-xs text-[#42604f]">countries covered</div>
             </div>
             <div className="text-center">
@@ -704,98 +702,6 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ============================== ROLES ============================== */}
-      <section aria-labelledby="roles-h" className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
-        <SectionHeading
-          eyebrow="One tool, every research job"
-          title="Research any market, plan your budget, sell with trust"
-          sub="circubAwd works for everyone who touches a city - explore it, plan what you will spend, or earn from what you already sell."
-        />
-
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* travelers */}
-          <div className="flex flex-col rounded-2xl border border-[#dcebe1] bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#059669]/10 text-[#059669]">
-              <Plane className="h-5 w-5" />
-            </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#059669]">For travelers</p>
-            <h3 className="mt-1 text-base font-semibold text-[#0b2b1d]">Ask before you go</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#42604f]">
-              See what food, transport, hotels and services really cost - or just ask and get a fast answer from someone who lives there.
-            </p>
-          </div>
-
-          {/* locals - the fun brand block: dark text on lime */}
-          <div className="flex flex-col rounded-2xl bg-[#34d399] p-5 text-[#0c2b1d] shadow-md transition-transform hover:-translate-y-0.5">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#0c2b1d]/10">
-              <Store className="h-5 w-5" />
-            </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#0c2b1d]/70">For locals</p>
-            <h3 className="mt-1 text-base font-semibold">Know your city? Get paid for it</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#0c2b1d]/80">
-              Answer questions, collect stickers, and earn from gigs - your local knowledge is worth money here.
-            </p>
-            <Button
-              onClick={onSignUp}
-              className="mt-4 h-9 w-fit rounded-full bg-[#0c2b1d] font-mono text-xs uppercase tracking-[0.14em] text-white hover:bg-[#0b2b1d] hover:text-white"
-              size="sm"
-            >
-              Post your first price
-            </Button>
-          </div>
-
-          {/* guides */}
-          <div className="flex flex-col rounded-2xl border border-[#dcebe1] bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#059669]/10 text-[#059669]">
-              <Compass className="h-5 w-5" />
-            </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#059669]">For talents & agents</p>
-            <h3 className="mt-1 text-base font-semibold text-[#0b2b1d]">Get booked directly</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#42604f]">
-              Register as a talent or a travel agent, set your rate, and get booked by travelers - no middlemen.
-            </p>
-            <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#059669] hover:underline">
-              Become a talent or agent <ArrowRight className="h-3 w-3" />
-            </button>
-          </div>
-
-          {/* vendors */}
-          <div className="flex flex-col rounded-2xl border border-[#dcebe1] bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#059669]/10 text-[#059669]">
-              <BadgeCheck className="h-5 w-5" />
-            </div>
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#059669]">For sellers</p>
-            <h3 className="mt-1 text-base font-semibold text-[#0b2b1d]">Sell through registered sales</h3>
-            <p className="mt-2 flex-1 text-xs leading-relaxed text-[#42604f]">
-              Register as a Sales seller, list your stuff with photos and real prices, and reach people already looking to buy.
-            </p>
-            <button onClick={onSignUp} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#059669] hover:underline">
-              List what you sell <ArrowRight className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-
-        {/* wide community card - the deep-green feature band (reference
-            simulator position): dark ground, lime accents, one bold CTA */}
-        <div className="mt-4 flex flex-col items-start gap-4 rounded-2xl bg-[#0c2b1d] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#34d399]/15 text-[#34d399]">
-              <Users className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#34d399]">Join the community</p>
-              <h3 className="mt-1 text-base font-semibold text-white">Answer questions, collect stickers, earn from gigs</h3>
-              <p className="mt-1 text-xs leading-relaxed text-[#a9cdb8]">
-                Help the next visitor spend like a local - every answer, vouch and gig builds your name on the Top score board.
-              </p>
-            </div>
-          </div>
-          <Button onClick={onSignUp} size="sm" className={`h-10 shrink-0 px-5 text-xs shadow-md shadow-[#34d399]/20 ${LIME_BTN}`}>
-            Join the community
-          </Button>
         </div>
       </section>
 
@@ -871,107 +777,7 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
         </div>
       </section>
 
-      {/* ============================== TOP SCORE ============================== */}
-      <section id="top-score" aria-labelledby="top-score-h" data-testid="landing-top-score" className="bg-[#eef6f0]">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
-          <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#059669]">Community leaderboard</p>
-              <h2 id="top-score-h" className="mt-2 text-2xl font-bold tracking-tight text-[#0b2b1d] sm:text-3xl">
-                Top score
-              </h2>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-[#42604f] sm:text-base">
-                The most active contributors on circubAwd right now, ranked by
-                prices posted. Every real price you share moves you up the
-                board - and helps an entire city spend smarter.
-              </p>
-              <Button onClick={onSignUp} className={`mt-5 h-11 px-6 text-xs shadow-md shadow-[#059669]/20 ${GREEN_BTN}`}>
-                Sign up to climb the board <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
 
-            <div className="rounded-2xl border border-[#dcebe1] bg-white p-4 shadow-sm sm:p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-amber-500" />
-                <span className="text-sm font-semibold text-[#0b2b1d]">Top score</span>
-                <span className="ml-auto text-[11px] text-[#6d8578]">most prices posted</span>
-              </div>
-              <div className="space-y-2.5">
-                {posters.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-[#6d8578]">
-                    No posts yet - the board opens with the first price posted.
-                  </p>
-                ) : (
-                  posters.map((p, i) => (
-                    <div
-                      key={p.id}
-                      data-testid="landing-top-score-row"
-                      className="flex items-center gap-3 rounded-xl border border-[#dcebe1] bg-[#f6faf7] px-3.5 py-2.5"
-                    >
-                      <span className={`w-6 shrink-0 text-sm font-bold ${RANK_STYLES[i] || 'text-[#6d8578]'}`}>
-                        #{i + 1}
-                      </span>
-                      <InitialAvatar name={p.name} color={p.avatarColor} className="h-8 w-8 text-[11px]" />
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#0b2b1d]">{p.name}</span>
-                      <span className="shrink-0 text-xs font-semibold text-amber-600">{p.postsCount} posts</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== STORIES ============================== */}
-      <section id="stories" aria-labelledby="stories-h" className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-16">
-        <SectionHeading
-          eyebrow="Trusted community stories"
-          title="Loved by travelers and locals alike"
-          sub="Real people keeping each other informed, one price at a time."
-        />
-
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {[
-            {
-              quote: "I stopped guessing what things cost. I check circubAwd before I book anything - it saved me real money in my first week abroad.",
-              name: "Selam",
-              role: "Traveler",
-              color: "teal",
-            },
-            {
-              quote: "I registered as a Sales seller and posted my street food spot with real prices. Travelers find me, neighbors trust me, and my name is on the Top score board.",
-              name: "Daniel",
-              role: "Local cook",
-              color: "orange",
-            },
-            {
-              quote: "The budget planner plus Ask a Local planned my whole trip in one app. No app store, it just installs and works.",
-              name: "Martha",
-              role: "Local talent",
-              color: "purple",
-            },
-          ].map((s) => (
-            <figure key={s.name} className="flex flex-col rounded-2xl border border-[#dcebe1] bg-white p-5 shadow-sm transition-transform hover:-translate-y-0.5">
-              <div className="flex items-center gap-1" aria-label="5 out of 5 stars">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Star key={i} className="h-3.5 w-3.5 fill-[#059669] text-[#059669]" />
-                ))}
-              </div>
-              <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-[#0b2b1d]">
-                &ldquo;{s.quote}&rdquo;
-              </blockquote>
-              <figcaption className="mt-4 flex items-center gap-2.5">
-                <InitialAvatar name={s.name} color={s.color} className="h-9 w-9 text-xs" />
-                <div>
-                  <div className="text-sm font-semibold text-[#0b2b1d]">{s.name}</div>
-                  <div className="text-xs text-[#42604f]">{s.role}</div>
-                </div>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
 
       {/* ============================== FAQ (seo-faq, 5 items + JSON-LD) ============================== */}
       <section
@@ -1070,8 +876,6 @@ export function LandingPage({ onSignUp, onLogin, stats = null }: LandingPageProp
               <ul className="mt-3 space-y-2 text-xs text-[#42604f]">
                 <li><a href="#how" className="transition-colors hover:text-[#059669]">How it works</a></li>
                 <li><a href="#features" className="transition-colors hover:text-[#059669]">Features</a></li>
-                <li><a href="#top-score" className="transition-colors hover:text-[#059669]">Top score</a></li>
-                <li><a href="#stories" className="transition-colors hover:text-[#059669]">Community stories</a></li>
               </ul>
             </div>
             <div>

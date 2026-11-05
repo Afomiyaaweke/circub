@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { isValidGps } from '@/lib/location'
+import { slimPostImage, slimAuthor } from '@/lib/media-url'
 
 // Cache the public feed list for 30s on the CDN/edge, allow serving stale
 // for up to 60s while revalidating in the background. With 5,000 concurrent
@@ -69,7 +70,9 @@ export async function GET(req: NextRequest) {
     const scored = rows.map((p) => {
       const myVote = me ? (p.votes.find((v) => v.userId === me.id)?.voteType as any) || null : null
       const { linksA, linksB } = (p as any)._count || { linksA: 0, linksB: 0 }
-      return { ...p, author: { ...p.author, expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote, linksCount: (linksA || 0) + (linksB || 0) }
+      // v239: photo/avatar travel as cacheable /image URLs - the base64 data:
+      // URLs made every feed fetch ship megabytes of JSON on mobile.
+      return slimPostImage({ ...p, author: { ...slimAuthor(p.author), expertiseTags: p.author.expertiseTags ? p.author.expertiseTags.split(',').filter(Boolean) : [] }, myVote, linksCount: (linksA || 0) + (linksB || 0) } as any)
     })
     // v175: recency is the primary sort everywhere on the feed - a fresh
     // post (single or bulk) is always the first thing users see. Linked

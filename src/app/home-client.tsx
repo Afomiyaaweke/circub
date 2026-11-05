@@ -33,6 +33,9 @@ const MessageModal = lazy(() => import('@/components/social/message-modal').then
 const CommunityFeedTab = lazy(() => import('@/components/social/community-feed-tab').then(m => ({ default: m.CommunityFeedTab })))
 const RegisterModal = lazy(() => import('@/components/social/register-modal').then(m => ({ default: m.RegisterModal })))
 const LoginModal = lazy(() => import('@/components/social/login-modal').then(m => ({ default: m.LoginModal })))
+// v239: self-service password recovery ("Forgot password?" + /?reset=<token> link)
+const ForgotPasswordModal = lazy(() => import('@/components/social/password-modals').then(m => ({ default: m.ForgotPasswordModal })))
+const ResetPasswordModal = lazy(() => import('@/components/social/password-modals').then(m => ({ default: m.ResetPasswordModal })))
 const DeactivateAccountModal = lazy(() => import('@/components/social/deactivate-account-modal').then(m => ({ default: m.DeactivateAccountModal })))
 import type { User, TabKey } from '@/lib/types'
 
@@ -105,6 +108,9 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // and flash that bounty inside the swipe deck.
   const [questHighlight, setQuestHighlight] = useState<string | null>(null)
   const [localPriceId, setLocalPriceId] = useState<string | null>(null)
+  // v239: password recovery state
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [resetToken, setResetToken] = useState<string | null>(null)
   const [localProfileUserId, setLocalProfileUserId] = useState<string | null>(null)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
@@ -187,6 +193,15 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
     if (questId) {
       setActiveTab('guides')
       setQuestHighlight(questId)
+    }
+    // v239: password-reset email links land on /?reset=<token> - open the
+    // set-new-password modal (works for signed-out visitors, which is who
+    // the email targets). The URL is cleaned so refreshes don't re-open it.
+    const reset = params.get('reset')
+    if (reset) {
+      setResetToken(reset)
+      const url = window.location.origin + window.location.pathname
+      window.history.replaceState({}, '', url)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -509,6 +524,22 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
             onOpenChange={setLoginOpen}
             onAuthed={handleAuthed}
             onSwitchToRegister={() => setRegisterOpen(true)}
+            onForgotPassword={() => setForgotOpen(true)}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <ForgotPasswordModal
+            open={forgotOpen}
+            onOpenChange={setForgotOpen}
+            onBackToSignIn={() => setLoginOpen(true)}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <ResetPasswordModal
+            open={!!resetToken}
+            onOpenChange={(o) => { if (!o) setResetToken(null) }}
+            token={resetToken || ''}
+            onDone={() => setLoginOpen(true)}
           />
         </Suspense>
         {/* v117: shared price-post deep links (?post=<id>) must show the price
@@ -664,6 +695,22 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           onOpenChange={setLoginOpen}
           onAuthed={handleAuthed}
           onSwitchToRegister={() => setRegisterOpen(true)}
+          onForgotPassword={() => setForgotOpen(true)}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ForgotPasswordModal
+          open={forgotOpen}
+          onOpenChange={setForgotOpen}
+          onBackToSignIn={() => setLoginOpen(true)}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ResetPasswordModal
+          open={!!resetToken}
+          onOpenChange={(o) => { if (!o) setResetToken(null) }}
+          token={resetToken || ''}
+          onDone={() => setLoginOpen(true)}
         />
       </Suspense>
     </div>

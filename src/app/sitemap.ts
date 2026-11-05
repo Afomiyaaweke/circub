@@ -16,6 +16,11 @@ import { db } from "@/lib/db";
 // route can never 500.
 const BASE = "https://circubawd.vercel.app";
 
+// Query the LIVE database on every request (v239): the route was being
+// prerendered at build time, so talents registered after a deploy only
+// showed up in the sitemap on the NEXT deploy.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
