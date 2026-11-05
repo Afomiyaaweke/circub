@@ -7,9 +7,9 @@ Android project**. Three ways to get it on a phone — pick whichever suits you.
 
 ## Option A — Install instantly as a PWA (no build tools, live after deploy)
 
-Once the latest deploy is live on `https://circub.vercel.app`:
+Once the latest deploy is live on `https://circubawd.vercel.app`:
 
-1. Open **Chrome on Android** and go to `https://circub.vercel.app`
+1. Open **Chrome on Android** and go to `https://circubawd.vercel.app`
 2. Tap the **⋮ menu** → **Add to Home screen** (or **Install app**)
 3. circub gets its own icon (green C on black), opens **fullscreen without the
    browser bar**, and keeps working to render the last page if you go offline
@@ -70,7 +70,7 @@ Edit `server.url` + `allowNavigation` in `capacitor.config.ts`, then
 No local tooling needed:
 
 1. Wait for the deploy, then open <https://www.pwabuilder.com>
-2. Enter `https://circub.vercel.app` → **Start**
+2. Enter `https://circubawd.vercel.app` → **Start**
 3. Android → **Generate** → download the zip
    (`app-release-signed.aab` + `app-release-signed.apk` + signing key)
 4. **Keep the signing key safe** — every future Play upload must use it

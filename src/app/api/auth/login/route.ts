@@ -22,11 +22,15 @@ import { setSessionCookie, checkRateLimit } from '@/lib/session'
 import { isPastRetention } from '@/lib/deactivation'
 import { normalizeUsername, USERNAME_RE } from '@/lib/username'
 import { caseInsensitiveWhere } from '@/lib/search'
+import { withDbRetry } from '@/lib/db-retry'
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit: max 10 login attempts per minute per IP
-    const ip = req.headers.get('x-forwarded-for') || 'unknown'
+    // Rate limit: max 10 login attempts per minute per IP. x-forwarded-for on
+    // Vercel can be a comma-separated chain - key on the FIRST (client) entry
+    // so the whole chain text never changes the bucket mid-session.
+    const forwarded = req.headers.get('x-forwarded-for') || ''
+    const ip = forwarded.split(',')[0].trim() || 'unknown'
     const { allowed } = checkRateLimit(`login:${ip}`, 10, 60000)
     if (!allowed) {
       return NextResponse.json(
@@ -59,17 +63,24 @@ export async function POST(req: NextRequest) {
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     let user: User | null = null
     if (emailRe.test(identifier)) {
-      user = await db.user.findUnique({ where: { email: identifier.toLowerCase() } })
+      // v240: every lookup goes through withDbRetry - a cold serverless DB
+      // used to answer 500 "Login failed" here and a user retrying in a loop
+      // then tripped the 10/min rate limit, which read as "sign in is broken".
+      user = await withDbRetry(() =>
+        db.user.findUnique({ where: { email: identifier.toLowerCase() } })
+      )
     } else {
       const username = normalizeUsername(identifier)
       if (USERNAME_RE.test(username)) {
-        user = await db.user.findUnique({ where: { username } })
+        user = await withDbRetry(() => db.user.findUnique({ where: { username } }))
       }
       if (!user) {
-        const candidates = await db.user.findMany({
-          where: caseInsensitiveWhere({ name: { contains: identifier } }),
-          take: 10,
-        })
+        const candidates = await withDbRetry(() =>
+          db.user.findMany({
+            where: caseInsensitiveWhere({ name: { contains: identifier } }),
+            take: 10,
+          })
+        )
         const exact = candidates.filter(
           (u) => (u.name || '').trim().toLowerCase() === identifier.toLowerCase()
         )
@@ -111,8 +122,14 @@ export async function POST(req: NextRequest) {
 
     const ok = await bcrypt.compare(password, user.password)
     if (!ok) {
+      // v240: point at the recovery path IN the message - the top real-world
+      // dead end is a forgotten password where the user never notices the
+      // "Forgot password?" link under the sign-in button.
       return NextResponse.json(
-        { error: 'Incorrect password. Please try again.', code: 'WRONG_PASSWORD' },
+        {
+          error: 'Incorrect password. Please try again, or tap "Forgot password?" below to reset it by email.',
+          code: 'WRONG_PASSWORD',
+        },
         { status: 401 }
       )
     }
@@ -154,6 +171,14 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('Login failed:', error)
-    return NextResponse.json({ error: 'Login failed' }, { status: 500 })
+    // v240: say WHAT happened (temporary server/DB trouble) instead of a bare
+    // "Login failed" that reads as "my credentials are wrong".
+    return NextResponse.json(
+      {
+        error: 'Sign-in is temporarily unavailable - the database is waking up. Please try again in a few seconds.',
+        code: 'TEMPORARY',
+      },
+      { status: 500 }
+    )
   }
 }

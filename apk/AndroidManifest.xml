@@ -53,11 +53,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- circub.vercel.app deep links open in the app instead of a browser. -->
+            <!-- v240: canonical circubawd.vercel.app deep links open in the app
+                 instead of a browser; the legacy circub.vercel.app host stays
+                 accepted so old shared links still route into the app. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="circubawd.vercel.app" />
                 <data android:scheme="https" android:host="circub.vercel.app" />
             </intent-filter>
         </activity>

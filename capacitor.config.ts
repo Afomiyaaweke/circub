@@ -17,11 +17,16 @@ const config: CapacitorConfig = {
   // Static fallback assets copied into the APK (the app itself loads server.url)
   webDir: 'public',
   server: {
-    // Live deployment - change here if the domain ever moves
-    url: 'https://circub.vercel.app',
+    // Live deployment - v240: the CANONICAL origin. The previous value
+    // (https://circub.vercel.app) is only a 301-redirect alias of
+    // circubawd.vercel.app, so every app start paid an extra redirect hop
+    // (read: slow loads) and any navigation to the redirect target left the
+    // app shell (allowNavigation did not cover it). Change here if the
+    // domain ever moves.
+    url: 'https://circubawd.vercel.app',
     androidScheme: 'https',
     // Keep navigations inside the app instead of opening the browser
-    allowNavigation: ['circub.vercel.app'],
+    allowNavigation: ['circubawd.vercel.app'],
   },
 };
 

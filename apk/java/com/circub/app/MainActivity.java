@@ -33,25 +33,28 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 
 /**
- * circub Android shell - single-activity WebView over https://circub.vercel.app.
+ * circub Android shell - single-activity WebView over the CANONICAL origin
+ * https://circubawd.vercel.app (v240 - the old circub.vercel.app hostname is
+ * only a 301 redirect alias; loading it directly cost an extra hop per start
+ * and its redirect target left the same-origin shell).
  *
  * Feature set (kept in lockstep with the web app):
- *  - same-origin routing: circub.vercel.app stays in the shell, everything
+ *  - same-origin routing: circubawd.vercel.app stays in the shell, everything
  *    else (tel:, mailto:, other hosts, intents) goes to the system;
  *  - geolocation permission bridge (the budget locator / GPS auto-fill);
  *  - file chooser bridge (ID verification, visual search uploads);
  *  - download bridge via DownloadManager (data: URLs decode to app files);
  *  - cookies persisted + flushed on pause (sessions survive restarts);
  *  - back: OnBackInvokedCallback on API 33+, onBackPressed fallback below;
- *  - deep links: https://circub.vercel.app/... opens straight into the app.
+ *  - deep links: https://circubawd.vercel.app/... opens straight into the app.
  *
  * Build constraints: compiled with ecj against the android-36 platform jar,
  * NO androidx - everything guards on Build.VERSION, minSdk 15.
  */
 public class MainActivity extends Activity {
 
-    private static final String APP_ORIGIN = "https://circub.vercel.app";
-    private static final String APP_HOST = "circub.vercel.app";
+    private static final String APP_ORIGIN = "https://circubawd.vercel.app";
+    private static final String APP_HOST = "circubawd.vercel.app";
     private static final int REQ_FILE_CHOOSER = 4001;
     private static final int REQ_LOCATION = 4002;
 
@@ -191,12 +194,17 @@ public class MainActivity extends Activity {
         return APP_ORIGIN + "/";
     }
 
-    /** Same-origin stays in the shell; everything else goes to the system. */
+    /** Same-origin stays in the shell; everything else goes to the system.
+     *  v240: the legacy circub.vercel.app alias is treated as same-origin too
+     *  (it only 301-redirects to the canonical origin, so let the WebView
+     *  follow the hop instead of bouncing the user out to the browser). */
     private boolean handleUrl(String url) {
         if (url == null) {
             return false;
         }
-        if (url.startsWith(APP_ORIGIN) || url.startsWith("about:")
+        if (url.startsWith(APP_ORIGIN)
+                || url.startsWith("https://circub.vercel.app")
+                || url.startsWith("about:")
                 || url.startsWith("blob:") || url.startsWith("data:")) {
             return false;
         }

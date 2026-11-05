@@ -283,3 +283,51 @@ bounty card with the right-side icon stack sitting on the copy).
   centered in its container, sw.js circub-v237, zero console errors.
   Screenshots: download/task237_{bounty,talent}_mobile.png, task237_bounty_desktop.png.
 - tsc 20 baseline (0 new); build exit 0.
+
+## v240 (2026-11-05) - "still the same sign in is not working" follow-up
+
+User reported sign-in STILL broken after v239. Diagnosis (prod probes + API
+error-code probes against the real account):
+- GitHub HAD v239 (715da9e) - the "[ahead 1]" seen in the session was only a
+  stale local remote-tracking ref (one-time-URL pushes do not update it).
+  Vercel was serving circub-v239, task239_prod_verify.py 23/23, and a curl
+  probe of POST /api/auth/login with username "afomiya" answered
+  WRONG_PASSWORD (account exists, HAS a password) - the API resolves
+  username AND display-name correctly. So the web auth chain is healthy.
+- Real remaining traps fixed in v240:
+  1. THE ANDROID SHELL POINTED AT THE 301-REDIRECT ALIAS:
+     capacitor.config.ts server.url + allowNavigation, apk/MainActivity.java
+     APP_ORIGIN/APP_HOST and the manifest intent-filter all said
+     circub.vercel.app. Every app start paid an extra redirect hop (the
+     "app is laggy" report) and handleUrl() bounced any navigation to the
+     redirect target OUT to the system browser. All three now use the
+     canonical circubawd.vercel.app; the legacy host stays accepted in the
+     manifest intent-filter + handleUrl so old shared links still open the
+     app. ANDROID-APP.md updated. NOTE: the already-installed APK / the
+     public/circub.apk download still carries the OLD origin - a rebuild is
+     needed for the fix to reach phones.
+  2. COLD-DB 500s READ AS "BROKEN SIGN-IN": login/register now wrap their
+     user lookups (and create) in src/lib/db-retry.ts withDbRetry (3
+     attempts, 250/500ms) for transient Prisma P1001/P1002/P2024/P2034 +
+     connection/timeout errors; the 500 catch-alls now answer code TEMPORARY
+     with "temporarily unavailable - the database is waking up" instead of a
+     bare "Login failed"/"Registration failed". A register P2002 race
+     answers 409 like the pre-check.
+  3. RATE-LIMIT KEY: x-forwarded-for is a comma chain on Vercel - both
+     routes now key the limiter on the FIRST (client) entry.
+  4. WRONG_PASSWORD message now says: tap "Forgot password?" below to reset
+     it by email (the link was under the button; nobody noticed).
+- STALE PRERENDER LESSON: the first :3100 probe run showed the v239 landing
+  badge - the previous session's .next survived the recycle and Turbopack
+  reused the stale static landing page. rm -rf .next + rebuild fixed it;
+  also `pkill -f "next start"` does NOT match the renamed `next-server`
+  process - kill by PID.
+- Probe task239_probe.py (markers bumped to v240): 30/30 on the clean build;
+  local register 201 / wrong-pw 401 with the new hint / right-pw 200.
+  tsc 20 baseline, zero new; build exit 0; sw.js circub-v240.
+- STILL BLOCKED OUTSIDE CODE: password-reset EMAILS cannot be delivered on
+  prod - RESEND_API_KEY is not set in the Vercel environment (forgot answers
+  delivery=unavailable). The owner must add RESEND_API_KEY (+ optionally
+  RESEND_FROM) in Vercel -> Settings -> Environment Variables for the
+  forgot-password flow to actually send mail; no code can bypass that
+  securely.

@@ -6,6 +6,7 @@ import { setSessionCookie, checkRateLimit, sanitizeInput } from '@/lib/session'
 import { validateUsername, normalizeUsername } from '@/lib/username'
 import { circubawd_ROLES } from '@/lib/roles'
 import { isPastRetention } from '@/lib/deactivation'
+import { withDbRetry } from '@/lib/db-retry'
 
 interface RegisterBody {
   accountType: 'PERSONAL' | 'COMPANY'
@@ -41,8 +42,10 @@ interface RegisterBody {
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limit: max 5 registrations per minute per IP
-    const ip = req.headers.get('x-forwarded-for') || 'unknown'
+    // Rate limit: max 5 registrations per minute per IP (first client entry
+    // of the x-forwarded-for chain - v240, matches the login route).
+    const forwarded = req.headers.get('x-forwarded-for') || ''
+    const ip = forwarded.split(',')[0].trim() || 'unknown'
     const { allowed } = checkRateLimit(`register:${ip}`, 5, 60000)
     if (!allowed) {
       return NextResponse.json(
@@ -98,10 +101,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check existing
-    const existing = await db.user.findUnique({
-      where: { email: body.email.trim().toLowerCase() },
-    })
+    // Check existing (v240: withDbRetry against cold-DB blips)
+    const existing = await withDbRetry(() =>
+      db.user.findUnique({
+        where: { email: body.email.trim().toLowerCase() },
+      })
+    )
     if (existing) {
       // Deactivated accounts (v134): re-signing up with the same email works.
       // Past the 6-month retention window the account is purged on the spot
@@ -171,10 +176,12 @@ export async function POST(req: NextRequest) {
         const candidate = attempt === 0 ? base : `${base}${Math.floor(100 + Math.random() * 9000)}`
         const cCheck = validateUsername(candidate)
         if (!cCheck.ok) continue
-        const taken = await db.user.findUnique({
-          where: { username: cCheck.username },
-          select: { id: true },
-        })
+        const taken = await withDbRetry(() =>
+          db.user.findUnique({
+            where: { username: cCheck.username },
+            select: { id: true },
+          })
+        )
         if (!taken) usernameInput = cCheck.username
       }
       if (!usernameInput) {
@@ -188,10 +195,12 @@ export async function POST(req: NextRequest) {
     if (!uCheck.ok) {
       return NextResponse.json({ error: uCheck.error }, { status: 400 })
     }
-    const usernameTaken = await db.user.findUnique({
-      where: { username: uCheck.username },
-      select: { id: true },
-    })
+    const usernameTaken = await withDbRetry(() =>
+      db.user.findUnique({
+        where: { username: uCheck.username },
+        select: { id: true },
+      })
+    )
     if (usernameTaken) {
       return NextResponse.json(
         { error: 'That username is already taken - please pick another' },
@@ -241,7 +250,14 @@ export async function POST(req: NextRequest) {
       userData.headline = sanitizeInput(`${body.companyName!.trim()} • ${body.companyIndustry || 'Company'}`, 200)
     }
 
-    const user = await db.user.create({ data: userData })
+    // v240: create under retry too; a P2002 unique-violation race (double-tap
+    // on the submit button) reads as a friendly 409 instead of a 500.
+    const user = await withDbRetry(() => db.user.create({ data: userData })).catch((error) => {
+      if ((error as { code?: string })?.code === 'P2002') {
+        throw new RegisterConflictError()
+      }
+      throw error
+    })
 
     // Set session cookie
     await setSessionCookie(user.email)
@@ -263,13 +279,25 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof RegisterConflictError) {
+      return NextResponse.json(
+        { error: 'An account with this email already exists' },
+        { status: 409 }
+      )
+    }
     console.error('Registration failed:', error)
     return NextResponse.json(
-      { error: 'Registration failed' },
+      {
+        error: 'Sign-up is temporarily unavailable - the database is waking up. Please try again in a few seconds.',
+        code: 'TEMPORARY',
+      },
       { status: 500 }
     )
   }
 }
+
+// Internal marker for the unique-violation race on db.user.create (v240).
+class RegisterConflictError extends Error {}
 
 // Convenience for the 201 response: "local,sales" -> ['local', 'sales'].
 function pickedRolesOf(raw: string): string[] {
