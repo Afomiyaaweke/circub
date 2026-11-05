@@ -400,3 +400,10 @@ warm instances the worst case is 100 connections instead of unbounded. THE
 REAL fix remains a Vercel env change: point DATABASE_URL at the provider's
 POOLED endpoint (Neon -pooler host / port 6543). tsc 20 baseline; build exit
 0; task239_probe.py 30/30; sw.js circub-v243.
+
+v242+v243 DELIVERY: f48ff7b + (v243 commit) pushed through GitHub-side hiccups
+(Internal Server Error rejections; empty-commit retrigger needed once before
+the v242 deploy fired). Prod gates on v243: task239_prod_verify.py 23/23 +
+task241_prod_search_check.py 9/9 (one documented DB flip crossed via the
+journey-redo; the withDbRetry + connection cap kept the app usable
+throughout). The Local feed search bar is LIVE on production.
