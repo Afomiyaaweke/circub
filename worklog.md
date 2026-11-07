@@ -371,6 +371,44 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v244 (2026-11-07) - mobile loading speed pass: cached-first opens, no wasted round trips
+User: "the loading is lagging fix it to be fast specialy on the phone".
+
+- SW NAVIGATIONS -> STALE-WHILE-REVALIDATE (public/sw.js): was NETWORK-FIRST,
+  so EVERY PWA / Android-WebView open waited a full serverless round trip
+  (RTT + possible cold start) before the first pixel - the #1 repeat-open lag
+  source. A cached page now paints INSTANTLY and the network response
+  refreshes the cache in the background (event.waitUntil). First visit is
+  unchanged (no cache -> network; offline -> cached shell). Build skew stays
+  self-healing: pwa-register reloads once when a new worker claims the tab
+  (controllerchange -> GET_VERSION handshake), and refreshStaleClients()
+  still force-navigates tabs too old to answer pings.
+- COLD-START HTML: src/app/page.tsx lazy-imports @/lib/db INSIDE
+  generateMetadata (only when ?post=<id> is present). The top-level import
+  instantiated PrismaClient and spawned its query engine on EVERY cold start
+  of `/` even though plain visits run zero queries; now only share-link
+  crawls pay for the DB, plain opens skip Prisma entirely.
+- LOCAL FEED (local-feed-tab.tsx): (1) dropped its duplicate /api/auth/me
+  round trip - the viewer id now comes synchronously from the
+  'circubAwd.me.v1' localStorage cache home-client already revalidates every
+  load; network fallback only when the cache is empty (first visit / guest).
+  (2) The first posts window is painted from localStorage
+  ('circubAwd.localfeed.v1:<filters>') BEFORE the network answers - real
+  posts in ~0ms on repeat opens, fresh window revalidates in background.
+  Fresh loads (publish / poster-tap) skip the read; empty/error bodies are
+  never cached; a failed revalidate no longer wipes an already-painted list.
+- RIGHT SIDEBAR (right-sidebar.tsx): the aside is hidden lg:block - on
+  phones it was INVISIBLE yet still fired /api/suggested + /api/trending +
+  /api/recent-local-prices on every open. The three fetches now wait for
+  the lg breakpoint (matchMedia listener) and only fire when the sidebar
+  can actually be seen.
+- Net effect per phone open: HTML paints from cache instead of waiting the
+  serverless RTT; 2 fewer API round trips before feed paint (auth/me dup +
+  3 sidebar calls); feed shows real posts from the paint cache instantly.
+- Gates: npx tsc --noEmit 20 baseline, zero new; clean rebuild (rm -rf
+  .next) exit 0; task239_probe.py 30/30 on :3100 (probe's landing-version
+  assertion updated v243 -> v244); sw.js circub-v244.
+
 ## v242 (2026-11-05) - feed APIs get the same transient-DB resilience as auth (v241 follow-up)
 
 The v241 prod search check exposed it: GET /api/local-prices answered

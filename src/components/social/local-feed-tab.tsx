@@ -123,6 +123,29 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const { toast } = useToast()
 
   useEffect(() => {
+    // v244 PERF: this tab only needs the viewer's id (vote/like states).
+    // It used to fire its own /api/auth/me round trip on every mount even
+    // though home-client already fetched AND cached the same user in
+    // localStorage ('circubAwd.me.v1') - one avoidable RTT on the feed's
+    // critical path on every phone open. Read the cache synchronously;
+    // only fall back to the network when no cached user exists (first
+    // visit / guest). Guests never cache (home-client rule), so the
+    // fallback also covers the signed-out case.
+    let settled = false
+    try {
+      const cached = localStorage.getItem('circubAwd.me.v1')
+      if (cached) {
+        const u = JSON.parse(cached)
+        if (u && u.id && u.id !== 'guest') {
+          setCurrentUserId(u.id)
+          settled = true
+        }
+      }
+    } catch {}
+    if (settled) {
+      setMeLoaded(true)
+      return
+    }
     fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.id) setCurrentUserId(d.id) }).catch(() => {}).finally(() => setMeLoaded(true))
   }, [])
 
@@ -144,15 +167,37 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const fetchSeqRef = useRef(0)
   const ownerTapRef = useRef(false)
   const fetchPosts = useCallback(async (opts?: { fresh?: boolean }) => {
-    if (!hasPostsRef.current) setLoading(true)
     const seq = ++fetchSeqRef.current
+    // v244 PERF: paint the last successful window for THESE exact filters
+    // from localStorage before the network answers. This is the same
+    // stale-while-revalidate pattern /api/auth/me already uses for the
+    // session: on a repeat open the feed shows real posts in ~0ms instead
+    // of skeletons while the fresh window revalidates in the background.
+    // Only ordinary loads read it; fresh loads (publish / poster-tap) must
+    // show what is live NOW, so they skip the cache read entirely.
+    const filterParams = new URLSearchParams()
+    if (search) filterParams.set('search', search)
+    if (country && country !== 'All countries') filterParams.set('country', country)
+    if (city && city !== 'All cities') filterParams.set('city', city)
+    if (category && category !== ALL_CATEGORIES) filterParams.set('category', category)
+    if (ownerFilter !== 'all') filterParams.set('owner', ownerFilter)
+    const feedCacheKey = 'circubAwd.localfeed.v1:' + filterParams.toString()
+    if (!opts?.fresh) {
+      try {
+        const cached = localStorage.getItem(feedCacheKey)
+        if (cached) {
+          const c = JSON.parse(cached)
+          if (Array.isArray(c.posts) && c.posts.length > 0) {
+            setPosts(c.posts)
+            setServerHasMore(!!c.hasMore)
+            hasPostsRef.current = true
+            setLoading(false)
+          }
+        }
+      } catch {}
+    }
+    if (!hasPostsRef.current) setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (search) params.set('search', search)
-      if (country && country !== 'All countries') params.set('country', country)
-      if (city && city !== 'All cities') params.set('city', city)
-      if (category && category !== ALL_CATEGORIES) params.set('category', category)
-      if (ownerFilter !== 'all') params.set('owner', ownerFilter)
       // Posts default to most recent (API default) - no sort dropdown in the UI.
       // cache:'no-store' keeps the BROWSER from caching, but the API also sets
       // a CDN edge cache (s-maxage=30 + stale-while-revalidate=60) - a normal
@@ -160,13 +205,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       // ~90s, so the fresh post seemed to vanish. Mutating refetches pass
       // fresh:true which adds a unique query variant that misses the edge and
       // hits the origin; ordinary filter loads keep using the edge cache.
-      if (opts?.fresh) params.set('_', String(Date.now()))
+      if (opts?.fresh) filterParams.set('_', String(Date.now()))
       // Step-by-step: an ordinary (filter) load fetches ONE window of posts;
       // a fresh refresh (publish / link events) re-fetches everything
       // currently on screen so no visible card can ever disappear.
-      params.set('limit', String(opts?.fresh ? Math.max(FEED_STEP, postsCountRef.current) : FEED_STEP))
-      params.set('offset', '0')
-      const res = await fetch(`/api/local-prices?${params.toString()}`, { cache: 'no-store' })
+      filterParams.set('limit', String(opts?.fresh ? Math.max(FEED_STEP, postsCountRef.current) : FEED_STEP))
+      filterParams.set('offset', '0')
+      const res = await fetch(`/api/local-prices?${filterParams.toString()}`, { cache: 'no-store' })
       const data = await res.json()
       // v188: only the LATEST request may paint - a stale response arriving
       // after a newer tap is dropped, so the list always matches the
@@ -176,7 +221,18 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       setPosts(next)
       setServerHasMore(!!data.hasMore)
       hasPostsRef.current = next.length > 0
-    } catch { setPosts([]); hasPostsRef.current = false; setServerHasMore(false) } finally { setLoading(false) }
+      // Refresh the paint cache with the newest window. Never cache an
+      // empty/error body ({error:"Failed"}) - a transient DB blip must not
+      // poison the instant-paint path; the next load just re-fetches.
+      if (!opts?.fresh && next.length > 0) {
+        try { localStorage.setItem(feedCacheKey, JSON.stringify({ posts: next, hasMore: !!data.hasMore })) } catch {}
+      }
+    } catch {
+      // v244: if the cache already painted real posts, a failed revalidate
+      // must NOT wipe them off the screen - keep showing them.
+      if (seq !== fetchSeqRef.current) return
+      if (!hasPostsRef.current) { setPosts([]); hasPostsRef.current = false; setServerHasMore(false) }
+    } finally { setLoading(false) }
   }, [search, country, city, category, ownerFilter])
 
   useEffect(() => {

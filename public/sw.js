@@ -11,7 +11,7 @@
  * ⚠️ Bump VERSION on EVERY deploy that changes code: cached assets reference
  * hashed /_next files of that deployment.
  */
-const VERSION = 'circub-v243';
+const VERSION = 'circub-v244';
 const SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -138,22 +138,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2) navigations - NETWORK-FIRST (mobile/desktop always show the same build;
-  //    cached shell only saves an OFFLINE visit)
+  // 2) navigations - STALE-WHILE-REVALIDATE (v244).
+  //    Was NETWORK-FIRST: every PWA / Android-WebView open waited a full
+  //    serverless round trip (RTT + possible cold start) before the first
+  //    pixel - the #1 "loading is laggy on the phone" cause. Now a cached
+  //    page paints INSTANTLY and the network response refreshes the cache
+  //    in the background. Build skew is still self-healing: pwa-register
+  //    reloads once when a NEW worker claims the tab (controllerchange ->
+  //    GET_VERSION handshake), and refreshStaleClients() force-navigates
+  //    tabs too old to answer at all. Offline / first visit: no cache ->
+  //    straight to the network (unchanged behavior).
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then((res) => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(VERSION).then((c) => c.put(request, copy));
-          }
-          return res;
-        })
-        .catch(() =>
-          // offline: serve the cached shell for this navigation
-          caches.match(request).then((hit) => hit || caches.match('/'))
-        )
+      caches.match(request).then((hit) => {
+        const network = fetch(request)
+          .then((res) => {
+            if (res && res.ok) {
+              const copy = res.clone();
+              caches.open(VERSION).then((c) => c.put(request, copy));
+            }
+            return res;
+          })
+          .catch(() => undefined);
+        // Cached page: paint it now, let `network` refresh the cache.
+        if (hit) {
+          event.waitUntil(network);
+          return hit;
+        }
+        // No cache (first visit): wait for the network, fall back to the
+        // cached shell when offline.
+        return network.then((res) => res || caches.match('/'));
+      })
     );
     return;
   }

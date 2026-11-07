@@ -14,7 +14,6 @@
 // price detail modal for ?post= links.
 // ============================================================================
 import type { Metadata } from "next";
-import { db } from "@/lib/db";
 import { formatUnitSuffix } from "@/lib/utils";
 import HomeClient from "./home-client";
 
@@ -31,6 +30,13 @@ export async function generateMetadata({
   if (!postId) return {}; // plain visit - layout defaults apply
 
   try {
+    // v244 PERF: db is lazy-imported here instead of a top-level import.
+    // A top-level `import { db }` instantiated the PrismaClient (and spawned
+    // its query engine) on EVERY cold start of `/` - even though plain
+    // visits never run a query - stretching the first HTML byte on a phone
+    // by the full engine boot. Only /?post=<id> share-link crawls pay for
+    // the DB now; every other cold start skips Prisma entirely.
+    const { db } = await import("@/lib/db");
     const post = await db.localPricePost.findUnique({
       where: { id: postId },
       select: {

@@ -102,9 +102,26 @@ export function RightSidebar({
 
   const equippedFighter = fighterFromPicture(user?.profilePicture ?? null)
 
+  // v244 PERF: the <aside> below is `hidden lg:block` - on phones it is
+  // NEVER visible, yet it still fired /api/suggested + /api/trending +
+  // /api/recent-local-prices on every single open. Three wasted round
+  // trips competing with the feed fetch on the slowest networks. Track
+  // the lg breakpoint (min-width: 1024px) and only fetch when the sidebar
+  // can actually be seen; flipping the viewport to desktop fetches then.
+  const [lgVisible, setLgVisible] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : false
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const onChange = (e: MediaQueryListEvent) => setLgVisible(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
   useEffect(() => {
     // v136: top-posters moved into the shared TopPostersCard (it fetches
     // its own data), so this load covers the remaining three widgets.
+    if (!lgVisible) return
     Promise.all([
       fetch('/api/suggested').then((r) => r.json()),
       fetch('/api/trending').then((r) => r.json()),
@@ -116,7 +133,7 @@ export function RightSidebar({
         setRecentPrices(r.posts || [])
       })
       .catch(() => {})
-  }, [refreshSignal])
+  }, [refreshSignal, lgVisible])
 
   const handleConnect = async (id: string, name: string) => {
     // Demo mode has zero write access: connecting brings up the registration
