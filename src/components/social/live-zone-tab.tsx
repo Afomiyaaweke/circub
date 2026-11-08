@@ -15,7 +15,7 @@ import {
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
   Play, Video, Zap, ArrowRight, ArrowLeft, Clock, Tag, CheckCircle2, Send,
-  Pencil, Trash2, UserX, X, Plane, Bookmark, RefreshCw,
+  Pencil, Trash2, X, Plane, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -190,6 +190,10 @@ type QuestRow = {
   // null) so the action rail's Chat button can open their profile page.
   posterUsername?: string | null
   claimed: boolean
+  // v248 MANY TAKERS: how many users claimed this bounty. The count is
+  // public on the card; the individual names/contacts stay poster-only
+  // (Profile > Bounties via /api/quests/mine).
+  claimCount: number
   // v219 privacy: the claimer's name/contact are never sent to the client -
   // the board only knows the two session-scoped flags below. Applicant
   // details for posters live in Profile > Bounties (via /api/quests/mine).
@@ -1187,55 +1191,14 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                         <p className="text-2xl font-black tracking-tight leading-none" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
                       </div>
                       <span className="shrink-0 bg-white/20 text-[10px] px-2 py-1 rounded-full font-bold">
-                        {isClaimed ? 'In Escrow' : 'Instant Auto-Release'}
+                        {isClaimed ? `${q.claimCount} taker${q.claimCount !== 1 ? 's' : ''} · In Escrow` : 'Instant Auto-Release'}
                       </span>
                     </div>
 
                     {/* claim area - same states and testids as before, now
                         inside the swipe card */}
                     <div className="relative mt-2.5 flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-thin">
-                      {isClaimed ? (
-                        <div
-                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-                          data-testid="bounty-claimed"
-                        >
-                          {/* v219: no claimer name is shown to the public - only
-                              the two session-scoped views below know more. */}
-                          <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {q.myClaim || locallyClaimed[q.id] ? 'You claimed this - payout on completion' : 'Claimed - payout on completion'}
-                          </p>
-                          {revealed[q.id] && (
-                            <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
-                              Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
-                            </p>
-                          )}
-                          {(q.myClaim || locallyClaimed[q.id]) && (
-                            <button
-                              type="button"
-                              onClick={() => dropClaimHere(q.id)}
-                              disabled={questBusy === q.id}
-                              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                              data-testid="quest-drop-claim"
-                            >
-                              <X className="w-3 h-3" />
-                              {questBusy === q.id ? 'Removing...' : 'Drop claim'}
-                            </button>
-                          )}
-                          {q.isMine && !locallyClaimed[q.id] && (
-                            <button
-                              type="button"
-                              onClick={() => dropClaimHere(q.id)}
-                              disabled={questBusy === q.id}
-                              className={"mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors" + ((q.myClaim || locallyClaimed[q.id]) ? ' sm:ml-3' : '')}
-                              data-testid="quest-remove-claimer"
-                            >
-                              <UserX className="w-3 h-3" />
-                              {questBusy === q.id ? 'Removing...' : 'Remove claimer'}
-                            </button>
-                          )}
-                        </div>
-                      ) : claimFor === q.id ? (
+                      {claimFor === q.id ? (
                         <form
                           onSubmit={(e) => {
                             e.preventDefault()
@@ -1282,17 +1245,72 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                           </div>
                         </form>
                       ) : (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Button
-                            size="sm"
-                            data-testid="bounty-claim"
-                            onClick={() => setClaimFor(q.id)}
-                            className="bg-primary hover:bg-primary/90 gap-1"
-                          >
-                            Claim Bounty
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </Button>
-                          <p className="text-[11px] text-muted-foreground">1-click claim - the poster&apos;s contact opens instantly</p>
+                        <div className="space-y-2">
+                          {isClaimed && (
+                            <div
+                              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+                              data-testid="bounty-claimed"
+                            >
+                              {/* v219: no claimer name is shown to the public - only
+                                  the two session-scoped views below know more.
+                                  v248: the COUNT is public - many users can claim. */}
+                              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {q.myClaim || locallyClaimed[q.id]
+                                  ? 'You claimed this - payout on completion'
+                                  : `${q.claimCount} hustler${q.claimCount !== 1 ? 's' : ''} claimed this`}
+                              </p>
+                              {revealed[q.id] && (
+                                <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200" data-testid="quest-contact-reveal">
+                                  Contact the poster now: <span className="font-bold">{revealed[q.id]}</span>
+                                </p>
+                              )}
+                              {(q.myClaim || locallyClaimed[q.id]) && (
+                                <button
+                                  type="button"
+                                  onClick={() => dropClaimHere(q.id)}
+                                  disabled={questBusy === q.id}
+                                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                  data-testid="quest-drop-claim"
+                                >
+                                  <X className="w-3 h-3" />
+                                  {questBusy === q.id ? 'Removing...' : 'Drop claim'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {/* v248 MANY TAKERS: claiming STAYS OPEN - anyone who has
+                              not claimed yet can still join, the poster sees every
+                              taker in their Profile > Bounties panel. */}
+                          {!(q.myClaim || locallyClaimed[q.id]) && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                data-testid="bounty-claim"
+                                onClick={() => setClaimFor(q.id)}
+                                className="bg-primary hover:bg-primary/90 gap-1"
+                              >
+                                Claim Bounty
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </Button>
+                              <p className="text-[11px] text-muted-foreground">
+                                {isClaimed
+                                  ? `${q.claimCount} already claimed - you can too, the poster sees every taker`
+                                  : '1-click claim - the poster&apos;s contact opens instantly'}
+                              </p>
+                            </div>
+                          )}
+                          {q.isMine && (
+                            <p
+                              className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
+                              data-testid="quest-manage-hint"
+                            >
+                              <Users className="w-3.5 h-3.5 shrink-0" />
+                              {q.claimCount === 0
+                                ? 'Your bounty is live - takers show up in Profile → Bounties'
+                                : `${q.claimCount} hustler${q.claimCount !== 1 ? 's' : ''} claimed - see every taker with their contact in Profile → Bounties`}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1333,7 +1351,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                         </button>
                         <span className="text-[9px] font-bold text-muted-foreground mt-0.5">{savedQuests[q.id] ? 'Saved' : 'Save'}</span>
                       </div>
-                      {!isClaimed && (
+                      {!(q.myClaim || locallyClaimed[q.id]) && (
                         <div className="flex flex-col items-center">
                           <button
                             type="button"

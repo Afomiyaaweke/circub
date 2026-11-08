@@ -95,6 +95,9 @@ interface MyQuestPosted {
   id: string; title: string; details: string | null; location: string
   deadlineText: string; bountyUsd: number; posterName: string; contact: string
   createdAt: string; claim: QuestApplicantInfo | null
+  // v248 MANY TAKERS: EVERY user who claimed this bounty (the poster's
+  // "my escort place" inbox). The legacy single `claim` is claims[0].
+  claims?: QuestApplicantInfo[]
 }
 interface MyQuestClaimed {
   id: string; title: string; location: string; deadlineText: string
@@ -895,11 +898,17 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     } catch { /* keep the current list */ }
   }
 
-  // Poster removes the applicant - the quest reopens for the next taker.
-  const removeQuestClaim = async (qid: string) => {
+  // Poster removes ONE applicant (v248: a bounty can have many takers -
+  // each has its own remove button; the others stay). The bounty stays
+  // open for new takers either way.
+  const removeQuestClaim = async (qid: string, claimId: string) => {
     setQuestBusy(true)
     try {
-      const res = await fetch(`/api/quests/${qid}/claim`, { method: 'DELETE' })
+      const res = await fetch(`/api/quests/${qid}/claim`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimId }),
+      })
       if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Remove failed') }
       toast({ title: 'Applicant removed - the bounty is open again' })
@@ -993,48 +1002,61 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     }
     return (
       <div className="py-4 space-y-7" data-testid="profile-quests">
-        {/* -------- my posted quests + their applicants -------- */}
+        {/* -------- my posted quests + their applicants (the poster's
+            "my escort place": every hustler who claimed a bounty shows
+            up here with their contact, v248 many-takers) -------- */}
         <section data-testid="quest-posted-section">
           <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Zap className="w-4 h-4 text-primary" />
             Your bounty posts
             <span className="font-semibold text-muted-foreground">({myQuests.posted.length})</span>
           </h3>
+          <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+            Your escort desk - every hustler who claimed one of your bounties shows up here with their name and contact, so you can pick who to hand it to.
+          </p>
           {myQuests.posted.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
               No bounty posts yet. Post an instant quest from the Live Hustle Zone - whoever claims it shows up here with their name and contact so you can arrange the handover.
             </p>
           ) : (
             <div className="mt-2.5 space-y-2.5">
-              {myQuests.posted.map((q) => (
+              {myQuests.posted.map((q) => {
+                const takers = q.claims ?? (q.claim ? [q.claim] : [])
+                return (
                 <div key={q.id} className="rounded-xl border border-border bg-card p-3" data-testid="quest-mine-row">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-foreground">{q.title}</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        ${q.bountyUsd.toFixed(2)} &middot; {q.location} &middot; {q.deadlineText}
+                        ${q.bountyUsd.toFixed(2)} &middot; {q.location} &middot; {q.deadlineText || 'No deadline'}
                       </p>
                     </div>
-                    {q.claim ? (
-                      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">Claimed</span>
+                    {takers.length > 0 ? (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                        {takers.length} taker{takers.length !== 1 ? 's' : ''}
+                      </span>
                     ) : (
                       <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-foreground">Open</span>
                     )}
                   </div>
-                  {q.claim && (
-                    <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/10" data-testid="quest-applicant">
+                  {/* v248 MANY TAKERS: EVERY claimant is listed - name,
+                      contact, when and (for members) their @username - each
+                      with its own remove button so the poster can drop one
+                      taker without touching the others. */}
+                  {takers.map((c, ci) => (
+                    <div key={c.id} className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/10" data-testid="quest-applicant">
                       <p className="text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                        Applicant: {q.claim.claimerName}
+                        {takers.length > 1 ? `Taker ${ci + 1}: ` : 'Applicant: '}{c.claimerName}
                       </p>
                       <p className="mt-0.5 text-xs text-emerald-800 dark:text-emerald-200">
-                        Contact: <span className="font-semibold" data-testid="quest-applicant-contact">{q.claim.claimerContact}</span>
+                        Contact: <span className="font-semibold" data-testid="quest-applicant-contact">{c.claimerContact}</span>
                       </p>
                       <p className="mt-0.5 text-[10px] text-emerald-700/80 dark:text-emerald-300/80">
-                        Claimed {timeAgo(q.claim.createdAt).toLowerCase()}{q.claim.claimerUser?.username ? ` &middot; @${q.claim.claimerUser.username}` : ''}
+                        Claimed {timeAgo(c.createdAt).toLowerCase()}{c.claimerUser?.username ? ` &middot; @${c.claimerUser.username}` : ''}
                       </p>
                       <button
                         type="button"
-                        onClick={() => removeQuestClaim(q.id)}
+                        onClick={() => removeQuestClaim(q.id, c.id)}
                         disabled={questBusy}
                         className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 transition-colors hover:text-destructive dark:text-emerald-300"
                         data-testid="quest-applicant-remove"
@@ -1043,9 +1065,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                         {questBusy ? 'Working...' : 'Remove applicant'}
                       </button>
                     </div>
-                  )}
+                  ))}
                   <div className="mt-2 flex items-center gap-2">
-                    {!q.claim && (
+                    {takers.length === 0 && (
                       <button
                         type="button"
                         onClick={() => startQuestEdit(q)}
@@ -1135,7 +1157,8 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                     </form>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>

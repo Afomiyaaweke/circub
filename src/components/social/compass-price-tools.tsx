@@ -212,6 +212,12 @@ export function CompassPriceTools() {
   const [askDone, setAskDone] = useState(false)
   const [askItems, setAskItems] = useState<string[]>([])
   const [askNewItem, setAskNewItem] = useState('')
+  // v248 (user: "make input for location"): the WHERE step now also takes a
+  // TYPED place, not just the suggestion chips. Committed on Enter or the
+  // Use-this-place button, with the same snap-to-known-place contract as
+  // applyPlace(): a case-insensitive match with a place the community has
+  // posted lights its real stats up, anything else is kept as typed.
+  const [askPlace, setAskPlace] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -468,6 +474,20 @@ export function CompassPriceTools() {
       prev.some((n) => n.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name],
     )
     setAskNewItem('')
+  }
+
+  // v248: commit the typed location from the WHERE step - same contract as
+  // applyPlace(): a case-insensitive match with a place the community has
+  // posted snaps onto that canonical key so its real stats light up;
+  // anything else is kept as typed and the tools stay honest. Then the
+  // conversation moves on to the list question.
+  const applyAskPlace = () => {
+    const raw = askPlace.trim().replace(/\s+/g, ' ').slice(0, 80)
+    if (!raw) return
+    const known = model?.places.find((p) => p.key.toLowerCase() === raw.toLowerCase())
+    setMyPlace(known ? known.key : raw)
+    setAskPlace('')
+    setAskStep(2)
   }
 
   // Commit the answered list into the SAME state the tabs read: community
@@ -860,6 +880,32 @@ export function CompassPriceTools() {
                         </button>
                       )
                     })}
+                  </div>
+                  {/* v248: a real location INPUT - type any city, market or
+                      neighbourhood; a known community place snaps onto its
+                      real prices, anything else is kept as typed and the
+                      tools stay honest (never invented numbers). */}
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="text"
+                      maxLength={80}
+                      placeholder="Or type your place (e.g. Hawassa, Bahir Dar)"
+                      value={askPlace}
+                      onChange={(e) => setAskPlace(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyAskPlace() } }}
+                      data-testid="ask-where-input"
+                      aria-label="Type your shopping location"
+                      className="h-8 min-w-[10rem] flex-1 text-sm bg-card"
+                    />
+                    <button
+                      type="button"
+                      data-testid="ask-where-apply"
+                      onClick={applyAskPlace}
+                      disabled={!askPlace.trim()}
+                      className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
+                    >
+                      Use this place
+                    </button>
                   </div>
                   <button
                     type="button"

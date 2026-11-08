@@ -605,7 +605,10 @@ model QuestClaim {
   user           User?    @relation("QuestClaimer", fields: [userId], references: [id], onDelete: SetNull)
   createdAt      DateTime @default(now())
 
-  // One active claim per quest (first click wins, DB-enforced across
-  // serverless concurrency) - the escrowed bounty is single-winner.
-  @@unique([questId])
+  // v248 MANY TAKERS: a bounty can be claimed by many users - each claim
+  // is its own row. A logged-in member may claim the same quest only ONCE
+  // (DB-enforced across serverless concurrency); guests (NULL userId) stay
+  // distinct rows, guarded app-side by name+contact echo.
+  @@unique([questId, userId])
+  @@index([questId])
 }

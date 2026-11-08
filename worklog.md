@@ -371,6 +371,41 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v248 (2026-11-08) - bounties claimed by MANY users, all takers visible in the poster's escort desk, proforma WHERE gets a location input
+User: "make the bounty to be clamed by many users and show that to the poster on the my escort
+place and make the proform like this and make input for location" (+ screenshot of the
+"Let's build your proforma" WHERE card).
+
+- MANY TAKERS (`prisma/schema.prisma` + `schema.postgres.prisma`, `QuestClaim`): the
+  single-winner `@@unique([questId])` is replaced by `@@unique([questId, userId])` +
+  `@@index([questId])` - a bounty can be claimed by MANY users (one row per taker; a member may
+  claim the same quest only once, DB-enforced across serverless concurrency; guests are guarded
+  app-side by name+contact echo).
+- CLAIM API (`api/quests/[id]/claim`): POST allows unlimited distinct takers and returns
+  `claimCount`; duplicate member/guest claims get 409. DELETE removes ONE claim: the poster
+  removes a specific applicant by `claimId` (no claimId -> oldest, back-compat), the claimer
+  drops their own, guests echo name+contact - other takers are never touched.
+- LIST + MINE (`api/quests`, `api/quests/mine`): the public list adds `claimCount` (never names
+  or contacts); `mine` returns EVERY taker in full (`claims[]`, legacy `claim` = first) - the
+  poster-only applicant inbox.
+- BOARD (`live-zone-tab.tsx`): claiming STAYS OPEN - the Claim Bounty button and rail bolt remain
+  for anyone who has not claimed; the claimed block reads "N hustlers claimed this" (your own
+  claim still says "You claimed this"), the escrow badge reads "N takers . In Escrow", posters get
+  "see every taker with their contact in Profile -> Bounties" (the board's per-card Remove
+  claimer moved to the profile inbox).
+- MY ESCORT PLACE (`profile-tab.tsx`): Profile > Bounties lists EVERY claimant with name,
+  contact, @username and when - each with its own Remove applicant button (one taker out, the
+  rest stay); the row badge shows the taker count ("2 takers" / "Open"); an "escort desk"
+  subtitle explains the inbox; edit stays locked while takers exist.
+- PROFORMA LOCATION INPUT (`compass-price-tools.tsx`): the WHERE step keeps the suggestion chips
+  + "Somewhere else - keep going ->" from the screenshot and adds a real input (ask-where-input +
+  Use-this-place button): known community places snap onto their canonical key so real stats
+  light up, anything else is kept as typed - the tools never invent numbers.
+- VERIFY: tsc baseline 20 (zero new); clean build exit 0; :3100 - task239 30/30, task246 37/37,
+  new task248_multi_claim_probe 15/15 (2 distinct takers, claimCount, no PII leak, dup 409,
+  per-claim drop), new task248_ui_probe 19/19 (typed location advances the conversation, board
+  taker wording, escort desk inbox + remove). sw.js circub-v248.
+
 ## v247 (2026-11-08) - composer becomes ONLY the AI proforma, category only, unit while entering price
 User: "remove this" (Coffee Set / Habesha Dress / Airport Ride / Meal / More chip row) + "remove this
 make it catagory only and add unit while entering price and make the profoma like only the ai and

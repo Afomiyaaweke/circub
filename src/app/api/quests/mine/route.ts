@@ -1,10 +1,13 @@
 // GET /api/quests/mine - PRIVATE bounty management feed (v219).
 // Auth required. Two owner-scoped views in one response:
 //
-// - `posted`:  quests I posted, each with its single applicant (claim) IN FULL
-//              - claimerName + claimerContact + when. This is the ONLY place
+// - `posted`:  quests I posted, each with ALL of its applicants IN FULL
+//              (v248: a bounty can be claimed by MANY users) - every taker's
+//              claimerName + claimerContact + when. This is the ONLY place
 //              claimer contact details ever leave the server, and only to the
-//              poster ("on profile a place to manage applicants").
+//              poster ("on profile a place to manage applicants" - the user's
+//              "my escort place"). The first taker is ALSO mirrored in the
+//              legacy `claim` field so older clients keep working.
 // - `claimed`: quests I claimed, each with the poster's name + contact so the
 //              claimer can always re-reach the poster after a reload (the
 //              claim response revealed it once; this keeps it available).
@@ -71,6 +74,16 @@ export async function GET() {
           posterName: q.posterName,
           contact: q.contact,
           createdAt: q.createdAt,
+          // v248: EVERY taker, oldest first - the poster's applicant inbox.
+          claims: q.claims.map((c) => ({
+            id: c.id,
+            claimerName: c.claimerName,
+            claimerContact: c.claimerContact,
+            createdAt: c.createdAt,
+            claimerUser: c.user
+              ? { id: c.user.id, name: c.user.name, username: c.user.username }
+              : null,
+          })),
           claim: q.claims[0]
             ? {
                 id: q.claims[0].id,

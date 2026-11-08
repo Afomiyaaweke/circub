@@ -5,7 +5,9 @@
 // returned by this list - it is revealed only to the single winner via
 // POST /api/quests/[id]/claim ("guide contacts the traveler instantly").
 // v219 CLAIMER PRIVACY: the claimer's name/contact are no longer exposed to
-// everyone either - the public list only carries a `claimed` boolean plus two
+// everyone either - the public list only carries a `claimed` boolean, a
+// `claimCount` (v248: MANY users can claim the same bounty - the count shows
+// on the card while the individual takers stay poster-only) plus two
 // session-scoped flags (isMine = I posted this, myClaim = I claimed this) so
 // the board can render the owner's Edit/Delete and the claimer's Drop claim.
 // Applicant details live exclusively in GET /api/quests/mine (poster-only).
@@ -40,6 +42,7 @@ export async function GET() {
           posterName: q.posterName,
           posterUsername: q.user?.username ?? null,
           claimed: q.claims.length > 0,
+          claimCount: q.claims.length,
           isMine: !!me && q.userId === me.id,
           myClaim: !!me && q.claims.some((c) => c.userId === me.id),
           createdAt: q.createdAt,
