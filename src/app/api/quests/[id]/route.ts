@@ -73,11 +73,8 @@ export async function PATCH(
       data.location = location
     }
     if (body.deadlineText !== undefined) {
-      const deadlineText = sanitizeInput(body.deadlineText || '', 120)
-      if (!deadlineText) {
-        return NextResponse.json({ error: 'Deadline is required' }, { status: 400 })
-      }
-      data.deadlineText = deadlineText
+      // v245: deadline is optional - an empty string clears it.
+      data.deadlineText = sanitizeInput(body.deadlineText || '', 120)
     }
     if (body.bountyUsd !== undefined) {
       const bountyUsd = Number(body.bountyUsd)

@@ -371,6 +371,44 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v245 (2026-11-08) - Link tab: tier pills moved into a bounty search bar, full-size quest form, deadline optional
+User: "remove this form the link and while posting bounties make the form to take more full
+space and have a back button but don't cover the nav bars and don't make the deadline madatory
+put those on the search part and" (+ screenshot of the All bounties / Hunter / Helper / Scout /
++ Post pill row).
+
+- TIER PILL ROW GONE -> ONE SEARCH BAR (live-zone-tab.tsx): the v227 pill row
+  (All bounties / Hunter / Helper / Scout + Post) is REPLACED by a bounty
+  search bar, the same v231 one-search-bar pattern as the talent feed. The
+  input matches title / details / location AND the tier keywords hunter /
+  helper / scout ("all" resets); the active tier shows as a removable chip
+  inside the pill. Tier state is now DERIVED from the search text
+  (parseBountyTierSearch; bountyTier useState removed). The bar sits ABOVE
+  the loading/empty checks so the Post pill stays reachable even on an
+  empty board (the card-rail + only exists on real cards). testids:
+  bounty-search-bar / bounty-search-input / bounty-tier-chip;
+  bounty-post-link keeps its seat at the right end of the pill.
+- QUEST FORM TAKES THE FULL BOARD: was a slim max-h-[46dvh] sheet squeezed
+  above the deck. While it is open the deck hides and the form becomes
+  flex-1 min-h-0 inside the tab's normal page flow - it fills everything
+  between the Link topbar and the mobile dock, and NEVER covers the nav
+  bars (in-page, not fixed). Details textarea 2 -> 4 rows. A labeled
+  "Back" pill (ArrowLeft + Back, testid quest-form-close kept) replaces
+  the bare X close.
+- DEADLINE OPTIONAL: client validation only requires location now
+  ("Location is required so helpers know where to go"); placeholder says
+  "optional". POST /api/quests no longer 400s on empty deadlineText (stored
+  as '', schema column stays non-nullable); PATCH allows clearing it. The
+  card's amber deadline chip renders only when deadlineText is non-empty.
+- PROBE (scripts/task245_bounty_ui_probe.py, new): real-browser run on
+  :3100 - pill row gone, search bar + tier chip + deck slicing, form
+  height > 55dvh + Back + dock visible + form bottom above dock top,
+  guest-account post with EMPTY deadline succeeds, card shows no deadline
+  chip, delete cleans up, zero page errors: 17/17.
+- Gates: npx tsc --noEmit 20 baseline, zero new; clean rebuild (rm -rf
+  .next) exit 0; task239_probe.py 30/30 (markers v244 -> v245); API
+  round-trip verified empty-deadline store + delete; sw.js circub-v245.
+
 ## v244 (2026-11-07) - mobile loading speed pass: cached-first opens, no wasted round trips
 User: "the loading is lagging fix it to be fast specialy on the phone".
 

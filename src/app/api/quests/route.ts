@@ -79,10 +79,10 @@ export async function POST(req: NextRequest) {
     if (!location) {
       return NextResponse.json({ error: 'Location is required' }, { status: 400 })
     }
+    // v245: the deadline is OPTIONAL - a bounty without a fixed deadline is
+    // valid. Stored as '' (schema column stays non-nullable) and the card
+    // hides the deadline chip when it is empty.
     const deadlineText = sanitizeInput(body.deadlineText || '', 120)
-    if (!deadlineText) {
-      return NextResponse.json({ error: 'Deadline is required' }, { status: 400 })
-    }
     const bountyUsd = Number(body.bountyUsd)
     if (!Number.isFinite(bountyUsd) || bountyUsd < 0.5 || bountyUsd > 10000) {
       return NextResponse.json(

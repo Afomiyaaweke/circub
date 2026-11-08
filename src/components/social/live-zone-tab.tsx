@@ -14,7 +14,7 @@ import {
   Search, Compass, MapPin, Languages, Star, BadgeCheck,
   MessageSquare, Radio, Share2, Sparkles, Navigation, Loader2, ChevronDown,
   ChevronUp, Lightbulb, Users, CalendarCheck, ShieldCheck, Plus,
-  Play, Video, Zap, ArrowRight, Clock, Tag, CheckCircle2, Send,
+  Play, Video, Zap, ArrowRight, ArrowLeft, Clock, Tag, CheckCircle2, Send,
   Pencil, Trash2, UserX, X, Plane, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -318,7 +318,12 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
   // action rail (save / claim bolt / share). Tier pills slice by the
   // platform's own lane rate cards (Hunter $5-20, Helper $15-30, Scout
   // $24-45) - no new fields, just honest filters on bountyUsd.
-  const [bountyTier, setBountyTier] = useState<'all' | 'scout' | 'helper' | 'hunter'>('all')
+  // v245: bountyTier state REMOVED - the active tier is now derived from the
+  // bounty search text (hunter / helper / scout / all keywords), same as the
+  // talent feed's lane filter derives from its one search bar.
+  // v245 ONE SEARCH BAR for bounties - the tier pills moved off their own row
+  // into the search part (same one-search-bar pattern as the talent feed).
+  const [bountySearch, setBountySearch] = useState('')
   const [savedQuests, setSavedQuests] = useState<Record<string, boolean>>({})
   const [questFlash, setQuestFlash] = useState<string | null>(null)
   const deckRef = useRef<HTMLDivElement | null>(null)
@@ -464,8 +469,10 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
       setQPostErr('Please describe the help you need (at least 5 characters).')
       return
     }
-    if (!qLocation.trim() || !qDeadline.trim()) {
-      setQPostErr('Location and deadline are required.')
+    // v245: the deadline is OPTIONAL now - the location is still required so
+    // helpers know where to go, but a bounty without a fixed deadline is fine.
+    if (!qLocation.trim()) {
+      setQPostErr('Location is required so helpers know where to go.')
       return
     }
     const bounty = Number(qBounty)
@@ -743,9 +750,14 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
 
   const isGuide = me?.isGuide
 
-  // v227 swipe deck: tier pills slice the bounty deck by the platform's own
+  // v227 swipe deck: tier filters slice the bounty deck by the platform's own
   // lane rate cards - Hunter ($5-20) under $15, Helper ($15-30) in the
   // middle, Scout ($24-45) at $30+. No new fields, just honest filters.
+  // v245: the tier pills LEFT their own row (user: "remove this from the
+  // link ... put those on the search part"). Selection now lives inside the
+  // bounty search bar: type hunter / helper / scout (or "all") and the
+  // active tier shows as a removable chip, exactly like the talent feed's
+  // lane keywords. Text still matches title / details / location.
   const BOUNTY_TIERS: Array<{ key: 'all' | 'scout' | 'helper' | 'hunter'; label: string }> = [
     { key: 'all', label: 'All bounties' },
     { key: 'hunter', label: 'Hunter · under $15' },
@@ -754,8 +766,27 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
   ]
   const tierOf = (bountyUsd: number): 'scout' | 'helper' | 'hunter' =>
     bountyUsd >= 30 ? 'scout' : bountyUsd >= 15 ? 'helper' : 'hunter'
+  const parseBountyTierSearch = (text: string): { tier: 'all' | 'scout' | 'helper' | 'hunter'; cleaned: string } | null => {
+    const t = text.toLowerCase()
+    for (const kw of ['hunter', 'helper', 'scout'] as const) {
+      if (t.includes(kw)) {
+        return { tier: kw as 'hunter' | 'helper' | 'scout', cleaned: text.replace(new RegExp(kw, 'ig'), '').replace(/\s+/g, ' ').trim() }
+      }
+    }
+    if (/\ball\b/.test(t)) {
+      return { tier: 'all', cleaned: text.replace(/\ball\b/i, '').replace(/\s+/g, ' ').trim() }
+    }
+    return null
+  }
+  const bountyTierHit = useMemo(() => parseBountyTierSearch(bountySearch), [bountySearch])
+  const activeBountyTier = bountyTierHit ? bountyTierHit.tier : 'all'
+  const bountyTextClean = (bountyTierHit ? bountyTierHit.cleaned : bountySearch).trim().toLowerCase()
   const filteredQuests = quests
-    ? (bountyTier === 'all' ? quests : quests.filter((q) => tierOf(q.bountyUsd) === bountyTier))
+    ? quests.filter((q) => {
+        if (activeBountyTier !== 'all' && tierOf(q.bountyUsd) !== activeBountyTier) return false
+        if (!bountyTextClean) return true
+        return [q.title, q.details, q.location].filter(Boolean).some((s) => s!.toLowerCase().includes(bountyTextClean))
+      })
     : []
   const initialsOf = (name: string) =>
     name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?'
@@ -843,26 +874,88 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
           </p>
         )}
 
+        {/* v245 ONE SEARCH BAR - replaces the v227 tier pill row (user:
+            "remove this from the link ... put those on the search part").
+            Same pattern as the talent feed's v231 bar: the input matches
+            title / details / location AND the tier keywords hunter /
+            helper / scout ("all" resets); the active tier shows as a
+            removable chip inside the pill. Sits ABOVE the loading/empty
+            checks so it (and the Post pill) is always reachable, even on
+            an empty board. */}
+        <div className="shrink-0 px-2.5 pt-1.5" data-testid="bounty-search-bar">
+          <div className="flex items-center gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-1 pr-1 mx-auto w-full max-w-[560px]">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                data-testid="bounty-search-input"
+                placeholder="Search bounties or type Hunter / Helper / Scout..."
+                value={bountySearch}
+                onChange={(e) => setBountySearch(e.target.value)}
+                className="pl-8 pr-1 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
+              />
+            </div>
+            {/* Active tier chip - shows which tier keyword matched; tap the
+                x to drop back to all bounties (same as the lane chip). */}
+            {bountyTierHit && (
+              <button
+                type="button"
+                data-testid="bounty-tier-chip"
+                onClick={() => setBountySearch(bountyTierHit.cleaned)}
+                title="Tier filter active - tap to clear"
+                className="shrink-0 inline-flex items-center gap-0.5 h-7 px-2 rounded-full bg-primary/10 text-primary text-[10px] font-bold cursor-pointer hover:bg-primary/20 transition-colors"
+              >
+                {BOUNTY_TIERS.find((t) => t.key === bountyTierHit!.tier)?.label.split(' · ')[0] || 'All'}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                // Opening the form fresh always means a NEW post - cancel any
+                // in-flight edit so stale pre-filled values don't leak in.
+                setShowQuestForm((v) => {
+                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
+                  return !v
+                })
+                setQPostErr('')
+              }}
+              data-testid="bounty-post-link"
+              aria-expanded={showQuestForm}
+              className="shrink-0 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              {editingQuest ? 'Cancel edit' : 'Post'}
+            </button>
+          </div>
+        </div>
+
+        {/* v245: the posting form takes the FULL board now - it was a slim
+            max-h-[46dvh] sheet squeezed above the deck. While it is open the
+            deck hides and the form becomes flex-1, so it fills everything
+            between the Link topbar and the mobile dock (both stay visible -
+            the form never covers the nav bars; it lives inside the tab's
+            normal page flow). A labeled Back button replaces the bare X. */}
         {showQuestForm && (
           <form
             onSubmit={postQuestHere}
-            className="shrink-0 mx-2.5 mt-1.5 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3 max-h-[46dvh] overflow-y-auto scrollbar-thin"
+            className="flex-1 min-h-0 mx-2.5 mb-2 mt-1.5 bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-3 flex flex-col overflow-y-auto scrollbar-thin"
             data-testid="quest-post-form"
             id="bounty-board-form"
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-bold text-foreground">
-                {editingQuest ? 'Edit your quest - update the terms, then save' : 'Upload an instant quest - ask for help, offer a bounty'}
-              </p>
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setShowQuestForm(false)}
                 data-testid="quest-form-close"
-                aria-label="Close the quest form"
-                className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0 transition-colors cursor-pointer"
+                aria-label="Back to the bounty board"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-accent text-muted-foreground hover:text-foreground text-xs font-bold shrink-0 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
+                Back
               </button>
+              <p className="text-sm font-bold text-foreground min-w-0">
+                {editingQuest ? 'Edit your quest - update the terms, then save' : 'Upload an instant quest - ask for help, offer a bounty'}
+              </p>
             </div>
             <input
               value={qTitle}
@@ -876,7 +969,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
               value={qDetails}
               onChange={(e) => setQDetails(e.target.value)}
               placeholder="Details (optional) - what exactly should the helper do, where to meet, how you pay"
-              rows={2}
+              rows={4}
               maxLength={1000}
               className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
               data-testid="quest-input-details"
@@ -893,7 +986,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
               <input
                 value={qDeadline}
                 onChange={(e) => setQDeadline(e.target.value)}
-                placeholder="Deadline - e.g. Today by 5 PM"
+                placeholder="Deadline - optional, e.g. Today by 5 PM"
                 maxLength={120}
                 className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 data-testid="quest-input-deadline"
@@ -950,58 +1043,13 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
           <p className="px-3 py-2 text-sm text-muted-foreground shrink-0" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
         ) : (
           <>
-            {/* v227 tier pills - the mockup's "Quick category filter pills".
-                Named after the platform's own hustle lanes; slices the deck
-                by bounty size: Hunter < $15, Helper $15-30, Scout $30+.
-                v230: the Post pill lives at the right end of this row (the
-                dedicated button row above the deck is gone). */}
-            <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto scrollbar-thin px-2.5 py-1.5" data-testid="bounty-tiers">
-              {BOUNTY_TIERS.map((tier) => {
-                const count = tier.key === 'all' ? quests.length : quests.filter((q) => tierOf(q.bountyUsd) === tier.key).length
-                return (
-                  <button
-                    key={tier.key}
-                    type="button"
-                    onClick={() => setBountyTier(tier.key)}
-                    data-testid={`bounty-tier-${tier.key}`}
-                    className={cn(
-                      'shrink-0 h-8 px-3 rounded-full text-xs font-bold transition-colors',
-                      bountyTier === tier.key
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'bg-accent text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {tier.label} · {count}
-                  </button>
-                )
-              })}
-              <button
-                type="button"
-                onClick={() => {
-                  // Opening the form fresh always means a NEW post - cancel any
-                  // in-flight edit so stale pre-filled values don't leak in.
-                  setShowQuestForm((v) => {
-                    if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
-                    return !v
-                  })
-                  setQPostErr('')
-                }}
-                data-testid="bounty-post-link"
-                aria-expanded={showQuestForm}
-                className="ml-auto shrink-0 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all"
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0" />
-                {editingQuest ? 'Cancel edit' : 'Post'}
-              </button>
-            </div>
-
             {/* v230 the deck itself: FULL SCREEN - the reel fills everything
                 under the slim top bar, one bounty per snap screen. A centered
                 560px column on desktop, edge-to-edge on phones. */}
             <div
               ref={deckRef}
               data-testid="bounty-swipe"
-              className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-thin bg-background"
+              className={cn('relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-thin bg-background', showQuestForm && 'hidden')}
             >
               {filteredQuests.map((q, idx) => {
                 const isClaimed = q.claimed || locallyClaimed[q.id]
@@ -1039,10 +1087,12 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                         <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                         <span className="truncate">{q.location}</span>
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400 shrink-0 max-w-[45%]">
-                        <Clock className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{q.deadlineText}</span>
-                      </span>
+                      {q.deadlineText && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-400 shrink-0 max-w-[45%]">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{q.deadlineText}</span>
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="relative mt-2.5 text-lg font-black text-foreground leading-snug tracking-tight">{q.title}</h3>
