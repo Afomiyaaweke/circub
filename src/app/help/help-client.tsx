@@ -14,6 +14,7 @@
 // survives on this single page.
 // Style: theme tokens only (v212 discipline), teal = Q&A, emerald = quests.
 import { useCallback, useEffect, useState } from 'react'
+import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
 import {
   HelpCircle,
   Send,
@@ -43,6 +44,8 @@ type Quest = {
   location: string
   deadlineText: string
   bountyUsd: number
+  // v253: the bounty is not dollar-locked - the poster picks the currency.
+  bountyCurrency: string
   posterName: string
   claimed: boolean
   // v219 privacy: claimer name/contact never leave the server - the board
@@ -100,6 +103,8 @@ export function HelpClient() {
   const [location, setLocation] = useState('')
   const [deadlineText, setDeadlineText] = useState('')
   const [bountyUsd, setBountyUsd] = useState('')
+  // v253: the bounty is not dollar-locked - the poster picks the currency.
+  const [bountyCurrency, setBountyCurrency] = useState('USD')
   const [posterName, setPosterName] = useState('')
   const [contact, setContact] = useState('')
   const [posting, setPosting] = useState(false)
@@ -238,9 +243,11 @@ export function HelpClient() {
       setPostErr('Location and deadline are required.')
       return
     }
+    // v253: NO min/max requirement - any amount 0 or up is valid, in any of
+    // the offered currencies. Only NaN and negatives are rejected.
     const bounty = Number(bountyUsd)
-    if (!Number.isFinite(bounty) || bounty < 0.5) {
-      setPostErr('Bounty must be at least $0.50.')
+    if (!Number.isFinite(bounty) || bounty < 0) {
+      setPostErr('Bounty amount must be 0 or more - any amount, any currency works.')
       return
     }
     if (!me && !editingQuest && !posterName.trim()) {
@@ -264,12 +271,13 @@ export function HelpClient() {
             location,
             deadlineText,
             bountyUsd: bounty,
+            bountyCurrency,
             ...(contact.trim() ? { contact } : {}),
           }),
         })
         if (res.ok) {
           setTitle(''); setDetails(''); setLocation(''); setDeadlineText('')
-          setBountyUsd(''); setPosterName(''); setContact('')
+          setBountyUsd(''); setBountyCurrency('USD'); setPosterName(''); setContact('')
           setShowForm(false)
           setEditingQuest(null)
           setPostOk('Quest updated - the board now shows the new terms.')
@@ -286,13 +294,13 @@ export function HelpClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           me
-            ? { title, details, location, deadlineText, bountyUsd: bounty, contact }
-            : { title, details, location, deadlineText, bountyUsd: bounty, posterName, contact }
+            ? { title, details, location, deadlineText, bountyUsd: bounty, bountyCurrency, contact }
+            : { title, details, location, deadlineText, bountyUsd: bounty, bountyCurrency, posterName, contact }
         ),
       })
       if (res.ok) {
         setTitle(''); setDetails(''); setLocation(''); setDeadlineText('')
-        setBountyUsd(''); setPosterName(''); setContact('')
+        setBountyUsd(''); setBountyCurrency('USD'); setPosterName(''); setContact('')
         setShowForm(false)
         setPostOk('Quest is live - local guides can claim it now. You will be contacted on the channel you left.')
         await loadQuests()
@@ -316,6 +324,7 @@ export function HelpClient() {
     setLocation(q.location)
     setDeadlineText(q.deadlineText)
     setBountyUsd(String(q.bountyUsd))
+    setBountyCurrency(q.bountyCurrency || 'USD')
     setContact('')
     setPostErr('')
     setPostOk('')
@@ -688,16 +697,29 @@ export function HelpClient() {
                 className={questInputCls}
                 data-testid="quest-input-deadline"
               />
-              <input
-                value={bountyUsd}
-                onChange={(e) => setBountyUsd(e.target.value)}
-                placeholder="Bounty in USD - e.g. 15"
-                type="number"
-                min="0.5"
-                step="0.5"
-                className={questInputCls}
-                data-testid="quest-input-bounty"
-              />
+              <div className="flex gap-2">
+                <select
+                  value={bountyCurrency}
+                  onChange={(e) => setBountyCurrency(e.target.value)}
+                  className="shrink-0 rounded-xl border border-border bg-background px-2.5 py-2.5 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                  data-testid="quest-currency-select"
+                  aria-label="Bounty currency"
+                >
+                  {BOUNTY_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <input
+                  value={bountyUsd}
+                  onChange={(e) => setBountyUsd(e.target.value)}
+                  placeholder="Bounty amount - any amount, e.g. 15"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className={questInputCls}
+                  data-testid="quest-input-bounty"
+                />
+              </div>
               <input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
@@ -800,7 +822,7 @@ export function HelpClient() {
                   <div className="mt-3">
                     <p className="text-[9px] font-bold tracking-wider text-muted-foreground uppercase">Escrow reward</p>
                     <p className="text-lg font-extrabold text-foreground" data-testid="bounty-amount">
-                      ${q.bountyUsd.toFixed(2)}
+                      {fmtBounty(q.bountyUsd, q.bountyCurrency)}
                     </p>
                   </div>
                   {isClaimed ? (

@@ -585,6 +585,7 @@ model Quest {
   location     String
   deadlineText String
   bountyUsd    Float
+  bountyCurrency String @default("USD")
   posterName   String
   contact      String
   userId       String?

@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, checkRateLimit, sanitizeInput } from '@/lib/session'
+import { normalizeBountyCurrency } from '@/lib/bounty-money'
 
 export async function GET() {
   try {
@@ -41,6 +42,7 @@ export async function GET() {
           location: q.location,
           deadlineText: q.deadlineText,
           bountyUsd: q.bountyUsd,
+          bountyCurrency: q.bountyCurrency,
           posterName: q.posterName,
           posterUsername: q.user?.username ?? null,
           claimed: q.claims.length > 0,
@@ -88,13 +90,18 @@ export async function POST(req: NextRequest) {
     // valid. Stored as '' (schema column stays non-nullable) and the card
     // hides the deadline chip when it is empty.
     const deadlineText = sanitizeInput(body.deadlineText || '', 120)
+    // v253: NO min/max requirement - any amount from 0 up is a valid bounty,
+    // in any of the offered currencies. Only NaN and negatives are rejected.
     const bountyUsd = Number(body.bountyUsd)
-    if (!Number.isFinite(bountyUsd) || bountyUsd < 0.5 || bountyUsd > 10000) {
+    if (!Number.isFinite(bountyUsd) || bountyUsd < 0) {
       return NextResponse.json(
-        { error: 'Bounty must be between $0.50 and $10,000' },
+        { error: 'Bounty amount must be 0 or more' },
         { status: 400 }
       )
     }
+    // v253: the currency travels with the bounty - the poster picks it from
+    // the form's select; unknown values fall back to USD (old rows stay valid).
+    const bountyCurrency = normalizeBountyCurrency(body.bountyCurrency)
     const details = sanitizeInput(body.details || '', 1000) || null
 
     // Logged-in posters carry their account; visitors must leave a name +
@@ -118,6 +125,7 @@ export async function POST(req: NextRequest) {
         location,
         deadlineText,
         bountyUsd,
+        bountyCurrency,
         posterName,
         contact,
         userId: me?.id ?? null,

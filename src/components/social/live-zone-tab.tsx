@@ -18,6 +18,7 @@ import {
   Pencil, Trash2, X, Plane, Bookmark, RefreshCw,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -185,6 +186,8 @@ type QuestRow = {
   location: string
   deadlineText: string
   bountyUsd: number
+  // v253: the bounty is not dollar-locked - the poster picks the currency.
+  bountyCurrency: string
   posterName: string
   // v229: member posters carry their public username (guest posters are
   // null) so the action rail's Chat button can open their profile page.
@@ -301,6 +304,8 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
   const [qLocation, setQLocation] = useState('')
   const [qDeadline, setQDeadline] = useState('')
   const [qBounty, setQBounty] = useState('')
+  // v253: the bounty is not dollar-locked - the poster picks the currency.
+  const [qCurrency, setQCurrency] = useState('USD')
   const [qContact, setQContact] = useState('')
   const [qName, setQName] = useState('')
   const [qPosting, setQPosting] = useState(false)
@@ -396,7 +401,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
       type: 'quest',
       title: q.title,
       subtitle: q.location,
-      priceLabel: `$${q.bountyUsd.toFixed(2)}`,
+      priceLabel: fmtBounty(q.bountyUsd, q.bountyCurrency),
       imageUrl: null,
       href: null,
     })
@@ -408,7 +413,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
     const url = typeof window === 'undefined'
       ? 'https://circubawd.vercel.app'
       : `${window.location.origin}/?quest=${q.id}`
-    const text = `Bounty: ${q.title} - $${q.bountyUsd.toFixed(2)} in ${q.location}`
+    const text = `Bounty: ${q.title} - ${fmtBounty(q.bountyUsd, q.bountyCurrency)} in ${q.location}`
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ title: 'circubAwd bounty', text, url })
@@ -487,9 +492,11 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
       setQPostErr('Location is required so helpers know where to go.')
       return
     }
+    // v253: NO min/max requirement - any amount 0 or up is valid, in any of
+    // the offered currencies. Only NaN and negatives are rejected.
     const bounty = Number(qBounty)
-    if (!Number.isFinite(bounty) || bounty < 0.5) {
-      setQPostErr('Bounty must be at least $0.50.')
+    if (!Number.isFinite(bounty) || bounty < 0) {
+      setQPostErr('Bounty amount must be 0 or more - any amount, any currency works.')
       return
     }
     if (!me && !editingQuest && !qName.trim()) {
@@ -514,12 +521,13 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
             location: qLocation,
             deadlineText: qDeadline,
             bountyUsd: bounty,
+            bountyCurrency: qCurrency,
             ...(qContact.trim() ? { contact: qContact } : {}),
           }),
         })
         if (res.ok) {
           setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline('')
-          setQBounty(''); setQContact('')
+          setQBounty(''); setQCurrency('USD'); setQContact('')
           setShowQuestForm(false)
           setEditingQuest(null)
           setQPostOk('Quest updated - the board now shows the new terms.')
@@ -539,13 +547,13 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           me
-            ? { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, contact: qContact }
-            : { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, posterName: qName, contact: qContact }
+            ? { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, bountyCurrency: qCurrency, contact: qContact }
+            : { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, bountyCurrency: qCurrency, posterName: qName, contact: qContact }
         ),
       })
       if (res.ok) {
         setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline('')
-        setQBounty(''); setQName(''); setQContact('')
+        setQBounty(''); setQCurrency('USD'); setQName(''); setQContact('')
         setShowQuestForm(false)
         setQPostOk('Quest is live - local guides can claim it now. You will be contacted on the channel you left.')
         await reloadQuests()
@@ -570,6 +578,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
     setQLocation(q.location)
     setQDeadline(q.deadlineText)
     setQBounty(String(q.bountyUsd))
+    setQCurrency(q.bountyCurrency || 'USD')
     setQContact('')
     setQPostErr('')
     setQPostOk('')
@@ -962,7 +971,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                 // Opening the form fresh always means a NEW post - cancel any
                 // in-flight edit so stale pre-filled values don't leak in.
                 setShowQuestForm((v) => {
-                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
+                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQCurrency('USD'); setQContact('') }
                   return !v
                 })
                 setQPostErr('')
@@ -1039,16 +1048,29 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                 className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 data-testid="quest-input-deadline"
               />
-              <input
-                value={qBounty}
-                onChange={(e) => setQBounty(e.target.value)}
-                placeholder="Bounty in USD - e.g. 15"
-                type="number"
-                min="0.5"
-                step="0.5"
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                data-testid="quest-input-bounty"
-              />
+              <div className="flex gap-2">
+                <select
+                  value={qCurrency}
+                  onChange={(e) => setQCurrency(e.target.value)}
+                  className="shrink-0 rounded-xl border border-border bg-background px-2.5 py-2.5 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  data-testid="quest-currency-select"
+                  aria-label="Bounty currency"
+                >
+                  {BOUNTY_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <input
+                  value={qBounty}
+                  onChange={(e) => setQBounty(e.target.value)}
+                  placeholder="Bounty amount - any amount, e.g. 15"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  data-testid="quest-input-bounty"
+                />
+              </div>
               <input
                 value={qContact}
                 onChange={(e) => setQContact(e.target.value)}
@@ -1190,7 +1212,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                     <div className="relative mt-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3.5 py-3 text-white shadow-sm flex items-center justify-between gap-2" data-testid="bounty-reward-banner">
                       <div className="min-w-0">
                         <p className="text-[10px] uppercase font-bold tracking-wider opacity-90">Guaranteed escrow reward</p>
-                        <p className="text-2xl font-black tracking-tight leading-none" data-testid="bounty-reward">${q.bountyUsd.toFixed(2)}</p>
+                        <p className="text-2xl font-black tracking-tight leading-none" data-testid="bounty-reward">{fmtBounty(q.bountyUsd, q.bountyCurrency)}</p>
                       </div>
                       <span className="shrink-0 bg-white/20 text-[10px] px-2 py-1 rounded-full font-bold">
                         {isClaimed ? `${q.claimCount} taker${q.claimCount !== 1 ? 's' : ''} · In Escrow` : 'Instant Auto-Release'}
@@ -1375,7 +1397,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                           type="button"
                           onClick={() => {
                             setShowQuestForm((v) => {
-                              if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQContact('') }
+                              if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQCurrency('USD'); setQContact('') }
                               return true
                             })
                             setQPostErr('')

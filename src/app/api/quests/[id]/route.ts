@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
+import { normalizeBountyCurrency } from '@/lib/bounty-money'
 
 export async function PATCH(
   req: NextRequest,
@@ -48,6 +49,7 @@ export async function PATCH(
       location?: string
       deadlineText?: string
       bountyUsd?: number
+      bountyCurrency?: string
       contact?: string
     } = {}
 
@@ -77,14 +79,19 @@ export async function PATCH(
       data.deadlineText = sanitizeInput(body.deadlineText || '', 120)
     }
     if (body.bountyUsd !== undefined) {
+      // v253: NO min/max requirement - only NaN and negatives are rejected.
       const bountyUsd = Number(body.bountyUsd)
-      if (!Number.isFinite(bountyUsd) || bountyUsd < 0.5 || bountyUsd > 10000) {
+      if (!Number.isFinite(bountyUsd) || bountyUsd < 0) {
         return NextResponse.json(
-          { error: 'Bounty must be between $0.50 and $10,000' },
+          { error: 'Bounty amount must be 0 or more' },
           { status: 400 }
         )
       }
       data.bountyUsd = bountyUsd
+    }
+    // v253: the currency can be changed together with the amount.
+    if (body.bountyCurrency !== undefined) {
+      data.bountyCurrency = normalizeBountyCurrency(body.bountyCurrency)
     }
     if (body.contact !== undefined && String(body.contact).trim() !== '') {
       const contact = sanitizeInput(body.contact || '', 200)
@@ -108,6 +115,7 @@ export async function PATCH(
         location: updated.location,
         deadlineText: updated.deadlineText,
         bountyUsd: updated.bountyUsd,
+        bountyCurrency: updated.bountyCurrency,
       },
     })
   } catch (error) {

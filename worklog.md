@@ -1,5 +1,31 @@
 # circubAwd worklog
 
+## v253 (2026-11-09) - Bounties are not dollar-locked: pick your currency, any amount
+User: "dont make the bounty post only by dollar have option and have not min or max requirment".
+
+- CURRENCY SELECT: every bounty form (live-zone Instant Bounties composer, /help quest form,
+  profile bounty edit) gets a currency <select> beside the amount (`quest-currency-select` /
+  `quest-edit-currency`, data-testid contract kept on the amount input) offering USD, ETB, EUR,
+  GBP, KES, AED, SAR, NGN, INR, CAD - ETB right after USD for the Addis-first market. The
+  "Bounty in USD - e.g. 15" placeholder is now "Bounty amount - any amount, e.g. 15".
+- NO MIN/MAX: the $0.50 floor and $10,000 ceiling are GONE from POST /api/quests, PATCH
+  /api/quests/[id] and all three forms (old error "Bounty must be between $0.50 and $10,000" /
+  "Bounty must be at least $0.50"). Only NaN and negatives are rejected ("Bounty amount must be
+  0 or more"); inputs drop min="0.5" for min="0" step="any".
+- DATA: Quest.bountyCurrency String @default("USD") added to BOTH prisma schemas; local sqlite
+  pushed, prod Postgres auto-migrates on the Vercel build (prisma-build.mjs db push). Old rows
+  read as USD. New src/lib/bounty-money.ts is the single source: BOUNTY_CURRENCIES list,
+  normalizeBountyCurrency (unknown -> USD), fmtBounty (`$15.00`, `Br 500.00`, `KSh 1200.00`).
+- RENDERED EVERYWHERE: bounty card escrow banner, /help card, saved-item priceLabel, share
+  text, profile bounties rows and the escort desk now format with the stored currency. The
+  profile escrow tiles sum PER CURRENCY (mixed wallets read "$100.00 + Br 500.00") - no
+  invented exchange rates.
+- GATES: tsc 20 baseline (0 new); build exit 0; task239_probe.py 30/30 on :3100; local
+  contract check 4/4 (task253_bounty_contract.py: member posts 0-amount ETB, PATCHes to
+  45000 EUR, /mine carries bountyCurrency, delete ok; guest negatives still 400). Note: :3100
+  is prod-mode over http so the session cookie is Secure-flagged - the script replays it as an
+  explicit header. landing-version v253; sw.js circub-v253.
+
 ## v252 (2026-11-09) - Battle out of the dock, into the profile; Top score gone; app opens on Local
 User: "remove the top scorer thing over all form the profile and put battle insted on it and
 remove the battle form the home page and start form the local".

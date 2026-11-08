@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { cn, formatUnitSuffix } from '@/lib/utils'
+import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
 import { compressImage } from '@/lib/image-compress'
 import { useBackClose } from '@/lib/back-close'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
@@ -93,7 +94,7 @@ interface QuestApplicantInfo {
 }
 interface MyQuestPosted {
   id: string; title: string; details: string | null; location: string
-  deadlineText: string; bountyUsd: number; posterName: string; contact: string
+  deadlineText: string; bountyUsd: number; bountyCurrency: string; posterName: string; contact: string
   createdAt: string; claim: QuestApplicantInfo | null
   // v248 MANY TAKERS: EVERY user who claimed this bounty (the poster's
   // "my escort place" inbox). The legacy single `claim` is claims[0].
@@ -101,7 +102,7 @@ interface MyQuestPosted {
 }
 interface MyQuestClaimed {
   id: string; title: string; location: string; deadlineText: string
-  bountyUsd: number; posterName: string; posterContact: string
+  bountyUsd: number; bountyCurrency: string; posterName: string; posterContact: string
   claimedAt: string; createdAt: string
 }
 
@@ -180,7 +181,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // v219: bounty management state (Profile > Bounties tab).
   const [myQuests, setMyQuests] = useState<{ posted: MyQuestPosted[]; claimed: MyQuestClaimed[] } | null>(null)
   const [questEditing, setQuestEditing] = useState<string | null>(null)
-  const [questForm, setQuestForm] = useState({ title: '', details: '', location: '', deadlineText: '', bountyUsd: '', contact: '' })
+  const [questForm, setQuestForm] = useState({ title: '', details: '', location: '', deadlineText: '', bountyUsd: '', bountyCurrency: 'USD', contact: '' })
   const [questBusy, setQuestBusy] = useState(false)
 
   const [contentType, setContentType] = useState<ContentType>(
@@ -1002,6 +1003,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       location: q.location,
       deadlineText: q.deadlineText,
       bountyUsd: String(q.bountyUsd),
+      bountyCurrency: q.bountyCurrency || 'USD',
       contact: '',
     })
   }
@@ -1020,6 +1022,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           location: questForm.location,
           deadlineText: questForm.deadlineText,
           bountyUsd: Number(questForm.bountyUsd),
+          bountyCurrency: questForm.bountyCurrency,
           ...(questForm.contact.trim() ? { contact: questForm.contact } : {}),
         }),
       })
@@ -1084,7 +1087,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-foreground">{q.title}</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        ${q.bountyUsd.toFixed(2)} &middot; {q.location} &middot; {q.deadlineText || 'No deadline'}
+                        {fmtBounty(q.bountyUsd, q.bountyCurrency)} &middot; {q.location} &middot; {q.deadlineText || 'No deadline'}
                       </p>
                     </div>
                     {takers.length > 0 ? (
@@ -1183,16 +1186,29 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                           className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           data-testid="quest-edit-deadline"
                         />
-                        <input
-                          value={questForm.bountyUsd}
-                          onChange={(e) => setQuestForm((f) => ({ ...f, bountyUsd: e.target.value }))}
-                          placeholder="Bounty in USD"
-                          type="number"
-                          min="0.5"
-                          step="0.5"
-                          className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          data-testid="quest-edit-bounty"
-                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={questForm.bountyCurrency}
+                            onChange={(e) => setQuestForm((f) => ({ ...f, bountyCurrency: e.target.value }))}
+                            className="h-9 shrink-0 rounded-xl border border-border bg-background px-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            data-testid="quest-edit-currency"
+                            aria-label="Bounty currency"
+                          >
+                            {BOUNTY_CURRENCIES.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                          <input
+                            value={questForm.bountyUsd}
+                            onChange={(e) => setQuestForm((f) => ({ ...f, bountyUsd: e.target.value }))}
+                            placeholder="Bounty amount - any amount"
+                            type="number"
+                            min="0"
+                            step="any"
+                            className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            data-testid="quest-edit-bounty"
+                          />
+                        </div>
                         <input
                           value={questForm.contact}
                           onChange={(e) => setQuestForm((f) => ({ ...f, contact: e.target.value }))}
@@ -1236,7 +1252,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 <div key={c.id} className="rounded-xl border border-border bg-card p-3" data-testid="quest-claim-row">
                   <p className="truncate text-sm font-semibold text-foreground">{c.title}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    ${c.bountyUsd.toFixed(2)} &middot; {c.location} &middot; {c.deadlineText}
+                    {fmtBounty(c.bountyUsd, c.bountyCurrency)} &middot; {c.location} &middot; {c.deadlineText}
                   </p>
                   <p className="mt-1 text-xs text-foreground">
                     Poster: <span className="font-semibold">{c.posterName}</span> &middot; Contact:{' '}
@@ -1269,10 +1285,22 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const renderEscrow = () => {
     const posted = myQuests?.posted ?? []
     const claimed = myQuests?.claimed ?? []
-    const pledged = posted.filter((q) => !q.claim).reduce((s, q) => s + q.bountyUsd, 0)
-    const inEscrow = posted.filter((q) => q.claim).reduce((s, q) => s + q.bountyUsd, 0)
-    const pendingPayout = claimed.reduce((s, q) => s + q.bountyUsd, 0)
-    const fmt = (n: number) => `$${n.toFixed(2)}`
+    // v253: bounties are not dollar-locked, so the three totals are summed
+    // PER CURRENCY - mixing an ETB bounty into a USD sum would invent an
+    // exchange rate. Mixed wallets read like "$100.00 + Br 500.00".
+    const sumByCurrency = (rows: { bountyUsd: number; bountyCurrency: string }[]) => {
+      const sums = new Map<string, number>()
+      rows.forEach((r) => {
+        const cur = r.bountyCurrency || 'USD'
+        sums.set(cur, (sums.get(cur) || 0) + r.bountyUsd)
+      })
+      return Array.from(sums.entries())
+    }
+    const pledged = sumByCurrency(posted.filter((q) => !q.claim))
+    const inEscrow = sumByCurrency(posted.filter((q) => q.claim))
+    const pendingPayout = sumByCurrency(claimed)
+    const fmt = (rows: [string, number][]) =>
+      rows.length ? rows.map(([c, n]) => fmtBounty(n, c)).join(' + ') : fmtBounty(0, 'USD')
     if (!myQuests) {
       return (
         <div className="py-16 text-center text-sm text-muted-foreground flex items-center justify-center gap-2" data-testid="profile-escrow">
@@ -1331,7 +1359,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">{q.title}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {fmt(q.bountyUsd)} &middot; {q.location} &middot; {q.deadlineText}
+                      {fmtBounty(q.bountyUsd, q.bountyCurrency)} &middot; {q.location} &middot; {q.deadlineText}
                     </p>
                   </div>
                   {q.claim ? (
@@ -1367,7 +1395,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">{c.title}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {fmt(c.bountyUsd)} &middot; {c.location} &middot; poster {c.posterName}
+                      {fmtBounty(c.bountyUsd, c.bountyCurrency)} &middot; {c.location} &middot; poster {c.posterName}
                     </p>
                   </div>
                   <Badge variant="secondary" className="shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 text-[9px] font-bold">
