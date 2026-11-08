@@ -1237,9 +1237,11 @@ export function CompassPriceTools() {
                               <span className="truncate" data-testid="compass-poster-name">
                                 {pp.author.name || 'Local hustler'}
                               </span>
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1 flex-wrap">
                               {pp.author.localPostCount ? (
-                                <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                                  · {pp.author.localPostCount} post{pp.author.localPostCount === 1 ? '' : 's'}
+                                <span className="shrink-0 font-semibold text-emerald-700 dark:text-emerald-400">
+                                  {pp.author.localPostCount} post{pp.author.localPostCount === 1 ? '' : 's'}
                                 </span>
                               ) : null}
                               {mine && (
@@ -1248,10 +1250,10 @@ export function CompassPriceTools() {
                                   your stop
                                 </span>
                               )}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {pp.productName} · {shortOf(place)}
-                              {pp.helpfulCount ? ` · ${pp.helpfulCount} helpful` : ''}
+                              <span className="truncate">
+                                {pp.productName} · {shortOf(place)}
+                                {pp.helpfulCount ? ` · ${pp.helpfulCount} helpful` : ''}
+                              </span>
                             </p>
                           </div>
                           <span className="shrink-0 text-sm font-bold text-foreground">
