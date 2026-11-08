@@ -371,6 +371,43 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v249 (2026-11-09) - the proforma is AI-ONLY: the bare "YOUR SHOPPING LIST" editor and the Find/Compare/Plan tabs are gone
+User: "remove this" (+ screenshot of the bare tool: the "YOUR SHOPPING LIST"
+title, the Visiting from/to date pickers, the "Add your own item" box with
++ Add, and the Find / Compare / Plan tab bar with the empty-list hint).
+
+- REMOVED (compass-price-tools.tsx): the whole bare tool UI is GONE - the
+  shopping-list title row + visiting date pickers, the recap chips row +
+  custom-item input, the Find / Compare / Plan tab bar, the empty-list
+  hint, and all three tab panels (Research post rows, the Compare table
+  with its typed columns, the Plan quantities/budget/currency form). The
+  dead code went with them: tab state + TABS, the list editor helpers, the
+  compare-column state, itemFilter/showAll, placeDraft/applyPlace, the
+  GPS "Use my location" block, currencyDraft/applyCurrency, qty inputs
+  (items count as 1), agoDays/cheapClass and their consts.
+- THE CONVERSATION IS THE WHOLE PROFORMA: the panel is now the v246-v248
+  AI conversation and nothing else. When the conversation completes (or is
+  X-dismissed), its answers BECOME the results: a v249 results card that
+  restates the four answers (WHERE / List / WHEN / BUDGET, each with an
+  Edit button that re-opens EXACTLY that question via reopenAt) followed
+  by the real numbers the tabs used to show - the totals trio + range bar
+  + month trend, the mover tip, the safe amount + per-day + budget
+  verdict, the budget locator with the ranked Most-liked place list and
+  the "Shop at X instead" switch, and "Same list, other locations". An
+  empty list (last recap chip removed, or dismissed before answering)
+  collapses to one "Plan my shopping with AI" pill that restarts the
+  conversation. testids: proforma-results, proforma-reopen,
+  proforma-edit-where/items/when/budget, ai-results-nodata; compass-list-
+  chip/-remove live on as the recap chips; all stat/locator/trend testids
+  survive. Every number still comes from real /api/local-prices posts.
+- VERIFY: tsc 20 baseline (zero new); clean build (rm -rf .next) exit 0;
+  :3100 - new task249_proforma_only_probe 23/23 (editor/tabs absent during
+  AND after the conversation, recap from..to span, Edit re-opens WHEN,
+  last-chip remove -> reopen pill, dismiss -> pill), task246 rewritten
+  section 2 46/46, task248_ui 19/19, task245 17/17, task247 22/22,
+  task239 30/30 (markers -> v249); task249_shots screenshots confirm the
+  results card on a 390px phone. sw.js circub-v249.
+
 ## v248 (2026-11-08) - bounties claimed by MANY users, all takers visible in the poster's escort desk, proforma WHERE gets a location input
 User: "make the bounty to be clamed by many users and show that to the poster on the my escort
 place and make the proform like this and make input for location" (+ screenshot of the

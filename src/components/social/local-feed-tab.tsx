@@ -852,12 +852,11 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           </p>
         )}
 
-        {/* Proforma panel - v171: the market graph is re-framed as the
-            PROFORMA: the one place the whole concept sums up - find what
-            things cost (search or camera), compare place by place, and get
-            the best result: the cheapest real total for your list. The
-            v97 tools (research / compare / budget) ARE that flow; only the
-            naming and the best-result verdicts are new. */}
+        {/* Proforma panel - v249: AI-ONLY. The proforma opens as the AI
+            conversation (WHERE / WHAT / WHEN / BUDGET, v246-v248) and the
+            answers become the results card - the bare "YOUR SHOPPING LIST"
+            editor and the Find / Compare / Plan tabs are gone
+            (user: "remove this"). */}
         {marketOpen && (
           <MarketGraphPanel onClose={() => setMarketOpen(false)}>
             <div className="w-full min-w-0" data-testid="market-compass-host">
