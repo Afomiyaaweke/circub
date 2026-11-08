@@ -66,7 +66,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightLeft, CalendarDays, Compass, Lightbulb, Loader2, MapPin, Scale,
-  SearchCheck, ThumbsUp, TrendingDown, TrendingUp, Wallet, X,
+  SearchCheck, Sparkles, ThumbsUp, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -119,6 +119,15 @@ const RESEARCH_ROWS = 6 // post rows before "Show all"
 const BUDGET_ROWS = 6 // budget-locator place rows before the cut
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
 const TRUSTED_POSTS = 15 // authors with more posts than this show "Trusted"
+
+// v246 answer LIST for the AI "When are you visiting?" question - every
+// chip turns into a real from/to date pair out of today (isoDay below).
+const ASK_WHEN: { label: string; fromDays: number; toDays: number }[] = [
+  { label: 'Today', fromDays: 0, toDays: 0 },
+  { label: 'This week', fromDays: 0, toDays: 6 },
+  { label: 'Next week', fromDays: 7, toDays: 13 },
+  { label: 'This month', fromDays: 0, toDays: 29 },
+]
 
 function money(n: number, cur: string): string {
   return `${Math.round(n).toLocaleString('en-US')} ${cur}`
@@ -193,6 +202,16 @@ export function CompassPriceTools() {
   const [currencyDraft, setCurrencyDraft] = useState<string | null>(null)
   const [locating, setLocating] = useState(false)
   const [locError, setLocError] = useState('')
+  // v246 AI-ASKING SETUP (user: "make the proforma like AI asking location
+  // items date and budget with list"): the panel now OPENS as a guided
+  // conversation - four one-tap questions (Where / What / When / Budget)
+  // each answered from a LIST of real suggestions, then the answers land in
+  // the same state the Find/Compare/Plan tabs read. askStep 0 = dismissed,
+  // 1..4 = the four questions; askDone stops it from returning this mount.
+  const [askStep, setAskStep] = useState<0 | 1 | 2 | 3 | 4>(1)
+  const [askDone, setAskDone] = useState(false)
+  const [askItems, setAskItems] = useState<string[]>([])
+  const [askNewItem, setAskNewItem] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -429,6 +448,66 @@ export function CompassPriceTools() {
 
   const removeCmpPlace = (key: string) => {
     setCmpList((prev) => prev.filter((k) => k !== key))
+  }
+
+  // ---- v246 AI-asking setup helpers --------------------------------------
+  // Toggle one suggested item on the answer list (community name or typed).
+  const toggleAskItem = (name: string) => {
+    setAskItems((prev) =>
+      prev.some((n) => n.toLowerCase() === name.toLowerCase())
+        ? prev.filter((n) => n.toLowerCase() !== name.toLowerCase())
+        : [...prev, name],
+    )
+  }
+
+  // Type an extra item into the answer list (Enter or the + button).
+  const addAskTyped = () => {
+    const name = askNewItem.trim().replace(/\s+/g, ' ').slice(0, 60)
+    if (!name) return
+    setAskItems((prev) =>
+      prev.some((n) => n.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name],
+    )
+    setAskNewItem('')
+  }
+
+  // Commit the answered list into the SAME state the tabs read: community
+  // names snap onto their canonical product, typed ones become custom
+  // items (same cap as the builder). Nothing is mocked - the Find /
+  // Compare / Plan tabs price exactly this list from real posts.
+  const applyAskItems = () => {
+    if (!model) return
+    askItems.forEach((raw) => {
+      const name = raw.trim().replace(/\s+/g, ' ').slice(0, 60)
+      if (!name) return
+      const feedMatch = model.itemNames.find((n) => n.toLowerCase() === name.toLowerCase())
+      if (feedMatch) {
+        setOnItems((prev) => ({ ...prev, [feedMatch]: true }))
+        return
+      }
+      setCustomItems((prev) =>
+        prev.some((n) => n.toLowerCase() === name.toLowerCase()) || prev.length >= MAX_CUSTOM_ITEMS
+          ? prev
+          : [...prev, name],
+      )
+      setOnItems((prev) => ({ ...prev, [name]: true }))
+    })
+    setAskItems([])
+  }
+
+  // Budget answered: a positive number switches straight to the Plan tab
+  // with the budget applied; empty / Skip lands on Find. Either way the
+  // conversation ends (askDone) and the normal panel takes over.
+  const askApplyBudget = () => {
+    const n = parseFloat(budget.replace(/,/g, ''))
+    setTab(Number.isFinite(n) && n > 0 ? 'budget' : 'research')
+    setAskDone(true)
+    setAskStep(0)
+  }
+  const askSkipBudget = () => {
+    setBudget('')
+    setTab('research')
+    setAskDone(true)
+    setAskStep(0)
   }
 
   // Apply the typed location. A case-insensitive match with a place the
@@ -718,6 +797,231 @@ export function CompassPriceTools() {
 
       {model && !noPosts && (
         <>
+          {/* ============ v246 AI-ASKING SETUP ============ */}
+          {/* The proforma now opens like an assistant asking YOU: four
+              one-tap questions - WHERE, WHAT (the list), WHEN and BUDGET -
+              each with a LIST of real answers taken from the community
+              data (busiest places, most-posted products, dates out of
+              today, your own totals). Nothing is mocked: every answer
+              lands in the same state the Find / Compare / Plan tabs read,
+              and finishing drops you straight on the right tab. */}
+          {!askDone && askStep > 0 && (
+            <div
+              className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5"
+              data-testid="proforma-ask"
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shrink-0 shadow-sm">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-foreground">Let&apos;s build your proforma</p>
+                  <p className="text-[11px] text-muted-foreground">Four quick questions - I&apos;ll price your list from real posts.</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 pt-1">
+                  {[1, 2, 3, 4].map((s) => (
+                    <span
+                      key={s}
+                      aria-hidden
+                      className={cn('w-1.5 h-1.5 rounded-full', askStep === s ? 'bg-primary' : askStep > s ? 'bg-primary/50' : 'bg-border')}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { setAskStep(0); setAskDone(true) }}
+                    aria-label="Skip the guided setup"
+                    title="Skip the guided setup"
+                    data-testid="ask-dismiss"
+                    className="ml-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* ---- 1 WHERE ---- */}
+              {askStep === 1 && (
+                <div className="space-y-2" data-testid="ask-step-where">
+                  <p className="text-sm text-foreground"><span className="font-bold">Where</span> are you shopping?</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {model.places.slice(0, 6).map((pl) => {
+                      const on = myPlace === pl.key
+                      return (
+                        <button
+                          type="button"
+                          key={pl.key}
+                          data-testid="ask-where-chip"
+                          aria-pressed={on}
+                          onClick={() => { setMyPlace(pl.key); setAskStep(2) }}
+                          className={cn(chipBase, on ? chipOn : chipOff)}
+                        >
+                          <MapPin className="w-3 h-3 mr-1 inline shrink-0" />
+                          {pl.short}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="ask-where-next"
+                    onClick={() => setAskStep(2)}
+                    className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    Somewhere else - keep going →
+                  </button>
+                </div>
+              )}
+
+              {/* ---- 2 WHAT (the list) ---- */}
+              {askStep === 2 && (
+                <div className="space-y-2" data-testid="ask-step-items">
+                  <p className="text-sm text-foreground">
+                    <span className="font-bold">What</span> is on your list? Tap everything you need.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {model.items.map((it) => {
+                      const on = askItems.some((n) => n.toLowerCase() === it.name.toLowerCase())
+                      return (
+                        <button
+                          type="button"
+                          key={it.name}
+                          data-testid="ask-item-chip"
+                          aria-pressed={on}
+                          onClick={() => toggleAskItem(it.name)}
+                          className={cn(chipBase, on ? chipOn : chipOff)}
+                        >
+                          {it.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="text"
+                      maxLength={60}
+                      placeholder="Or type your own item (e.g. morning bus fare)"
+                      value={askNewItem}
+                      onChange={(e) => setAskNewItem(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAskTyped() } }}
+                      data-testid="ask-item-input"
+                      aria-label="Add your own item to the list"
+                      className="h-8 min-w-[10rem] flex-1 text-sm bg-card"
+                    />
+                    <button
+                      type="button"
+                      data-testid="ask-item-add"
+                      onClick={addAskTyped}
+                      disabled={!askNewItem.trim()}
+                      className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="ask-items-next"
+                    onClick={() => { applyAskItems(); setAskStep(3) }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 cursor-pointer"
+                  >
+                    Next: when →
+                  </button>
+                </div>
+              )}
+
+              {/* ---- 3 WHEN ---- */}
+              {askStep === 3 && (
+                <div className="space-y-2" data-testid="ask-step-when">
+                  <p className="text-sm text-foreground"><span className="font-bold">When</span> are you visiting?</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ASK_WHEN.map((w) => (
+                      <button
+                        type="button"
+                        key={w.label}
+                        data-testid="ask-when-chip"
+                        onClick={() => {
+                          setVisitFrom(isoDay(new Date(Date.now() + w.fromDays * 86400000)))
+                          setVisitTo(isoDay(new Date(Date.now() + w.toDays * 86400000)))
+                          setAskStep(4)
+                        }}
+                        className={cn(chipBase, chipOff)}
+                      >
+                        <CalendarDays className="w-3 h-3 mr-1 inline shrink-0" />
+                        {w.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      data-testid="ask-when-skip"
+                      onClick={() => { setVisitFrom(''); setVisitTo(''); setAskStep(4) }}
+                      className={cn(chipBase, chipOff)}
+                    >
+                      Just researching
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ---- 4 BUDGET ---- */}
+              {askStep === 4 && (
+                <div className="space-y-2" data-testid="ask-step-budget">
+                  <p className="text-sm text-foreground">
+                    Last one - your <span className="font-bold">budget</span> for the list?
+                  </p>
+                  {myTotals && safe != null && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        data-testid="ask-budget-typical"
+                        onClick={() => setBudget(String(Math.round(myTotals!.av)))}
+                        className={cn(chipBase, chipOff)}
+                      >
+                        Typical · {money(myTotals!.av, cur)}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="ask-budget-safe"
+                        onClick={() => setBudget(String(safe!))}
+                        className={cn(chipBase, chipOff)}
+                      >
+                        Safe · {money(safe!, cur)}
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder={`Amount in ${cur || 'your currency'}`}
+                      value={budget}
+                      onChange={(e) => setBudget(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); askApplyBudget() } }}
+                      data-testid="ask-budget-input"
+                      aria-label="Your budget for the list"
+                      className="h-8 min-w-[9rem] flex-1 text-sm bg-card"
+                    />
+                    <button
+                      type="button"
+                      data-testid="ask-budget-apply"
+                      onClick={askApplyBudget}
+                      className="h-8 shrink-0 rounded-full bg-primary px-4 text-xs font-bold text-primary-foreground shadow-sm transition-opacity hover:bg-primary/90 cursor-pointer"
+                    >
+                      Set up my proforma
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="ask-budget-skip"
+                      onClick={askSkipBudget}
+                      className="h-8 shrink-0 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Shopping list + visit span (calendar, from day to day) */}
           <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

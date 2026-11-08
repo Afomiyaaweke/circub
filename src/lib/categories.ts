@@ -57,6 +57,20 @@ export const CATEGORY_GROUPS: { group: string; items: string[] }[] = [
   { group: 'Services', items: ['Services', 'Education & Tutoring', 'Legal & Financial Services', 'Events & Entertainment', 'Transportation', 'Automotive', 'Other'] },
 ]
 
+// v246 CREATIVE CATEGORY SECTION: one emoji per main category - the picker
+// renders these as visual tiles instead of the two plain dropdowns, so the
+// section reads at a glance on a phone. Pure presentation: the stored value
+// is still the canonical sub category, nothing in the data model moves.
+export const CATEGORY_GROUP_ICONS: Record<string, string> = {
+  Food: '🍲',
+  'Drug & Health': '💊',
+  Materials: '🧱',
+  Wearables: '👕',
+  Property: '🏠',
+  Electronics: '📱',
+  Services: '🛠️',
+}
+
 // The main category a canonical sub belongs to. Unknown values (legacy
 // strings that predate the canonical list) fall back to Services, the
 // catch-all main that hosts 'Other', so the picker always renders a valid

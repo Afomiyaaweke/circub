@@ -212,6 +212,10 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
   // typing "scout", "helper", "hunter" or "agent" slices the directory by
   // that lane's role; no separate role state, no tabs, one search bar.
   const laneHit = useMemo(() => parseLaneSearch(search), [search])
+  // v246 ICON-ONLY SEARCH: the talent search pill collapses to one round
+  // icon beside the AI Match / Available / Near me toggles; tapping it
+  // expands the pill in flow. A set search keeps a dot on the icon.
+  const [talentSearchOpen, setTalentSearchOpen] = useState(false)
   const [availableOnly, setAvailableOnly] = useState(false)
 
   // Near-me (GPS distance sort)
@@ -324,6 +328,10 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
   // v245 ONE SEARCH BAR for bounties - the tier pills moved off their own row
   // into the search part (same one-search-bar pattern as the talent feed).
   const [bountySearch, setBountySearch] = useState('')
+  // v246 ICON-ONLY SEARCH: the bounty search pill collapses to one round
+  // icon; tapping it expands the pill in flow (the Post pill keeps its
+  // seat). A set search keeps a dot on the icon so the filter stays visible.
+  const [bountySearchOpen, setBountySearchOpen] = useState(false)
   const [savedQuests, setSavedQuests] = useState<Record<string, boolean>>({})
   const [questFlash, setQuestFlash] = useState<string | null>(null)
   const deckRef = useRef<HTMLDivElement | null>(null)
@@ -882,30 +890,64 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
             removable chip inside the pill. Sits ABOVE the loading/empty
             checks so it (and the Post pill) is always reachable, even on
             an empty board. */}
+        {/* v246 ICON-ONLY SEARCH - the search pill collapses to a single
+            round icon (user: "make all the search only icon not a bar
+            everywhere"); tapping it expands the same pill in the normal
+            flow. Tier keywords hunter / helper / scout still filter from
+            the expanded pill and the active tier shows as a removable
+            chip inside it. The Post pill keeps its seat on the row. Sits
+            ABOVE the loading/empty checks so it is always reachable, even
+            on an empty board. */}
         <div className="shrink-0 px-2.5 pt-1.5" data-testid="bounty-search-bar">
-          <div className="flex items-center gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-1 pr-1 mx-auto w-full max-w-[560px]">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                data-testid="bounty-search-input"
-                placeholder="Search bounties or type Hunter / Helper / Scout..."
-                value={bountySearch}
-                onChange={(e) => setBountySearch(e.target.value)}
-                className="pl-8 pr-1 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
-              />
-            </div>
-            {/* Active tier chip - shows which tier keyword matched; tap the
-                x to drop back to all bounties (same as the lane chip). */}
-            {bountyTierHit && (
+          <div className="flex items-center gap-1.5 mx-auto w-full max-w-[560px]">
+            {bountySearchOpen ? (
+              <div className="flex items-center flex-1 min-w-0 gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-3 pr-1" data-testid="bounty-search-pill">
+                <Search className="w-4 h-4 text-muted-foreground pointer-events-none shrink-0" />
+                <Input
+                  data-testid="bounty-search-input"
+                  autoFocus
+                  placeholder="Search bounties or type Hunter / Helper / Scout..."
+                  value={bountySearch}
+                  onChange={(e) => setBountySearch(e.target.value)}
+                  className="flex-1 min-w-0 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent px-1"
+                />
+                {/* Active tier chip - shows which tier keyword matched; tap
+                    the x to drop back to all bounties (same as the lane chip). */}
+                {bountyTierHit && (
+                  <button
+                    type="button"
+                    data-testid="bounty-tier-chip"
+                    onClick={() => setBountySearch(bountyTierHit.cleaned)}
+                    title="Tier filter active - tap to clear"
+                    className="shrink-0 inline-flex items-center gap-0.5 h-7 px-2 rounded-full bg-primary/10 text-primary text-[10px] font-bold cursor-pointer hover:bg-primary/20 transition-colors"
+                  >
+                    {BOUNTY_TIERS.find((t) => t.key === bountyTierHit!.tier)?.label.split(' · ')[0] || 'All'}
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setBountySearchOpen(false)}
+                  aria-label="Close search"
+                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                data-testid="bounty-tier-chip"
-                onClick={() => setBountySearch(bountyTierHit.cleaned)}
-                title="Tier filter active - tap to clear"
-                className="shrink-0 inline-flex items-center gap-0.5 h-7 px-2 rounded-full bg-primary/10 text-primary text-[10px] font-bold cursor-pointer hover:bg-primary/20 transition-colors"
+                data-testid="bounty-search-toggle"
+                aria-expanded={false}
+                aria-label="Search bounties"
+                title="Search bounties - or type Hunter / Helper / Scout"
+                onClick={() => setBountySearchOpen(true)}
+                className="relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border border-input bg-card text-muted-foreground shadow-xs hover:text-foreground hover:border-primary/40 transition-colors cursor-pointer"
               >
-                {BOUNTY_TIERS.find((t) => t.key === bountyTierHit!.tier)?.label.split(' · ')[0] || 'All'}
-                <X className="w-3 h-3" />
+                <Search className="w-4 h-4" />
+                {!!bountySearch.trim() && (
+                  <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+                )}
               </button>
             )}
             <button
@@ -1386,32 +1428,63 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
           the input (matches name/bio/languages/specialties/location AND the
           lane keywords scout/helper/hunter/agent), the active-lane chip,
           then AI Match / Available / Near me as icon toggles. */}
+      {/* v246 ICON-ONLY SEARCH - the user: "make all the search only icon
+          not a bar everywhere". The pill collapses to one round icon; the
+          expanded pill keeps the lane chip, and the AI Match / Available /
+          Near me toggles stay on the row beside it (they are not search).
+          Everything still filters the SAME swipe deck below (no new page). */}
       <div className="shrink-0 px-2.5 pt-1.5" data-testid="talent-search-bar">
-        {/* Desktop: the pill rides the same centered 560px column as the
+        {/* Desktop: the row rides the same centered 560px column as the
             swipe cards instead of stretching across the viewport. */}
-        <div className="flex items-center gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-1 pr-1 mx-auto w-full max-w-[560px]">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <Input
-              data-testid="talent-search-input"
-              placeholder="Search talent or type Scout / Helper / Hunter / Agent..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-1 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent"
-            />
-          </div>
-          {/* Active lane chip - shows which lane keyword matched; tap the x
-              to strip the keyword from the input. */}
-          {laneHit && (
+        <div className="flex items-center gap-1.5 mx-auto w-full max-w-[560px]">
+          {talentSearchOpen ? (
+            <div className="flex items-center flex-1 min-w-0 gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-3 pr-1" data-testid="talent-search-pill">
+              <Search className="w-4 h-4 text-muted-foreground pointer-events-none shrink-0" />
+              <Input
+                data-testid="talent-search-input"
+                autoFocus
+                placeholder="Search talent or type Scout / Helper / Hunter / Agent..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 min-w-0 h-9 text-sm bg-transparent border-0 rounded-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent px-1"
+              />
+              {/* Active lane chip - shows which lane keyword matched; tap the
+                  x to strip the keyword from the input. */}
+              {laneHit && (
+                <button
+                  type="button"
+                  data-testid="lane-chip"
+                  onClick={() => setSearch(laneHit.cleaned)}
+                  title="Lane filter active - tap to clear"
+                  className="shrink-0 inline-flex items-center gap-0.5 h-7 px-2 rounded-full bg-primary/10 text-primary text-[10px] font-bold cursor-pointer hover:bg-primary/20 transition-colors"
+                >
+                  {laneHit.short}
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setTalentSearchOpen(false)}
+                aria-label="Close search"
+                className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              data-testid="lane-chip"
-              onClick={() => setSearch(laneHit.cleaned)}
-              title="Lane filter active - tap to clear"
-              className="shrink-0 inline-flex items-center gap-0.5 h-7 px-2 rounded-full bg-primary/10 text-primary text-[10px] font-bold cursor-pointer hover:bg-primary/20 transition-colors"
+              data-testid="talent-search-toggle"
+              aria-expanded={false}
+              aria-label="Search talent"
+              title="Search talent - or type Scout / Helper / Hunter / Agent"
+              onClick={() => setTalentSearchOpen(true)}
+              className="relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border border-input bg-card text-muted-foreground shadow-xs hover:text-foreground hover:border-primary/40 transition-colors cursor-pointer"
             >
-              {laneHit.short}
-              <X className="w-3 h-3" />
+              <Search className="w-4 h-4" />
+              {!!search.trim() && (
+                <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+              )}
             </button>
           )}
           {/* AI Guide Match - tap to open the ask form in the panel below;

@@ -371,6 +371,65 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v246 (2026-11-08) - creative category section, proforma asks like AI, icon-only search everywhere
+User: "have creative catagory sessesion and have unit forfor the make the proforma like ai asking
+location items date and budget with list and make all the search only icon not a bar everywhere"
+(+ screenshot of the Services / Other category dropdowns).
+
+- CREATIVE CATEGORY SECTION (`lib/categories.ts` + `category-select.tsx`):
+  CATEGORY_GROUP_ICONS (one emoji per main: Food / Drug & Health /
+  Materials / Wearables / Property / Electronics / Services) and the two
+  stacked dropdowns are GONE. The picker is now a section: 7 emoji icon TILES
+  (tap to switch main, `category-main-tile`) over a wrap of SUB CHIPS
+  (`category-sub-chip`). Stored value, aliases, filters and compare tables
+  unchanged (canonical sub string); historic testids survive
+  (category-select-main / category-select). All four call sites get the new
+  look for free: create/edit price post modals, add product, bulk post.
+- PROFORMA ASKS LIKE AI (`compass-price-tools.tsx`): the panel OPENS as a
+  guided conversation instead of a bare three-tab tool. Four one-tap
+  questions, each answered from a LIST of REAL data: (1) WHERE - chips of
+  the busiest community places; (2) WHAT - chips of the most-posted
+  products + a typed "own item" box; (3) WHEN - Today / This week /
+  Next week / This month / Just researching, each chip writes a real
+  visit from/to date pair; (4) BUDGET - Typical and Safe chips derived
+  from the user's own list totals + a free amount box. Answers land in
+  the SAME state the Find / Compare / Plan tabs read (myPlace, onItems /
+  customItems, visitFrom/To, budget); finishing with a budget drops you
+  on the Plan tab, without on Find. Step dots + X dismiss; nothing is
+  mocked. testids: proforma-ask, ask-step-where/items/when/budget,
+  ask-where-chip, ask-item-chip/-input/-add/-items-next, ask-when-chip,
+  ask-when-skip, ask-budget-typical/-safe/-input/-apply/-skip,
+  ask-dismiss.
+- ICON-ONLY SEARCH EVERYWHERE (user: "make all the search only icon not a
+  bar everywhere"): every live search surface collapses to ONE round icon
+  that expands the field in the normal page flow (never covers the nav
+  bars); the icon turns into the X that collapses it, and a set filter
+  keeps a small dot on the icon so it is never invisible.
+  - local-feed-tab: icon joins the slim action row
+    (local-search-toggle), field expands under it (local-search-bar /
+    local-search-input / local-search-clear testids kept, Enter +
+    "item, city" comma contract unchanged).
+  - live-zone-tab bounties: pill collapses to bounty-search-toggle,
+    expands to bounty-search-pill (bounty-search-input + bounty-tier-chip
+    inside); the Post pill keeps its seat on the row.
+  - live-zone-tab talents: pill collapses to talent-search-toggle beside
+    the AI Match / Available / Near me toggles (they are not search, they
+    stay visible); expanded pill keeps talent-search-input + lane-chip.
+  - network-tab (Profile > Network): network-search-toggle expands to
+    network-search-bar (network-search-input).
+  - main-content.tsx also has a search input but the component is dead
+    code (imported nowhere) - left untouched.
+- PROBE (scripts/task246_proforma_search_probe.py, new): real-browser run
+  on :3100 - local icon expand/filter/collapse, proforma 4-question flow
+  end-to-end (typed item lands on the shopping list, Plan tab opens,
+  visit date set), category tiles 7 + Services 7 chips -> Food 4 chips,
+  bounty icon expand + hunter tier chip + collapse, talent icon expand +
+  scout lane chip, network icon expand: 33/33, zero page errors.
+- Gates: npx tsc --noEmit 20 baseline, zero new; clean rebuild (rm -rf
+  .next) exit 0; task239_probe.py 30/30 (markers v245 -> v246); mobile
+  screenshots of ask unit, category section and expanded search look
+  clean; sw.js circub-v246.
+
 ## v245 (2026-11-08) - Link tab: tier pills moved into a bounty search bar, full-size quest form, deadline optional
 User: "remove this form the link and while posting bounties make the form to take more full
 space and have a back button but don't cover the nav bars and don't make the deadline madatory

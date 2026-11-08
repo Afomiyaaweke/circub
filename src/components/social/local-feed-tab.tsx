@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/lib/i18n'
 import { authFetch } from '@/lib/auth-fetch'
 import { productNamesMatch } from '@/lib/product-name'
+import { cn } from '@/lib/utils'
 import { resolveCurrentLocation, type ResolvedLocation } from '@/lib/location'
 import { compressImage } from '@/lib/image-compress'
 import type { CreatePricePostPrefill } from './create-price-post-modal'
@@ -61,6 +62,13 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // before the comma filters the item, the part after it resolves to a
   // city or country filter when it matches a known feed location.
   const [searchRaw, setSearchRaw] = useState('')
+  // v246 ICON-ONLY SEARCH (user: "make all the search only icon not a bar
+  // everywhere"): the always-visible search pill is gone. One round search
+  // icon rides the slim action row; tapping it expands the search field in
+  // the normal page flow under the row (never covering the nav bars), and
+  // the same button becomes the X that collapses it again. A set search
+  // shows a small dot on the icon so the filter is never invisible.
+  const [searchOpen, setSearchOpen] = useState(false)
   const [searchLocHint, setSearchLocHint] = useState<string | null>(null)
   const searchLocAppliedRef = useRef('')
   const [country, setCountry] = useState('All countries')
@@ -737,6 +745,27 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           it, so each action has exactly one entry point. The Link tab's
           own header stays untouched. */}
       <div className="flex items-center justify-end gap-2" data-testid="local-actions-row">
+        {/* v246 the search ICON - replaces the persistent bar (v241). It
+            toggles the search field below; a live search keeps a dot on it. */}
+        <button
+          type="button"
+          onClick={() => setSearchOpen((v) => !v)}
+          data-testid="local-search-toggle"
+          aria-expanded={searchOpen}
+          aria-label={searchOpen ? 'Close search' : 'Search prices'}
+          title={searchOpen ? 'Close search' : 'Search prices - try "coffee, Addis Ababa"'}
+          className={cn(
+            'relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border shadow-sm transition-colors cursor-pointer',
+            searchOpen || search
+              ? 'border-primary/50 bg-primary/10 text-primary'
+              : 'border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40',
+          )}
+        >
+          {searchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+          {!searchOpen && !!search && (
+            <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+          )}
+        </button>
         <Button
           onClick={openMarket}
           variant="outline"
@@ -751,36 +780,38 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
         </Button>
       </div>
 
-      {/* v241: the SEARCH BAR is back (user: "have search bar on local post
-          site") - ONE slim pill under the action row. The v234 declutter
-          stands for everything else: no location/category pickers, no
-          All/Shop/Shared segments. Same comma contract as v232 - "item,
-          city" filters the item AND jumps the location; Enter searches
-          immediately; X clears the search, the chips and the AI panels. */}
-      <div className="relative" data-testid="local-search-bar">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-        <Input
-          type="text"
-          inputMode="search"
-          autoComplete="off"
-          data-testid="local-search-input"
-          placeholder='Search prices... try "coffee, Addis Ababa"'
-          value={searchRaw}
-          onChange={(e) => setSearchRaw(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') setSearch((searchCommaIdx === -1 ? searchRaw : searchRaw.slice(0, searchCommaIdx)).trim()) }}
-          className="pl-9 pr-9 h-10 rounded-lg bg-card shadow-sm"
-        />
-        {searchRaw && (
-          <button
-            onClick={handleClearSearch}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Clear search"
-            data-testid="local-search-clear"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+      {/* v246: the search FIELD only exists while the icon says so - same
+          comma contract as v232/v241 ("item, city" on Enter, X clears the
+          search, the chips and the AI panels), it just collapses away to a
+          single icon when it is not needed. Expands in the normal flow -
+          nothing overlays the nav bars. */}
+      {searchOpen && (
+        <div className="relative" data-testid="local-search-bar">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="text"
+            inputMode="search"
+            autoComplete="off"
+            autoFocus
+            data-testid="local-search-input"
+            placeholder='Search prices... try "coffee, Addis Ababa"'
+            value={searchRaw}
+            onChange={(e) => setSearchRaw(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') setSearch((searchCommaIdx === -1 ? searchRaw : searchRaw.slice(0, searchCommaIdx)).trim()) }}
+            className="pl-9 pr-9 h-10 rounded-lg bg-card shadow-sm"
+          />
+          {searchRaw && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+              data-testid="local-search-clear"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Price stories - every newly posted price is shared as a 24h story
           banner here (the composer creates it on publish). Hidden entirely

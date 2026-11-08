@@ -11,6 +11,7 @@ import {
   Check,
   MapPin,
   MessageCircle,
+  Search,
   Sparkles,
   Trash2,
   Briefcase,
@@ -66,6 +67,8 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
   const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  // v246 ICON-ONLY SEARCH: the field renders only while the icon is tapped.
+  const [searchOpen, setSearchOpen] = useState(false)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [accepting, setAccepting] = useState<string | null>(null)
   // Follows + blocks (v100): the one-way link and the hard cut, both managed
@@ -459,14 +462,46 @@ export function NetworkTab({ me, onMessage, onRefreshUser }: NetworkTabProps) {
           </div>
         </div>
 
-        {/* Search bar */}
-        <div className="mt-4 relative">
-          <Input
-            placeholder="Search by name, role, or location"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-card"
-          />
+        {/* v246 ICON-ONLY SEARCH - one round icon instead of a persistent
+            bar; tapping it expands the field in the normal page flow. A set
+            search keeps a dot on the icon so the filter stays visible. */}
+        <div className="mt-4 flex items-center gap-1.5">
+          {searchOpen ? (
+            <div className="relative flex-1 min-w-0" data-testid="network-search-bar">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                autoFocus
+                placeholder="Search by name, role, or location"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-card pl-9 pr-9"
+                data-testid="network-search-input"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                aria-label="Close search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              data-testid="network-search-toggle"
+              aria-expanded={false}
+              aria-label="Search your network"
+              title="Search by name, role, or location"
+              className="relative inline-flex items-center justify-center w-9 h-9 rounded-full border border-input bg-card text-muted-foreground shadow-xs hover:text-foreground hover:border-primary/40 transition-colors cursor-pointer"
+            >
+              <Search className="w-4 h-4" />
+              {!!search.trim() && (
+                <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Following & Followers (v101 merge) - the one-way links are
