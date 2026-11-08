@@ -227,7 +227,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 >
                   <div className="flex items-center gap-2">
                     {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-md object-cover border border-[#2a3258] shrink-0" />
+                      <img loading="lazy" decoding="async" src={item.imageUrl} alt="" className="w-9 h-9 rounded-md object-cover border border-[#2a3258] shrink-0" />
                     ) : (
                       <span className="w-9 h-9 rounded-md bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-[10px] font-bold text-emerald-300 shrink-0">
                         {item.currency}
@@ -351,7 +351,7 @@ export function PriceArena({ onVote, onOpenPost, guest = false, refreshSignal = 
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`text-xs font-bold w-5 shrink-0 ${row.rank === 1 ? 'text-amber-400' : row.rank <= 3 ? 'text-white' : 'text-slate-500'}`}>#{row.rank}</span>
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${AVATAR_COLORS[row.avatarColor] || 'bg-emerald-600'}`}>
-                    {row.profilePicture ? <img src={avatarSrc(row.profilePicture)} alt="" className="w-full h-full object-cover rounded-full" /> : row.name.charAt(0).toUpperCase()}
+                    {row.profilePicture ? <img loading="lazy" decoding="async" src={avatarSrc(row.profilePicture)} alt="" className="w-full h-full object-cover rounded-full" /> : row.name.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-xs font-medium text-white truncate">{row.name}</span>
                   <span className="shrink-0 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 px-1.5 py-px text-[9px] font-bold" title={`${row.xp} XP · ${levelTitle(row.level)}`}>LVL {row.level}</span>

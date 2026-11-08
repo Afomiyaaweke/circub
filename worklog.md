@@ -1,5 +1,38 @@
 # circubAwd worklog
 
+## v251 (2026-11-09) - small first, load more everywhere
+User: "make the loading fast every where load small first and load more".
+
+- SERVER SMALL FIRST: every list endpoint now opens with a small page instead of a burst -
+  `/api/posts` default 50 -> 10 rows with a new `offset` param + exact `hasMore` (take limit+1,
+  no count query) + `nextOffset` in the response and a hard cap of 60; `/api/local-prices`
+  default 100 -> 24 (explicit callers untouched: local feed FEED_STEP=10, detail modal 40);
+  `/api/stories` 200 -> 50; `/api/quests` 100 -> 40; `/api/arena` weekPosts 500 -> 250 (the
+  top-5 leaderboard aggregates per-author counts, so the board is unchanged). Every row ships
+  author + comments + likes hydrated, so halving rows halves the JSON a phone must parse.
+- COMMUNITY FEED (`community-feed-tab.tsx`): first paint is 10 posts (was one 50-row burst);
+  an IntersectionObserver sentinel <li> at the end of the list (`community-load-more`, 600px
+  early) fetches the next 10 with `offset` and APPENDS - spinner only on the load-more row,
+  the feed never flips back to skeletons. A "Load more posts" button sits in the same row for
+  taps. Deep links (`?community=<id>`) still ask for a 40-row first page so the flash
+  highlight finds its post.
+- PROFILE MANAGE GRID (`profile-tab.tsx`): opens with 12 posts + 12 listings (was limit-60
+  posts + default-100 local-prices inside one Promise.all); the sentinel under the grid
+  (`profile-load-more`) pulls the next 12 + 12 in parallel and appends into the merged
+  Post/Listing/Product tiles. `products` (own, unpaginated) untouched.
+- SMALL CALLERS: compass proforma tools fetch `?limit=24` (medians/ranges need 24 fresh rows,
+  not 100); live-zone question chips probe `/api/posts?limit=12` (needs 5 strings, pulled 40
+  full posts). Local feed keeps v244's FEED_STEP=10 + canvas cache as-is (already the pattern).
+- IMAGES: 45 remote-content <img> tags across the feed/cards/modals gained
+  `loading="lazy" decoding="async"` (post-card, local-price-card, community feed, quest feed,
+  arena, profile grid, live zone, right sidebar, detail modal, chat, local feed, profile
+  modals, stories strip) - offscreen photos no longer decode on first paint. Upload previews,
+  the share poster blob and the header avatar stay eager; landing has zero <img> (initials).
+- GATES: tsc 20 baseline (0 new); build exit 0; task239_probe.py 30/30 on :3100 (after killing
+  a stale v250 next-server that was squatting the port - EADDRINUSE made the probe read the
+  OLD build); curl contract checks: posts limit=5 -> {rows,hasMore,nextOffset}, offset=5
+  pages on, local-prices default 24 + hasMore, arena 200. sw.js circub-v251.
+
 ## v230 — Link tab becomes a full-screen reel: header removed, back button added (2026-11-03)
 User: "remove all the header from the link session and only keep the toggle and my escoret and
 make the swiping full screen like reel have back also".

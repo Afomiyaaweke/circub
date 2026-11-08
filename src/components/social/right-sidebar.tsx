@@ -192,7 +192,7 @@ export function RightSidebar({
           >
             {user?.profilePicture ? (
               <div className={cn('w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md overflow-hidden', equippedFighter && 'ring-2 ring-emerald-400/70 ring-offset-2 ring-offset-card')}>
-                <img src={avatarSrc(user.profilePicture)} alt={user?.name || 'Profile'} className="w-full h-full object-cover" />
+                <img loading="lazy" decoding="async" src={avatarSrc(user.profilePicture)} alt={user?.name || 'Profile'} className="w-full h-full object-cover" />
               </div>
             ) : (
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-card border-4 border-card shadow-md flex items-center justify-center text-primary font-bold text-xl sm:text-2xl">

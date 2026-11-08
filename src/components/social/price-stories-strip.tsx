@@ -160,7 +160,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
               <div className="absolute top-5 left-3 right-3 z-10 flex items-center gap-2">
                 <Avatar className="w-7 h-7 border border-white/40">
                   {current.author?.profilePicture ? (
-                    <img src={avatarSrc(current.author.profilePicture)} alt="" className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={avatarSrc(current.author.profilePicture)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-primary/40 text-white text-[10px] font-semibold">{(current.author?.name || '?').charAt(0).toUpperCase()}</AvatarFallback>
                   )}
@@ -176,7 +176,7 @@ export function PriceStoriesStrip({ onOpenPost }: { onOpenPost: (postId: string)
                   shared banner (photo if the post has one, price banner
                   otherwise). */}
               {current.imageUrl ? (
-                <img src={current.imageUrl} alt="" className="w-full aspect-[3/4] object-cover" data-testid="story-viewer-image" />
+                <img loading="lazy" decoding="async" src={current.imageUrl} alt="" className="w-full aspect-[3/4] object-cover" data-testid="story-viewer-image" />
               ) : (
                 <div data-testid="story-viewer-banner" className="w-full aspect-[3/4] bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-3">
                   {(() => {

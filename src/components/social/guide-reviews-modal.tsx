@@ -100,7 +100,7 @@ export function GuideReviewsModal({ open, onOpenChange, guide }: GuideReviewsMod
               <div key={r.id} className="flex gap-3">
                 <Avatar className="w-9 h-9 shrink-0 overflow-hidden">
                   {r.raterPicture ? (
-                    <img src={r.raterPicture} alt={r.raterName} className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={r.raterPicture} alt={r.raterName} className="w-full h-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
                       {r.raterName?.charAt(0).toUpperCase() || '?'}

@@ -337,7 +337,7 @@ export function PostCard({
               {editImageUrl && editImageUrl.startsWith('data:video') ? (
                 <video src={editImageUrl} controls className="w-full max-h-64 object-contain bg-black" />
               ) : editImageUrl ? (
-                <img src={editImageUrl} alt="New image" className="w-full max-h-64 object-cover" />
+                <img loading="lazy" decoding="async" src={editImageUrl} alt="New image" className="w-full max-h-64 object-cover" />
               ) : post.imageUrl && post.imageUrl.startsWith('data:video') ? (
                 <video src={post.imageUrl} controls className="w-full max-h-64 object-contain bg-black" />
               ) : (

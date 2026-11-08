@@ -683,7 +683,9 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
   const loadFeedQuestions = useCallback(async () => {
     setFeedQsLoading(true)
     try {
-      const res = await fetch('/api/posts?limit=40')
+      // v251: small first - the chips only need 5 question strings, so the
+      // probe pulls 12 rows instead of 40 full posts (author hydrated each).
+      const res = await fetch('/api/posts?limit=12')
       const data = await res.json()
       const qs: string[] = ((data.posts || []) as Array<{ content?: string }>)
         .map((p) => String(p.content || '').replace(/\s+/g, ' ').trim())
@@ -1712,7 +1714,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                     <div className="flex items-center gap-2.5">
                       <Avatar className="w-9 h-9 border border-accent overflow-hidden shrink-0">
                         {g.profilePicture ? (
-                          <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
+                          <img loading="lazy" decoding="async" src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
                         ) : (
                           <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
                             {g.name?.charAt(0).toUpperCase()}
@@ -1851,7 +1853,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                     <div className="flex items-start gap-3">
                       <Avatar className="w-12 h-12 rounded-2xl border border-accent overflow-hidden shrink-0">
                         {g.profilePicture ? (
-                          <img src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
+                          <img loading="lazy" decoding="async" src={avatarSrc(g.profilePicture)} alt={g.name} className="w-full h-full object-cover" />
                         ) : (
                           <AvatarFallback className="bg-slate-900 dark:bg-primary/20 text-white font-black">{g.name.charAt(0).toUpperCase()}</AvatarFallback>
                         )}

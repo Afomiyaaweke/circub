@@ -194,7 +194,9 @@ export function CompassPriceTools() {
 
   useEffect(() => {
     let alive = true
-    fetch('/api/local-prices', { cache: 'no-store' })
+    // v251: small first - the tools panel models medians/ranges, which 24
+    // fresh rows answer just as well as the old default 100-row burst.
+    fetch('/api/local-prices?limit=24', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d) => {
         if (alive) setPosts(Array.isArray(d.posts) ? (d.posts as ToolPost[]) : [])

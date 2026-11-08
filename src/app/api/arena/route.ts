@@ -62,11 +62,14 @@ export async function GET(req: NextRequest) {
     // shared edge cache (myVotes was already per-viewer; now it is explicit).
     const session = await getCurrentUser()
     const since = weekWindowStart()
+    // v251: small first - the leaderboard only aggregates per-author counts,
+    // so 250 of the week's newest posts bounds the payload/scan without
+    // changing the top-5 board in any realistic week.
     const weekPosts: ArenaPost[] = await db.localPricePost.findMany({
       where: { createdAt: { gte: since } },
       select: POST_SELECT,
       orderBy: { createdAt: 'desc' },
-      take: 500,
+      take: 250,
     })
 
     // Leaderboard: one row per author with a post this week.

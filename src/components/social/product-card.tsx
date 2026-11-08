@@ -28,7 +28,7 @@ export function ProductCard({
         {/* Image / placeholder */}
         <div className="relative w-full sm:w-32 h-32 sm:h-auto shrink-0 bg-accent/40 flex items-center justify-center">
           {product.imageUrl ? (
-            <img
+            <img loading="lazy" decoding="async"
               src={product.imageUrl}
               alt={product.name}
               className="w-full h-full object-cover"

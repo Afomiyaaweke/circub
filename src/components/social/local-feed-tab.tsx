@@ -829,7 +829,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
       <div className="space-y-1.5">
         {searchImage && (
           <div className="relative inline-flex items-center gap-2 px-2 py-1.5 rounded-md border border-primary/40 bg-primary/5">
-            <img src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
+            <img loading="lazy" decoding="async" src={searchImage} alt="Search by image" className="w-6 h-6 rounded object-cover" />
             <span className="text-xs text-foreground truncate max-w-[120px]">{search}</span>
             <button onClick={handleClearSearch} className="p-0.5 rounded hover:bg-accent text-muted-foreground" aria-label="Clear image search"><X className="w-3.5 h-3.5" /></button>
           </div>
@@ -873,7 +873,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
           <Card className="w-full p-4 shadow-sm border-primary/20 space-y-3">
             <div className="flex items-start gap-3">
               {searchResults.imageUrl ? (
-                <img src={searchResults.imageUrl} alt="Captured" className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border" />
+                <img loading="lazy" decoding="async" src={searchResults.imageUrl} alt="Captured" className="w-16 h-16 rounded-lg object-cover shrink-0 border border-border" />
               ) : (
                 <div className="w-16 h-16 rounded-lg shrink-0 border border-border bg-accent flex items-center justify-center">
                   <PenLine className="w-6 h-6 text-primary" />

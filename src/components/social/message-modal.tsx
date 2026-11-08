@@ -207,7 +207,7 @@ export function MessageModal({
                   >
                     <Avatar className="w-10 h-10 border border-accent overflow-hidden">
                       {c.user.profilePicture ? (
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={avatarSrc(c.user.profilePicture)}
                           alt={c.user.name}
                           className="w-full h-full object-cover"
@@ -291,7 +291,7 @@ export function MessageModal({
                     <div className="text-center py-10">
                       <Avatar className="w-14 h-14 mx-auto border-2 border-accent overflow-hidden">
                         {activeUser.profilePicture ? (
-                          <img
+                          <img loading="lazy" decoding="async"
                             src={avatarSrc(activeUser.profilePicture)}
                             alt={activeUser.name}
                             className="w-full h-full object-cover"

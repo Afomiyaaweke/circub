@@ -19,9 +19,11 @@ export async function GET() {
   try {
     // Session-aware flags only - never claimer PII (v219 privacy contract).
     const me = await getCurrentUser()
+    // v251: small first - the quest board paints from 40 rows instead of 100;
+    // old quests stay reachable via the filters/board search.
     const quests = await db.quest.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 40,
       include: {
         claims: { select: { userId: true } },
         // v229: the poster's username (public anyway) so the deck's Chat

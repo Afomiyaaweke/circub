@@ -552,7 +552,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
         <button onClick={() => onAuthorClick?.(post.author.id)} className="flex items-center gap-1.5 min-w-0 text-left hover:opacity-80 transition-opacity">
           <Avatar className="w-7 h-7 border border-accent shrink-0 overflow-hidden">
             {post.author.profilePicture ? (
-              <img src={avatarSrc(post.author.profilePicture)} alt={post.author.name} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={avatarSrc(post.author.profilePicture)} alt={post.author.name} className="w-full h-full object-cover" />
             ) : (
               <AvatarFallback className="bg-primary/15 text-primary text-[10px] font-semibold">{post.author.name.charAt(0).toUpperCase()}</AvatarFallback>
             )}

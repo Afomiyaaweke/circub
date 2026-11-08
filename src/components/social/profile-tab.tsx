@@ -167,6 +167,13 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
 
   const [posts, setPosts] = useState<MyPost[]>([])
   const [listings, setListings] = useState<MyListing[]>([])
+  // v251: small first, load more - the manage grid paints from 12 posts +
+  // 12 listings and the sentinel below the grid fetches the next pages while
+  // the user scrolls (was a limit-60 posts burst + a 100-row local-prices
+  // burst in one Promise.all on every open).
+  const [gridPaging, setGridPaging] = useState({ postsOffset: 0, postsHasMore: false, pricesOffset: 0, pricesHasMore: false })
+  const [loadingMoreGrid, setLoadingMoreGrid] = useState(false)
+  const gridSentinelRef = useRef<HTMLDivElement | null>(null)
   const [products, setProducts] = useState<MyProduct[]>([])
   const [stories, setStories] = useState<MyStory[]>([])
   const [loading, setLoading] = useState(!isGuest)
@@ -296,14 +303,20 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     if (isGuest) return
     if (!hasContentRef.current) setLoading(true)
     const [p, l, pr, st, q] = await Promise.allSettled([
-      fetch(`/api/posts?authorId=${me.id}&limit=60`).then((r) => r.json()),
-      fetch(`/api/local-prices?authorId=${me.id}`).then((r) => r.json()),
+      fetch(`/api/posts?authorId=${me.id}&limit=12`).then((r) => r.json()),
+      fetch(`/api/local-prices?authorId=${me.id}&limit=12`).then((r) => r.json()),
       fetch(`/api/products?authorId=${me.id}`).then((r) => r.json()),
       fetch('/api/stories').then((r) => r.json()),
       fetch('/api/quests/mine').then((r) => r.json()),
     ])
     if (p.status === 'fulfilled' && p.value?.posts) setPosts(p.value.posts)
     if (l.status === 'fulfilled' && l.value?.posts) setListings(l.value.posts)
+    setGridPaging({
+      postsOffset: p.status === 'fulfilled' ? (Number(p.value?.nextOffset) || (p.value?.posts || []).length) : 0,
+      postsHasMore: p.status === 'fulfilled' ? Boolean(p.value?.hasMore) : false,
+      pricesOffset: l.status === 'fulfilled' ? (l.value?.posts || []).length : 0,
+      pricesHasMore: l.status === 'fulfilled' ? Boolean(l.value?.hasMore) : false,
+    })
     if (pr.status === 'fulfilled' && pr.value?.products) setProducts(pr.value.products)
     if (st.status === 'fulfilled' && Array.isArray(st.value?.stories)) {
       setStories(st.value.stories.filter((s: MyStory & { authorId?: string }) => s.authorId === me.id || s.author?.id === me.id))
@@ -317,6 +330,50 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     hasContentRef.current = true
     setLoading(false)
   }, [isGuest, me.id])
+
+  // v251: the grid's load-more - next 12 posts and next 12 listings fetched
+  // in parallel and APPENDED (the grid never flips to a spinner here).
+  const loadMoreGrid = useCallback(async () => {
+    if (loadingMoreGrid || (!gridPaging.postsHasMore && !gridPaging.pricesHasMore)) return
+    setLoadingMoreGrid(true)
+    try {
+      const wantsPosts = gridPaging.postsHasMore
+      const wantsPrices = gridPaging.pricesHasMore
+      const [np, nl] = await Promise.allSettled([
+        wantsPosts
+          ? fetch(`/api/posts?authorId=${me.id}&limit=12&offset=${gridPaging.postsOffset}`).then((r) => r.json())
+          : Promise.resolve(null),
+        wantsPrices
+          ? fetch(`/api/local-prices?authorId=${me.id}&limit=12&offset=${gridPaging.pricesOffset}`).then((r) => r.json())
+          : Promise.resolve(null),
+      ])
+      const newPosts: MyPost[] = (np.status === 'fulfilled' && np.value?.posts) || []
+      const newListings: MyListing[] = (nl.status === 'fulfilled' && nl.value?.posts) || []
+      if (newPosts.length) setPosts((prev) => [...prev, ...newPosts])
+      if (newListings.length) setListings((prev) => [...prev, ...newListings])
+      setGridPaging((prev) => ({
+        postsOffset: prev.postsOffset + newPosts.length,
+        postsHasMore: Boolean(np.status === 'fulfilled' && np.value?.hasMore) && newPosts.length > 0,
+        pricesOffset: prev.pricesOffset + newListings.length,
+        pricesHasMore: Boolean(nl.status === 'fulfilled' && nl.value?.hasMore) && newListings.length > 0,
+      }))
+    } catch {
+      /* leave paging as-is; the sentinel retries on next intersect */
+    } finally {
+      setLoadingMoreGrid(false)
+    }
+  }, [loadingMoreGrid, gridPaging, me.id])
+
+  useEffect(() => {
+    const el = gridSentinelRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) void loadMoreGrid() },
+      { rootMargin: '600px 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [loadMoreGrid])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
@@ -1442,7 +1499,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <div className="flex items-center gap-4">
               <div className="relative">
                 {avatarPreview || profilePicture ? (
-                  <img src={avatarPreview ?? avatarSrc(profilePicture)} alt={name} className={cn('w-20 h-20 rounded-full object-cover border-2 border-accent', uploading && 'opacity-80')} data-testid="avatar-preview" />
+                  <img loading="lazy" decoding="async" src={avatarPreview ?? avatarSrc(profilePicture)} alt={name} className={cn('w-20 h-20 rounded-full object-cover border-2 border-accent', uploading && 'opacity-80')} data-testid="avatar-preview" />
                 ) : (
                   <Avatar className="w-20 h-20 border-2 border-accent"><AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{name.charAt(0).toUpperCase() || '?'}</AvatarFallback></Avatar>
                 )}
@@ -1495,7 +1552,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                           : 'border-border bg-card hover:border-emerald-400/60 hover:bg-emerald-500/5'
                       )}
                     >
-                      <img src={f.img} alt={f.name} className={cn('w-14 h-14 rounded-full object-cover ring-2', equipped ? f.ring : 'ring-transparent')} />
+                      <img loading="lazy" decoding="async" src={f.img} alt={f.name} className={cn('w-14 h-14 rounded-full object-cover ring-2', equipped ? f.ring : 'ring-transparent')} />
                       {equipped && <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center"><Check className="w-3 h-3" /></span>}
                       {locked && <Lock className="absolute top-1 right-1 w-3.5 h-3.5 text-muted-foreground" />}
                       <span className="text-[11px] font-bold text-foreground leading-none">{f.name}</span>
@@ -1708,7 +1765,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 />
                 {regDocUrl ? (
                   <div className="relative rounded-lg border border-primary/40 bg-primary/5 p-2 flex items-center gap-2.5">
-                    <img src={regDocUrl} alt="ID document preview" className="w-14 h-14 rounded-md object-cover border border-border" />
+                    <img loading="lazy" decoding="async" src={regDocUrl} alt="ID document preview" className="w-14 h-14 rounded-md object-cover border border-border" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-primary flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -1955,7 +2012,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                   {docOnFile?.docUrl ? (
                     <div className="mt-3">
                       <p className="text-[11px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-blue-500" />Your document - visible only to you</p>
-                      <img src={docOnFile.docUrl} alt="Your verification document" className="max-h-64 w-auto rounded-lg border border-border" />
+                      <img loading="lazy" decoding="async" src={docOnFile.docUrl} alt="Your verification document" className="max-h-64 w-auto rounded-lg border border-border" />
                     </div>
                   ) : docOnFile ? (
                     <p className="mt-3 text-xs text-muted-foreground">Your talent registration document is on file - it is kept just as private.</p>
@@ -1985,7 +2042,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 {docPreview && (
                   <div className="rounded-xl border border-border p-4 space-y-3">
                     <p className="text-xs font-medium text-foreground">New document ready - submit to update your file.</p>
-                    <img src={docPreview} alt="New document preview" className="max-h-64 w-auto rounded-lg border border-border" />
+                    <img loading="lazy" decoding="async" src={docPreview} alt="New document preview" className="max-h-64 w-auto rounded-lg border border-border" />
                     <Button onClick={submitVerification} disabled={submittingVerif} className="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
                       {submittingVerif ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                       {submittingVerif ? 'Submitting...' : 'Submit new document'}
@@ -2023,7 +2080,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 {/* upload */}
                 {docPreview ? (
                   <div className="rounded-xl border border-border p-4 space-y-3">
-                    <img src={docPreview} alt="Document preview" className="max-h-64 w-auto rounded-lg border border-border mx-auto" />
+                    <img loading="lazy" decoding="async" src={docPreview} alt="Document preview" className="max-h-64 w-auto rounded-lg border border-border mx-auto" />
                     <div className="flex gap-2">
                       <Button variant="outline" onClick={() => setDocPreview(null)} className="flex-1 h-9 rounded-lg">Retake</Button>
                       <Button onClick={submitVerification} disabled={submittingVerif} className="flex-1 h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
@@ -2103,7 +2160,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <div className="rounded-full bg-background p-[2px]">
               <Avatar className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden">
                 {me.profilePicture ? (
-                  <img src={avatarSrc(me.profilePicture)} alt={me.name} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(me.profilePicture)} alt={me.name} className="w-full h-full object-cover" />
                 ) : (
                   <AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{me.name.charAt(0).toUpperCase()}</AvatarFallback>
                 )}
@@ -2182,7 +2239,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             <div className="relative w-14 h-14 rounded-full border border-border flex items-center justify-center bg-accent/40">
               <Plus className="w-5 h-5 text-primary" />
               {stories.length > 0 && (stories[stories.length - 1].imageUrl ? (
-                <img src={stories[stories.length - 1].imageUrl!} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
+                <img loading="lazy" decoding="async" src={stories[stories.length - 1].imageUrl!} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
               ) : (
                 <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 opacity-60" />
               ))}
@@ -2297,6 +2354,22 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                 </Tile>
               ))}
             </div>
+            {(gridPaging.postsHasMore || gridPaging.pricesHasMore) && (
+              <div ref={gridSentinelRef} className="py-4 text-center" data-testid="profile-load-more">
+                {loadingMoreGrid ? (
+                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading more...
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => void loadMoreGrid()}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Load more
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -2319,7 +2392,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               <div className="absolute top-5 inset-x-2 z-20 flex items-center gap-2">
                 <Avatar className="w-7 h-7 overflow-hidden">
                   {stories[viewerIndex].author?.profilePicture ? (
-                    <img src={avatarSrc(stories[viewerIndex].author!.profilePicture!)} alt="" className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={avatarSrc(stories[viewerIndex].author!.profilePicture!)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <AvatarFallback className="bg-primary/30 text-white text-[10px] font-bold">{me.name.charAt(0).toUpperCase()}</AvatarFallback>
                   )}
@@ -2338,7 +2411,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </div>
               {/* image (photo stories) or price banner (imageless price stories) */}
               {stories[viewerIndex].imageUrl ? (
-                <img src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
+                <img loading="lazy" decoding="async" src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
               ) : (
                 <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-2">
                   {stories[viewerIndex].pricePost && (
@@ -2386,7 +2459,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <DialogTitle className="sr-only">New story</DialogTitle>
           <h3 className="text-base font-bold text-foreground">New story</h3>
           <p className="text-xs text-muted-foreground -mt-1">Visible for 24 hours, then it disappears automatically.</p>
-          {newStoryImage && <img src={newStoryImage} alt="Story preview" className="w-full max-h-[50vh] object-contain rounded-lg bg-black/5" />}
+          {newStoryImage && <img loading="lazy" decoding="async" src={newStoryImage} alt="Story preview" className="w-full max-h-[50vh] object-contain rounded-lg bg-black/5" />}
           <Input value={newStoryCaption} onChange={(e) => setNewStoryCaption(e.target.value)} placeholder="Add a caption (optional)" maxLength={300} />
           <Button onClick={shareStory} disabled={publishing} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
             {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}

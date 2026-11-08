@@ -87,7 +87,7 @@ function BookingCard({ b, me, onMessage, refresh }: {
       <div className="flex items-center gap-2.5">
         <Avatar className="w-9 h-9 overflow-hidden shrink-0 border border-accent">
           {person?.profilePicture ? (
-            <img src={avatarSrc(person.profilePicture)} alt={person.name} className="w-full h-full object-cover" />
+            <img loading="lazy" decoding="async" src={avatarSrc(person.profilePicture)} alt={person.name} className="w-full h-full object-cover" />
           ) : (
             <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
               {person?.name?.charAt(0).toUpperCase() || '?'}

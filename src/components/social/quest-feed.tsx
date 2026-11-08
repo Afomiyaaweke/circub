@@ -285,7 +285,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             <Flame className="w-3 h-3" /> DAY {round.day}
           </span>
           <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-emerald-400/50 ${AVATAR_COLORS[user.avatarColor] || 'bg-emerald-600'} overflow-hidden`}>
-            {user.profilePicture ? <img src={avatarSrc(user.profilePicture)} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
+            {user.profilePicture ? <img loading="lazy" decoding="async" src={avatarSrc(user.profilePicture)} alt="" className="w-full h-full object-cover" /> : user.name.charAt(0).toUpperCase()}
           </span>
         </div>
       </div>
@@ -308,7 +308,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             </span>
             <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[me?.avatarColor || user.avatarColor] || 'bg-emerald-600'} overflow-hidden`}>
               {(me?.profilePicture || user.profilePicture)
-                ? <img src={avatarSrc(me?.profilePicture || user.profilePicture)} alt="" className="w-full h-full object-cover" />
+                ? <img loading="lazy" decoding="async" src={avatarSrc(me?.profilePicture || user.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (me?.name || user.name).charAt(0).toUpperCase()}
             </div>
             <p className="text-xs font-bold text-foreground truncate">You</p>
@@ -322,7 +322,7 @@ export function QuestFeed({ user, onMessage, onRefreshUser }: QuestFeedProps) {
             </span>
             <div className={`mx-auto w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white ${AVATAR_COLORS[rival?.avatarColor || ''] || 'bg-slate-600'} overflow-hidden`}>
               {rival?.profilePicture
-                ? <img src={avatarSrc(rival.profilePicture)} alt="" className="w-full h-full object-cover" />
+                ? <img loading="lazy" decoding="async" src={avatarSrc(rival.profilePicture)} alt="" className="w-full h-full object-cover" />
                 : (rival?.name || '?').charAt(0).toUpperCase()}
             </div>
             <p className="text-xs font-bold text-foreground truncate">{rival ? rival.name : 'No rival yet'}</p>

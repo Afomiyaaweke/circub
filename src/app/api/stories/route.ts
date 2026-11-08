@@ -24,7 +24,9 @@ export async function GET() {
         author: { select: { id: true, name: true, avatarColor: true, profilePicture: true, verifiedLocal: true, isLocal: true, idVerified: true } },
         pricePost: { select: { id: true, productName: true, category: true, currency: true, priceMin: true, priceMax: true, city: true, country: true, imageUrl: true } },
       },
-      take: 200,
+      // v251: small first - 50 live stories is a full strip; hydrating 200
+      // rows (author + pricePost each) just slowed the strip's first paint.
+      take: 50,
     })
     return NextResponse.json({ stories })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }

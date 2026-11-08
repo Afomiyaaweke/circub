@@ -131,6 +131,15 @@ The Battle tab ranks the top deal-hunters each week. Post a price yourself to cl
 export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: CommunityFeedTabProps) {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  // v251: small first, load more - the first page is 10 posts and the
+  // IntersectionObserver sentinel below the list fetches the next 10 while
+  // the user scrolls (previously one 50-row burst with author + comments +
+  // likes hydrated for every row). A deep link (?community=<id>) still asks
+  // for a bigger first page so the flash-highlight finds its post.
+  const [hasMore, setHasMore] = useState(false)
+  const [nextOffset, setNextOffset] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef<HTMLLIElement | null>(null)
   const [draft, setDraft] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [posting, setPosting] = useState(false)
@@ -157,16 +166,57 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
   const fetchPosts = useCallback(async (mode: SortMode) => {
     setLoading(true)
     try {
-      const qs = mode === 'saved' ? '?limit=50&saved=1' : '?limit=50'
+      const firstLimit = highlightPostId ? 40 : 10
+      const qs = mode === 'saved' ? `?limit=${firstLimit}&saved=1` : `?limit=${firstLimit}`
       const res = await fetch(`/api/posts${qs}`)
       const data = await res.json()
       setPosts(data.posts || [])
+      setHasMore(Boolean(data.hasMore))
+      setNextOffset(Number(data.nextOffset) || (data.posts || []).length)
     } catch {
       setPosts([])
+      setHasMore(false)
+      setNextOffset(0)
     } finally {
       setLoading(false)
     }
+    // highlightPostId only widens the FIRST page - kept out of deps so a
+    // normal refetch (publish, sort change) does not re-trigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const qs = sort === 'saved'
+        ? `?limit=10&offset=${nextOffset}&saved=1`
+        : `?limit=10&offset=${nextOffset}`
+      const res = await fetch(`/api/posts${qs}`)
+      const data = await res.json()
+      const incoming: Post[] = data.posts || []
+      if (incoming.length) setPosts((prev) => [...prev, ...incoming])
+      setHasMore(Boolean(data.hasMore) && incoming.length > 0)
+      setNextOffset(Number(data.nextOffset) || nextOffset + incoming.length)
+    } catch {
+      setHasMore(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [sort, hasMore, loadingMore, nextOffset])
+
+  // v251 sentinel: when the end-of-list marker scrolls near the viewport
+  // (600px early), the next 10 posts are fetched and appended.
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) void loadMore() },
+      { rootMargin: '600px 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [loadMore])
 
   useEffect(() => {
     fetchPosts(sort)
@@ -460,7 +510,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
           <div className="flex items-start gap-3">
             <Avatar className="w-10 h-10 border-2 border-accent shrink-0 overflow-hidden">
               {(me as any)?.profilePicture ? (
-                <img src={(me as any).profilePicture} alt={me?.name || 'You'} className="w-full h-full object-cover" />
+                <img loading="lazy" decoding="async" src={(me as any).profilePicture} alt={me?.name || 'You'} className="w-full h-full object-cover" />
               ) : (
                 <AvatarFallback className="bg-primary/15 text-primary font-semibold">
                   {me?.name?.charAt(0).toUpperCase() || 'U'}
@@ -477,7 +527,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
               />
               {imageUrl && (
                 <div className="relative mt-2 rounded-lg overflow-hidden border border-border">
-                  <img src={imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
+                  <img loading="lazy" decoding="async" src={imageUrl} alt="Preview" className="w-full max-h-48 object-cover" />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -573,7 +623,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                   <div className="flex items-start gap-3">
                     <Avatar className="w-10 h-10 border border-accent shrink-0 overflow-hidden">
                       {(post.author as any).profilePicture ? (
-                        <img src={(post.author as any).profilePicture} alt={post.author.name} className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={(post.author as any).profilePicture} alt={post.author.name} className="w-full h-full object-cover" />
                       ) : (
                         <AvatarFallback className="bg-primary/15 text-primary text-sm font-semibold">
                           {post.author.name.charAt(0).toUpperCase()}
@@ -660,7 +710,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                           </p>
                           {post.imageUrl && (
                             <div className="mt-2 rounded-lg overflow-hidden border border-border">
-                              <img src={post.imageUrl} alt="" className="w-full max-h-96 object-cover" />
+                              <img loading="lazy" decoding="async" src={post.imageUrl} alt="" className="w-full max-h-96 object-cover" />
                             </div>
                           )}
                         </>
@@ -720,7 +770,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                             <div key={c.id} className="flex items-start gap-2">
                               <Avatar className="w-6 h-6 border border-accent shrink-0 overflow-hidden">
                                 {(c.author as any).profilePicture ? (
-                                  <img src={(c.author as any).profilePicture} alt={c.author.name} className="w-full h-full object-cover" />
+                                  <img loading="lazy" decoding="async" src={(c.author as any).profilePicture} alt={c.author.name} className="w-full h-full object-cover" />
                                 ) : (
                                   <AvatarFallback className="bg-primary/15 text-primary text-[9px] font-semibold">
                                     {c.author.name.charAt(0).toUpperCase()}
@@ -766,6 +816,22 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                 </li>
               )
             })}
+            {hasMore && (
+              <li ref={sentinelRef} className="py-4 text-center" data-testid="community-load-more">
+                {loadingMore ? (
+                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading more...
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => void loadMore()}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Load more posts
+                  </button>
+                )}
+              </li>
+            )}
           </ul>
         )}
       </div>

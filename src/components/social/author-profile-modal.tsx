@@ -106,7 +106,7 @@ export function AuthorProfileModal({ userId, onClose, onMessage, currentUserId }
             <div className="px-5 sm:px-6 -mt-9 flex items-end gap-4">
               <Avatar className="w-20 h-20 border-4 border-card bg-card shadow-md shrink-0 overflow-hidden">
                 {profile.profilePicture ? (
-                  <img src={avatarSrc(profile.profilePicture)} alt={profile.name} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={avatarSrc(profile.profilePicture)} alt={profile.name} className="w-full h-full object-cover" />
                 ) : (
                   <AvatarFallback className="bg-primary/15 text-primary font-bold text-2xl">{profile.name.charAt(0).toUpperCase()}</AvatarFallback>
                 )}

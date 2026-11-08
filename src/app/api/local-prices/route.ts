@@ -51,12 +51,14 @@ export async function GET(req: NextRequest) {
     try { const s = await getCurrentUser(); if (s) me = await db.user.findUnique({ where: { id: s.id }, include: { localPriceVotes: true } }) } catch {}
     // v147 step-by-step loading: the feed asks for a SMALL window at a time
     // (limit + offset) instead of one take-100 query - the server answers a
-    // fraction of the work per request and the phone paints faster. No limit
-    // param = the legacy full 100, so every existing caller is unchanged.
+    // fraction of the work per request and the phone paints faster.
     // `hasMore` (fetch one extra row to know for sure) tells the feed whether
     // another step exists.
+    // v251: callers that omit limit get a small 24-row first page instead of
+    // the full 100 (profile manage grid + compass tools); every explicit
+    // caller (local feed FEED_STEP=10, detail modal 40) is unchanged.
     const limitRaw = parseInt(searchParams.get('limit') || '', 10)
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 100
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 24
     const offsetRaw = parseInt(searchParams.get('offset') || '', 10)
     const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0
     // _count.linksA/linksB -> the "N links" chip on each card (symmetric

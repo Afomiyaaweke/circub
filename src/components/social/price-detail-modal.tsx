@@ -1209,7 +1209,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                               {`#${i + 1}`}
                             </span>
                             {c.img ? (
-                              <img src={c.img} alt="" className="w-9 h-9 rounded-full object-cover border border-[#2a3258] shrink-0" />
+                              <img loading="lazy" decoding="async" src={c.img} alt="" className="w-9 h-9 rounded-full object-cover border border-[#2a3258] shrink-0" />
                             ) : (
                               <span className="w-9 h-9 rounded-full bg-slate-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
                                 {(c.authorName || '?').charAt(0).toUpperCase()}
@@ -1345,7 +1345,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </div>
                         <div className="relative h-20 overflow-hidden rounded-md bg-emerald-500/10">
                           {post.imageUrl ? (
-                            <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
+                            <img loading="lazy" decoding="async" src={post.imageUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-emerald-300/60">
                               <Scale className="h-6 w-6" />
@@ -1408,7 +1408,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         </div>
                         <div className="relative h-20 overflow-hidden rounded-md bg-cyan-400/10">
                           {duel.rival.img ? (
-                            <img src={duel.rival.img} alt="" className="h-full w-full object-cover" />
+                            <img loading="lazy" decoding="async" src={duel.rival.img} alt="" className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-cyan-300/60">
                               <Scale className="h-6 w-6" />
@@ -1814,7 +1814,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     >
                       <div className="flex items-center gap-2 min-w-0 max-sm:basis-full">
                         {post?.imageUrl && (
-                          <img src={post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                          <img loading="lazy" decoding="async" src={post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                         )}
                         <span className="min-w-0">
                           <span className="block text-xs font-semibold text-foreground truncate">
@@ -1854,7 +1854,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             data-testid="detail-link-open"
                           >
                             {l.post.imageUrl && (
-                              <img src={l.post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                              <img loading="lazy" decoding="async" src={l.post.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                             )}
                             <span className="min-w-0">
                               <span className="block text-xs font-medium text-foreground line-clamp-2">{l.post.productName}</span>
@@ -1941,7 +1941,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                 data-testid="detail-auto-open"
                               >
                                 {a.imageUrl && (
-                                  <img src={a.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
+                                  <img loading="lazy" decoding="async" src={a.imageUrl} alt="" className="w-7 h-7 rounded object-cover border border-border shrink-0" />
                                 )}
                                 <span className="min-w-0">
                                   <span className="block text-xs font-medium text-foreground line-clamp-2 items-center gap-1">
@@ -2048,7 +2048,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
               {/* Image */}
               {post.imageUrl && (
                 <div className="rounded-lg overflow-hidden border border-border">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={post.imageUrl}
                     alt={post.productName}
                     className="w-full max-h-80 object-cover"
