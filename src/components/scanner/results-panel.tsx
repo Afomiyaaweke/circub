@@ -253,8 +253,6 @@ function SourcesList({ sources }: { sources: ScanResult['sources'] }) {
           <li key={i}>
             <a
               href={s.url}
-              target="_blank"
-              rel="noopener noreferrer"
               className="group flex items-start gap-2 rounded-lg border border-transparent px-2 py-1.5 transition hover:border-zinc-200 hover:bg-zinc-50"
             >
               <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400 transition group-hover:text-emerald-500" />

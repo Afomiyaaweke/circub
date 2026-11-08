@@ -248,7 +248,7 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
             className="mt-0.5 w-4 h-4 rounded border-border accent-primary"
           />
           <span className="text-[11px] leading-relaxed text-muted-foreground">
-            I agree to the <a href="/terms" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Terms of Service</a> and <a href="/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+            I agree to the <a href="/terms" className="text-primary hover:underline">Terms of Service</a> and <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>.
           </span>
         </label>
 

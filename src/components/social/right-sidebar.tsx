@@ -250,8 +250,6 @@ export function RightSidebar({
                   {user?.whatsapp && (
                     <a
                       href={user.whatsapp.startsWith('http') ? user.whatsapp : `https://wa.me/${user.whatsapp.replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-primary transition-colors justify-center"
                     >
                       <MessageCircle className="w-3 h-3 shrink-0" />

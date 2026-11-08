@@ -23,8 +23,6 @@ export function VideoEmbed({ url, title = 'Video', className, quietFallback }: V
     return (
       <a
         href={url}
-        target="_blank"
-        rel="noopener noreferrer"
         className="flex items-center gap-1.5 text-xs text-primary hover:underline"
       >
         <ExternalLink className="w-3.5 h-3.5 shrink-0" />

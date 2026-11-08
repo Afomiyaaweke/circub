@@ -135,8 +135,10 @@ export function SharePosterModal({ open, onOpenChange, target, linkUrl, holdBuil
     }
   }
 
+  // v250 ONE TAB (user: "remove all the open tab and keep it in one tab"):
+  // share targets open in THIS tab - the app never spawns a new tab.
   const openExternal = (href: string) => {
-    window.open(href, '_blank', 'noopener,noreferrer')
+    window.location.href = href
   }
 
   return (

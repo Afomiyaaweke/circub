@@ -376,8 +376,6 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             <a
               data-testid="card-directions"
               href={mapsDirectionsUrl(post.latitude, post.longitude)}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
             >
@@ -523,7 +521,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
               </a>
             )}
             {post.contactWhatsApp && (
-              <a href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-2 py-1 rounded-md bg-card border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
+              <a href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`} className="flex items-center gap-1 px-2 py-1 rounded-md bg-card border border-blue-200 text-[11px] text-foreground hover:bg-blue-50 transition-colors">
                 <MessageCircle className="w-3 h-3 text-emerald-600" />
                 WhatsApp
               </a>

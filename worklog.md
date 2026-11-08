@@ -371,6 +371,39 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v250 (2026-11-09) - posters on the proforma, several locations, ONE tab everywhere
+User: "show the posters on the proforma too and remove all the open tab and keep it in one tab
+and make the locaion to take more than one location".
+
+- MULTI-LOCATION WHERE (`compass-price-tools.tsx`): the shopping proforma now takes SEVERAL
+  places - `myPlace` string became `myPlaces[]` (cap 6). The community chips TOGGLE (tap = join/
+  leave, no auto-advance), the v248 typed input ADDS one place at a time ("Use this place" ->
+  "Add place too", Enter adds and clears, the conversation moves on with the Continue button
+  which now reads "Continue with N locations"). A count line ("2 locations chosen - the first
+  one is the main stop") keeps the multi answer visible while asking.
+- RESULTS: the WHERE recap shows every chosen place as a chip (first = Main stop,
+  `proforma-where-chip`); a new "Your N locations, compared" block (`compass-my-places`) prices
+  each chosen stop for the list - typical/low/high per row, "Cheapest of yours" badge, "Shop
+  here" moves a stop to primary (the headline stats + safe line stay priced at the FIRST stop).
+  "Same list, other locations" now excludes ALL chosen stops; the budget-locator switch also
+  goes through choosePrimary. Typed unknown places stay honest ("No prices for this list here
+  yet") - nothing invented.
+- THE POSTERS ON THE PROFORMA: the results card gains "The posters behind these prices"
+  (`compass-posters`) - the real posts backing the numbers, each row = avatar initials + poster
+  name + their local post count + product + place + helpful votes + the real price, the user's
+  own chosen stops first (mine badge), most-endorsed then newest, capped 6. Zero invented rows:
+  it only renders when real posts price an item on the chosen list (probe accepts posters or
+  the honest nodata line when the DB has nothing). The composer's ComparePreview also shows
+  "posted by <name>" on every similar post row (author already traveled in the identify API).
+- ONE TAB EVERYWHERE: every `target="_blank"` and the share `window.open(href, '_blank')` are
+  GONE - share targets, WhatsApp links (card + right sidebar), Google Maps directions (card +
+  detail), the video link, scanner sources and the register Terms/Privacy links all navigate in
+  the SAME tab now ("remove all the open tab and keep it in one tab"). No `_blank` remains in
+  `src/` (grep-verified).
+- Version: sw.js `circub-v250`, APP_VERSION v250. Probes: task239_probe.py + task239_prod_verify.py
+  bumped to v250 (30 + 23 gates), task246 + task249 WHERE flow updated to the toggle contract,
+  NEW `task250_proforma_multi_probe.py` (multi-location walk + posters + zero `_blank` gates).
+
 ## v249 (2026-11-09) - the proforma is AI-ONLY: the bare "YOUR SHOPPING LIST" editor and the Find/Compare/Plan tabs are gone
 User: "remove this" (+ screenshot of the bare tool: the "YOUR SHOPPING LIST"
 title, the Visiting from/to date pickers, the "Add your own item" box with

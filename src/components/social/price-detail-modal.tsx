@@ -1078,8 +1078,6 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     <a
                       data-testid="detail-directions"
                       href={mapsDirectionsUrl(post.latitude, post.longitude)}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                     >
                       <Navigation className="w-3.5 h-3.5" aria-hidden="true" />

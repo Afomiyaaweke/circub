@@ -15,6 +15,17 @@
  * safe amount, the budget locator and the other places worth checking.
  * No list editor, no date pickers, no tabs anywhere.
  *
+ * v250 - MORE THAN ONE LOCATION + THE POSTERS (user: "show the posters
+ * on the proforma too ... make the location to take more than one
+ * location"): the WHERE step now takes SEVERAL places - the community
+ * chips toggle and the typed input ADDS one place at a time ("Add place
+ * too"). The first chosen place stays the PRIMARY stop (the headline
+ * stats, the trend and the safe line stay priced there); every other
+ * chosen place gets its own compared row ("Your N locations, compared").
+ * And the results card now shows the POSTERS: the real posts behind
+ * these numbers, each with the poster's name, avatar initials, place
+ * and helpful votes - your own chosen stops first.
+ *
  * Everything is still priced from the REAL price posts on circubAwd (the
  * public /api/local-prices feed - the same posts the Local tab shows; no
  * synthetic numbers anywhere):
@@ -37,7 +48,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRightLeft, CalendarDays, Compass, Lightbulb, Loader2, MapPin, Pencil,
-  Sparkles, ThumbsUp, TrendingDown, TrendingUp, Wallet, X,
+  Sparkles, ThumbsUp, TrendingDown, TrendingUp, Users, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -79,6 +90,8 @@ const LIST_CHIP_LIMIT = 8 // suggested-item choices (most-posted products)
 const MAX_CUSTOM_ITEMS = 12 // typed items cap - keeps the results walkable
 const BUDGET_ROWS = 6 // budget-locator place rows before the cut
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
+const POSTER_ROWS = 6 // v250 poster rows shown behind the numbers
+const MAX_PLACES = 6 // v250 chosen locations cap - keeps the recap walkable
 
 // Quantities are not part of the AI conversation - every item counts as 1.
 // (The totals math still takes a quantities map; this keeps it honest.)
@@ -99,6 +112,18 @@ function money(n: number, cur: string): string {
 
 function shortOf(placeKey: string): string {
   return placeKey.split(',')[0]
+}
+
+// v250: avatar initials for a poster name (falls back to ?).
+function initialsOf(name: string): string {
+  const ini = (name || '')
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+  return ini || '?'
 }
 
 // Local yyyy-mm-dd of a Date - native date inputs speak THIS zone, not UTC.
@@ -133,7 +158,23 @@ export function CompassPriceTools() {
   const [visitTo, setVisitTo] = useState('')
   const [onItems, setOnItems] = useState<Record<string, boolean>>({})
   const [customItems, setCustomItems] = useState<string[]>([])
-  const [myPlace, setMyPlace] = useState('')
+  // v250 (user: "make the location to take more than one location"): the
+  // shopping proforma takes SEVERAL places - the WHERE chips toggle and
+  // the typed input adds one place at a time. The FIRST chosen place is
+  // the primary stop (the headline stats and the safe line are priced
+  // there); every other chosen place gets its own compared row.
+  const [myPlaces, setMyPlaces] = useState<string[]>([])
+  const myPlace = myPlaces[0] || ''
+  const togglePlace = (key: string) =>
+    setMyPlaces((prev) =>
+      prev.some((p) => p.toLowerCase() === key.toLowerCase())
+        ? prev.filter((p) => p.toLowerCase() !== key.toLowerCase())
+        : prev.length >= MAX_PLACES
+          ? prev
+          : [...prev, key],
+    )
+  const choosePrimary = (key: string) =>
+    setMyPlaces((prev) => [key, ...prev.filter((p) => p.toLowerCase() !== key.toLowerCase())])
   const [budget, setBudget] = useState('')
   // v246 AI-ASKING SETUP (user: "make the proforma like AI asking location
   // items date and budget with list"): the panel OPENS as a guided
@@ -317,7 +358,7 @@ export function CompassPriceTools() {
   useEffect(() => {
     if (!model) return
     if (!currency && model.currencies.length) setCurrency(model.currencies[0])
-    setMyPlace((prev) => prev || model.places[0]?.key || '')
+    setMyPlaces((prev) => (prev.length ? prev : model.places[0]?.key ? [model.places[0].key] : []))
   }, [model, currency])
 
   // Remove an item from the RESULTS recap (the x on a recap chip). Typed
@@ -360,17 +401,23 @@ export function CompassPriceTools() {
     setAskNewItem('')
   }
 
-  // v248: commit the typed location from the WHERE step - a case-insensitive
-  // match with a place the community has posted snaps onto that canonical
-  // key so its real stats light up; anything else is kept as typed and the
-  // tools stay honest. Then the conversation moves on to the list question.
+  // v248 typed location input - v250 it ADDS one place at a time so the
+  // proforma can take several locations (the conversation moves on with
+  // the Continue button). Same snap contract as the chips: a
+  // case-insensitive match with a place the community has posted snaps
+  // onto that canonical key so its real stats light up; anything else is
+  // kept as typed and the tools stay honest.
   const applyAskPlace = () => {
     const raw = askPlace.trim().replace(/\s+/g, ' ').slice(0, 80)
     if (!raw) return
     const known = model?.places.find((p) => p.key.toLowerCase() === raw.toLowerCase())
-    setMyPlace(known ? known.key : raw)
+    const key = known ? known.key : raw
+    setMyPlaces((prev) =>
+      prev.some((p) => p.toLowerCase() === key.toLowerCase()) || prev.length >= MAX_PLACES
+        ? prev
+        : [...prev, key],
+    )
     setAskPlace('')
-    setAskStep(2)
   }
 
   // Commit the answered list into the state the results card prices: community
@@ -481,11 +528,51 @@ export function CompassPriceTools() {
   const others =
     model && !emptyList && myTotals
       ? model.places
-          .filter((p) => p.key !== myPlace)
+          .filter((p) => !myPlaces.some((mp) => mp.toLowerCase() === p.key.toLowerCase()))
           .map((p) => ({ ...p, total: model.totals(p.key, chosenNames, NO_QTY)?.av ?? null }))
           .filter((o) => o.total != null)
           .sort((a, b) => (a.total as number) - (b.total as number))
           .slice(0, 3)
+      : []
+
+  // v250 YOUR LOCATIONS compared: every chosen place priced for the list,
+  // so a multi-stop trip shows which of YOUR stops is cheapest. The
+  // headline stats stay priced at the primary (first) stop.
+  const myPlaceRows =
+    model && myPlaces.length > 1
+      ? myPlaces.map((key) => ({
+          key,
+          short: shortOf(key),
+          t: model.totals(key, chosenNames, NO_QTY),
+        }))
+      : []
+  const pricedMine = myPlaceRows.filter((r) => r.t != null)
+  const cheapestMineKey =
+    pricedMine.length > 1
+      ? pricedMine.reduce((a, b) => (b.t!.av < a.t!.av ? b : a)).key
+      : null
+
+  // v250 THE POSTERS: the real posts behind the numbers - each with its
+  // poster (name + avatar initials + how many local posts they have).
+  // The user's own chosen stops come first, then most-endorsed, then
+  // newest. Honest scope: only posts that price an item on the list, in
+  // the proforma's currency - no invented rows.
+  const posterPosts =
+    model && !emptyList
+      ? model.inCur
+          .filter((p) => chosenNames.includes(p.productName.trim()))
+          .map((p) => ({
+            post: p,
+            place: model.placeOf(p),
+            mine: myPlaces.some((mp) => mp.toLowerCase() === model.placeOf(p).toLowerCase()),
+          }))
+          .sort(
+            (a, b) =>
+              Number(b.mine) - Number(a.mine) ||
+              (b.post.helpfulCount || 0) - (a.post.helpfulCount || 0) ||
+              new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime(),
+          )
+          .slice(0, POSTER_ROWS)
       : []
 
   // Budget locator: once a budget is written, locate WHERE the best
@@ -628,20 +715,22 @@ export function CompassPriceTools() {
                 </div>
               </div>
 
-              {/* ---- 1 WHERE ---- */}
+              {/* ---- 1 WHERE (v250: takes MORE THAN ONE location) ---- */}
               {askStep === 1 && (
                 <div className="space-y-2" data-testid="ask-step-where">
-                  <p className="text-sm text-foreground"><span className="font-bold">Where</span> are you shopping?</p>
+                  <p className="text-sm text-foreground">
+                    <span className="font-bold">Where</span> are you shopping? Pick one place - or as many as you like.
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {model.places.slice(0, 6).map((pl) => {
-                      const on = myPlace === pl.key
+                      const on = myPlaces.some((p) => p.toLowerCase() === pl.key.toLowerCase())
                       return (
                         <button
                           type="button"
                           key={pl.key}
                           data-testid="ask-where-chip"
                           aria-pressed={on}
-                          onClick={() => { setMyPlace(pl.key); setAskStep(2) }}
+                          onClick={() => togglePlace(pl.key)}
                           className={cn(chipBase, on ? chipOn : chipOff)}
                         >
                           <MapPin className="w-3 h-3 mr-1 inline shrink-0" />
@@ -650,10 +739,10 @@ export function CompassPriceTools() {
                       )
                     })}
                   </div>
-                  {/* v248: a real location INPUT - type any city, market or
-                      neighbourhood; a known community place snaps onto its
-                      real prices, anything else is kept as typed and the
-                      tools stay honest (never invented numbers). */}
+                  {/* v248 typed input, v250 multi: each committed place JOINS
+                      the chosen set (a known community place snaps onto its
+                      real prices, anything else stays typed and honest) and
+                      the input clears so the next place can be typed. */}
                   <div className="flex items-center gap-1.5">
                     <Input
                       type="text"
@@ -663,7 +752,7 @@ export function CompassPriceTools() {
                       onChange={(e) => setAskPlace(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyAskPlace() } }}
                       data-testid="ask-where-input"
-                      aria-label="Type your shopping location"
+                      aria-label="Type a shopping location"
                       className="h-8 min-w-[10rem] flex-1 text-sm bg-card"
                     />
                     <button
@@ -673,16 +762,26 @@ export function CompassPriceTools() {
                       disabled={!askPlace.trim()}
                       className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
                     >
-                      Use this place
+                      {myPlaces.length ? 'Add place too' : 'Use this place'}
                     </button>
                   </div>
+                  {myPlaces.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground" data-testid="ask-where-count">
+                      {myPlaces.length} location{myPlaces.length === 1 ? '' : 's'} chosen - the first one is the main stop.
+                    </p>
+                  )}
                   <button
                     type="button"
                     data-testid="ask-where-next"
-                    onClick={() => setAskStep(2)}
+                    onClick={() => {
+                      if (!myPlaces.length && model.places[0]) setMyPlaces([model.places[0].key])
+                      setAskStep(2)
+                    }}
                     className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                   >
-                    Somewhere else - keep going →
+                    {myPlaces.length > 1
+                      ? `Continue with ${myPlaces.length} locations →`
+                      : 'Next: what is on the list? →'}
                   </button>
                 </div>
               )}
@@ -863,9 +962,29 @@ export function CompassPriceTools() {
               >
                 {/* ---- the four answers, each re-openable ---- */}
                 <div className="flex items-center gap-2 flex-wrap text-sm text-foreground">
-                  <span className="inline-flex items-center gap-1.5 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
                     <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <b className="truncate max-w-[14rem]">{myShort}</b>
+                    {myPlaces.length > 1 ? (
+                      <span className="flex gap-1 flex-wrap items-center">
+                        {myPlaces.map((p, i) => (
+                          <span
+                            key={p}
+                            data-testid="proforma-where-chip"
+                            title={i === 0 ? 'Main stop' : 'Extra stop'}
+                            className={cn(
+                              'rounded-full px-2 py-0.5 text-xs font-bold',
+                              i === 0
+                                ? 'bg-primary/10 text-primary border border-primary/30'
+                                : 'bg-accent text-foreground border border-border',
+                            )}
+                          >
+                            {shortOf(p)}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <b className="truncate max-w-[14rem]">{myShort}</b>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -1024,6 +1143,124 @@ export function CompassPriceTools() {
                     None of your list items have prices at {myShort} yet - post one from the composer
                     and the numbers appear here. Nothing is invented.
                   </p>
+                )}
+
+                {/* v250 YOUR LOCATIONS compared - every chosen stop priced
+                    for the list, cheapest of yours badged; tap Shop here to
+                    make a stop the primary one (the headline stats follow). */}
+                {myPlaceRows.length > 1 && (
+                  <div
+                    className="rounded-xl border border-border bg-primary/5 p-3.5"
+                    data-testid="compass-my-places"
+                  >
+                    <h5 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-primary shrink-0" />
+                      Your {myPlaces.length} locations, compared
+                    </h5>
+                    <div className="mt-2 divide-y divide-border" data-testid="compass-my-place-list">
+                      {myPlaceRows.map((r) => {
+                        const isPrimary = r.key === myPlace
+                        const isCheapest = r.key === cheapestMineKey
+                        return (
+                          <div
+                            key={r.key}
+                            className="py-2 flex items-center gap-2.5 min-w-0"
+                            data-testid="compass-my-place-row"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1.5">
+                                <span className="truncate">{r.short}</span>
+                                {isPrimary && (
+                                  <span className="shrink-0 rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                    Main stop
+                                  </span>
+                                )}
+                                {isCheapest && (
+                                  <span className="shrink-0 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    Cheapest of yours
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {r.t
+                                  ? `Typical ${money(r.t.av, cur)} · low ${money(r.t.lo, cur)} - high ${money(r.t.hi, cur)}`
+                                  : 'No prices for this list here yet'}
+                              </p>
+                            </div>
+                            {!isPrimary && r.t && (
+                              <button
+                                type="button"
+                                onClick={() => choosePrimary(r.key)}
+                                className="shrink-0 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                              >
+                                Shop here
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* v250 THE POSTERS on the proforma (user: "show the posters
+                    on the proforma too"): the real posts behind these
+                    numbers, each with its poster - avatar initials, name,
+                    local post count, place and helpful votes. Nothing is
+                    invented: rows render only when real posts back the
+                    list, your own chosen stops first. */}
+                {posterPosts.length > 0 && (
+                  <div
+                    className="rounded-xl border border-border bg-card/60 p-3.5"
+                    data-testid="compass-posters"
+                  >
+                    <h5 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                      <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+                      The posters behind these prices
+                    </h5>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Real people who posted the prices your proforma uses.
+                    </p>
+                    <div className="mt-1 divide-y divide-border" data-testid="compass-poster-list">
+                      {posterPosts.map(({ post: pp, place, mine }) => (
+                        <div
+                          key={pp.id}
+                          className="py-2 flex items-center gap-2.5 min-w-0"
+                          data-testid="compass-poster-row"
+                        >
+                          <span className="w-7 h-7 rounded-full bg-slate-900 dark:bg-primary text-white flex items-center justify-center font-black text-[10px] shrink-0">
+                            {initialsOf(pp.author.name)}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-foreground truncate flex items-center gap-1.5">
+                              <span className="truncate" data-testid="compass-poster-name">
+                                {pp.author.name || 'Local hustler'}
+                              </span>
+                              {pp.author.localPostCount ? (
+                                <span className="shrink-0 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                  · {pp.author.localPostCount} post{pp.author.localPostCount === 1 ? '' : 's'}
+                                </span>
+                              ) : null}
+                              {mine && (
+                                <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-primary/10 border border-primary/30 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  your stop
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {pp.productName} · {shortOf(place)}
+                              {pp.helpfulCount ? ` · ${pp.helpfulCount} helpful` : ''}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-sm font-bold text-foreground">
+                            {money(model.priceOf(pp), cur)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {myTotals && mover && (
@@ -1216,7 +1453,7 @@ export function CompassPriceTools() {
                       <button
                         type="button"
                         data-testid="compass-budget-locate-switch"
-                        onClick={() => setMyPlace(budgetBest.key)}
+                        onClick={() => choosePrimary(budgetBest.key)}
                         className="mt-2 rounded-full border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
                       >
                         Shop at {budgetBest.short} instead
@@ -1257,7 +1494,7 @@ export function CompassPriceTools() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => setMyPlace(o.key)}
+                              onClick={() => choosePrimary(o.key)}
                               className={cn(
                                 'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
                                 diff < 0

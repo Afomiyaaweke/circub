@@ -6,8 +6,11 @@
  *
  * - While identifying: pulsing "looking for similar prices" row
  * - On result: AI-identified chip + location price range + the closest
- *   matching posts (name, place, price range), so the user can price
- *   their product against the feed BEFORE publishing.
+ *   matching posts (name, place, price range AND the poster's name), so
+ *   the user can price their product against the feed BEFORE publishing.
+ *   v250 (user: "show the posters on the proforma too"): every similar
+ *   post row now shows WHO posted it - the same poster identity the
+ *   feed cards carry.
  */
 
 import { Sparkles, MapPin, TrendingUp, PackageSearch, BadgeCheck } from 'lucide-react'
@@ -88,7 +91,10 @@ export function ComparePreview({
                 </p>
                 <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
-                  {[m.city, m.country].filter(Boolean).join(', ') || 'Unknown location'}
+                  <span className="truncate">
+                    {[m.city, m.country].filter(Boolean).join(', ') || 'Unknown location'}
+                    {m.author?.name ? ` · posted by ${m.author.name}` : ''}
+                  </span>
                 </p>
               </div>
               <p className="text-sm font-semibold text-primary shrink-0">
