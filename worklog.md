@@ -371,6 +371,43 @@ re-work needed.
 - Screenshots download/task241_search_{mobile,desktop}.png ('coffee' ->
   10 of 20 posts, See All appears).
 
+## v247 (2026-11-08) - composer becomes ONLY the AI proforma, category only, unit while entering price
+User: "remove this" (Coffee Set / Habesha Dress / Airport Ride / Meal / More chip row) + "remove this
+make it catagory only and add unit while entering price and make the profoma like only the ai and
+make the locaion input remove the rest".
+
+- COMPOSER = AI CONVERSATION (`create-price-post-modal.tsx`): the form wall is gone. The posting
+  flow is now one chat transcript with a Sparkles avatar asking ONE question at a time:
+  1 WHERE (one plain "City, Country" input) -> 2 WHAT (item name + product/service + category) ->
+  3 PRICE (paid price, with "+ Edit ask" for the initial asking price) -> 4 review card with the
+  photo, story toggle, optional details (description, price list paste, pack/unit, tip, shop
+  owner, contacts) and the Drop button. Each answered question stays in the transcript with an
+  Edit button that reopens that question; camera-search prefill lands directly on the review card
+  (or the first unanswered question); a restored draft lands on the first gap. All testids from
+  the old flow survive (composer-back, composer-location-input, photo-drop, currency-*, price-list-*
+  , owns-shop-*, also-story-*, composer-publish...); new ai-proforma / ai-ask-{where,what,price} /
+  ai-answer-{where,what,price} / ai-review testids carry the probes.
+- REMOVE (user: "remove this" x2): the QUICK_CHIPS row (Coffee Set / Habesha Dress / Airport Ride /
+  Meal / More) is deleted together with its showAllCats state; the GpsCapture block and the GPS
+  badge are gone from the flow; the neighborhood/market inputs are gone (the API columns still
+  ride the payload, empty). The "make it category only" ask is the next line.
+- CATEGORY ONLY (`category-select.tsx`): the v246 creative section (7 icon tiles over subcategory
+  chips) is replaced by ONE flat wrap of all 31 canonical categories as chips (selected = filled
+  pill). Stored values, legacy aliases and the compare tables are untouched; historic testids
+  survive (category-section, category-select), chips carry category-chip. All four modals that
+  render the picker get the same flat list.
+- UNIT WHILE ENTERING PRICE: the paid-price input now shows the currency unit right beside the
+  number, live (composer-price-unit pill, ETB by default); the ETB/USD/... segmented switch still
+  swaps the unit, and the full 23-currency select stays behind the ... pill.
+- DATE NOTE: LocalPricePost has no user-facing date column, so the composer conversation asks
+  where / what / price only - dates stay where they really exist: bounty deadlines (optional
+  since v245) and the Compass proforma visit dates (v246). Nothing is fabricated into free text.
+- Probes: new task247_composer_ai_probe.py 22/22 (conversation end-to-end incl. a REAL publish on
+  :3100 + API cleanup + zero page errors); task246_proforma_search_probe.py section 3 rewritten
+  for the composer (37/37); task245_bounty_ui_probe.py sections 1-2 updated to the v246 icon-only
+  search contract (17/17); task239_probe.py 30/30 (markers -> v247). tsc 20 baseline, zero new;
+  clean build exit 0; sw.js circub-v247.
+
 ## v246 (2026-11-08) - creative category section, proforma asks like AI, icon-only search everywhere
 User: "have creative catagory sessesion and have unit forfor the make the proforma like ai asking
 location items date and budget with list and make all the search only icon not a bar everywhere"

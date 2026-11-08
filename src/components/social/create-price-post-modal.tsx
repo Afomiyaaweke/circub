@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Upload, MapPin, Lightbulb, Camera, Sparkles, FileText, Loader2, ListX, Rocket, ChevronDown, ChevronLeft, Zap } from 'lucide-react'
+import { X, MapPin, Lightbulb, Camera, Sparkles, FileText, Loader2, ListX, Rocket, ChevronDown, ChevronLeft, Zap } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -29,7 +29,6 @@ import { MEASURE_UNITS } from '@/lib/product-units'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import { PRICE_LIST_EXAMPLE } from '@/lib/price-list-example'
 import { ComparePreview } from './compare-preview'
-import { GpsCapture } from './gps-capture'
 
 // Optional values carried over from the camera-search results panel - when
 // the AI identifies a product from a picture, "Post this product" opens this
@@ -54,20 +53,6 @@ interface CreatePricePostModalProps {
 }
 
 const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS', 'HKD', 'AED', 'ZAR', 'CAD', 'SGD', 'THB', 'EGP', 'MAD']
-
-// v192 "Quick Price Drop" redesign: four one-tap category chips straight
-// from the user's mockup. Each chip maps to the REAL canonical category it
-// stores (the feed, filters and compare strips keep working unchanged) -
-// the chips are just a faster front door. 'More' reveals the full 31-category
-// picker; the picker also auto-reveals whenever the current category is not
-// one of the four chips (fresh open = 'Other', camera-search prefill, etc).
-const QUICK_CHIPS: { slug: string; emoji: string; label: string; category: string }[] = [
-  { slug: 'coffee-set', emoji: '☕', label: 'Coffee Set', category: 'Coffee & Cafés' },
-  { slug: 'habesha-dress', emoji: '👗', label: 'Habesha Dress', category: 'Clothing & Apparel' },
-  { slug: 'airport-ride', emoji: '🚕', label: 'Airport Ride', category: 'Transportation' },
-  { slug: 'meal', emoji: '🍲', label: 'Meal', category: 'Restaurants' },
-]
-const CHIP_CATEGORIES = QUICK_CHIPS.map((c) => c.category)
 
 // v192: the Draft button stores the half-filled form on THIS device so a
 // dropped post is never lost. Restored from the banner on the next open.
@@ -108,14 +93,17 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [description, setDescription] = useState('')
   // v123: ONE location input - "City, Country" separated by a comma
   // ("Addis Ababa, Ethiopia"). Parsed back into the API's separate
-  // city/country columns on save; the GPS button fills it automatically.
+  // city/country columns on save.
   const [location, setLocation] = useState('')
+  // v189 columns the API still takes - v247 removed their inputs from the
+  // flow (user: "make the location input remove the rest"), they simply
+  // stay empty and the payload shape is unchanged.
   const [neighborhood, setNeighborhood] = useState('')
   const [market, setMarket] = useState('')
   const [gpsLat, setGpsLat] = useState<number | null>(null)
   const [gpsLng, setGpsLng] = useState<number | null>(null)
-  // v192: the composer is an Ethiopian-market flow first - the mockup's
-  // segmented toggle starts on ETB. The full 23-currency list stays one tap
+  // v192: the composer is an Ethiopian-market flow first - the unit toggle
+  // starts on ETB. The full 23-currency list stays one tap
   // away ("⋯" pill / auto-revealed when the currency is neither ETB nor USD).
   const [currency, setCurrency] = useState('ETB')
   const [priceMin, setPriceMin] = useState('')
@@ -126,12 +114,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [contactWhatsApp, setContactWhatsApp] = useState('')
   // Does the poster OWN the shop/business this price belongs to? Owners get
   // a "Shop owner" badge on the published post - travelers know the price
-  // comes first-hand from the business itself. v189: the choice is a real
-  // CHECKBOX ("check point") - ticked = own shop, unticked = just sharing.
+  // comes first-hand from the business itself.
   const [ownsShop, setOwnsShop] = useState(false)
-  // v189: the shop name shown on the posts beside the badge (same column the
-  // bulk poster fills). Revealed when the ownership box is ticked; the parsed
-  // list's company header prefills it.
   const [shopOwnerName, setShopOwnerName] = useState('')
   // v189: "Price list text" - paste a whole price list (WhatsApp style) and
   // the SAME parser the bulk post uses pulls out every product + price line.
@@ -158,12 +142,17 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const fileRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // v192 Quick Price Drop UI state. Everything below is presentation only -
-  // none of it changes what gets posted.
+  // v247 AI PROFORMA (user: "make the proforma like only the ai"): the
+  // composer is a conversation, not a form wall. The assistant asks ONE
+  // question at a time - where, what, how much - each answer lands in the
+  // SAME state handleSave posts, and the last step is a review card with
+  // the publish button. 1 = where, 2 = what, 3 = price, 4 = review.
+  const [askStep, setAskStep] = useState(1)
+  // Presentation state kept from v192: the initial-asking-price reveal and
+  // the full currency list reveal.
   const [showAsk, setShowAsk] = useState(false) // "+ Edit ask" reveals the initial-asking-price input
-  const [showAllCats, setShowAllCats] = useState(false) // 'More' reveals the full category picker
   const [showAllCur, setShowAllCur] = useState(false) // '⋯' reveals the full currency list
-  const [detailsOpen, setDetailsOpen] = useState(false) // the "Optional details" collapsible
+  const [detailsOpen, setDetailsOpen] = useState(false) // the "Optional details" collapsible on the review card
   const [draftAvailable, setDraftAvailable] = useState(false)
   const [draftTs, setDraftTs] = useState<string | null>(null)
 
@@ -181,6 +170,24 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     // them into the single "City, Country" input.
     if (prefill.country || prefill.city) setLocation(joinLocationParts(prefill.city, prefill.country))
     if (prefill.imageUrl) setImageUrl(prefill.imageUrl)
+  }, [open, prefill])
+
+  // The conversation STARTS on the first question that is not already
+  // answered (camera prefill drops the user straight at the review card
+  // when it filled everything; a restored draft lands on the first gap).
+  useEffect(() => {
+    if (!open) return
+    if (!prefill) {
+      // No prefill: a manual reopen after the modal stayed mounted keeps
+      // whatever the user answered - land on the first unanswered question.
+      setAskStep(!location.trim() ? 1 : !productName.trim() ? 2 : !(priceMin.trim() || priceMax.trim()) ? 3 : 4)
+      return
+    }
+    const loc = Boolean(prefill.city || prefill.country) || location.trim() !== ''
+    const name = Boolean(prefill.productName) || productName.trim() !== ''
+    const price = (prefill.priceMin !== undefined && prefill.priceMin !== '') || (prefill.priceMax !== undefined && prefill.priceMax !== '') || priceMin.trim() !== '' || priceMax.trim() !== ''
+    setAskStep(loc && name && price ? 4 : loc && name ? 3 : loc ? 2 : 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, prefill])
 
   // v192 Draft: when the composer OPENS, check this device for a saved
@@ -228,6 +235,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
         if (typeof d.priceListText === 'string') setPriceListText(d.priceListText)
         if (Array.isArray(d.listRows)) setListRows(d.listRows)
         if (typeof d.alsoStory === 'boolean') setAlsoStory(d.alsoStory)
+        // Land the conversation on the first question the draft left open.
+        setAskStep(
+          !(d.location || '').trim() ? 1
+            : !(d.productName || '').trim() ? 2
+              : !(d.priceMin || '').trim() && !(d.priceMax || '').trim() ? 3
+                : 4,
+        )
         toast({ title: 'Draft restored', description: 'Pick up right where you left off.' })
       }
     } catch { /* corrupted draft - ignore */ }
@@ -281,10 +295,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setImageUrl('')
     setCompareResult(null)
     setComparing(false)
-    // v192 Quick Price Drop presentation state - every reopen starts clean,
-    // exactly like the mockup (details collapsed, ask hidden).
+    // v247 conversation state - every reopen starts on question one,
+    // details collapsed, ask hidden.
+    setAskStep(1)
     setShowAsk(false)
-    setShowAllCats(false)
     setShowAllCur(false)
     setDetailsOpen(false)
     setDraftAvailable(false)
@@ -319,7 +333,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setUploading(false)
 
     // Identify the product from the SAME photo and pull matching price
-    // posts - the form shows the comparison while the user finishes typing.
+    // posts - the review card shows the comparison before publishing.
     // Errors are non-fatal: the photo is already uploaded.
     setComparing(true)
     try {
@@ -377,7 +391,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       }
       setListRows(mapped)
       // The first row fills the form so a one-item list behaves like a
-      // normal single post (photo, GPS pin and the story banner still apply).
+      // normal single post (photo and the story banner still apply).
       const first = mapped[0]
       setProductName(first.productName)
       const raw = first.price.replace(/[^0-9.\-]/g, '')
@@ -410,8 +424,8 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           (company ? ` from ${company}` : '') +
           (contacts.length ? ` - ${contacts.length} contact${contacts.length !== 1 ? 's' : ''} detected` : '') +
           (mapped.length > 1
-            ? `. Publishing posts all ${mapped.length} as separate price posts - the location, category, currency, contacts and shop choice below apply to every row.`
-            : '. The first row filled the form below - publish it as a normal single price.')
+            ? `. Publishing posts all ${mapped.length} as separate price posts - the location, category, currency and contacts above apply to every row.`
+            : '. The first row filled the answers above - publish it as a normal single price.')
       )
     } catch (e) {
       toast({ title: 'Parse failed', description: (e as Error).message, variant: 'destructive' })
@@ -426,18 +440,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   }
 
   const handleSave = async () => {
-    // Guest users can't post prices - prompt them to register
-    if (typeof window !== 'undefined') {
-      // Check if the user is a guest by checking localStorage (set by page.tsx)
-      // Actually we can just try the API call - authFetch will handle the 401
-      // and dispatch the auth-expired event which shows the register modal.
-      // But for a better UX, let's check first.
-    }
     // v189: with TWO or more parsed price-list rows the composer publishes
     // the whole list through the bulk endpoint - one price post per row,
-    // every row carrying the form's location, category, currency, contacts
-    // and the shop-owner choice. Photo, GPS pin, local tip and the story
-    // banner stay single-post features (the pin DOES ride every row).
+    // every row carrying the conversation's location, category, currency
+    // and contacts. Photo, local tip and the story banner stay single-post
+    // features.
     const listMode = listRows.length >= 2
     // v178: ONE price is enough. The composer used to demand BOTH a min and
     // a max, so a user who knows a single price had to type it twice before
@@ -481,7 +488,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     if (!loc.country) {
       toast({
         title: 'Add the country',
-        description: 'Type the location as "City, Country" - e.g. Addis Ababa, Ethiopia - or tap the GPS button to fill it automatically.',
+        description: 'Type the location as "City, Country" - e.g. Addis Ababa, Ethiopia.',
         variant: 'destructive',
       })
       return
@@ -615,6 +622,15 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     onOpenChange(false)
   }
 
+  // ---- v247 conversation pieces (presentation only) ----
+  const minFilled = priceMin.trim() !== ''
+  const maxFilled = priceMax.trim() !== ''
+  const priceSummary = minFilled && maxFilled && priceMin !== priceMax
+    ? `${priceMin} - ${priceMax} ${currency}`
+    : `${(minFilled ? priceMin : maxFilled) || ''} ${currency}`.trim()
+
+  const nextBtnBase = 'inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* v178: the unvarianted max-w-3xl was silently beaten by the dialog
@@ -622,7 +638,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           bulk modal had before v177. sm:max-w-3xl wins the same variant key,
           and below lg (1024px) the composer takes the FULL SCREEN with the
           exact recipe the bulk modal shipped (all !important so the base
-          positioning can never win). */}
+          positioning can never cover the app's nav bars). */}
       <DialogContent className="sm:max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 md:p-8 gap-0 bg-[#f6f8f7] dark:bg-background max-lg:top-0! max-lg:bottom-0! max-lg:left-0! max-lg:right-0! max-lg:translate-x-0! max-lg:translate-y-0! max-lg:w-full! max-lg:max-w-none! max-lg:h-dvh! max-lg:max-h-none! max-lg:rounded-none! max-lg:border-0!">
         <DialogHeader className="mb-3">
           <div className="flex items-center gap-2.5">
@@ -648,7 +664,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             </span>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pl-[42px]">
-            {location.trim() || 'Addis Ababa, Ethiopia'} - share what something really costs. One drop publishes the price guide AND the product listing on your profile.
+            {location.trim() || 'Addis Ababa, Ethiopia'} - answer a few quick questions and I&apos;ll drop the price for you. One drop publishes the price guide AND the product listing on your profile.
           </DialogDescription>
         </DialogHeader>
 
@@ -665,504 +681,530 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             </div>
           )}
 
-          {/* v192 "Quick Price Drop" - the main card carries the FIVE things
-              a drop needs, in the mockup's order: where, what, how much,
-              the tip, who. Everything else lives in Optional details. */}
-          <div className="rounded-2xl bg-card border border-border shadow-sm p-4 sm:p-5 space-y-4" data-testid="quick-price-card">
-            {/* Location - ONE input ("City, Country"); the GPS button below
-                fills it from the pin, most posters never type it. */}
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
-              <MapPin className="w-4 h-4 shrink-0 text-emerald-600" />
-              <Input
-                data-testid="composer-location-input"
-                placeholder="e.g. Addis Ababa, Ethiopia"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 text-sm font-semibold"
-              />
-              {gpsLat != null && (
-                <span data-testid="gps-badge" className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">GPS</span>
-              )}
-            </div>
-            <GpsCapture
-              lat={gpsLat}
-              lng={gpsLng}
-              onChange={(lat, lng) => { setGpsLat(lat); setGpsLng(lng) }}
-              onPlaceResolved={(place) => setLocation(joinLocationParts(place.city, place.country))}
-            />
-
-            {/* WHAT DID YOU BUY / FIND? + the four quick chips from the
-                mockup. A chip stores its REAL canonical category; 'More'
-                (or any non-chip category, like the fresh-open 'Other')
-                reveals the full 31-category picker. */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-wide text-foreground">
-                What did you buy / find?{postType === 'SERVICE' ? ' (service)' : ''}
-              </label>
-              <Input
-                placeholder={postType === 'PRODUCT' ? 'e.g. Traditional Clay Coffee Set (Jebena)' : 'e.g. Airport taxi ride'}
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                className="h-11 rounded-xl text-base font-semibold"
-              />
-              <div className="flex items-center gap-2 flex-wrap" data-testid="quick-category-chips">
-                {QUICK_CHIPS.map((chip) => {
-                  const active = category === chip.category
-                  return (
-                    <button
-                      key={chip.slug}
-                      type="button"
-                      onClick={() => setCategory(chip.category)}
-                      data-testid={`quick-chip-${chip.slug}`}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 h-8 text-xs font-semibold transition-colors ${
-                        active
-                          ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
-                          : 'bg-muted/60 border-transparent text-muted-foreground hover:border-border hover:text-foreground'
-                      }`}
-                    >
-                      <span aria-hidden="true">{chip.emoji}</span>
-                      {chip.label}
-                    </button>
-                  )
-                })}
-                <button
-                  type="button"
-                  onClick={() => setShowAllCats((v) => !v)}
-                  data-testid="quick-chip-more"
-                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 h-8 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${(showAllCats || !CHIP_CATEGORIES.includes(category)) ? 'rotate-180' : ''}`} />
-                  More
-                </button>
-              </div>
-              {(showAllCats || !CHIP_CATEGORIES.includes(category)) && (
-                <CategorySelect value={category} onChange={setCategory} />
-              )}
+          {/* ============ v247 AI PROFORMA ============ */}
+          {/* ONLY the AI: the composer is one conversation. Each answered
+              question stays in the transcript (tap Edit to change it), the
+              current question is the open bubble, and the last step is the
+              review card with the publish button. Every answer lands in the
+              SAME state handleSave has always posted - nothing about the
+              data moved. */}
+          <div className="space-y-3" data-testid="ai-proforma">
+            {/* Assistant greeting */}
+            <div className="flex items-start gap-2.5">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shrink-0 shadow-sm">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <p className="text-sm text-foreground flex-1 pt-1.5">
+                Hi! I&apos;ll ask <span className="font-bold">three quick things</span> and publish the price for you.
+              </p>
             </div>
 
-            {/* PAID PRICE + photo - the mockup's price card and dashed photo
-                box, side by side on wide screens. ETB/USD segmented with the
-                full 23-currency list one tap away; the big number is the min
-                price, "+ Edit ask" reveals the initial-asking box (the max). */}
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_10rem] gap-3">
-              <div className="rounded-xl border border-border bg-background p-3.5 space-y-2" data-testid="paid-price-card">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Paid price *</span>
-                  <div className="flex items-center gap-0.5 rounded-full bg-muted p-0.5" data-testid="currency-segmented">
-                    {['ETB', 'USD'].map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setCurrency(c)}
-                        className={`px-2.5 h-6 rounded-full text-[11px] font-bold transition-all ${
-                          currency === c ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setShowAllCur((v) => !v)}
-                      data-testid="currency-more"
-                      title="More currencies"
-                      className={`px-2 h-6 rounded-full text-[11px] font-bold transition-all ${
-                        showAllCur || !['ETB', 'USD'].includes(currency) ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      ⋯
-                    </button>
+            {/* ---- Q1 WHERE ---- */}
+            {askStep === 1 ? (
+              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5" data-testid="ai-ask-where">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 shrink-0">
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">Where did you buy or find it?</p>
+                    <p className="text-[11px] text-muted-foreground">Type it as City, Country - e.g. Addis Ababa, Ethiopia.</p>
                   </div>
                 </div>
                 <Input
-                  type="number"
-                  placeholder="1500"
-                  value={priceMin}
-                  onChange={(e) => setPriceMin(e.target.value)}
-                  min="0"
-                  className="h-11 border-0 bg-transparent px-0 text-3xl font-extrabold shadow-none focus-visible:ring-0"
+                  data-testid="composer-location-input"
+                  placeholder="e.g. Addis Ababa, Ethiopia"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && location.trim()) { e.preventDefault(); setAskStep(2) } }}
+                  className="h-11 rounded-xl border-emerald-200 bg-emerald-50/60 text-sm font-semibold"
                 />
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground">
-                    Initial asked{priceMax ? `: ~${priceMax}` : ': not set'}
-                  </span>
-                  {(showAsk || priceMax) ? (
-                    <Input
-                      type="number"
-                      data-testid="composer-ask-input"
-                      placeholder="2200"
-                      value={priceMax}
-                      onChange={(e) => setPriceMax(e.target.value)}
-                      min="0"
-                      className="h-8 w-28 rounded-lg text-right text-sm"
-                    />
-                  ) : (
-                    <button type="button" onClick={() => setShowAsk(true)} data-testid="edit-ask" className="text-xs font-bold text-emerald-600 hover:text-emerald-700">
-                      + Edit ask
-                    </button>
-                  )}
+                <button
+                  type="button"
+                  data-testid="ai-where-next"
+                  disabled={!location.trim()}
+                  onClick={() => setAskStep(2)}
+                  className={nextBtnBase}
+                >
+                  Next: what did you get? →
+                </button>
+              </div>
+            ) : location.trim() ? (
+              <div className="flex items-center gap-2.5 pl-10" data-testid="ai-answer-where">
+                <span className="min-w-0 flex-1 rounded-xl bg-card border border-border px-3 py-2 text-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Where</span>
+                  <span className="block truncate font-semibold text-foreground">{location.trim()}</span>
+                </span>
+                <button type="button" onClick={() => setAskStep(1)} className="shrink-0 text-xs font-semibold text-primary hover:underline cursor-pointer">Edit</button>
+              </div>
+            ) : null}
+
+            {/* ---- Q2 WHAT (item + category only) ---- */}
+            {askStep === 2 ? (
+              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5" data-testid="ai-ask-what">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 shrink-0 text-sm" aria-hidden>🛍️</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">What did you buy or find?</p>
+                    <p className="text-[11px] text-muted-foreground">Name the item, then tap its category - that&apos;s the whole list.</p>
+                  </div>
                 </div>
-                {(showAllCur || !['ETB', 'USD'].includes(currency)) && (
-                  <Select value={currency} onValueChange={setCurrency}>
-                    <SelectTrigger className="w-full h-8 text-xs" data-testid="currency-full-select">
-                      <SelectValue placeholder="Currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                <Input
+                  data-testid="composer-item-input"
+                  placeholder={postType === 'PRODUCT' ? 'e.g. Traditional Clay Coffee Set (Jebena)' : 'e.g. Airport taxi ride'}
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  className="h-11 rounded-xl bg-card text-base font-semibold"
+                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPostType('PRODUCT')}
+                    className={`rounded-full px-3 h-7 text-xs font-bold transition-colors cursor-pointer ${
+                      postType === 'PRODUCT' ? 'bg-primary text-primary-foreground' : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Product
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPostType('SERVICE')}
+                    className={`rounded-full px-3 h-7 text-xs font-bold transition-colors cursor-pointer ${
+                      postType === 'SERVICE' ? 'bg-primary text-primary-foreground' : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Service
+                  </button>
+                </div>
+                {/* CATEGORY ONLY (v247): the flat canonical list, one wrap of
+                    chips - no quick-search row, no icon tiles, no subgroups. */}
+                <CategorySelect value={category} onChange={setCategory} />
+                <button
+                  type="button"
+                  data-testid="ai-what-next"
+                  disabled={!productName.trim()}
+                  onClick={() => setAskStep(3)}
+                  className={nextBtnBase}
+                >
+                  Next: how much? →
+                </button>
+              </div>
+            ) : productName.trim() ? (
+              <div className="flex items-center gap-2.5 pl-10" data-testid="ai-answer-what">
+                <span className="min-w-0 flex-1 rounded-xl bg-card border border-border px-3 py-2 text-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">What · {category}</span>
+                  <span className="block truncate font-semibold text-foreground">{productName.trim()}</span>
+                </span>
+                <button type="button" onClick={() => setAskStep(2)} className="shrink-0 text-xs font-semibold text-primary hover:underline cursor-pointer">Edit</button>
+              </div>
+            ) : null}
+
+            {/* ---- Q3 PRICE (with the unit while entering) ---- */}
+            {askStep === 3 ? (
+              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5" data-testid="ai-ask-price">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 text-sm shrink-0" aria-hidden>💰</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">How much did you pay?</p>
+                    <p className="text-[11px] text-muted-foreground">The unit sits right beside the number as you type.</p>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-card border border-border px-3.5 py-3" data-testid="paid-price-card">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Paid price *</span>
+                    <div className="flex items-center gap-0.5 rounded-full bg-muted p-0.5" data-testid="currency-segmented">
+                      {['ETB', 'USD'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setCurrency(c)}
+                          className={`px-2.5 h-6 rounded-full text-[11px] font-bold transition-all ${
+                            currency === c ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {c}
+                        </button>
                       ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <p className="text-[10px] text-muted-foreground/80">Got one price? Fill Paid price only - the max mirrors it on publish.</p>
-              </div>
-              <div>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
-                  ref={fileRef}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) handleUpload(f)
-                  }}
-                  className="hidden"
-                />
-                {imageUrl ? (
-                  <div className="relative w-full h-full min-h-[9rem] rounded-xl border border-dashed border-border overflow-hidden bg-accent/30">
-                    <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <Button variant="ghost" size="sm" className="absolute top-2 right-2 h-7 w-7 p-0 bg-card/90 hover:bg-card" onClick={() => { setImageUrl(''); setCompareResult(null) }} aria-label="Remove image">
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading || comparing}
-                    title="PNG, JPEG, WebP, GIF - max 5 MB"
-                    data-testid="photo-drop"
-                    className="w-full h-full min-h-[9rem] rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 px-3 py-4 flex flex-col items-center justify-center gap-1 text-center hover:border-emerald-400 transition-colors disabled:opacity-60"
-                  >
-                    <span className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <Camera className="w-5 h-5 text-emerald-600" />
-                    </span>
-                    <span className="text-sm font-bold text-foreground">
-                      {uploading ? 'Uploading...' : comparing ? 'Analyzing…' : 'Photo'}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {comparing ? 'AI finds similar prices' : 'Optional'}
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* TIP / STALL NOTE - the yellow sticky note from the mockup. */}
-            <div className="space-y-2">
-              <label className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
-                <Lightbulb className="w-3.5 h-3.5" />
-                Tip / Stall note
-              </label>
-              <Textarea
-                placeholder="Walk to Military Tera pottery section for best clay sets."
-                value={localTip}
-                onChange={(e) => setLocalTip(e.target.value)}
-                className="min-h-[56px] resize-y rounded-xl bg-amber-50 border-amber-200 placeholder:text-amber-700/50"
-              />
-            </div>
-
-            {/* WHO ARE YOU? - Scout (sharing a found price) vs Shop Owner
-                (first-hand stock). The Shop Owner chip contains the REAL
-                checkbox the flow has driven since v189 ("check point") - the
-                state, badge and shop-name reveal are unchanged. */}
-            <div className="space-y-2" data-testid="owns-shop-section">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <label className="text-xs font-bold uppercase tracking-wide text-foreground">Who are you?</label>
-                <div className="flex items-center gap-1 rounded-full bg-muted p-1" data-testid="owns-shop-row">
-                  <button
-                    type="button"
-                    onClick={() => setOwnsShop(false)}
-                    data-testid="owns-scout-chip"
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 h-8 text-xs font-bold transition-all ${
-                      !ownsShop ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <span aria-hidden="true">🎒</span> Scout
-                  </button>
-                  <label
-                    data-testid="owns-owner-chip"
-                    className={`relative inline-flex items-center gap-1.5 rounded-full px-3 h-8 text-xs font-bold cursor-pointer select-none transition-all ${
-                      ownsShop ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <span aria-hidden="true">🏪</span> Shop Owner
-                    <input
-                      type="checkbox"
-                      data-testid="owns-shop-checkbox"
-                      checked={ownsShop}
-                      onChange={(e) => setOwnsShop(e.target.checked)}
-                      className="absolute opacity-0 w-4 h-4"
-                      tabIndex={-1}
-                      aria-label="I own this shop"
-                    />
-                  </label>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {ownsShop
-                  ? 'These are your own first-hand prices - your posts carry the Shop owner badge on the feed.'
-                  : 'Scout = sharing a price you found. Posting your own stock? Pick Shop Owner - posts carry the Shop owner badge and travelers trust them more.'}
-              </p>
-              {ownsShop && (
-                <div className="space-y-1.5" data-testid="shop-owner-name-block">
-                  <label className="text-xs text-muted-foreground font-medium">Shop name (shown on the posts)</label>
-                  <Input
-                    data-testid="shop-owner-name-input"
-                    placeholder="e.g. Hilina Tech Trading PLC - auto-filled from the list header"
-                    value={shopOwnerName}
-                    onChange={(e) => setShopOwnerName(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    A parsed price list fills this from its company header - edit it before publishing if needed.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Share as story - ON by default; kept in the main flow. */}
-            <label
-              data-testid="also-story-row"
-              className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 cursor-pointer select-none"
-            >
-              <input
-                type="checkbox"
-                checked={alsoStory}
-                onChange={(e) => setAlsoStory(e.target.checked)}
-                className="mt-0.5 accent-emerald-600 w-4 h-4"
-                data-testid="also-story-checkbox"
-              />
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold text-foreground">Also share as a 24h story banner</span>
-                <span className="block text-[11px] text-muted-foreground mt-0.5">Your price appears in the stories strip at the top of the feed for 24 hours - like a banner shared with everyone.</span>
-              </span>
-            </label>
-          </div>
-
-          {/* Optional details - the mockup's collapsible card: catalog type,
-              description, the pasted price list, location extras, pack size
-              and contacts. Collapsed by default; the drop works without it. */}
-          <div className="rounded-2xl bg-card border border-border shadow-sm" data-testid="optional-details">
-            <button
-              type="button"
-              data-testid="optional-details-toggle"
-              aria-expanded={detailsOpen}
-              onClick={() => setDetailsOpen((v) => !v)}
-              className="w-full flex items-center justify-between gap-2 px-4 sm:px-5 py-3.5 text-sm font-semibold text-foreground"
-            >
-              Optional details (catalog, contact, unit)
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {detailsOpen && (
-              <div className="px-4 sm:px-5 pb-5 space-y-5">
-                {/* What are you posting about? */}
-                <div>
-                  <label className="text-xs text-muted-foreground font-medium mb-2 block">
-                    What are you posting about?
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setPostType('PRODUCT')}
-                      className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                        postType === 'PRODUCT'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-card text-muted-foreground border-border hover:bg-accent'
-                      }`}
-                    >
-                      Product
-                    </button>
-                    <button
-                      onClick={() => setPostType('SERVICE')}
-                      className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-                        postType === 'SERVICE'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-card text-muted-foreground border-border hover:bg-accent'
-                      }`}
-                    >
-                      Service
-                    </button>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground font-medium">Description (optional)</label>
-                  <Textarea
-                    placeholder="Brief description of the product or service..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="min-h-[60px] resize-y"
-                  />
-                </div>
-
-          {/* v189: Price list text - the SAME "Price list text" the bulk post
-              has. Paste a whole price list (WhatsApp style, any format), tap
-              Parse, and the parser fills the form - several products publish
-              as several separate price posts on Publish. */}
-          <div className="space-y-3 p-4 rounded-xl bg-accent/30 border border-border" data-testid="price-list-section">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <FileText className="w-4 h-4 text-primary" />
-              Price list text
-              <span className="text-xs font-normal text-muted-foreground">(optional - paste a whole price list like on the bulk post)</span>
-            </div>
-            <Textarea
-              data-testid="price-list-input"
-              placeholder={`Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\n${PRICE_LIST_EXAMPLE}`}
-              value={priceListText}
-              onChange={(e) => setPriceListText(e.target.value)}
-              className="font-mono text-xs min-h-[150px] bg-card"
-            />
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                type="button"
-                onClick={parsePriceList}
-                disabled={parsingList}
-                className="h-8 gap-1.5"
-                data-testid="price-list-parse"
-              >
-                {parsingList ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {parsingList ? 'Parsing...' : 'Parse price list'}
-              </Button>
-              {listHint && (
-                <p className="text-xs text-muted-foreground flex-1 min-w-[200px]" data-testid="price-list-hint">
-                  {listHint}
-                </p>
-              )}
-            </div>
-            {listRows.length > 0 && (
-              <div className="space-y-1.5" data-testid="price-list-rows">
-                <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border scrollbar-thin">
-                  {listRows.map((r, i) => (
-                    <div key={`${i}-${r.productName}`} className="flex items-center gap-2 px-2.5 py-1.5 text-xs" data-testid={`price-list-row-${i}`}>
-                      <span className="w-5 shrink-0 text-[10px] text-muted-foreground font-mono">{i + 1}.</span>
-                      <span className="flex-1 min-w-0 truncate text-foreground font-medium">
-                        {r.productName || <span className="text-muted-foreground font-normal">(no product name)</span>}
-                      </span>
-                      <span className="shrink-0 font-mono text-muted-foreground">{r.price}</span>
                       <button
                         type="button"
-                        onClick={() => removeListRow(i)}
-                        className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Remove this row"
-                        aria-label={`Remove ${r.productName || 'row ' + (i + 1)}`}
+                        onClick={() => setShowAllCur((v) => !v)}
+                        data-testid="currency-more"
+                        title="More currencies"
+                        className={`px-2 h-6 rounded-full text-[11px] font-bold transition-all ${
+                          showAllCur || !['ETB', 'USD'].includes(currency) ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                        }`}
                       >
-                        <X className="w-3 h-3" />
+                        ⋯
                       </button>
                     </div>
-                  ))}
+                  </div>
+                  {/* THE UNIT while entering price (v247): the currency sits
+                      beside the number, live - switch it with the toggle. */}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      placeholder="1500"
+                      value={priceMin}
+                      onChange={(e) => setPriceMin(e.target.value)}
+                      min="0"
+                      data-testid="composer-price-input"
+                      className="h-11 border-0 bg-transparent px-0 text-3xl font-extrabold shadow-none focus-visible:ring-0"
+                    />
+                    <span data-testid="composer-price-unit" className="shrink-0 rounded-lg bg-primary/10 border border-primary/30 px-2.5 py-1.5 text-sm font-extrabold text-primary">
+                      {currency}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 flex-wrap mt-1">
+                    <span className="text-xs text-muted-foreground">
+                      Initial asked{priceMax ? `: ~${priceMax}` : ': not set'}
+                    </span>
+                    {(showAsk || priceMax) ? (
+                      <Input
+                        type="number"
+                        data-testid="composer-ask-input"
+                        placeholder="2200"
+                        value={priceMax}
+                        onChange={(e) => setPriceMax(e.target.value)}
+                        min="0"
+                        className="h-8 w-28 rounded-lg text-right text-sm"
+                      />
+                    ) : (
+                      <button type="button" onClick={() => setShowAsk(true)} data-testid="edit-ask" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+                        + Edit ask
+                      </button>
+                    )}
+                  </div>
+                  {(showAllCur || !['ETB', 'USD'].includes(currency)) && (
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger className="w-full h-8 text-xs mt-2" data-testid="currency-full-select">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/80 mt-1.5">Got one price? Fill Paid price only - the max mirrors it on publish.</p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setListRows([]); setListHint(null) }}
-                  className="text-[11px] text-muted-foreground underline hover:text-foreground inline-flex items-center gap-1"
-                  data-testid="price-list-clear"
+                  data-testid="ai-price-next"
+                  disabled={!minFilled && !maxFilled}
+                  onClick={() => setAskStep(4)}
+                  className={nextBtnBase}
                 >
-                  <ListX className="w-3 h-3" />
-                  Clear the parsed list - post a single price instead
+                  Next: review &amp; drop →
                 </button>
               </div>
-            )}
-          </div>
+            ) : (minFilled || maxFilled) ? (
+              <div className="flex items-center gap-2.5 pl-10" data-testid="ai-answer-price">
+                <span className="min-w-0 flex-1 rounded-xl bg-card border border-border px-3 py-2 text-sm">
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Price</span>
+                  <span className="block truncate font-semibold text-foreground">{priceSummary}</span>
+                </span>
+                <button type="button" onClick={() => setAskStep(3)} className="shrink-0 text-xs font-semibold text-primary hover:underline cursor-pointer">Edit</button>
+              </div>
+            ) : null}
 
-                {/* Location extras - neighborhood and the market/shop name */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium">Neighborhood</label>
-                    <Input
-                      placeholder="e.g. Mercato"
-                      value={neighborhood}
-                      onChange={(e) => setNeighborhood(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-muted-foreground font-medium">Market / Shop</label>
-                    <Input
-                      placeholder="e.g. Mercato Market"
-                      value={market}
-                      onChange={(e) => setMarket(e.target.value)}
-                    />
+            {/* ---- REVIEW + DROP ---- */}
+            {askStep === 4 && (
+              <div className="rounded-2xl bg-card border border-border shadow-sm p-4 sm:p-5 space-y-4" data-testid="ai-review">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shrink-0 shadow-sm">
+                    <Sparkles className="w-4 h-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">Here&apos;s your drop - ready when you are.</p>
+                    <p className="text-[11px] text-muted-foreground">Tap Edit on any answer to change it before publishing.</p>
                   </div>
                 </div>
 
-                {/* v124: marketplace details - the measuring unit stays the one
-                    dropdown, and the pack size is a number the user writes.
-                    Shown for products only (services have no unit). */}
-                {postType === 'PRODUCT' && (
-                  <div className="grid grid-cols-2 gap-3" data-testid="marketplace-details">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground font-medium">Pack size (quantity)</label>
-                      <Input
-                        type="number"
-                        placeholder="e.g. 2"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        min="0"
-                        data-testid="composer-quantity-input"
-                      />
-                      <p className="text-[11px] text-muted-foreground/80">
-                        How many units the pack holds - type any number.
-                      </p>
+                {/* PHOTO + story - the dashed photo box from the mockup.
+                    The AI reads the photo and pulls matching real prices. */}
+                <div>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                    ref={fileRef}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleUpload(f)
+                    }}
+                    className="hidden"
+                  />
+                  {imageUrl ? (
+                    <div className="relative w-full h-40 rounded-xl border border-dashed border-border overflow-hidden bg-accent/30">
+                      <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <Button variant="ghost" size="sm" className="absolute top-2 right-2 h-7 w-7 p-0 bg-card/90 hover:bg-card" onClick={() => { setImageUrl(''); setCompareResult(null) }} aria-label="Remove image">
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-muted-foreground font-medium">Measuring unit</label>
-                      <Select value={unit || 'each'} onValueChange={(v) => setUnit(v === 'each' ? '' : v)}>
-                        <SelectTrigger className="w-full" data-testid="composer-unit-select">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MEASURE_UNITS.map((u) => (
-                            <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[11px] text-muted-foreground/80">
-                        What the price refers to - e.g. 50 with &ldquo;per kg&rdquo; shows as 50 / kg.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading || comparing}
+                      title="PNG, JPEG, WebP, GIF - max 5 MB"
+                      data-testid="photo-drop"
+                      className="w-full rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 px-3 py-4 flex items-center justify-center gap-2 text-center hover:border-emerald-400 transition-colors disabled:opacity-60"
+                    >
+                      <span className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                        <Camera className="w-4 h-4 text-emerald-600" />
+                      </span>
+                      <span className="text-sm font-bold text-foreground">
+                        {uploading ? 'Uploading...' : comparing ? 'Analyzing…' : 'Add a photo (optional)'}
+                      </span>
+                    </button>
+                  )}
+                </div>
 
-                {/* Contact info */}
-                <div className="space-y-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
-                  <p className="text-xs font-semibold text-foreground">Contact info (optional)</p>
-                  <p className="text-[11px] text-muted-foreground">Travelers can reach you directly from this post.</p>
-                  <div className="space-y-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground">Phone number</label>
-                      <Input placeholder="+251 911 234 567" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                {/* AI identification + similar-posts comparison from the
+                    attached photo - price the product against the feed
+                    BEFORE publishing. */}
+                {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
+
+                {/* Share as story - ON by default. */}
+                <label
+                  data-testid="also-story-row"
+                  className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={alsoStory}
+                    onChange={(e) => setAlsoStory(e.target.checked)}
+                    className="mt-0.5 accent-emerald-600 w-4 h-4"
+                    data-testid="also-story-checkbox"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-foreground">Also share as a 24h story banner</span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">Your price appears in the stories strip at the top of the feed for 24 hours.</span>
+                  </span>
+                </label>
+
+                {/* Optional details - the power features live in ONE
+                    collapsible so the conversation stays the whole surface:
+                    description, the pasted price list, pack size + unit,
+                    the tip note, shop owner and contacts. */}
+                <div className="rounded-xl bg-accent/30 border border-border" data-testid="optional-details">
+                  <button
+                    type="button"
+                    data-testid="optional-details-toggle"
+                    aria-expanded={detailsOpen}
+                    onClick={() => setDetailsOpen((v) => !v)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-foreground"
+                  >
+                    Optional details (description, price list, contacts)
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {detailsOpen && (
+                    <div className="px-4 pb-4 space-y-5">
+                      {/* Description */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-muted-foreground font-medium">Description (optional)</label>
+                        <Textarea
+                          placeholder="Brief description of the product or service..."
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          className="min-h-[60px] resize-y"
+                        />
+                      </div>
+
+                      {/* TIP / STALL NOTE - the yellow sticky note. */}
+                      <div className="space-y-2">
+                        <label className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
+                          <Lightbulb className="w-3.5 h-3.5" />
+                          Tip / Stall note
+                        </label>
+                        <Textarea
+                          placeholder="Walk to Military Tera pottery section for best clay sets."
+                          value={localTip}
+                          onChange={(e) => setLocalTip(e.target.value)}
+                          className="min-h-[56px] resize-y rounded-xl bg-amber-50 border-amber-200 placeholder:text-amber-700/50"
+                        />
+                      </div>
+
+                      {/* v189: Price list text - paste a whole price list,
+                          tap Parse, several products publish as several
+                          separate price posts. */}
+                      <div className="space-y-3 p-4 rounded-xl bg-card border border-border" data-testid="price-list-section">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <FileText className="w-4 h-4 text-primary" />
+                          Price list text
+                          <span className="text-xs font-normal text-muted-foreground">(optional - paste a whole price list like on the bulk post)</span>
+                        </div>
+                        <Textarea
+                          data-testid="price-list-input"
+                          placeholder={`Any format works - bullet lists, dotted prices, phone lines, a company header. For example:\n\n${PRICE_LIST_EXAMPLE}`}
+                          value={priceListText}
+                          onChange={(e) => setPriceListText(e.target.value)}
+                          className="font-mono text-xs min-h-[150px] bg-card"
+                        />
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            type="button"
+                            onClick={parsePriceList}
+                            disabled={parsingList}
+                            className="h-8 gap-1.5"
+                            data-testid="price-list-parse"
+                          >
+                            {parsingList ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            {parsingList ? 'Parsing...' : 'Parse price list'}
+                          </Button>
+                          {listHint && (
+                            <p className="text-xs text-muted-foreground flex-1 min-w-[200px]" data-testid="price-list-hint">
+                              {listHint}
+                            </p>
+                          )}
+                        </div>
+                        {listRows.length > 0 && (
+                          <div className="space-y-1.5" data-testid="price-list-rows">
+                            <div className="max-h-44 overflow-y-auto rounded-lg border border-border bg-card divide-y divide-border scrollbar-thin">
+                              {listRows.map((r, i) => (
+                                <div key={`${i}-${r.productName}`} className="flex items-center gap-2 px-2.5 py-1.5 text-xs" data-testid={`price-list-row-${i}`}>
+                                  <span className="w-5 shrink-0 text-[10px] text-muted-foreground font-mono">{i + 1}.</span>
+                                  <span className="flex-1 min-w-0 truncate text-foreground font-medium">
+                                    {r.productName || <span className="text-muted-foreground font-normal">(no product name)</span>}
+                                  </span>
+                                  <span className="shrink-0 font-mono text-muted-foreground">{r.price}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeListRow(i)}
+                                    className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    title="Remove this row"
+                                    aria-label={`Remove ${r.productName || 'row ' + (i + 1)}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => { setListRows([]); setListHint(null) }}
+                              className="text-[11px] text-muted-foreground underline hover:text-foreground inline-flex items-center gap-1"
+                              data-testid="price-list-clear"
+                            >
+                              <ListX className="w-3 h-3" />
+                              Clear the parsed list - post a single price instead
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* v124: pack size + measuring unit (products only). */}
+                      {postType === 'PRODUCT' && (
+                        <div className="grid grid-cols-2 gap-3" data-testid="marketplace-details">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-muted-foreground font-medium">Pack size (quantity)</label>
+                            <Input
+                              type="number"
+                              placeholder="e.g. 2"
+                              value={quantity}
+                              onChange={(e) => setQuantity(e.target.value)}
+                              min="0"
+                              data-testid="composer-quantity-input"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-muted-foreground font-medium">Measuring unit</label>
+                            <Select value={unit || 'each'} onValueChange={(v) => setUnit(v === 'each' ? '' : v)}>
+                              <SelectTrigger className="w-full" data-testid="composer-unit-select">
+                                <SelectValue placeholder="Unit" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MEASURE_UNITS.map((u) => (
+                                  <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-muted-foreground/80">
+                              What the price refers to - e.g. 50 with &ldquo;per kg&rdquo; shows as 50 / kg.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* WHO ARE YOU? - Scout vs Shop Owner (real checkbox
+                          since v189). */}
+                      <div className="space-y-2" data-testid="owns-shop-section">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <label className="text-xs font-bold uppercase tracking-wide text-foreground">Who are you?</label>
+                          <div className="flex items-center gap-1 rounded-full bg-muted p-1" data-testid="owns-shop-row">
+                            <button
+                              type="button"
+                              onClick={() => setOwnsShop(false)}
+                              data-testid="owns-scout-chip"
+                              className={`inline-flex items-center gap-1.5 rounded-full px-3 h-8 text-xs font-bold transition-all cursor-pointer ${
+                                !ownsShop ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                            >
+                              <span aria-hidden="true">🎒</span> Scout
+                            </button>
+                            <label
+                              data-testid="owns-owner-chip"
+                              className={`relative inline-flex items-center gap-1.5 rounded-full px-3 h-8 text-xs font-bold cursor-pointer select-none transition-all ${
+                                ownsShop ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                            >
+                              <span aria-hidden="true">🏪</span> Shop Owner
+                              <input
+                                type="checkbox"
+                                data-testid="owns-shop-checkbox"
+                                checked={ownsShop}
+                                onChange={(e) => setOwnsShop(e.target.checked)}
+                                className="absolute opacity-0 w-4 h-4"
+                                tabIndex={-1}
+                                aria-label="I own this shop"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                        {ownsShop && (
+                          <div className="space-y-1.5" data-testid="shop-owner-name-block">
+                            <label className="text-xs text-muted-foreground font-medium">Shop name (shown on the posts)</label>
+                            <Input
+                              data-testid="shop-owner-name-input"
+                              placeholder="e.g. Hilina Tech Trading PLC - auto-filled from the list header"
+                              value={shopOwnerName}
+                              onChange={(e) => setShopOwnerName(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contact info */}
+                      <div className="space-y-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+                        <p className="text-xs font-semibold text-foreground">Contact info (optional)</p>
+                        <p className="text-[11px] text-muted-foreground">Travelers can reach you directly from this post.</p>
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-muted-foreground">Phone number</label>
+                            <Input placeholder="+251 911 234 567" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-muted-foreground">Email</label>
+                            <Input type="email" placeholder="you@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-muted-foreground">WhatsApp number or link</label>
+                            <Input placeholder="+251 911 234 567 or wa.me/..." value={contactWhatsApp} onChange={(e) => setContactWhatsApp(e.target.value)} />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground">Email</label>
-                      <Input type="email" placeholder="you@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground">WhatsApp number or link</label>
-                      <Input placeholder="+251 911 234 567 or wa.me/..." value={contactWhatsApp} onChange={(e) => setContactWhatsApp(e.target.value)} />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
-
-          {/* AI identification + similar-posts comparison from the attached
-              photo - lets the user price the product against the feed
-              BEFORE publishing. */}
-          {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
         </div>
 
-        {/* Footer - Draft saves the half-filled form on this device; the
-            green rocket button publishes. Pinned to the bottom of the sheet
-            while scrolling; the Drop button takes the full row on phones. */}
+        {/* Footer - Draft saves the half-filled conversation on this device;
+            the green rocket button publishes. Pinned to the bottom of the
+            sheet while scrolling; the Drop button takes the full row on
+            phones. */}
         <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 mt-6 flex items-center gap-3 pt-4 px-4 sm:px-6 md:px-8 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6 md:pb-8 bg-background/95 backdrop-blur-sm border-t border-border">
           <Button
             variant="outline"
