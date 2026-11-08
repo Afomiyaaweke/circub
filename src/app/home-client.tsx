@@ -21,7 +21,8 @@ import { useBackClose } from '@/lib/back-close'
 import { LanguageProvider } from '@/lib/i18n'
 
 // Lazy-load heavy tab components (only loaded when user switches to that tab)
-const FeedTab = lazy(() => import('@/components/social/feed-tab').then(m => ({ default: m.FeedTab })))
+// v252: FeedTab (Battle) removed - the Weekly Hustle Battle renders inside the
+// PROFILE's Battle strip cell now (quest-feed.tsx directly).
 const LocalFeedTab = lazy(() => import('@/components/social/local-feed-tab').then(m => ({ default: m.LocalFeedTab })))
 const LiveZoneTab = lazy(() => import('@/components/social/live-zone-tab').then(m => ({ default: m.LiveZoneTab })))
 const ProfileTab = lazy(() => import('@/components/social/profile-tab').then(m => ({ default: m.ProfileTab })))
@@ -91,11 +92,11 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // optimistically from cache/guest state immediately and let the
   // real auth check settle in the background.
   const [authChecked, setAuthChecked] = useState(false)
-  // v202: the app opens on the FEED - the Price Arena battle between price
-  // posters is the first thing on screen (user: 'change the feed completely
-  // to this and dont make it on the local'). Fresh visits start here; the
+  // v252: the app opens on the LOCAL feed (user: "remove the battle form the
+  // home page and start form the local") - the Battle tab is gone from the
+  // dock and lives in the Profile now; fresh visits land on Local. The
   // position memory below still restores the tab the user was really on.
-  const [activeTab, setActiveTab] = useState<TabKey>('feed')
+  const [activeTab, setActiveTab] = useState<TabKey>('local')
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
@@ -375,8 +376,9 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // render; an explicit refresh or a fresh visit starts clean at the default.
   useEffect(() => {
     const pos = recallPosition()
-    // 'feed' is the v202 default - restoring it would be a no-op; every other
-    // saved tab (incl. Local) still wins over the default.
+    // v252: 'feed' (Battle) is no longer a tab - old saved positions pointing
+    // at it fall back to the new default (Local). Every existing tab still
+    // wins over the default.
     if (!pos || pos.tab === 'feed') return
     setActiveTab(pos.tab)
     if (pos.tab === 'profile' && pos.section) {
@@ -604,12 +606,6 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
 
       <div className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-          {activeTab === 'feed' && (
-            <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <FeedTab user={me} onMessage={handleMessageUser} onRefreshUser={fetchMe} />
-            </Suspense>
-          )}
-
           {activeTab === 'local' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} />

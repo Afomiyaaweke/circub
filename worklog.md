@@ -1,5 +1,29 @@
 # circubAwd worklog
 
+## v252 (2026-11-09) - Battle out of the dock, into the profile; Top score gone; app opens on Local
+User: "remove the top scorer thing over all form the profile and put battle insted on it and
+remove the battle form the home page and start form the local".
+
+- PROFILE: the Top score strip cell (v140's TopPostersCard, `profile-top-score`) is REMOVED -
+  the third content cell is the BATTLE tab now (`battle`, Swords icon, `profile-battle`) and
+  it renders the full Weekly Hustle Battle via quest-feed.tsx (weekly XP duel, quest roadmap,
+  vote-to-match arena, Sticker Vault) with the same props the old Battle tab passed
+  (user/onMessage/onRefreshUser = onUserChanged). TopPostersCard survives in the desktop right
+  sidebar; the arena leaderboard API is untouched.
+- HOME PAGE: the Battle tab is GONE from the always-on dock AND the desktop nav pills - TABS
+  drops the `{ key: 'feed' }` entry, the dock grid is grid-cols-4 (Local / Link / Profile /
+  Feed) and the `nav-tab-feed`/`nav-pill-feed` destinations no longer exist. The FeedTab lazy
+  import + its `activeTab === 'feed'` render block are deleted from home-client (feed-tab.tsx
+  is now orphaned - QuestFeed is imported by profile-tab directly).
+- START FROM THE LOCAL: fresh visits open on the LOCAL feed (`useState<TabKey>('local')`, was
+  the v202 open-on-Battle default). Position memory still restores the user's real tab; old
+  saved 'feed' positions fall back to the new default (guard `pos.tab === 'feed'` kept).
+  ProfileSection union swaps 'topscore' -> 'battle' (profile reports its live contentType up
+  for the position memory); unknown/legacy sections already sanitize to 'posts'.
+- GATES: tsc 20 baseline (0 new); build exit 0; task239_probe.py 30/30 on :3100 (killed the
+  stale v251 next-server squatting the port again - EADDRINUSE made the first probe read the
+  OLD build); landing-version v252; sw.js circub-v252.
+
 ## v251 (2026-11-09) - small first, load more everywhere
 User: "make the loading fast every where load small first and load more".
 

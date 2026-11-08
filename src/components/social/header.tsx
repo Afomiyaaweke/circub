@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MapPin, Users, MessageSquare, Sparkles, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX, Globe, HelpCircle } from 'lucide-react'
+import { MapPin, Users, MessageSquare, Building2, LogOut, ChevronDown, UserCircle, Compass, Mail, Shield, FileText, UserX, Globe, HelpCircle } from 'lucide-react'
 import { NotificationBell } from '@/components/social/notification-bell'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -27,11 +27,14 @@ interface HeaderProps {
 
 // v225: the community feed ("Feed") is a REAL TAB now - it joined the TABS
 // list so the desktop pills AND the always-on bottom dock render it exactly
-// like Battle / Local / Link / Profile. nav.messages carries the "Feed"
+// like Local / Link / Profile. nav.messages carries the "Feed"
 // label (the old separate Feed button is gone - no more double entries).
+// v252: the Battle tab is GONE from the dock + desktop pills (user: "remove
+// the battle form the home page") - the Weekly Hustle Battle lives in the
+// PROFILE now, in the strip cell the Top score board used to hold, and the
+// app opens on Local.
 // labelKey - the i18n dictionary key for the tab label (translated at render).
 const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile' | 'nav.messages'; icon: typeof MapPin }[] = [
-  { key: 'feed', labelKey: 'nav.feed', icon: Sparkles },
   { key: 'local', labelKey: 'nav.local', icon: MapPin },
   { key: 'guides', labelKey: 'nav.link', icon: Compass },
   { key: 'profile', labelKey: 'nav.profile', icon: UserCircle },
@@ -351,8 +354,9 @@ export function Header({
       </div>
     </header>
 
-    {/* ALWAYS-ON bottom tab bar - the five destinations (Battle / Local /
-        Link / Profile / Feed). v229: removed from the WEB VIEW on desktop
+    {/* ALWAYS-ON bottom tab bar - the four destinations (Local / Link /
+        Profile / Feed; v252 removed Battle - it moved into the profile).
+        v229: removed from the WEB VIEW on desktop
         (lg+) per user request ("remove the footer icons from the web views")
         - the top header nav pills (nav-pill-*) are the desktop navigation;
         phones, tablets and the installed PWA keep the docked tab bar.
@@ -364,7 +368,7 @@ export function Header({
         className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border pb-[env(safe-area-inset-bottom)] lg:hidden"
         aria-label="Primary"
       >
-        <div className="grid grid-cols-5 lg:px-2 lg:py-1">
+        <div className="grid grid-cols-4 lg:px-2 lg:py-1">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.key

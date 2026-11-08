@@ -11,7 +11,7 @@
 // bfcache restores natively without any JS running, so nothing to do there.
 import type { TabKey } from '@/lib/types'
 
-export type ProfileSection = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore' | 'quests' | 'escrow'
+export type ProfileSection = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'battle' | 'quests' | 'escrow'
 
 export interface LastPosition {
   tab: TabKey

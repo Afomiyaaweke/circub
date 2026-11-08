@@ -11,7 +11,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
   AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Gem, Image as ImageIcon, Languages, LayoutGrid, Loader2,
-  Check, CheckCircle2, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Pencil, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, Trophy, UserCircle, Users, UserX, Video, X, Zap,
+  Check, CheckCircle2, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Pencil, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, UserCircle, Users, UserX, Video, X, Zap,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -36,7 +36,7 @@ import { RolePicker } from './role-picker'
 import { parseVideoUrl, splitVideoUrls, MAX_GUIDE_VIDEOS } from '@/lib/video'
 import { guideRolesOrLegacy, roleNoun, togglecircubawdRole, type circubawdRole } from '@/lib/roles'
 import { NetworkTab } from './network-tab'
-import { TopPostersCard } from './top-posters-card'
+import { QuestFeed } from './quest-feed'
 // v122: one unified composer - the profile's "Add product" flow now opens
 // the SAME Post-a-Price form the Local tab uses; a product price post
 // publishes the price guide AND the product listing in one save.
@@ -105,7 +105,7 @@ interface MyQuestClaimed {
   claimedAt: string; createdAt: string
 }
 
-type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'topscore' | 'quests' | 'escrow'
+type ContentType = 'posts' | 'listings' | 'products' | 'saved' | 'network' | 'battle' | 'quests' | 'escrow'
 type Deletable =
   | { kind: 'post'; id: string; label: string }
   | { kind: 'listing'; id: string; label: string }
@@ -134,12 +134,11 @@ const CONTENT_TABS: { key: ContentType; label: string; icon: typeof ImageIcon }[
   // three ways and made the profile feel emptier than it is.
   { key: 'posts', label: 'All', icon: LayoutGrid },
   { key: 'saved', label: 'Saved', icon: Bookmark },
-  // v140: the third strip cell used to be the v135 rating chip, which read
-  // as a bare "New" until the poster earned reviews or votes. The user
-  // wants the Top score board IN that cell instead ("make the top score in
-  // the new and rename it top score"): the chip is gone and this is a real
-  // tab now - selecting it renders the shared TopPostersCard below.
-  { key: 'topscore', label: 'Top score', icon: Trophy },
+  // v252: the strip cell the Top score board held is the BATTLE tab now
+  // (user: "remove the top scorer thing over all form the profile and put
+  // battle insted on it") - selecting it renders the Weekly Hustle Battle
+  // (quest-feed) in the content area below; the dock's Battle tab is gone.
+  { key: 'battle', label: 'Battle', icon: Swords },
   { key: 'network', label: 'Network', icon: Users },
   // v219: bounty management - posted quests + their applicants, and quests I
   // claimed (with the poster contact). Lives in the tab strip like the rest.
@@ -2266,9 +2265,9 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       </div>
 
       {/* ----------------------------------------------- content tab strip */}
-      {/* 4 tabs - All | Saved | Top score | Network. v140: the third cell was
-          the v135 rating chip (read as "New"); it is the Top score TAB now
-          and the board renders in the content area below when selected.
+      {/* 4 tabs - All | Saved | Battle | Network. v252: the third cell was
+          the Top score tab (v140); it is the BATTLE tab now and the Weekly
+          Hustle Battle renders in the content area below when selected.
           Labels hidden on phones (icon-only, like Instagram). */}
       <div className="max-w-2xl mx-auto mt-4 border-t border-border">
         <div className="flex">
@@ -2298,13 +2297,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
 
       {/* ------------------------------------------------------ manage grid */}
       <div className={cn('max-w-2xl mx-auto mt-1', contentType === 'posts' ? 'px-1 sm:px-6' : 'px-4 sm:px-6')}>
-        {contentType === 'topscore' ? (
-          /* v140: the board lives INSIDE the Top score tab - exactly the
-             strip cell where the old "New" rating chip was (user: "make
-             the top score in the new"). Same shared TopPostersCard the
-             desktop sidebar uses - one source of truth. */
-          <div className="py-4" data-testid="profile-top-score">
-            <TopPostersCard />
+        {contentType === 'battle' ? (
+          /* v252: the Weekly Hustle Battle lives INSIDE the profile now -
+             exactly the strip cell where the Top score board was (user:
+             "put battle insted on it"). The home dock's Battle tab is gone,
+             so this is the one place the arena/quest roadmap/sticker vault
+             render. Same QuestFeed the old Battle tab rendered. */
+          <div className="py-4" data-testid="profile-battle">
+            <QuestFeed user={me} onMessage={onMessage} onRefreshUser={onUserChanged} />
           </div>
         ) : contentType === 'quests' ? (
           /* v219: bounty management - applicants inbox + my claims. */
