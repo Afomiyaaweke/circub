@@ -13,7 +13,6 @@ import { AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Header } from '@/components/social/header'
 import { RightSidebar } from '@/components/social/right-sidebar'
-import { LandingPage, type LandingStats } from '@/components/social/landing-page'
 import { useToast } from '@/hooks/use-toast'
 import { AUTH_EXPIRED_EVENT } from '@/lib/auth-fetch'
 import { rememberPosition, recallPosition, type ProfileSection } from '@/lib/last-position'
@@ -61,24 +60,25 @@ function getCachedUser(): User | null {
   return null
 }
 
-export default function HomeClient({ stats = null }: { stats?: LandingStats | null }) {
+export default function HomeClient() {
   // LanguageProvider wraps the whole shell - landing AND dashboard - so the
   // chosen language applies to the entire app and persists across visits.
   return (
     <LanguageProvider>
-      <HomeInner stats={stats} />
+      <HomeInner />
     </LanguageProvider>
   )
 }
 
-function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
-  // v229 hydration fix: the server ALWAYS renders the landing (page.tsx is
-  // session-blind), so the client's FIRST render must be the landing too.
-  // Seeding `me` synchronously from the localStorage cache made returning
-  // members hydrate dashboard HTML into landing HTML - React error #418 and
-  // a full tree regeneration on EVERY repeat visit. The cache now applies
-  // right after hydration: still zero spinners, still effectively instant
-  // for returning users, and server/client finally agree on first paint.
+function HomeInner() {
+  // v229 hydration fix, v254 edition: the server renders the GUEST app
+  // shell (page.tsx is session-blind), so the client's FIRST render must be
+  // the guest shell too. Seeding `me` synchronously from the localStorage
+  // cache made returning members hydrate member HTML into guest HTML -
+  // React error #418 and a full tree regeneration on EVERY repeat visit.
+  // The cache now applies right after hydration: still zero spinners,
+  // still effectively instant for returning users, and server/client
+  // agree on first paint.
   const [me, setMe] = useState<User | null>(null)
   useEffect(() => {
     const cached = getCachedUser()
@@ -92,6 +92,18 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // optimistically from cache/guest state immediately and let the
   // real auth check settle in the background.
   const [authChecked, setAuthChecked] = useState(false)
+  // v254: the landing page is GONE (user: "remove the landing page and make
+  // user to see the page"). Guests land straight in the real app and are
+  // asked to sign up only when they try to ACT - post a price, post anything,
+  // apply for a bounty. Components that require a User object receive the
+  // guest viewer (id === 'guest', the legacy demo-viewer contract the tabs
+  // already key their isGuest branches off).
+  const viewer = me ?? ({
+    id: 'guest',
+    name: 'Guest',
+    avatarColor: 'slate',
+    postsCount: 0,
+  } as User)
   // v252: the app opens on the LOCAL feed (user: "remove the battle form the
   // home page and start form the local") - the Battle tab is gone from the
   // dock and lives in the Profile now; fresh visits land on Local. The
@@ -277,7 +289,9 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
       // trigger the "Session expired" bounce / login modal on top of it -
       // the modal's own Done flow signs the user out cleanly.
       if (deactivateOpen) return
-      const isGuest = me?.id === 'guest'
+      // v254: guests have me === null (no landing gate anymore) - they get
+      // the register ask, not the "session expired" bounce.
+      const isGuest = !me || me.id === 'guest'
       if (isGuest) {
         // Guest tried to do something that requires auth (post, vote, etc.)
         // Take them directly to registration - close everything else,
@@ -502,73 +516,9 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
   // a guaranteed multi-hundred-ms (or, on a cold serverless/DB start,
   // multi-second) blank wait for everyone.
 
-  // Logged-out → landing page
-  if (!me) {
-    return (
-      <>
-        {oauthErrorBanner}
-        <LandingPage
-          stats={stats}
-          onSignUp={() => setRegisterOpen(true)}
-          onLogin={() => setLoginOpen(true)}
-        />
-        <Suspense fallback={null}>
-          <RegisterModal
-            open={registerOpen}
-            onOpenChange={setRegisterOpen}
-            onAuthed={handleAuthed}
-            onSwitchToLogin={() => setLoginOpen(true)}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <LoginModal
-            open={loginOpen}
-            onOpenChange={setLoginOpen}
-            onAuthed={handleAuthed}
-            onSwitchToRegister={() => setRegisterOpen(true)}
-            onForgotPassword={() => setForgotOpen(true)}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <ForgotPasswordModal
-            open={forgotOpen}
-            onOpenChange={setForgotOpen}
-            onBackToSignIn={() => setLoginOpen(true)}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <ResetPasswordModal
-            open={!!resetToken}
-            onOpenChange={(o) => { if (!o) setResetToken(null) }}
-            token={resetToken || ''}
-            onDone={() => setLoginOpen(true)}
-          />
-        </Suspense>
-        {/* v117: shared price-post deep links (?post=<id>) must show the price
-            details even to logged-out visitors - render the detail modal (and
-            the author profile it links to) on the landing page as well. */}
-        <Suspense fallback={null}>
-          <PriceDetailModal
-            postId={localPriceId}
-            onClose={() => setLocalPriceId(null)}
-            onAuthorClick={setLocalProfileUserId}
-            onMessage={handleMessageUser}
-            currentUserId={null}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <LocalProfileModal
-            userId={localProfileUserId}
-            onClose={() => setLocalProfileUserId(null)}
-            onOpenPost={setLocalPriceId}
-            onMessage={handleMessageUser}
-            currentUserId={null}
-          />
-        </Suspense>
-      </>
-    )
-  }
-
+  // v254: NO landing gate - the dashboard below renders for guests and
+  // members alike. Guests browse everything; every write action asks for
+  // a free sign-up via the Register modal (onRequireSignUp / auth-expired).
   // Logged-in → dashboard
   // v235: the Link tab ('guides') renders like every other tab - the app
   // header, right sidebar, dock and page paddings are ALWAYS rendered and
@@ -584,7 +534,7 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           onTabChange={handleTabChange}
           onOpenMessages={handleOpenMessages}
           incomingInvitationsCount={me?.incomingInvitationsCount ?? 0}
-          user={me}
+          user={viewer}
           onSignUp={() => setRegisterOpen(true)}
           onLogin={() => setLoginOpen(true)}
           onLogout={handleLogout}
@@ -615,14 +565,14 @@ function HomeInner({ stats = null }: { stats?: LandingStats | null }) {
           {/* v235: the Link tab back in the normal content column (guides slot) */}
           {activeTab === 'guides' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LiveZoneTab me={me} onMessage={handleMessageUser} onJoinTalent={handleEditProfile} onToggleAvailability={handleToggleGuideAvailability} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} />
+              <LiveZoneTab me={me} onMessage={handleMessageUser} onJoinTalent={handleEditProfile} onToggleAvailability={handleToggleGuideAvailability} onRequireSignUp={() => setRegisterOpen(true)} highlightQuestId={questHighlight} onHighlightDone={() => setQuestHighlight(null)} />
             </Suspense>
           )}
 
           {activeTab === 'profile' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
               <ProfileTab
-                me={me}
+                me={viewer}
                 editSignal={editSignal}
                 initialSection={profileSection}
                 sectionBump={sectionBump}

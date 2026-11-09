@@ -48,6 +48,8 @@ interface LiveZoneTabProps {
   // inside the profile tab now (the old guide-register-modal is gone).
   onJoinTalent: () => void
   onToggleAvailability?: () => void
+  // v254: guests get the sign-up modal when they try to post or claim.
+  onRequireSignUp?: () => void
   // v227: shared bounties land on /?quest=<id> - the swipe deck scrolls to
   // and flashes that bounty, then the parent clears the highlight.
   highlightQuestId?: string | null
@@ -206,7 +208,7 @@ type QuestRow = {
 }
 
 
-export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onHighlightDone }: LiveZoneTabProps) {
+export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, highlightQuestId, onHighlightDone }: LiveZoneTabProps) {
   const router = useRouter()
   const [guides, setGuides] = useState<any[]>([])
   // Load part by part: render a small batch first, append more on scroll
@@ -968,6 +970,13 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
             <button
               type="button"
               onClick={() => {
+                // v254: posting a bounty needs an account - guests get the
+                // sign-up modal instead of the guest name+contact form.
+                if (!me) {
+                  if (onRequireSignUp) onRequireSignUp()
+                  toast({ title: 'Sign up to post', description: 'Create a free account to post bounties. It takes 10 seconds.' })
+                  return
+                }
                 // Opening the form fresh always means a NEW post - cancel any
                 // in-flight edit so stale pre-filled values don't leak in.
                 setShowQuestForm((v) => {
@@ -1311,7 +1320,15 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                               <Button
                                 size="sm"
                                 data-testid="bounty-claim"
-                                onClick={() => setClaimFor(q.id)}
+                                onClick={() => {
+                                  // v254: applying for a bounty needs an account.
+                                  if (!me) {
+                                    if (onRequireSignUp) onRequireSignUp()
+                                    toast({ title: 'Sign up to apply', description: 'Create a free account to claim bounties and get the poster\'s contact instantly.' })
+                                    return
+                                  }
+                                  setClaimFor(q.id)
+                                }}
                                 className="bg-primary hover:bg-primary/90 gap-1"
                               >
                                 Claim Bounty
@@ -1379,7 +1396,15 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                         <div className="flex flex-col items-center">
                           <button
                             type="button"
-                            onClick={() => setClaimFor(q.id)}
+                            onClick={() => {
+                              // v254: applying for a bounty needs an account.
+                              if (!me) {
+                                if (onRequireSignUp) onRequireSignUp()
+                                toast({ title: 'Sign up to apply', description: 'Create a free account to claim bounties and get the poster\'s contact instantly.' })
+                                return
+                              }
+                              setClaimFor(q.id)
+                            }}
                             data-testid="bounty-claim-bolt"
                             aria-label="Claim bounty"
                             className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
@@ -1396,6 +1421,12 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
                         <button
                           type="button"
                           onClick={() => {
+                            // v254: posting needs an account.
+                            if (!me) {
+                              if (onRequireSignUp) onRequireSignUp()
+                              toast({ title: 'Sign up to post', description: 'Create a free account to post bounties. It takes 10 seconds.' })
+                              return
+                            }
                             setShowQuestForm((v) => {
                               if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQCurrency('USD'); setQContact('') }
                               return true
@@ -1846,7 +1877,15 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, highlightQuestId, onH
               No one matches your filters. Try adjusting search, or be the first to join as a talent, local, volunteer or seller!
             </p>
             {!isGuide && (
-              <Button onClick={onJoinTalent} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
+              <Button onClick={() => {
+                // v254: joining the talent board needs an account.
+                if (!me) {
+                  if (onRequireSignUp) onRequireSignUp()
+                  toast({ title: 'Sign up to join', description: 'Create a free account to offer your services on the talent board.' })
+                  return
+                }
+                onJoinTalent()
+              }} className="mt-5 bg-primary hover:bg-primary/90 gap-1.5">
                 <Compass className="w-4 h-4" />
                 Become a talent
               </Button>

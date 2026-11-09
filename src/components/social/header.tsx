@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 import { LANGUAGES, useLanguage } from '@/lib/i18n'
 import type { TabKey, User } from '@/lib/types'
+import { APP_VERSION } from '@/lib/app-version'
 
 interface HeaderProps {
   activeTab: TabKey
@@ -141,6 +142,10 @@ export function Header({
   }, [])
 
   const isCompany = user?.accountType === 'COMPANY'
+  // v254: guests browse the app - they get the auth actions, members get
+  // the bell + account menu. The guest viewer (id === 'guest') counts as
+  // a guest here even though it makes nav + dock render.
+  const isGuestUser = !user || user.id === 'guest'
   // The demo viewer (id === 'guest', the old guest mode) has no account -
   // "Deactivate account" would 401-storm against the auth APIs, so the menu
   // omits it. "Sign out" stays: for the demo it simply ends the demo and
@@ -157,6 +162,9 @@ export function Header({
             alt="circubAwd"
             className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-md object-contain"
           />
+          <span data-testid="app-version" className="hidden sm:inline text-[10px] font-semibold text-muted-foreground/50">
+            {APP_VERSION}
+          </span>
           <div className="min-w-0 hidden xl:block">
             <p className="text-xs text-muted-foreground italic truncate">
               {isCompany ? `${user?.companyName || 'Company'} · Business account` : 'Local price intelligence for travelers'}
@@ -201,7 +209,7 @@ export function Header({
         )}
 
         {/* Auth actions */}
-        {!user ? (
+        {isGuestUser ? (
           <div className="flex items-center gap-0.5 sm:gap-1.5">
             <LanguageMenu />
             <ThemeToggle />
@@ -277,6 +285,7 @@ export function Header({
                   <Users className="w-4 h-4 text-muted-foreground" />
                   {t('header.myNetwork')}
                 </button>
+                {!isGuestUser && (
                 <button
                   onClick={() => {
                     setMenuOpen(false)
@@ -287,6 +296,7 @@ export function Header({
                   <MessageSquare className="w-4 h-4 text-muted-foreground" />
                   {t('nav.messages')}
                 </button>
+                )}
                 <a
                   href="/contact"
                   onClick={() => setMenuOpen(false)}

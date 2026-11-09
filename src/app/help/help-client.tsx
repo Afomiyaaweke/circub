@@ -15,6 +15,8 @@
 // Style: theme tokens only (v212 discipline), teal = Q&A, emerald = quests.
 import { useCallback, useEffect, useState } from 'react'
 import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
+import { RegisterModal } from '@/components/social/register-modal'
+import { LoginModal } from '@/components/social/login-modal'
 import {
   HelpCircle,
   Send,
@@ -110,6 +112,9 @@ export function HelpClient() {
   const [posting, setPosting] = useState(false)
   const [postErr, setPostErr] = useState('')
   const [postOk, setPostOk] = useState('')
+  // v254: guests asking to post or claim get the sign-up modal.
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
 
   // 1-Click Claim flow (inline per-card form + instant contact reveal)
   const [claimFor, setClaimFor] = useState<string | null>(null)
@@ -147,17 +152,21 @@ export function HelpClient() {
     }
   }, [])
 
-  useEffect(() => {
-    fetch('/api/auth/me')
+  // v254: refreshable so the auth modals can flip the page to member mode.
+  const refreshMe = useCallback(() => {
+    return fetch('/api/auth/me')
       .then((r) => (r.ok ? r.json() : null))
       .then((u) => {
         setMe(u && u.id && u.name ? { id: u.id, name: u.name } : null)
         if (u && u.name) setClaimName((prev) => prev || u.name)
       })
       .catch(() => setMe(null))
+  }, [])
+  useEffect(() => {
+    refreshMe()
     load()
     loadQuests()
-  }, [load, loadQuests])
+  }, [refreshMe, load, loadQuests])
 
   // Deep links: #quests / #post-quest open the quest tab (and its form).
   useEffect(() => {
@@ -233,6 +242,12 @@ export function HelpClient() {
 
   async function postQuest(e: React.FormEvent) {
     e.preventDefault()
+    // v254: posting needs an account - guests get the sign-up modal.
+    if (!me) {
+      setPostErr('Sign up free to post a quest - it takes 10 seconds.')
+      setRegisterOpen(true)
+      return
+    }
     setPostErr('')
     setPostOk('')
     if (title.trim().length < 5) {
@@ -374,6 +389,12 @@ export function HelpClient() {
 
   async function claim(qid: string) {
     setClaimErrs((m) => ({ ...m, [qid]: '' }))
+    // v254: applying for a bounty needs an account.
+    if (!me) {
+      setClaimErrs((m) => ({ ...m, [qid]: 'Sign up free to claim bounties - it takes 10 seconds.' }))
+      setRegisterOpen(true)
+      return
+    }
     if (!claimName.trim() || !claimContact.trim()) {
       setClaimErrs((m) => ({
         ...m,
@@ -914,7 +935,11 @@ export function HelpClient() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setClaimFor(q.id)}
+                      onClick={() => {
+                        // v254: applying needs an account.
+                        if (!me) { setRegisterOpen(true); return }
+                        setClaimFor(q.id)
+                      }}
                       className="mt-1 w-full rounded-full bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
                       data-testid="quest-claim-btn"
                     >
@@ -927,6 +952,20 @@ export function HelpClient() {
           </div>
         )}
       </div>
+
+      {/* v254: guests who try to post or claim get the sign-up ask right here. */}
+      <RegisterModal
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+        onAuthed={() => { setRegisterOpen(false); setLoginOpen(false); refreshMe() }}
+        onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true) }}
+      />
+      <LoginModal
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        onAuthed={() => { setRegisterOpen(false); setLoginOpen(false); refreshMe() }}
+        onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true) }}
+      />
     </div>
   )
 }

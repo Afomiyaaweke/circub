@@ -249,7 +249,9 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
     ? [...allPosts].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
     : allPosts
 
-  const isGuest = me?.id === 'guest'
+  // v254: guests (me === null now that the landing gate is gone, or the
+  // legacy guest viewer) can browse everything but cannot act.
+  const isGuest = !me || me.id === 'guest'
 
   const handleUpload = async (file: File) => {
     if (!file) return

@@ -1,5 +1,35 @@
 # circubAwd worklog
 
+## v254 (2026-11-09) - Landing page gone: guests see the app, sign-up on action
+User: "remove the landing page and make user to see the page and ask to sign up while they
+try to post price or any thing to post and to apply for bounty".
+
+- NO LANDING GATE: home-client deletes the `if (!me) return <LandingPage/>` branch - the
+  dashboard shell (header, dock, nav pills, tab content) renders for guests AND members.
+  SSR and the client's first render agree on the guest shell (v229 hydration comment
+  updated). The landing-page.tsx file stays in the repo unused; /api/landing-stats stays.
+- GUEST VIEWER: components that need a User object get `me ?? {id:'guest',...}` (the legacy
+  demo-viewer contract) - ProfileTab's full guest panel ("Your profile lives here" + Join +
+  saved items) renders again, header's `isGuestUser = !user || user.id === 'guest'` shows
+  Sign in / Sign up free instead of bell + account menu (inbox menu item hidden for guests).
+- SIGN UP ON ACTION: post a price + vote (local feed, pre-existing onRequireSignUp), post a
+  bounty + claim a bounty + become-a-talent (live-zone, new onRequireSignUp prop), post in
+  the community Feed + the auth-expired 401 path (handler guest check fixed: `!me || me.id
+  === 'guest'` - guests got the "Session expired" login bounce before), /help post quest +
+  claim (new RegisterModal + LoginModal mounted there, refreshable me fetch). Toasts carry
+  the ask: "Sign up to post" / "Sign up to apply".
+- VERSION CHIP: the landing version testid is gone - a small `data-testid="app-version"`
+  chip (APP_VERSION) rides with the header logo; both probe scripts assert it.
+- GATES: tsc 20 baseline (0 new); build exit 0; task239_probe.py 29/29 on :3100; browser
+  E2E (agent-browser): guest lands on the Local feed (no landing), Post Price / Claim
+  Bounty / Post-an-instant-quest / Feed-post all open the Register modal, Profile shows the
+  guest panel, member sign-in still lands in the member shell. NOTE for local retests:
+  after a rebuild, clear SW caches + unregister before asserting on new bundles
+  (stale-while-revalidate served the previous HTML). landing-version is replaced by
+  app-version in probes; sw.js circub-v254.
+
+# circubAwd worklog
+
 ## v253 (2026-11-09) - Bounties are not dollar-locked: pick your currency, any amount
 User: "dont make the bounty post only by dollar have option and have not min or max requirment".
 
