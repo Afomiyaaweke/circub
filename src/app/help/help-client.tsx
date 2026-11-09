@@ -15,6 +15,9 @@
 // Style: theme tokens only (v212 discipline), teal = Q&A, emerald = quests.
 import { useCallback, useEffect, useState } from 'react'
 import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
+// v255: what the poster asks for - money and/or business partners and/or
+// research help - ticked on the form, shown as chips on every card.
+import { QUEST_ASK_TYPES, QUEST_ASK_LABELS, parseAskTypes, type QuestAskType } from '@/lib/quest-ask'
 import { RegisterModal } from '@/components/social/register-modal'
 import { LoginModal } from '@/components/social/login-modal'
 import {
@@ -48,6 +51,8 @@ type Quest = {
   bountyUsd: number
   // v253: the bounty is not dollar-locked - the poster picks the currency.
   bountyCurrency: string
+  // v255: what the poster asks for - "MONEY", "MONEY,BUSINESS", ...
+  askTypes: string
   posterName: string
   claimed: boolean
   // v219 privacy: claimer name/contact never leave the server - the board
@@ -107,6 +112,11 @@ export function HelpClient() {
   const [bountyUsd, setBountyUsd] = useState('')
   // v253: the bounty is not dollar-locked - the poster picks the currency.
   const [bountyCurrency, setBountyCurrency] = useState('USD')
+  // v255: what the poster asks for - any mix of money / business / research.
+  const [askTypes, setAskTypes] = useState<string[]>(['MONEY'])
+  // At least one ask stays ticked - unchecking the last one is a no-op.
+  const toggleAsk = (t: QuestAskType) =>
+    setAskTypes((cur) => (cur.includes(t) ? (cur.length > 1 ? cur.filter((x) => x !== t) : cur) : [...cur, t]))
   const [posterName, setPosterName] = useState('')
   const [contact, setContact] = useState('')
   const [posting, setPosting] = useState(false)
@@ -287,12 +297,13 @@ export function HelpClient() {
             deadlineText,
             bountyUsd: bounty,
             bountyCurrency,
+            askTypes,
             ...(contact.trim() ? { contact } : {}),
           }),
         })
         if (res.ok) {
           setTitle(''); setDetails(''); setLocation(''); setDeadlineText('')
-          setBountyUsd(''); setBountyCurrency('USD'); setPosterName(''); setContact('')
+          setBountyUsd(''); setBountyCurrency('USD'); setAskTypes(['MONEY']); setPosterName(''); setContact('')
           setShowForm(false)
           setEditingQuest(null)
           setPostOk('Quest updated - the board now shows the new terms.')
@@ -309,13 +320,13 @@ export function HelpClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           me
-            ? { title, details, location, deadlineText, bountyUsd: bounty, bountyCurrency, contact }
-            : { title, details, location, deadlineText, bountyUsd: bounty, bountyCurrency, posterName, contact }
+            ? { title, details, location, deadlineText, bountyUsd: bounty, bountyCurrency, askTypes, contact }
+            : { title, details, location, deadlineText, bountyUsd: bounty, bountyCurrency, askTypes, posterName, contact }
         ),
       })
       if (res.ok) {
         setTitle(''); setDetails(''); setLocation(''); setDeadlineText('')
-        setBountyUsd(''); setBountyCurrency('USD'); setPosterName(''); setContact('')
+        setBountyUsd(''); setBountyCurrency('USD'); setAskTypes(['MONEY']); setPosterName(''); setContact('')
         setShowForm(false)
         setPostOk('Quest is live - local guides can claim it now. You will be contacted on the channel you left.')
         await loadQuests()
@@ -340,6 +351,7 @@ export function HelpClient() {
     setDeadlineText(q.deadlineText)
     setBountyUsd(String(q.bountyUsd))
     setBountyCurrency(q.bountyCurrency || 'USD')
+    setAskTypes(parseAskTypes(q.askTypes))
     setContact('')
     setPostErr('')
     setPostOk('')
@@ -655,7 +667,7 @@ export function HelpClient() {
             type="button"
             onClick={() => {
               setShowForm((v) => {
-                if (!v) { setEditingQuest(null); setTitle(''); setDetails(''); setLocation(''); setDeadlineText(''); setBountyUsd(''); setContact('') }
+                if (!v) { setEditingQuest(null); setTitle(''); setDetails(''); setLocation(''); setDeadlineText(''); setBountyUsd(''); setAskTypes(['MONEY']); setContact('') }
                 return !v
               })
               setPostErr('')
@@ -760,6 +772,30 @@ export function HelpClient() {
                 />
               )}
             </div>
+            {/* v255: a quest is more than money - tick any mix of asks. */}
+            <div role="group" aria-label="What are you asking for?" className="space-y-1.5">
+              <p className="text-xs font-bold text-muted-foreground">
+                What are you asking for? Pick any - money, business partners, research help.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {QUEST_ASK_TYPES.map((t) => (
+                  <label
+                    key={t}
+                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${askTypes.includes(t) ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                    data-testid={`quest-ask-${t.toLowerCase()}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={askTypes.includes(t)}
+                      onChange={() => toggleAsk(t)}
+                      className="h-3.5 w-3.5 accent-emerald-600"
+                      data-testid={`quest-ask-check-${t.toLowerCase()}`}
+                    />
+                    {QUEST_ASK_LABELS[t]}
+                  </label>
+                ))}
+              </div>
+            </div>
             {postErr && (
               <p className="text-sm text-red-600 dark:text-red-400" data-testid="quest-post-error">
                 {postErr}
@@ -808,6 +844,19 @@ export function HelpClient() {
                   <h3 className="mt-2 font-bold text-foreground leading-snug" data-testid="quest-card-title">
                     {q.title}
                   </h3>
+                  {/* v255: what the poster asks for - money and/or business
+                      partners and/or research help, as colored chips. */}
+                  <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="quest-ask-badges">
+                    {parseAskTypes(q.askTypes).map((t) => (
+                      <span
+                        key={t}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${t === 'BUSINESS' ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : t === 'RESEARCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
+                        data-testid={`ask-badge-${t.toLowerCase()}`}
+                      >
+                        {QUEST_ASK_LABELS[t]}
+                      </span>
+                    ))}
+                  </div>
                   {q.details && (
                     <p className="mt-1 text-xs text-muted-foreground leading-relaxed flex-1">{q.details}</p>
                   )}

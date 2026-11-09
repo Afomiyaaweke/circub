@@ -1,5 +1,24 @@
 # circubAwd worklog
 
+## v255 (2026-11-09) - A bounty is more than money: money / business / research asks
+User: "ppl post for the thing they need help and offer money in return and also ask ppl to
+be part of their business to do research".
+
+- ASK TYPES: Quest gains `askTypes String @default("MONEY")` (both schemas) - a
+  comma-separated whitelist string ("MONEY", "MONEY,BUSINESS,RESEARCH"). Single source of
+  truth in new `src/lib/quest-ask.ts`: QUEST_ASK_TYPES = [MONEY, BUSINESS, RESEARCH],
+  labels ("Money offer" / "Join my business" / "Research help"), parseAskTypes (client
+  reader, unparsable -> MONEY) and normalizeAskTypes (server sanitizer: array or comma
+  string, whitelist order, dedupe, empty/unknown -> MONEY so old rows stay valid).
+- API: POST /api/quests + PATCH /api/quests/[id] accept askTypes (sanitized); GET board,
+  GET /mine (posted + claimed) return it.
+- UI: the quest forms on all three surfaces (live-zone board, /help desk, profile edit)
+  grow a "What are you asking for?" checkbox group - any mix, at least one ticked
+  (unchecking the last is a no-op). Cards show colored chips: emerald money / sky
+  business / violet research. Edit prefill parses the stored string. Profile posted-rows
+  carry the chips too. Old quests (default MONEY) read as the classic money bounty.
+- VERSION: v254 -> v255 (app-version.ts + sw.js), probes re-assert v255.
+
 ## v254 (2026-11-09) - Landing page gone: guests see the app, sign-up on action
 User: "remove the landing page and make user to see the page and ask to sign up while they
 try to post price or any thing to post and to apply for bounty".

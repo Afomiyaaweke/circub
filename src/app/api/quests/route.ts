@@ -15,6 +15,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, checkRateLimit, sanitizeInput } from '@/lib/session'
 import { normalizeBountyCurrency } from '@/lib/bounty-money'
+// v255: what the poster asks for - money and/or business partners and/or
+// research help - travels with the quest as a whitelist string.
+import { normalizeAskTypes } from '@/lib/quest-ask'
 
 export async function GET() {
   try {
@@ -43,6 +46,7 @@ export async function GET() {
           deadlineText: q.deadlineText,
           bountyUsd: q.bountyUsd,
           bountyCurrency: q.bountyCurrency,
+          askTypes: q.askTypes,
           posterName: q.posterName,
           posterUsername: q.user?.username ?? null,
           claimed: q.claims.length > 0,
@@ -102,6 +106,10 @@ export async function POST(req: NextRequest) {
     // v253: the currency travels with the bounty - the poster picks it from
     // the form's select; unknown values fall back to USD (old rows stay valid).
     const bountyCurrency = normalizeBountyCurrency(body.bountyCurrency)
+    // v255: the ask is not money-locked either - the poster ticks any mix of
+    // money offer / join my business / research help; unknown values fall
+    // back to MONEY (old rows stay valid).
+    const askTypes = normalizeAskTypes(body.askTypes)
     const details = sanitizeInput(body.details || '', 1000) || null
 
     // Logged-in posters carry their account; visitors must leave a name +
@@ -126,6 +134,7 @@ export async function POST(req: NextRequest) {
         deadlineText,
         bountyUsd,
         bountyCurrency,
+        askTypes,
         posterName,
         contact,
         userId: me?.id ?? null,

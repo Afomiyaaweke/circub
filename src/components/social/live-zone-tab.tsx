@@ -19,6 +19,9 @@ import {
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
+// v255: what the poster asks for - money and/or business partners and/or
+// research help - ticked on the form, shown as chips on every card.
+import { QUEST_ASK_TYPES, QUEST_ASK_LABELS, parseAskTypes, type QuestAskType } from '@/lib/quest-ask'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -190,6 +193,8 @@ type QuestRow = {
   bountyUsd: number
   // v253: the bounty is not dollar-locked - the poster picks the currency.
   bountyCurrency: string
+  // v255: what the poster asks for - "MONEY", "MONEY,BUSINESS", ...
+  askTypes: string
   posterName: string
   // v229: member posters carry their public username (guest posters are
   // null) so the action rail's Chat button can open their profile page.
@@ -308,6 +313,11 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
   const [qBounty, setQBounty] = useState('')
   // v253: the bounty is not dollar-locked - the poster picks the currency.
   const [qCurrency, setQCurrency] = useState('USD')
+  // v255: what the poster asks for - any mix of money / business / research.
+  const [qAsks, setQAsks] = useState<string[]>(['MONEY'])
+  // At least one ask stays ticked - unchecking the last one is a no-op.
+  const toggleAsk = (t: QuestAskType) =>
+    setQAsks((cur) => (cur.includes(t) ? (cur.length > 1 ? cur.filter((x) => x !== t) : cur) : [...cur, t]))
   const [qContact, setQContact] = useState('')
   const [qName, setQName] = useState('')
   const [qPosting, setQPosting] = useState(false)
@@ -524,12 +534,13 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
             deadlineText: qDeadline,
             bountyUsd: bounty,
             bountyCurrency: qCurrency,
+            askTypes: qAsks,
             ...(qContact.trim() ? { contact: qContact } : {}),
           }),
         })
         if (res.ok) {
           setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline('')
-          setQBounty(''); setQCurrency('USD'); setQContact('')
+          setQBounty(''); setQCurrency('USD'); setQAsks(['MONEY']); setQContact('')
           setShowQuestForm(false)
           setEditingQuest(null)
           setQPostOk('Quest updated - the board now shows the new terms.')
@@ -549,13 +560,13 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           me
-            ? { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, bountyCurrency: qCurrency, contact: qContact }
-            : { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, bountyCurrency: qCurrency, posterName: qName, contact: qContact }
+            ? { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, bountyCurrency: qCurrency, askTypes: qAsks, contact: qContact }
+            : { title: qTitle, details: qDetails, location: qLocation, deadlineText: qDeadline, bountyUsd: bounty, bountyCurrency: qCurrency, askTypes: qAsks, posterName: qName, contact: qContact }
         ),
       })
       if (res.ok) {
         setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline('')
-        setQBounty(''); setQCurrency('USD'); setQName(''); setQContact('')
+        setQBounty(''); setQCurrency('USD'); setQAsks(['MONEY']); setQName(''); setQContact('')
         setShowQuestForm(false)
         setQPostOk('Quest is live - local guides can claim it now. You will be contacted on the channel you left.')
         await reloadQuests()
@@ -581,6 +592,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
     setQDeadline(q.deadlineText)
     setQBounty(String(q.bountyUsd))
     setQCurrency(q.bountyCurrency || 'USD')
+    setQAsks(parseAskTypes(q.askTypes))
     setQContact('')
     setQPostErr('')
     setQPostOk('')
@@ -1099,6 +1111,30 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                 />
               )}
             </div>
+            {/* v255: a quest is more than money - tick any mix of asks. */}
+            <div role="group" aria-label="What are you asking for?" className="space-y-1.5">
+              <p className="text-xs font-bold text-muted-foreground">
+                What are you asking for? Pick any - money, business partners, research help.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {QUEST_ASK_TYPES.map((t) => (
+                  <label
+                    key={t}
+                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${qAsks.includes(t) ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                    data-testid={`quest-ask-${t.toLowerCase()}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={qAsks.includes(t)}
+                      onChange={() => toggleAsk(t)}
+                      className="h-3.5 w-3.5 accent-emerald-600"
+                      data-testid={`quest-ask-check-${t.toLowerCase()}`}
+                    />
+                    {QUEST_ASK_LABELS[t]}
+                  </label>
+                ))}
+              </div>
+            </div>
             {qPostErr && (
               <p className="text-sm text-red-600 dark:text-red-400" data-testid="quest-post-error">
                 {qPostErr}
@@ -1215,6 +1251,20 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                           </button>
                         </div>
                       )}
+                    </div>
+
+                    {/* v255: what the poster asks for - money and/or business
+                        partners and/or research help, as colored chips. */}
+                    <div className="mt-2 flex flex-wrap gap-1.5" data-testid="quest-ask-badges">
+                      {parseAskTypes(q.askTypes).map((t) => (
+                        <span
+                          key={t}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${t === 'BUSINESS' ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : t === 'RESEARCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
+                          data-testid={`ask-badge-${t.toLowerCase()}`}
+                        >
+                          {QUEST_ASK_LABELS[t]}
+                        </span>
+                      ))}
                     </div>
 
                     {/* GUARANTEED ESCROW REWARD banner - the green strip */}

@@ -26,6 +26,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { cn, formatUnitSuffix } from '@/lib/utils'
 import { fmtBounty, BOUNTY_CURRENCIES } from '@/lib/bounty-money'
+// v255: what the poster asks for - money and/or business partners and/or
+// research help - editable from the profile, shown on every bounty row.
+import { QUEST_ASK_TYPES, QUEST_ASK_LABELS, parseAskTypes, type QuestAskType } from '@/lib/quest-ask'
 import { compressImage } from '@/lib/image-compress'
 import { useBackClose } from '@/lib/back-close'
 import { dispatchAuthExpired } from '@/lib/auth-fetch'
@@ -94,7 +97,7 @@ interface QuestApplicantInfo {
 }
 interface MyQuestPosted {
   id: string; title: string; details: string | null; location: string
-  deadlineText: string; bountyUsd: number; bountyCurrency: string; posterName: string; contact: string
+  deadlineText: string; bountyUsd: number; bountyCurrency: string; askTypes: string; posterName: string; contact: string
   createdAt: string; claim: QuestApplicantInfo | null
   // v248 MANY TAKERS: EVERY user who claimed this bounty (the poster's
   // "my escort place" inbox). The legacy single `claim` is claims[0].
@@ -102,7 +105,7 @@ interface MyQuestPosted {
 }
 interface MyQuestClaimed {
   id: string; title: string; location: string; deadlineText: string
-  bountyUsd: number; bountyCurrency: string; posterName: string; posterContact: string
+  bountyUsd: number; bountyCurrency: string; askTypes: string; posterName: string; posterContact: string
   claimedAt: string; createdAt: string
 }
 
@@ -181,7 +184,15 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // v219: bounty management state (Profile > Bounties tab).
   const [myQuests, setMyQuests] = useState<{ posted: MyQuestPosted[]; claimed: MyQuestClaimed[] } | null>(null)
   const [questEditing, setQuestEditing] = useState<string | null>(null)
-  const [questForm, setQuestForm] = useState({ title: '', details: '', location: '', deadlineText: '', bountyUsd: '', bountyCurrency: 'USD', contact: '' })
+  const [questForm, setQuestForm] = useState({ title: '', details: '', location: '', deadlineText: '', bountyUsd: '', bountyCurrency: 'USD', askTypes: ['MONEY'] as string[], contact: '' })
+  // v255: at least one ask stays ticked - unchecking the last one is a no-op.
+  const toggleQuestFormAsk = (t: QuestAskType) =>
+    setQuestForm((f) => ({
+      ...f,
+      askTypes: f.askTypes.includes(t)
+        ? (f.askTypes.length > 1 ? f.askTypes.filter((x) => x !== t) : f.askTypes)
+        : [...f.askTypes, t],
+    }))
   const [questBusy, setQuestBusy] = useState(false)
 
   const [contentType, setContentType] = useState<ContentType>(
@@ -1004,6 +1015,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       deadlineText: q.deadlineText,
       bountyUsd: String(q.bountyUsd),
       bountyCurrency: q.bountyCurrency || 'USD',
+      askTypes: parseAskTypes(q.askTypes),
       contact: '',
     })
   }
@@ -1023,6 +1035,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           deadlineText: questForm.deadlineText,
           bountyUsd: Number(questForm.bountyUsd),
           bountyCurrency: questForm.bountyCurrency,
+          askTypes: questForm.askTypes,
           ...(questForm.contact.trim() ? { contact: questForm.contact } : {}),
         }),
       })
@@ -1089,6 +1102,18 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {fmtBounty(q.bountyUsd, q.bountyCurrency)} &middot; {q.location} &middot; {q.deadlineText || 'No deadline'}
                       </p>
+                      {/* v255: the ask mix rides on every posted-bounty row. */}
+                      <div className="mt-1 flex flex-wrap gap-1" data-testid="quest-ask-badges">
+                        {parseAskTypes(q.askTypes).map((t) => (
+                          <span
+                            key={t}
+                            className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${t === 'BUSINESS' ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' : t === 'RESEARCH' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'}`}
+                            data-testid={`ask-badge-${t.toLowerCase()}`}
+                          >
+                            {QUEST_ASK_LABELS[t]}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                     {takers.length > 0 ? (
                       <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
@@ -1217,6 +1242,27 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
                           className="h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                           data-testid="quest-edit-contact"
                         />
+                      </div>
+                      {/* v255: retick the ask mix - money / business / research. */}
+                      <div role="group" aria-label="What are you asking for?" className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">What are you asking for?</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {QUEST_ASK_TYPES.map((t) => (
+                            <label
+                              key={t}
+                              className={`inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${questForm.askTypes.includes(t) ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                              data-testid={`quest-edit-ask-${t.toLowerCase()}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={questForm.askTypes.includes(t)}
+                                onChange={() => toggleQuestFormAsk(t)}
+                                className="h-3 w-3 accent-emerald-600"
+                              />
+                              {QUEST_ASK_LABELS[t]}
+                            </label>
+                          ))}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button type="submit" size="sm" disabled={questBusy} className="h-8 gap-1.5 rounded-lg bg-primary text-xs text-primary-foreground hover:bg-primary/90" data-testid="quest-edit-save">

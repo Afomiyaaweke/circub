@@ -13,6 +13,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { normalizeBountyCurrency } from '@/lib/bounty-money'
+// v255: the ask types (money / business / research) are editable like the
+// rest of the terms while the quest is still open.
+import { normalizeAskTypes } from '@/lib/quest-ask'
 
 export async function PATCH(
   req: NextRequest,
@@ -50,6 +53,7 @@ export async function PATCH(
       deadlineText?: string
       bountyUsd?: number
       bountyCurrency?: string
+      askTypes?: string
       contact?: string
     } = {}
 
@@ -93,6 +97,10 @@ export async function PATCH(
     if (body.bountyCurrency !== undefined) {
       data.bountyCurrency = normalizeBountyCurrency(body.bountyCurrency)
     }
+    // v255: the poster can retick the ask mix while the quest is open.
+    if (body.askTypes !== undefined) {
+      data.askTypes = normalizeAskTypes(body.askTypes)
+    }
     if (body.contact !== undefined && String(body.contact).trim() !== '') {
       const contact = sanitizeInput(body.contact || '', 200)
       if (!contact) {
@@ -116,6 +124,7 @@ export async function PATCH(
         deadlineText: updated.deadlineText,
         bountyUsd: updated.bountyUsd,
         bountyCurrency: updated.bountyCurrency,
+        askTypes: updated.askTypes,
       },
     })
   } catch (error) {
