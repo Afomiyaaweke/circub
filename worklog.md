@@ -1,5 +1,29 @@
 # circubAwd worklog
 
+## v257 (2026-11-10) - Touching the posting button while signed out brings the sign-in page
+User: "ask me to sign in first to post product while i'm sign out and bring the sign in
+page while i touch the posting button".
+
+- SIGN-IN-FIRST GATE: every price/product posting button (Local feed header "Post Price"
+  post-price-open, empty-state "Post a Local Price", camera-search "Post this product",
+  Profile tab's two "Post a price" buttons) now opens the LOGIN modal for signed-out
+  visitors instead of the Register form - an existing user who got signed out lands on
+  the page they expect; brand-new visitors still reach sign-up via the "Sign up free"
+  switch inside the sign-in modal. Toast copy: "Sign in to post".
+- RESUME AFTER SIGN-IN: the guest's last tap on a posting button is remembered
+  (pendingPostRef) and the composer re-opens BY ITSELF the moment the sign-in succeeds -
+  including the camera-search prefill captured before the gate. No more hunting for the
+  button again after logging in.
+- GATE STAYS IN SYNC: LocalFeedTab's guest gate read auth state from a one-shot mount
+  probe, so after an in-tab sign-in the post button kept bouncing users who had ALREADY
+  signed in (and never re-armed after sign-out). home-client now passes authedId down and
+  the gate re-arms/disarms on every auth change.
+- GAPS CLOSED: the Profile tab was reachable for guests via the header pills and its two
+  "Post a price" buttons opened the composer ungated (only 401ing on submit) - both now
+  route through the same sign-in-first gate (openPriceComposer). The battle deal composer
+  (quest-feed) and vote/message gates keep their existing flows.
+- VERSION: v256 -> v257 (app-version.ts + sw.js), probes re-assert v257.
+
 ## v256 (2026-11-09) - Bulk post from anywhere: text, sheet, file, or a LINK
 User: "have a bulk post form telegram or spread sheet or other post using links as well
 confirm before post and have button inside post price 'bulk post'".

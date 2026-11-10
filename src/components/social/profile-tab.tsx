@@ -67,6 +67,10 @@ interface ProfileTabProps {
   onOpenMessages?: () => void
   onUserChanged: () => void
   onSignUp: () => void
+  /** v257: guests get the SIGN IN modal (not sign-up) when they tap a
+    * post-a-price button here - same gate as the Local feed's posting
+    * buttons, so every product-posting entry asks for sign-in first. */
+  onRequireSignIn?: () => void
 }
 
 interface MyPost { id: string; content: string; imageUrl?: string | null; createdAt: string }
@@ -164,7 +168,7 @@ function ensureRenderableImage(file: File): File {
   return file
 }
 
-export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onSectionChange, onOpenListing, onMessage, onOpenMessages, onUserChanged, onSignUp }: ProfileTabProps) {
+export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionBump = 0, onSectionChange, onOpenListing, onMessage, onOpenMessages, onUserChanged, onSignUp, onRequireSignIn }: ProfileTabProps) {
   const { toast } = useToast()
   const isGuest = me.id === 'guest'
 
@@ -460,6 +464,19 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // button and the Local tab's Post Price button open the SAME form, and one
   // save publishes the price guide + the product listing together.
   const [priceComposerOpen, setPriceComposerOpen] = useState(false)
+
+  // v257: every "Post a price" button here asks a signed-out visitor to
+  // SIGN IN first (same gate as the Local feed's posting buttons) instead
+  // of silently opening the composer that would only 401 on submit.
+  const openPriceComposer = () => {
+    if (isGuest) {
+      if (onRequireSignIn) onRequireSignIn()
+      else onSignUp()
+      toast({ title: 'Sign in to post', description: 'Log in to post prices and products. New here? "Sign up free" inside the sign-in window takes 10 seconds.' })
+      return
+    }
+    setPriceComposerOpen(true)
+  }
 
   // Auto-advance the story viewer every 6 seconds (Instagram-style)
   useEffect(() => {
@@ -2398,14 +2415,14 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           <EmptyState icon={<LayoutGrid className="w-7 h-7 text-primary/50" />} title="Nothing here yet"
             text="Your posts, price listings and products all live together in this one grid - post a price below and it appears here as both a listing and a product."
             action={
-              <Button size="sm" onClick={() => setPriceComposerOpen(true)} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="profile-post-price-empty">
+              <Button size="sm" onClick={() => openPriceComposer()} className="mt-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="profile-post-price-empty">
                 <Plus className="w-3.5 h-3.5" /> Post a price
               </Button>
             } />
         ) : (
           <>
             <div className="flex justify-end pt-2 pb-1">
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => setPriceComposerOpen(true)} data-testid="profile-post-price">
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg text-xs" onClick={() => openPriceComposer()} data-testid="profile-post-price">
                 <Plus className="w-3.5 h-3.5" /> Post a price
               </Button>
             </div>

@@ -41,9 +41,22 @@ interface LocalFeedTabProps {
   // page.tsx so the Register modal opens. Guests can browse everything but
   // must NOT be able to post (Task 76).
   onRequireSignUp?: () => void
+  // v257: the posting gate asks for a SIGN IN first (user: "bring the sign
+  // in page while i touch the posting button"). When present this fires
+  // instead of onRequireSignUp and home-client opens the LoginModal - an
+  // existing user who got signed out lands on the page they expect, and a
+  // brand-new visitor still reaches sign-up through the "Sign up free"
+  // switch inside the sign-in modal.
+  onRequireSignIn?: () => void
+  // v257: the viewer's real user id from home-client (null while signed
+  // out). The mount probe below runs ONCE, so without this prop the guest
+  // gate stayed armed after an in-tab sign-in (the post button kept
+  // bouncing users who had ALREADY signed in) and never re-armed after a
+  // sign-out. This prop keeps the gate in step with every auth change.
+  authedId?: string | null
 }
 
-export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: LocalFeedTabProps) {
+export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequireSignIn, authedId }: LocalFeedTabProps) {
   const { t } = useLanguage()
   const [posts, setPosts] = useState<LocalPricePost[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,6 +104,12 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   // guest (probe done, no user id) from a logged-in user during the first
   // paint, so the composer gate never misfires on slow connections.
   const [meLoaded, setMeLoaded] = useState(false)
+  // v257: the guest's last tap on a posting button is remembered here so
+  // the composer re-opens BY ITSELF the moment the sign-in succeeds - the
+  // user signs in and continues posting instead of hunting for the button
+  // again. undefined = no pending intent; null = blank composer; object =
+  // the prefill that was captured (camera-search "Post this product").
+  const pendingPostRef = useRef<CreatePricePostPrefill | null | undefined>(undefined)
   const [searchImage, setSearchImage] = useState<string | null>(null)
   const [searchingByImage, setSearchingByImage] = useState(false)
   // User location for the camera-search price comparison - resolved once
@@ -156,6 +175,26 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
     }
     fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.id) setCurrentUserId(d.id) }).catch(() => {}).finally(() => setMeLoaded(true))
   }, [])
+
+  // v257: keep the guest gate in step with auth changes that happen while
+  // this tab is already mounted. Sign-in through the gate modal (or the
+  // header) disarms the gate and re-opens the composer the user originally
+  // wanted; sign-out re-arms it. The one-shot mount probe above cannot see
+  // any of these changes on its own.
+  useEffect(() => {
+    if (authedId) {
+      setCurrentUserId(authedId)
+      setMeLoaded(true)
+      const pending = pendingPostRef.current
+      if (pending !== undefined) {
+        pendingPostRef.current = undefined
+        setPostPrefill(pending)
+        setModalOpen(true)
+      }
+    } else if (meLoaded) {
+      setCurrentUserId(null)
+    }
+  }, [authedId, meLoaded])
 
   useEffect(() => {
     fetch('/api/local-prices/filters').then((r) => r.json()).then((data) => setFilterValues({ countries: data.countries || [], cities: data.cities || [], categories: data.categories || [], locations: data.locations || [] })).catch(() => {})
@@ -489,13 +528,19 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp }: Loca
   const handleCreated = async () => { await fetchPosts({ fresh: true }); onRefreshUser(); try { document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' }) } catch { document.scrollingElement?.scrollTo(0, 0) } }
 
   // Guests can browse everything but cannot post: opening the price
-  // composer as a guest bounces to the Register modal instead. Logged-in
-  // users get the composer exactly as before.
+  // composer as a guest brings the SIGN IN modal (v257) and the composer
+  // re-opens on its own once they sign in. Logged-in users get the
+  // composer exactly as before.
   const isGuest = meLoaded && !currentUserId
   const openComposer = (prefill: CreatePricePostPrefill | null) => {
     if (isGuest) {
-      if (onRequireSignUp) onRequireSignUp()
-      toast({ title: 'Sign up to post', description: 'Create a free account to post local prices. It takes 10 seconds.' })
+      // v257: touching a posting button while signed out brings the SIGN IN
+      // page (not the register form) and remembers what the user wanted to
+      // post - the composer re-opens by itself right after they sign in.
+      pendingPostRef.current = prefill
+      if (onRequireSignIn) onRequireSignIn()
+      else if (onRequireSignUp) onRequireSignUp()
+      toast({ title: 'Sign in to post', description: 'Log in to post local prices. New here? "Sign up free" inside the sign-in window takes 10 seconds.' })
       return
     }
     setPostPrefill(prefill)

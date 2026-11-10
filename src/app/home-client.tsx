@@ -558,7 +558,7 @@ function HomeInner() {
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
           {activeTab === 'local' && (
             <Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading...</div>}>
-              <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} />
+              <LocalFeedTab onRefreshUser={fetchMe} onMessage={handleMessageUser} onRequireSignUp={() => setRegisterOpen(true)} onRequireSignIn={() => { setRegisterOpen(false); setLoginOpen(true) }} authedId={me && me.id !== 'guest' ? me.id : null} />
             </Suspense>
           )}
 
@@ -582,6 +582,7 @@ function HomeInner() {
                 onOpenMessages={handleOpenInbox}
                 onUserChanged={fetchMe}
                 onSignUp={() => setRegisterOpen(true)}
+                onRequireSignIn={() => { setRegisterOpen(false); setLoginOpen(true) }}
               />
             </Suspense>
           )}
@@ -625,8 +626,11 @@ function HomeInner() {
       </Suspense>
 
       {/* Auth modals also in the dashboard: guests who hit an auth-gated action
-          (message a poster, vote, post) get the sign-up prompt without leaving
-          the dashboard. No-ops while closed. */}
+          (message a poster, vote, post) get the auth prompt without leaving
+          the dashboard. v257: the price-posting gate asks for a SIGN IN first
+          (onRequireSignIn) - the user asked for the sign-in page when they
+          touch the posting button; every other action still opens the
+          sign-up form. No-ops while closed. */}
       <Suspense fallback={null}>
         <RegisterModal
           open={registerOpen}
