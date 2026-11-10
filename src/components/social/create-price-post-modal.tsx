@@ -46,6 +46,11 @@ export interface CreatePricePostPrefill {
   country?: string
   city?: string
   imageUrl?: string
+  // v259: the FEED's receipt place hands the picked slip photo straight
+  // over - the composer starts the parse chain the moment it opens, no
+  // second tap on an in-composer button. Survives the v257 sign-in gate
+  // (the File rides in pendingPostRef until the user is back).
+  receiptFile?: File
 }
 
 interface CreatePricePostModalProps {
@@ -200,6 +205,20 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     const name = Boolean(prefill.productName) || productName.trim() !== ''
     const price = (prefill.priceMin !== undefined && prefill.priceMin !== '') || (prefill.priceMax !== undefined && prefill.priceMax !== '') || priceMin.trim() !== '' || priceMax.trim() !== ''
     setAskStep(loc && name && price ? 4 : loc && name ? 3 : loc ? 2 : 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, prefill])
+
+  // v259: a receipt picked straight from the FEED lands here - run the same
+  // parse chain as the composer's own Receipt button (upload photo, OCR every
+  // line, fill the review rows). Fires once per picked file; while the chain
+  // runs the composer shows its first question (where), which the user can
+  // answer in parallel - the review card replaces it when the read completes.
+  const handledReceiptRef = useRef<File | null>(null)
+  useEffect(() => {
+    if (!open || !prefill?.receiptFile) return
+    if (handledReceiptRef.current === prefill.receiptFile) return
+    handledReceiptRef.current = prefill.receiptFile
+    void handleReceiptPick(prefill.receiptFile)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, prefill])
 

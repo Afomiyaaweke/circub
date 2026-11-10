@@ -230,57 +230,52 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       setSuggestLoading(false)
       suggestForRef.current = null
       try {
-        const postDataRes = await fetch(`/api/local-prices/${postId}`, { cache: 'no-store' })
-        const postData = await postDataRes.json()
+        // v259 PERF: the five reads used to run as a strict waterfall - post,
+        // THEN links, THEN similar, THEN consensus, THEN history - so opening
+        // a detail card paid 5 back-to-back serverless round trips. links +
+        // similar only need the post id and race the post fetch; consensus +
+        // history need the post's name/country/city and fire together the
+        // moment it lands. Same data, a fraction of the wait.
+        const postPromise = fetch(`/api/local-prices/${postId}`, { cache: 'no-store' }).then((r) => r.json())
+        const linksPromise = fetch(`/api/local-prices/${postId}/links`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null)
+        // v144: businesses selling the SAME product - ANY city, ANY country.
+        // v149: the response also carries the same-category price grid
+        // (categoryPoints) used as the table fallback when the product
+        // itself has nothing to compare with.
+        const similarPromise = fetch(`/api/local-prices/${postId}/similar`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null)
+
+        const postData = await postPromise
         const p = postData.post
         if (!p || cancelled) return
         setPost(p)
 
+        const [lData, sData] = await Promise.all([linksPromise, similarPromise])
+        if (cancelled) return
         // Linked price posts (same item posted elsewhere) - count + rows
         // for the manage list.
-        try {
-          const lRes = await fetch(`/api/local-prices/${postId}/links`, { cache: 'no-store' })
-          const lData = await lRes.json()
-          if (!cancelled) setLinks(Array.isArray(lData.links) ? lData.links : [])
-        } catch { if (!cancelled) setLinks([]) }
+        setLinks(Array.isArray(lData?.links) ? lData.links : [])
+        setSimilar(Array.isArray(sData?.similar) ? sData.similar : [])
+        setCategoryPoints(Array.isArray(sData?.categoryPoints) ? sData.categoryPoints : [])
 
-        // v144: businesses selling the SAME product - ANY city, ANY country.
-        // These render as the automatic compare rows even with zero links.
-        // v149: the response also carries the same-category price grid
-        // (categoryPoints) used as the table fallback when the product
-        // itself has nothing to compare with.
-        try {
-          const sRes = await fetch(`/api/local-prices/${postId}/similar`, { cache: 'no-store' })
-          const sData = await sRes.json()
-          if (!cancelled) {
-            setSimilar(Array.isArray(sData.similar) ? sData.similar : [])
-            setCategoryPoints(Array.isArray(sData.categoryPoints) ? sData.categoryPoints : [])
-          }
-        } catch {
-          if (!cancelled) {
-            setSimilar([])
-            setCategoryPoints([])
-          }
-        }
-
-        // Fetch consensus using the post's productName + country + city, excluding this post
+        // Fetch consensus + history in the same breath - both only need the
+        // post's productName + country + city.
         const cParams = new URLSearchParams()
         cParams.set('productName', p.productName)
         cParams.set('country', p.country)
         if (p.city) cParams.set('city', p.city)
         cParams.set('postId', p.id) // exclude current
-        const cRes = await fetch(`/api/local-prices/consensus?${cParams.toString()}`)
-        const cData = await cRes.json()
-        if (!cancelled) setConsensus(cData.consensus || null)
-
-        // Fetch history
+        // Fetch history - same params, same breath as consensus.
         const hParams = new URLSearchParams()
         hParams.set('productName', p.productName)
         hParams.set('country', p.country)
         if (p.city) hParams.set('city', p.city)
-        const hRes = await fetch(`/api/local-prices/history?${hParams.toString()}`)
-        const hData = await hRes.json()
-        if (!cancelled) setHistory(hData.history || null)
+        const [cData, hData] = await Promise.all([
+          fetch(`/api/local-prices/consensus?${cParams.toString()}`).then((r) => r.json()).catch(() => null),
+          fetch(`/api/local-prices/history?${hParams.toString()}`).then((r) => r.json()).catch(() => null),
+        ])
+        if (cancelled) return
+        setConsensus(cData?.consensus || null)
+        setHistory(hData?.history || null)
       } catch {
         /* ignore */
       } finally {
@@ -1018,22 +1013,29 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
           </div>
         ) : (
           <div>
-            {/* Header */}
+            {/* Header - v259 REORDER (user: the product type sat in boxed
+                badges on top while the name users actually look for was
+                below - the name now leads, the type/category/freshness
+                follow as plain text under it) */}
             <div className="p-5 sm:p-6 border-b border-border bg-gradient-to-br from-primary/10 to-emerald-50">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 gap-y-1 flex-wrap mb-1.5">
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'text-[10px] font-medium uppercase tracking-wide',
-                        post.postType === 'SERVICE'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                      )}
-                    >
-                      {post.postType === 'SERVICE' ? 'Service' : 'Product'}
-                    </Badge>
+                  <h2 data-testid="detail-product-name" className="text-2xl sm:text-3xl font-black text-foreground leading-tight break-words">
+                    {post.productName}
+                  </h2>
+                  <p data-testid="detail-meta-line" className="mt-1.5 text-sm text-muted-foreground flex items-center gap-x-1.5 gap-y-0.5 flex-wrap">
+                    <span className="font-semibold text-foreground/80">{post.postType === 'SERVICE' ? 'Service' : 'Product'}</span>
+                    {post.category && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span>{post.category}</span>
+                      </>
+                    )}
+                    <span aria-hidden>·</span>
+                    <span className={cn('flex items-center gap-1', freshnessClasses[freshnessLevel(post.createdAt)])} title={freshnessTitle(post.createdAt)}>
+                      <Clock className="w-3.5 h-3.5" />
+                      {timeAgoLabel(post.createdAt)}
+                    </span>
                     {/* First-party price: poster owns this shop/business */}
                     {post.ownsShop && (
                       <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wide gap-1 bg-amber-100 text-amber-700" data-testid="detail-shop-owner-badge" title="Posted by the shop owner - first-hand price">
@@ -1046,32 +1048,15 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       <span
                         data-testid="detail-shop-owner-name"
                         title={`Sold by ${post.shopOwnerName}`}
-                        className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 truncate max-w-[200px]"
+                        className="font-semibold text-amber-700 dark:text-amber-400 truncate max-w-[200px]"
                       >
                         {post.shopOwnerName}
                       </span>
                     )}
-                    <Badge variant="outline" className="text-[10px]">
-                      {post.category}
-                    </Badge>
-                    {/* Freshness - how old this price is (amber warning once outside the history's Current window) */}
-                    <span
-                      className={cn(
-                        'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded shrink-0',
-                        freshnessClasses[freshnessLevel(post.createdAt)]
-                      )}
-                      title={freshnessTitle(post.createdAt)}
-                    >
-                      <Clock className="w-2.5 h-2.5" />
-                      {timeAgoLabel(post.createdAt)}
-                    </span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
-                    {post.productName}
-                  </h2>
+                  </p>
                   <p className="mt-1.5 text-sm text-muted-foreground flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    {detailedLocation}
+                    <MapPin className="w-4 h-4 shrink-0 text-primary" />
+                    <span className="min-w-0 break-words">{detailedLocation}</span>
                   </p>
                   {/* GPS pin: one-tap turn-by-turn directions for tourists */}
                   {post.latitude != null && post.longitude != null && (
@@ -1105,23 +1090,26 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                 </button>
               </div>
 
-              {/* Price block - v117: typical + fair price (tourist price removed) */}
+              {/* Price block - v117: typical + fair price (tourist price
+                  removed). v259: labels and values read at real sizes - the
+                  10px labels and 16px values were the "hard to read"
+                  complaint - and long ranges wrap instead of clipping. */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg bg-card border border-primary/20 p-3">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                <div className="rounded-xl bg-card border border-primary/25 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
                     Typical local price
                   </p>
-                  <p className="text-base font-bold text-foreground mt-1">
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1.5 break-words leading-tight">
                     {formatPrice(post.priceMin, post.currency)} - {formatPrice(post.priceMax, post.currency)}{formatUnitSuffix(post.unit)}
                   </p>
                 </div>
                 {post.recommendedPrice != null && (
-                  <div className="rounded-lg bg-card border border-emerald-300 p-3">
-                    <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-medium flex items-center gap-1">
-                      <BadgeCheck className="w-3 h-3" />
+                  <div className="rounded-xl bg-card border border-emerald-300 p-4">
+                    <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold flex items-center gap-1">
+                      <BadgeCheck className="w-3.5 h-3.5" />
                       Recommended fair price
                     </p>
-                    <p className="text-base font-bold text-emerald-700 mt-1">
+                    <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1.5 break-words leading-tight">
                       {formatPrice(post.recommendedPrice, post.currency)}
                     </p>
                   </div>
@@ -1520,25 +1508,27 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     fills the first column), grows as other businesses post
                     the same item in other places or earlier months. */}
                 {priceTable && (
-                  <div className="mb-3 rounded-lg border border-border bg-card overflow-hidden" data-testid="detail-price-table">
-                    <p className="text-xs font-semibold text-foreground px-2 pt-2.5 sm:px-3" data-testid="detail-price-table-title">
+                  /* v259 THE COMPARE HERO (user: "make the main content
+                      (means the comparission) standout from other details"):
+                      stronger frame, bigger type, bolder prices, less
+                      subtitle noise - this table IS the detail page's main
+                      content and now looks like it. */
+                  <div className="mb-3 rounded-xl border-2 border-primary/40 bg-card shadow-md overflow-hidden" data-testid="detail-price-table">
+                    <p className="text-sm sm:text-base font-bold text-foreground px-3 pt-3" data-testid="detail-price-table-title">
                       {`${post.productName} price by location and date (${post.currency})`}
                     </p>
-                    <p className="text-[10px] text-muted-foreground px-2 pb-1.5 sm:px-3">
-                      {`Price (${post.currency}) by Date - the same item at every business posting it on circubAwd`}
-                    </p>
                     <div className="overflow-x-auto scrollbar-thin">
-                      <table className="w-full text-xs border-collapse">
+                      <table className="w-full text-sm sm:text-base border-collapse">
                         <thead>
                           <tr className="border-y border-border bg-accent">
-                            <th className="sticky left-0 z-10 bg-accent text-left font-medium text-muted-foreground px-2 py-1.5 whitespace-nowrap sm:px-3">Date</th>
+                            <th className="sticky left-0 z-10 bg-accent text-left font-bold text-foreground px-3 py-2.5 whitespace-nowrap">Date</th>
                             {priceTable.cities.map((col) => (
                               <th
                                 key={col.near ? `~${col.name}` : col.name}
                                 data-testid="detail-price-table-city"
                                 data-near={col.near ? 'true' : undefined}
                                 className={cn(
-                                  'text-right font-semibold px-2 py-1.5 whitespace-nowrap sm:px-3',
+                                  'text-right font-bold px-3 py-2.5 whitespace-nowrap',
                                   col.near ? 'text-muted-foreground italic' : col.name === priceTable.selfCity ? 'text-primary' : 'text-foreground'
                                 )}
                               >
@@ -1562,12 +1552,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
                             return (
                               <tr key={row.key} className="border-b border-border/40 last:border-0">
-                                <td data-testid="detail-price-table-month" className="sticky left-0 z-10 bg-card px-2 py-1.5 text-muted-foreground whitespace-nowrap sm:px-3">
+                                <td data-testid="detail-price-table-month" className="sticky left-0 z-10 bg-card px-3 py-2.5 text-muted-foreground font-semibold whitespace-nowrap">
                                   {row.label}
                                 </td>
                                 {cells.map((v, i) =>
                                   v === null ? (
-                                    <td key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')} className="px-2 py-1.5 text-right text-muted-foreground/40 sm:px-3">-</td>
+                                    <td key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')} className="px-3 py-2.5 text-right text-muted-foreground/40">-</td>
                                   ) : (
                                     <td
                                       key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')}
@@ -1577,9 +1567,9 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       onClick={() => setTouchedCell((cur) => cur && cur.table === 'product' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}` ? null : { table: 'product', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}`, businesses: v.businesses })}
                                       title="Touch a price to see the business behind it"
                                       className={cn(
-                                        'px-2 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10 sm:px-3',
+                                        'px-3 py-2.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
                                         priceTable.cities[i].near && 'italic text-muted-foreground',
-                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
+                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-black' : 'text-foreground font-bold'
                                       )}
                                     >
                                       {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
@@ -1602,7 +1592,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       </div>
                     )}
                     {priceTable.hasNear && (
-                      <p className="text-[10px] text-muted-foreground px-2 py-1.5 sm:px-3 border-t border-border/40">
+                      <p className="text-xs text-muted-foreground px-3 py-2 border-t border-border/40">
                         ~ similar item - close to this product, not the exact same listing
                       </p>
                     )}
@@ -1614,24 +1604,21 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                     every same-category same-currency post, so the compare
                     output on a solo product is never a dead end. */}
                 {catTable && (
-                  <div className="mb-3 rounded-lg border border-dashed border-border bg-card overflow-hidden" data-testid="detail-category-table">
-                    <p className="text-xs font-semibold text-foreground px-2 pt-2.5 sm:px-3" data-testid="detail-category-table-title">
+                  <div className="mb-3 rounded-xl border-2 border-dashed border-primary/30 bg-card overflow-hidden" data-testid="detail-category-table">
+                    <p className="text-sm sm:text-base font-bold text-foreground px-3 pt-3" data-testid="detail-category-table-title">
                       {`${post.category || 'Category'} price by location and date (${post.currency})`}
                     </p>
-                    <p className="text-[10px] text-muted-foreground px-2 pb-1.5 sm:px-3">
-                      {`Price (${post.currency}) by Date - same category, no exact match for "${post.productName}" posted yet`}
-                    </p>
                     <div className="overflow-x-auto scrollbar-thin">
-                      <table className="w-full text-xs border-collapse">
+                      <table className="w-full text-sm sm:text-base border-collapse">
                         <thead>
                           <tr className="border-y border-border bg-accent">
-                            <th className="sticky left-0 z-10 bg-accent text-left font-medium text-muted-foreground px-2 py-1.5 whitespace-nowrap sm:px-3">Date</th>
+                            <th className="sticky left-0 z-10 bg-accent text-left font-bold text-foreground px-3 py-2.5 whitespace-nowrap">Date</th>
                             {catTable.cities.map((c) => (
                               <th
                                 key={c}
                                 data-testid="detail-category-table-city"
                                 className={cn(
-                                  'text-right font-semibold px-2 py-1.5 whitespace-nowrap sm:px-3',
+                                  'text-right font-bold px-3 py-2.5 whitespace-nowrap',
                                   c === priceTable?.selfCity ? 'text-primary' : 'text-foreground'
                                 )}
                               >
@@ -1655,12 +1642,12 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
                             return (
                               <tr key={row.key} className="border-b border-border/40 last:border-0">
-                                <td data-testid="detail-category-table-month" className="sticky left-0 z-10 bg-card px-2 py-1.5 text-muted-foreground whitespace-nowrap sm:px-3">
+                                <td data-testid="detail-category-table-month" className="sticky left-0 z-10 bg-card px-3 py-2.5 text-muted-foreground font-semibold whitespace-nowrap">
                                   {row.label}
                                 </td>
                                 {cells.map((v, i) =>
                                   v === null ? (
-                                    <td key={catTable.cities[i]} className="px-2 py-1.5 text-right text-muted-foreground/40 sm:px-3">-</td>
+                                    <td key={catTable.cities[i]} className="px-3 py-2.5 text-right text-muted-foreground/40">-</td>
                                   ) : (
                                     <td
                                       key={catTable.cities[i]}
@@ -1670,8 +1657,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                                       onClick={() => setTouchedCell((cur) => cur && cur.table === 'category' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${catTable.cities[i]}` ? null : { table: 'category', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${catTable.cities[i]}`, businesses: v.businesses })}
                                       title="Touch a price to see the business behind it"
                                       className={cn(
-                                        'px-2 py-1.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10 sm:px-3',
-                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-semibold' : 'text-foreground font-medium'
+                                        'px-3 py-2.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
+                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-black' : 'text-foreground font-bold'
                                       )}
                                     >
                                       {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
@@ -1693,7 +1680,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                         <span className="min-w-0 flex-1 truncate font-semibold text-foreground">— {touchedCell.businesses.join(', ')}</span>
                       </div>
                     )}
-                    <p className="text-[10px] text-muted-foreground px-2 py-1.5 sm:px-3 border-t border-border/40">
+                    <p className="text-xs text-muted-foreground px-3 py-2 border-t border-border/40">
                       Category average grid - post &ldquo;{post.productName}&rdquo; in another city or month to compare it directly.
                     </p>
                   </div>

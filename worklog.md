@@ -1,5 +1,55 @@
 # circubAwd worklog
 
+## v259 (2026-11-11) - Receipt posting lives on the feed, first; the detail card reads at arm's length; the app gets faster
+User: "make the feed recipt posting place and make it first ... the site is slow ...
+there are texts outside the box on a mobile devices ... the detail section of price
+and comparission has hard to read font sizes ... make the main content (means the
+comparission) standout ... make the product name at the top ... and the product type
+under the product name".
+
+- RECEIPT PLACE ON THE FEED, FIRST: the Local feed's action row leads with a sky
+  "Receipt" button (testid feed-receipt-open, ahead of Proforma and Post Price), a
+  tappable receipt BANNER sits above the stories strip (feed-receipt-banner), and the
+  empty state grows a "Post with receipt" button (empty-receipt-open). The picker is a
+  hidden feed-level input (feed-receipt-input) opened IN THE SAME GESTURE as the tap -
+  mobile browsers only open file pickers from a direct touch, so the composer does NOT
+  re-open the picker. Picking a slip calls openComposer({ receiptFile: File }).
+- AUTO-PARSE IN THE COMPOSER: CreatePricePostPrefill gains receiptFile; the composer
+  fires the v258 chain (compress -> upload as post photo -> POST /api/receipt/parse ->
+  review rows + Optional details open) the moment it opens with one - no second tap.
+  While reading, the composer shows its WHERE question (users answer location while
+  the AI works); the review card replaces it when the read lands. The File survives
+  the v257 sign-in gate (rides in pendingPostRef) - a guest's receipt still parses
+  after they sign in.
+- DETAIL CARD HIERARCHY (user: type chips in boxes on top, name buried): the product
+  NAME now leads the header (detail-product-name, text-2xl sm:text-3xl font-black,
+  break-words); Product/Service, category, freshness and shop-owner follow as PLAIN
+  TEXT in one meta line under it (detail-meta-line) - the Product/Service and category
+  badges are gone (the amber Shop-owner chip stays - it is a trust signal). Location
+  line gains break-words.
+- DETAIL CARD READABILITY: typical/fair price labels 10px -> xs semibold, values
+  16px -> text-2xl sm:text-3xl font-black with break-words. The comparison table is
+  THE COMPARE HERO: border-2 primary frame + shadow-md, title text-sm sm:text-base
+  bold, cells text-sm sm:text-base (was 12px), prices font-bold (cheapest font-black
+  emerald), padding up to px-3 py-2.5; the noisy subtitle line is gone. The category
+  fallback table gets the same sizes (dashed frame kept).
+- MOBILE OVERFLOW: break-words on the detail name / meta / location / both price
+  values; the feed action row flex-wraps so four buttons can never clip on small
+  phones.
+- PERF - DETAIL WATERFALL BROKEN: opening a detail card used to fetch post -> links
+  -> similar -> consensus -> history as five back-to-back serverless round trips;
+  links + similar now race the post fetch (id-only reads) and consensus + history
+  fire together the moment the post lands - five serial waits become two hops.
+- PERF - FEED CHUNK DIET: the four heavy modals (price-detail 2300+ lines, composer
+  1400+, edit, profile) are React.lazy code-splits in LocalFeedTab instead of riding
+  statically inside the feed chunk - the feed paints with a fraction of the JS and
+  each modal streams in on first open. (Scaling note for the "will it survive many
+  users" worry: feed APIs already edge-cache s-maxage=30 + SWR, images already serve
+  from cached /image routes instead of base64-in-JSON (v239), and the DB pool is
+  capped (v243) - the big remaining lever is Vercel cold starts, mitigated by these
+  smaller client chunks + cached edge responses.)
+- VERSION: v258 -> v259 (app-version.ts + sw.js), probes re-assert v259.
+
 ## v258 (2026-11-10) - Post with a receipt: the AI reads every line and fills the post
 User: "for product post have also post with recipt and aquire all the information form
 the image of the recipt and post".
