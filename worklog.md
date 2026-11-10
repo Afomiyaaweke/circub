@@ -11,10 +11,13 @@ the image of the recipt and post".
 - /api/receipt/parse: auth required (composer is behind the v257 sign-in gate), per-IP
   10/min rolling limit, 6 MB image cap, image-only 415. The chain mirrors identifyItem:
   configured OpenAI-compatible / Gemini API (detail 'high', 1400 tokens) -> ZAI direct ->
-  keyless Pollinations vision; extractReceipt() in ai-backends.ts normalizes
-  { merchant, date, currency, items[{name, qty, unitPrice, lineTotal}], total } through
-  the hardened loose-JSON repairer. 422 when the photo yields no line items, 502 when
-  every provider fails.
+  keyless Pollinations vision -> keyless OCR.space FALLBACK (prod has no vision keys;
+  visual-search survives there the same way): printed text -> the v174 price-list parser
+  -> line items, with TOTAL/VAT/CASH noise rows dropped and the first meaningful line
+  taken as merchant when no company header is detected. extractReceipt() in
+  ai-backends.ts normalizes { merchant, date, currency, items[{name, qty, unitPrice,
+  lineTotal}], total } through the hardened loose-JSON repairer. 422 when the photo
+  yields no line items, 502 when every provider fails.
 - ACQUIRE ALL THE INFORMATION: the extracted rows land in the composer's EXISTING
   review list (price-list rows) - first item also fills the form answers (name, price,
   currency when in the whitelist, description gains "From receipt - merchant - date");

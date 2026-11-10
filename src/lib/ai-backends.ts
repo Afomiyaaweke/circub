@@ -1,4 +1,7 @@
 import { getZaiClient, type ZaiClient } from '@/lib/zai-config'
+// v258 receipt OCR fallback: the printed text off a slip is structured by
+// the SAME price-list parser the bulk poster uses (pure lib, no imports).
+import { parsePriceListText } from '@/lib/price-list-parser'
 
 // ---------------------------------------------------------------------------
 // Multi-provider AI backends for the scan pipeline.
@@ -636,10 +639,11 @@ export async function llmText(prompt: string, timeoutMs = 20_000): Promise<strin
 // item with its qty/unit price/line total - so the composer can fill the
 // price list from the picture and the user only confirms before posting.
 // Same vision chain as identifyItem: configured OpenAI-compatible / Gemini
-// API first, then ZAI direct, then keyless Pollinations vision. Receipts
-// need more fidelity than the product scan, so the keyed backends run with
-// detail 'high' and a bigger token budget; the OCR.space label fallback is
-// NOT in this chain (it cannot structure line items).
+// API first, then ZAI direct, then keyless Pollinations vision - and finally
+// the keyless OCR.space fallback (printed text -> price-list parser) that
+// keeps the feature alive on hosts with no vision keys. Receipts need more
+// fidelity than the product scan, so the keyed backends run with detail
+// 'high' and a bigger token budget.
 // ---------------------------------------------------------------------------
 
 export interface ReceiptItem {
@@ -767,5 +771,76 @@ export async function extractReceipt(imageDataUrl: string): Promise<ReceiptData>
     failures.push(`pollinations: circuit-open ${Math.ceil(pollinationsVisionCooldownRemainingMs() / 1000)}s`)
   }
 
+  // 4) OCR fallback (keyless) - the visual-search chain has kept working
+  // this way on hosts with no vision keys: OCR.space reads the printed
+  // text and the v174 price-list parser structures it into line items.
+  // Weaker than a vision model (no merchant layout understanding), but the
+  // rows are REVIEWED before anything posts anyway.
+  if (Date.now() >= ocrCooldownUntil) {
+    try {
+      const text = await ocrRawText(imageDataUrl)
+      const out = receiptFromOcrText(text)
+      if (out) return out
+      failures.push('ocr: no receipt lines in text')
+    } catch (e) {
+      ocrCooldownUntil = Date.now() + 60_000
+      failures.push(`ocr: ${String((e as Error)?.message || e).slice(0, 80)}`)
+    }
+  } else {
+    failures.push(`ocr: circuit-open ${Math.ceil(ocrCooldownRemainingMs() / 1000)}s`)
+  }
+
   throw new Error(`All AI providers failed - ${failures.join(' | ')}`)
+}
+
+// Raw printed text off the slip (shared OCR.space pipeline the label scan
+// uses), exposed for the receipt chain's fallback.
+export async function ocrRawText(imageDataUrl: string): Promise<string> {
+  const b64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const data = await ocrParseWithRetry(b64)
+  return String(data.ParsedResults?.[0]?.ParsedText || '')
+}
+
+// Turn OCR text into receipt items via the SAME price-list parser the bulk
+// poster uses. Noise rows every slip carries (TOTAL / VAT / CASH / CHANGE)
+// are dropped, not silently posted.
+const RECEIPT_OCR_NOISE = /^(total|subtotal|sub total|vat|tax|grand total|amount due|balance|change|cash|paid|tender|items?|receipt|invoice|thank you|tel|phone)\b/i
+
+export function receiptFromOcrText(raw: string): ReceiptData | null {
+  if (!raw || !raw.trim()) return null
+  const parsed = parsePriceListText(raw)
+  const items: ReceiptItem[] = []
+  for (const r of parsed.rows) {
+    const name = String(r.productName || '').replace(/\s+/g, ' ').trim()
+    if (!name || RECEIPT_OCR_NOISE.test(name)) continue
+    const num = Number(String(r.price || '').replace(/[^0-9.\-]/g, ''))
+    items.push({
+      name: name.slice(0, 120),
+      qty: null,
+      unitPrice: null,
+      lineTotal: Number.isFinite(num) && String(r.price || '').trim() !== '' ? num : null,
+    })
+  }
+  if (!items.length) return null
+  const dateMatch = raw.match(/\b(20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]20\d{2})\b/)
+  // The parser only recognizes company lines with legal keywords (plc/ltd/
+  // trading...); slips put the store name first, so on a miss the first
+  // meaningful text line IS the merchant.
+  let merchant = parsed.company ? parsed.company.slice(0, 160) : null
+  if (!merchant) {
+    for (const line of raw.split(/\r?\n/)) {
+      const l = line.replace(/\s+/g, ' ').trim()
+      if (l.length < 3 || !/[A-Za-z]{3}/.test(l)) continue
+      if (RECEIPT_OCR_NOISE.test(l) || /^\d/.test(l)) continue
+      merchant = l.slice(0, 160)
+      break
+    }
+  }
+  return {
+    merchant,
+    date: dateMatch ? dateMatch[1] : null,
+    currency: parsed.currencyHint ? String(parsed.currencyHint).toUpperCase().slice(0, 6) : null,
+    items: items.slice(0, 50),
+    total: null,
+  }
 }
