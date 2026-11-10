@@ -10,14 +10,17 @@ the image of the recipt and post".
   every published row), then POST /api/receipt/parse (new) sends it to the vision chain.
 - /api/receipt/parse: auth required (composer is behind the v257 sign-in gate), per-IP
   10/min rolling limit, 6 MB image cap, image-only 415. The chain mirrors identifyItem:
-  configured OpenAI-compatible / Gemini API (detail 'high', 1400 tokens) -> ZAI direct ->
-  keyless Pollinations vision -> keyless OCR.space FALLBACK (prod has no vision keys;
-  visual-search survives there the same way): printed text -> the v174 price-list parser
-  -> line items, with TOTAL/VAT/CASH noise rows dropped and the first meaningful line
-  taken as merchant when no company header is detected. extractReceipt() in
-  ai-backends.ts normalizes { merchant, date, currency, items[{name, qty, unitPrice,
-  lineTotal}], total } through the hardened loose-JSON repairer. 422 when the photo
-  yields no line items, 502 when every provider fails.
+  configured OpenAI-compatible / Gemini API (detail 'high', 1400 tokens) -> ZAI direct
+  (plain image_url) -> keyless Pollinations vision (detail 'low' - it 400s on 'high')
+  -> keyless OCR.space FALLBACK in TABLE MODE (prod has no working vision keys; a
+  receipt's column layout reads EMPTY with the plain call - with isTable=true every
+  line comes back tab-separated). The receipt line parser is receipt-SHAPED: prices
+  matched END-ANCHORED ("11.00" taken whole - the v174 parser splits it at the dot),
+  leading "2 x" folded into qty, TOTAL/VAT/CASH/VISA noise rows dropped, first
+  meaningful line taken as merchant when no company header is detected. extractReceipt()
+  normalizes { merchant, date, currency, items[{name, qty, unitPrice, lineTotal}],
+  total }. 502s carry the per-provider failure detail. 422 when the photo yields no
+  line items, 502 when every provider fails.
 - ACQUIRE ALL THE INFORMATION: the extracted rows land in the composer's EXISTING
   review list (price-list rows) - first item also fills the form answers (name, price,
   currency when in the whitelist, description gains "From receipt - merchant - date");
