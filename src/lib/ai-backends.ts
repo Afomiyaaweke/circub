@@ -801,32 +801,58 @@ export async function ocrRawText(imageDataUrl: string): Promise<string> {
   return String(data.ParsedResults?.[0]?.ParsedText || '')
 }
 
-// Turn OCR text into receipt items via the SAME price-list parser the bulk
-// poster uses. Noise rows every slip carries (TOTAL / VAT / CASH / CHANGE)
-// are dropped, not silently posted.
-const RECEIPT_OCR_NOISE = /^(total|subtotal|sub total|vat|tax|grand total|amount due|balance|change|cash|paid|tender|items?|receipt|invoice|thank you|tel|phone)\b/i
+// Turn OCR text into receipt items with a receipt-SHAPED line parser. The
+// v174 price-list parser is tuned for WhatsApp lists ("Vicryl ..950") and
+// splits "11.00" at the dot; receipts are "qty x NAME  price.amount".
+// Noise rows every slip carries (TOTAL / VAT / CASH / CHANGE) are dropped,
+// not silently posted.
+const RECEIPT_OCR_NOISE = /^(total|subtotal|sub total|vat|tax|grand total|amount due|balance|change|cash|paid|tender|items?|receipt|invoice|thank you|tel|phone|visa|mastercard|amex|debit|credit|card)\b/i
 
 export function receiptFromOcrText(raw: string): ReceiptData | null {
   if (!raw || !raw.trim()) return null
-  const parsed = parsePriceListText(raw)
   const items: ReceiptItem[] = []
-  for (const r of parsed.rows) {
-    const name = String(r.productName || '').replace(/\s+/g, ' ').trim()
-    if (!name || RECEIPT_OCR_NOISE.test(name)) continue
-    const num = Number(String(r.price || '').replace(/[^0-9.\-]/g, ''))
-    items.push({
-      name: name.slice(0, 120),
-      qty: null,
-      unitPrice: null,
-      lineTotal: Number.isFinite(num) && String(r.price || '').trim() !== '' ? num : null,
-    })
+  for (const line of raw.split(/\r?\n/)) {
+    const l = line.replace(/\s+/g, ' ').trim()
+    if (!l) continue
+    // Price at the END of the line, matched END-ANCHORED so "11.00" is
+    // taken whole (a lazy split would cut it into name "...11" + "00"):
+    // first a decimal amount ("11.00", "1,250.50"), else a bare "950".
+    let name = ''
+    let priceStr = ''
+    const dec = l.match(/(\d+[.,]\d{2})\s*$/)
+    const bare = dec ? null : l.match(/(\d{2,})\s*$/)
+    if (dec) {
+      priceStr = dec[1]
+      name = l.slice(0, dec.index)
+    } else if (bare) {
+      priceStr = bare[1]
+      name = l.slice(0, bare.index)
+    } else {
+      continue
+    }
+    name = name.replace(/[\s.·xX]+$/, '').trim()
+    // leading quantity: "2 x Coffee Beans" / "2x Coffee Beans" - strip it
+    // BEFORE the name checks so the row survives (the raw line starts with
+    // a digit, the item name does not)
+    let qty: number | null = null
+    const q = name.match(/^(\d{1,3})\s*x\s+(.+)$/i)
+    if (q) {
+      qty = Number(q[1])
+      name = q[2].trim()
+    }
+    if (!name || !/^[A-Za-z]/.test(name) || !/[A-Za-z]{2}/.test(name)) continue
+    if (RECEIPT_OCR_NOISE.test(name)) continue
+    const num = Number(priceStr.replace(/,/g, ''))
+    if (!Number.isFinite(num) || num < 0) continue
+    items.push({ name: name.slice(0, 120), qty, unitPrice: null, lineTotal: num })
+    if (items.length >= 50) break
   }
   if (!items.length) return null
   const dateMatch = raw.match(/\b(20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]20\d{2})\b/)
-  // The parser only recognizes company lines with legal keywords (plc/ltd/
-  // trading...); slips put the store name first, so on a miss the first
-  // meaningful text line IS the merchant.
-  let merchant = parsed.company ? parsed.company.slice(0, 160) : null
+  // The company heuristic (plc/ltd/trading...) misses plain store names;
+  // slips put the store name first, so on a miss the first meaningful
+  // text line IS the merchant.
+  let merchant = receiptCompanyFromOcr(raw)
   if (!merchant) {
     for (const line of raw.split(/\r?\n/)) {
       const l = line.replace(/\s+/g, ' ').trim()
@@ -836,11 +862,17 @@ export function receiptFromOcrText(raw: string): ReceiptData | null {
       break
     }
   }
+  const list = parsePriceListText(raw)
   return {
     merchant,
     date: dateMatch ? dateMatch[1] : null,
-    currency: parsed.currencyHint ? String(parsed.currencyHint).toUpperCase().slice(0, 6) : null,
-    items: items.slice(0, 50),
+    currency: list.currencyHint ? String(list.currencyHint).toUpperCase().slice(0, 6) : null,
+    items,
     total: null,
   }
+}
+
+function receiptCompanyFromOcr(raw: string): string | null {
+  const parsed = parsePriceListText(raw)
+  return parsed.company ? parsed.company.slice(0, 160) : null
 }
