@@ -99,8 +99,13 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const msg = String((e as Error)?.message || e)
     console.warn('[receipt/parse] extraction failed:', msg.slice(0, 200))
+    // detail: which providers failed and why - the client surfaces a short
+    // version and support can diagnose blind spots without server logs.
     return NextResponse.json(
-      { error: 'Could not read the receipt - try a clearer, well-lit photo, or type the items with Bulk post instead.' },
+      {
+        error: 'Could not read the receipt - try a clearer, well-lit photo, or type the items with Bulk post instead.',
+        detail: msg.slice(0, 500),
+      },
       { status: 502 }
     )
   }
