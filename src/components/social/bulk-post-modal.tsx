@@ -24,7 +24,7 @@
 // (v190/v191) as the placeholder + Load sample. defaults.city is now wired
 // too (the API always accepted it; the UI never exposed it).
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { Sheet, Plus, Trash2, Copy, FileUp, CheckCircle2, AlertTriangle, Sparkles, XCircle, Loader2, X, ClipboardList, UploadCloud, Zap, HelpCircle, ChevronLeft, ChevronDown, Tag, MapPin, SlidersHorizontal, Store, Eye, Rocket } from 'lucide-react'
+import { Sheet, Plus, Trash2, Copy, FileUp, CheckCircle2, AlertTriangle, Sparkles, XCircle, Loader2, X, ClipboardList, UploadCloud, Zap, HelpCircle, ChevronLeft, ChevronDown, Tag, MapPin, SlidersHorizontal, Store, Eye, Rocket, Link2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -265,7 +265,7 @@ interface BulkResult {
 // v193: what the last parse produced - feeds the source card line
 // ('Parsed from pasted text: 0911967478 - 15 items - 3 lines skipped').
 interface ParseMeta {
-  source: '' | 'sheet' | 'text' | 'file'
+  source: '' | 'sheet' | 'text' | 'file' | 'url'
   company: string
   contacts: string[]
   ignored: number
@@ -276,6 +276,8 @@ const EMPTY_PARSE_META: ParseMeta = { source: '', company: '', contacts: [], ign
 export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalProps) {
   const { toast } = useToast()
   const [paste, setPaste] = useState('')
+  // v256: the From-link tab - a public Telegram post, Google Sheet or web page.
+  const [linkUrl, setLinkUrl] = useState('')
   const [rows, setRows] = useState<GridRow[]>([])
   // v193: ETB is the default currency (the mockup shows 'ETB (Br)' active,
   // and the composer flipped to the same default in v192). The parse hint
@@ -293,7 +295,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   // (pasted WhatsApp lists like the Benol example, which is the placeholder
   // they see immediately). Sheet and file stay one tap away.
   // v193: the tabs are the mockup's 'Paste Text / Sheet Rows / Upload File'.
-  const [mode, setMode] = useState<'sheet' | 'text' | 'file'>('text')
+  const [mode, setMode] = useState<'sheet' | 'text' | 'file' | 'link'>('text')
   const [parsing, setParsing] = useState(false)
   const [parsedCompany, setParsedCompany] = useState('')
   // v183: the shop owner name this whole batch is sold under. Auto-filled
@@ -398,7 +400,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
 
   // v174: fill the grid from a parsed price list (text or file). The grid is
   // the PREVIEW - nothing is posted until the user checks it and submits.
-  const applyParsed = (data: any, source: 'text' | 'file') => {
+  const applyParsed = (data: any, source: 'text' | 'file' | 'url') => {
     const parsedRows: { productName: unknown; price: unknown; city?: unknown }[] = Array.isArray(data?.rows) ? data.rows : []
     if (!parsedRows.length) {
       setRows([])
@@ -408,7 +410,9 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       setPasteHint(
         source === 'file' && data?.fileName
           ? `No products with prices found in ${data.fileName} - scanned PDFs and photos are not readable, paste the text instead.`
-          : 'No product + price lines found - each line needs a product name ending in a number, like "Vicryl 2 round ..950".'
+          : source === 'url' && data?.fileName
+            ? `No product + price lines found on ${data.fileName} - the page may need a login or have no readable list; paste the message text instead.`
+            : 'No product + price lines found - each line needs a product name ending in a number, like "Vicryl 2 round ..950".'
       )
       return
     }
@@ -430,6 +434,8 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
     )
     setParsedCompany(company)
     setParseMeta({ source, company, contacts, ignored: Number(data.ignored) || 0 })
+    // v256: the fetched link's host rides the source card line too.
+    if (source === 'url') setFileName(String(data.fileName || 'fetched link'))
     // v183: the detected company header IS the shop owner name - prefill the
     // editable input so the batch posts with a proper attribution instead of
     // a hidden "Sold by ..." description line.
@@ -480,6 +486,33 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
       applyParsed(data, 'text')
     } catch (e) {
       toast({ title: 'Parse failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  // v256: fetch a public link (Telegram channel post, shared Google Sheet,
+  // web page) and parse it - the same preview grid, nothing posts until the
+  // user reviews the rows and confirms.
+  const doParseUrl = async () => {
+    if (parsing) return
+    if (!linkUrl.trim()) {
+      setPasteHint('Paste the link first - a t.me/s/ Telegram post, a Google Sheet link or any public page with a price list.')
+      return
+    }
+    setParsing(true)
+    setPasteHint(null)
+    try {
+      const res = await authFetch('/api/local-prices/bulk/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: linkUrl.trim() }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not read that link')
+      applyParsed(data, 'url')
+    } catch (e) {
+      toast({ title: 'Link fetch failed', description: (e as Error).message, variant: 'destructive' })
     } finally {
       setParsing(false)
     }
@@ -713,7 +746,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
   const shownRows = showAll ? rows.map((r, i) => ({ row: r, idx: i })) : rows.slice(0, 3).map((r, i) => ({ row: r, idx: i }))
   const hiddenCount = rows.length - Math.min(rows.length, 3)
   const firstContact = parseMeta.contacts[0] || ''
-  const sourceLabel = parseMeta.source === 'file' ? (fileName || 'uploaded file') : parseMeta.source === 'sheet' ? 'pasted sheet rows' : 'pasted text'
+  const sourceLabel = parseMeta.source === 'file' ? (fileName || 'uploaded file') : parseMeta.source === 'url' ? (fileName || 'fetched link') : parseMeta.source === 'sheet' ? 'pasted sheet rows' : 'pasted text'
   const allVerified = rows.length > 0 && readyCount === rows.length
 
   // __JSX_PART_B__
@@ -789,6 +822,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               { key: 'text', label: 'Paste Text', icon: ClipboardList, testid: 'bulk-source-text' },
               { key: 'sheet', label: 'Sheet Rows', icon: Sheet, testid: 'bulk-source-sheet' },
               { key: 'file', label: 'Upload File', icon: UploadCloud, testid: 'bulk-source-file' },
+              { key: 'link', label: 'From link', icon: Link2, testid: 'bulk-source-link' },
             ] as const).map((t) => (
               <button
                 key={t.key}
@@ -813,6 +847,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 {mode === 'sheet' && 'Paste your sheet rows or pick a template'}
                 {mode === 'text' && 'Paste the price list text - any format'}
                 {mode === 'file' && 'Upload a Word, PDF, Excel or CSV file'}
+                {mode === 'link' && 'Fetch a Telegram post, Google Sheet or web page'}
               </p>
               {mode === 'sheet' && (
                 <div className="flex items-center gap-1.5">
@@ -828,7 +863,7 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                 </div>
               )}
             </div>
-            {mode !== 'file' && (
+            {mode !== 'file' && mode !== 'link' && (
               <Textarea
                 data-testid="bulk-paste-input"
                 value={paste}
@@ -838,6 +873,22 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
                   : PRICE_LIST_SAMPLE_SIMPLE}
                 className="font-mono text-xs min-h-[150px] bg-card"
               />
+            )}
+            {mode === 'link' && (
+              <div className="space-y-1.5">
+                <Input
+                  data-testid="bulk-link-input"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://t.me/s/mychannel/123 - or a Google Sheet / web page link"
+                  inputMode="url"
+                  className="bg-card"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void doParseUrl() } }}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Public Telegram channel posts (t.me/s/...), Google Sheets shared as &quot;anyone with the link&quot; and plain web pages are read in memory - nothing is stored. Private chats and login-walled pages cannot be read.
+                </p>
+              </div>
             )}
             {mode === 'file' && (
               <div
@@ -869,9 +920,14 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               </div>
             )}
             <div className="flex items-center gap-2 flex-wrap">
-              {mode !== 'file' && (
+              {mode !== 'file' && mode !== 'link' && (
                 <Button type="button" onClick={mode === 'sheet' ? doParse : doParseText} disabled={parsing} className="h-8 gap-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="bulk-parse">
                   <UploadCloud className="w-3.5 h-3.5" /> {parsing ? 'Parsing...' : mode === 'sheet' ? 'Parse rows' : 'Parse & preview'}
+                </Button>
+              )}
+              {mode === 'link' && (
+                <Button type="button" onClick={doParseUrl} disabled={parsing} className="h-8 gap-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="bulk-parse-link">
+                  <Link2 className="w-3.5 h-3.5" /> {parsing ? 'Fetching...' : 'Fetch & preview'}
                 </Button>
               )}
               {mode === 'text' && (

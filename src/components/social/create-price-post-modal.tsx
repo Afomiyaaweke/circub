@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, MapPin, Lightbulb, Camera, Sparkles, FileText, Loader2, ListX, Rocket, ChevronDown, ChevronLeft, Zap } from 'lucide-react'
+import { X, MapPin, Lightbulb, Camera, Sparkles, FileText, Loader2, ListX, Rocket, ChevronDown, ChevronLeft, Zap, Sheet } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,9 @@ import { MEASURE_UNITS } from '@/lib/product-units'
 import { joinLocationParts, splitLocationInput } from '@/lib/location'
 import { PRICE_LIST_EXAMPLE } from '@/lib/price-list-example'
 import { ComparePreview } from './compare-preview'
+// v256: the full bulk poster opens FROM the price composer - the "Bulk post"
+// button in the header. Text, sheet rows, file upload or a fetched link.
+import { BulkPostModal } from './bulk-post-modal'
 
 // Optional values carried over from the camera-search results panel - when
 // the AI identifies a product from a picture, "Post this product" opens this
@@ -137,6 +140,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [imageUrl, setImageUrl] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  // v256: the full bulk poster (paste text / sheet rows / upload / link)
+  // opens on top of the composer from the header "Bulk post" button.
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [compareResult, setCompareResult] = useState<IdentifyCompareResult | null>(null)
   const [comparing, setComparing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -662,6 +668,19 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
               <Zap className="w-3.5 h-3.5" />
               +15 Karma
             </span>
+            {/* v256: one price at a time OR the whole list - the bulk poster
+                (text, sheet rows, file, or a fetched Telegram/Sheet/web link)
+                opens on top, reviews every parsed row before posting. */}
+            <button
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              data-testid="composer-bulk-post"
+              title="Post a whole price list at once - paste text, a sheet, a file or a link, review, then publish"
+              className="ml-1.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 cursor-pointer"
+            >
+              <Sheet className="w-3.5 h-3.5" />
+              Bulk post
+            </button>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pl-[42px]">
             {location.trim() || 'Addis Ababa, Ethiopia'} - answer a few quick questions and I&apos;ll drop the price for you. One drop publishes the price guide AND the product listing on your profile.
@@ -1227,6 +1246,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
           </Button>
         </div>
       </DialogContent>
+      {/* v256: the full bulk poster stacked on top of the composer - publish
+          a whole list from any source; the feed refreshes via onCreated. */}
+      <BulkPostModal open={bulkOpen} onOpenChange={setBulkOpen} onCreated={onCreated} />
     </Dialog>
   )
 }

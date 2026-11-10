@@ -1,5 +1,29 @@
 # circubAwd worklog
 
+## v256 (2026-11-09) - Bulk post from anywhere: text, sheet, file, or a LINK
+User: "have a bulk post form telegram or spread sheet or other post using links as well
+confirm before post and have button inside post price 'bulk post'".
+
+- BULK BUTTON IN POST PRICE: the price composer ("Quick Price Drop") header grows a
+  "Bulk post" button (testid composer-bulk-post) - it opens the full v193 BulkPostModal
+  stacked on top; the modal was orphaned (no mount point) since the v122/v189 composer
+  consolidation and is now reachable again. Publish refreshes the feed via the
+  composer's onCreated.
+- FROM LINK TAB (4th source): the bulk modal gains "From link" (testid bulk-source-link)
+  beside Paste Text / Sheet Rows / Upload File. POST /api/local-prices/bulk/parse now
+  accepts { url }: fetches a public Telegram channel post (t.me/s/...), a Google Sheet
+  shared as "anyone with the link" (an /edit link is rewritten to export?format=csv) or
+  any public web page, strips HTML to text, and runs the same price-list parser. Read
+  in memory only, 2 MB cap, 8s timeout, clear errors for private/login-walled pages.
+- SSRF GUARD: only public http(s) URLs - loopback/private/link-local/ipv6-ula hostnames
+  rejected before any request leaves the server.
+- CONFIRM BEFORE POST: unchanged v173 contract - parse fills the PREVIEW grid, nothing
+  posts until the user reviews the rows and hits Publish; per-row edit/remove, Review
+  summary, batch settings. The composer's inline paste-list keeps its own review rows.
+- SAMPLE: public/sample-price-list.txt (Benol list) doubles as a same-origin URL fixture
+  for the link mode.
+- VERSION: v255 -> v256 (app-version.ts + sw.js), probes re-assert v256.
+
 ## v255 (2026-11-09) - A bounty is more than money: money / business / research asks
 User: "ppl post for the thing they need help and offer money in return and also ask ppl to
 be part of their business to do research".
