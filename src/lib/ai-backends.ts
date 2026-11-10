@@ -307,8 +307,9 @@ async function identifyViaOcr(imageDataUrl: string): Promise<VisionIdentify> {
 }
 
 // The free OCR tier occasionally answers a one-off 5xx - retry once so a
-// transient blip doesn't burn the whole scan.
-async function ocrParseWithRetry(b64: string, attempts = 2): Promise<{
+// transient blip doesn't burn the whole scan. `extra` adds form fields
+// (the receipt fallback needs isTable for column layouts).
+async function ocrParseWithRetry(b64: string, attempts = 2, extra?: Record<string, string>): Promise<{
   ParsedResults?: Array<{ ParsedText?: string }>
   IsErroredOnProcessing?: boolean
   ErrorMessage?: unknown
@@ -321,6 +322,7 @@ async function ocrParseWithRetry(b64: string, attempts = 2): Promise<{
       fd.append('apikey', OCR_API_KEY)
       fd.append('language', 'eng')
       fd.append('OCREngine', '2')
+      if (extra) for (const [k, v] of Object.entries(extra)) fd.append(k, v)
       fd.append('file', new Blob([Buffer.from(b64, 'base64')], { type: 'image/jpeg' }), 'frame.jpg')
       const res = await fetch('https://api.ocr.space/Parse/Image', {
         method: 'POST',
@@ -703,16 +705,19 @@ function normalizeReceipt(parsed: Record<string, unknown> | null): ReceiptData |
   }
 }
 
-// 1) Keyed backends share this runner: one message shape, two detail levels.
+// 1) Keyed backends share this runner: one message shape, per-backend detail
+// (receipts need 'high' on the keyed vision API; Pollinations 400s on
+// anything but 'low'; ZAI takes the plain image_url).
 async function receiptViaMessages(
   send: (messages: unknown) => Promise<unknown>,
-  imageDataUrl: string
+  imageDataUrl: string,
+  detail?: 'high' | 'low'
 ): Promise<ReceiptData> {
   const messages = [{
     role: 'user',
     content: [
       { type: 'text', text: RECEIPT_PROMPT },
-      { type: 'image_url', image_url: { url: imageDataUrl, detail: 'high' } },
+      { type: 'image_url', image_url: detail ? { url: imageDataUrl, detail } : { url: imageDataUrl } },
     ],
   }]
   const res = await send(messages)
@@ -731,7 +736,8 @@ export async function extractReceipt(imageDataUrl: string): Promise<ReceiptData>
       // reasoning_effort none: same token-burn guard the product scan uses.
       return await receiptViaMessages(
         (messages) => openaiChat(oa, { messages, max_tokens: 1400, reasoning_effort: 'none' }, 30_000),
-        imageDataUrl
+        imageDataUrl,
+        'high'
       )
     } catch (e) {
       failures.push(`vision-api: ${String((e as Error)?.message || e).slice(0, 80)}`)
@@ -761,7 +767,8 @@ export async function extractReceipt(imageDataUrl: string): Promise<ReceiptData>
     try {
       return await receiptViaMessages(
         (messages) => pollinationsChat({ messages, max_tokens: 1200 }, 20_000, 'openai-fast'),
-        imageDataUrl
+        imageDataUrl,
+        'low'
       )
     } catch (e) {
       notePollinationsVisionFailure(e)
@@ -778,7 +785,7 @@ export async function extractReceipt(imageDataUrl: string): Promise<ReceiptData>
   // rows are REVIEWED before anything posts anyway.
   if (Date.now() >= ocrCooldownUntil) {
     try {
-      const text = await ocrRawText(imageDataUrl)
+      const text = await receiptOcrRawText(imageDataUrl)
       const out = receiptFromOcrText(text)
       if (out) return out
       failures.push('ocr: no receipt lines in text')
@@ -798,6 +805,15 @@ export async function extractReceipt(imageDataUrl: string): Promise<ReceiptData>
 export async function ocrRawText(imageDataUrl: string): Promise<string> {
   const b64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
   const data = await ocrParseWithRetry(b64)
+  return String(data.ParsedResults?.[0]?.ParsedText || '')
+}
+
+// Receipt variant: table mode. A receipt is columns (item | price); the
+// plain OCR call reads those EMPTY - table mode returns every line with
+// tab-separated columns the receipt line parser understands.
+async function receiptOcrRawText(imageDataUrl: string): Promise<string> {
+  const b64 = imageDataUrl.replace(/^data:image\/\w+;base64,/, '')
+  const data = await ocrParseWithRetry(b64, 2, { isTable: 'true' })
   return String(data.ParsedResults?.[0]?.ParsedText || '')
 }
 
