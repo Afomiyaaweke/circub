@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, MapPin, Lightbulb, Camera, Sparkles, FileText, Loader2, ListX, Rocket, ChevronDown, ChevronLeft, Zap, Sheet } from 'lucide-react'
+import { X, MapPin, Lightbulb, Camera, Sparkles, FileText, Loader2, ListX, Rocket, ChevronDown, ChevronLeft, Zap, Sheet, ReceiptText } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -128,6 +128,13 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   const [parsingList, setParsingList] = useState(false)
   const [listRows, setListRows] = useState<ParsedListRow[]>([])
   const [listHint, setListHint] = useState<string | null>(null)
+  // v258: POST WITH RECEIPT - the Receipt button takes a receipt photo and
+  // the vision chain reads EVERY line on it (merchant, date, currency, each
+  // item with its price). The rows land in the SAME review list as the
+  // pasted price list and publish through the SAME bulk contract, so the
+  // user confirms every row before anything posts.
+  const receiptRef = useRef<HTMLInputElement | null>(null)
+  const [receiptBusy, setReceiptBusy] = useState(false)
   // "Make it story while posting a new price": ON by default - publishing
   // also shares the price as a 24h story banner in the feed's stories strip.
   const [alsoStory, setAlsoStory] = useState(true)
@@ -445,6 +452,88 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     if (listRows.length <= 1) setListHint(null)
   }
 
+  // v258: POST WITH RECEIPT. The receipt photo is compressed, uploaded (it
+  // becomes the post photo - proof on every published row) and sent to
+  // /api/receipt/parse where the vision chain acquires ALL the information
+  // from the image: merchant, date, currency and every line item. The rows
+  // fill the same review list as a pasted price list - nothing posts until
+  // the user hits Drop Price Now.
+  const handleReceiptPick = async (file: File) => {
+    if (receiptBusy) return
+    setReceiptBusy(true)
+    try {
+      const compressed = await compressImage(file)
+      const fd = new FormData()
+      fd.append('file', compressed)
+      // The receipt photo doubles as the post photo - same contract as the
+      // manual photo box. Upload failure is non-fatal: rows can still post
+      // without the proof image.
+      try {
+        const upRes = await fetch('/api/upload', { method: 'POST', body: fd })
+        if (upRes.ok) {
+          const up = await upRes.json().catch(() => null)
+          if (up?.url) setImageUrl(up.url)
+        }
+      } catch { /* photo is optional - the rows can still post */ }
+
+      const res = await authFetch('/api/receipt/parse', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Could not read the receipt')
+      const items: Array<{ name?: unknown; qty?: unknown; unitPrice?: unknown; lineTotal?: unknown }> = Array.isArray(data?.items) ? data.items : []
+      const rows: ParsedListRow[] = items
+        .map((it) => {
+          const name = String(it.name || '').replace(/\s+/g, ' ').trim()
+          if (!name) return null
+          const rawPrice = it.lineTotal ?? it.unitPrice
+          const price = rawPrice === null || rawPrice === undefined ? '' : String(rawPrice)
+          // The bulk rows carry name + price only - a multi-item slip keeps
+          // its quantity readable by folding it into the name ("Coffee x2").
+          const qty = it.qty === null || it.qty === undefined ? '' : String(it.qty)
+          const named = qty && Number(qty) > 1 && !/x\d/i.test(name) ? `${name} x${qty}` : name
+          return { productName: named.slice(0, 120), price }
+        })
+        .filter((r): r is ParsedListRow => !!r)
+      if (!rows.length) throw new Error('No line items found on that photo - make sure the whole receipt is flat, in frame and readable.')
+      setListRows(rows)
+      // The first item fills the answers so a one-item receipt behaves like
+      // a normal single post; several items publish as separate price posts.
+      const first = rows[0]
+      setProductName(first.productName)
+      const raw = first.price.replace(/[^0-9.\-]/g, '')
+      const dash = raw.indexOf('-')
+      if (dash > 0) {
+        setPriceMin(raw.slice(0, dash))
+        setPriceMax(raw.slice(dash + 1))
+      } else if (raw) {
+        setPriceMin(raw)
+        setPriceMax('')
+      }
+      const cur = String(data?.currency || '')
+      if (cur && CURRENCIES.includes(cur)) setCurrency(cur)
+      const merchant = String(data?.merchant || '')
+      const date = String(data?.date || '')
+      if ((merchant || date) && !description.trim()) {
+        setDescription(`From receipt${merchant ? ` - ${merchant}` : ''}${date ? ` - ${date}` : ''}`)
+      }
+      // Land the user on the REVIEW card: the receipt already answered
+      // what/price/currency, so the remaining work is confirm-and-publish
+      // (the review card is where the parsed rows and Optional details live).
+      setAskStep(4)
+      setDetailsOpen(true)
+      setListHint(
+        `Receipt read: ${rows.length} item${rows.length !== 1 ? 's' : ''}` +
+          (merchant ? ` from ${merchant}` : '') +
+          (date ? ` dated ${date}` : '') +
+          '. Review the rows below - remove anything that should not post - then Drop Price. The receipt photo rides on every row.'
+      )
+      toast({ title: 'Receipt read', description: `${rows.length} item${rows.length !== 1 ? 's' : ''} found on the slip.` })
+    } catch (e) {
+      toast({ title: 'Receipt failed', description: (e as Error).message, variant: 'destructive' })
+    } finally {
+      setReceiptBusy(false)
+    }
+  }
+
   const handleSave = async () => {
     // v189: with TWO or more parsed price-list rows the composer publishes
     // the whole list through the bulk endpoint - one price post per row,
@@ -516,6 +605,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
               contactEmail: contactEmail.trim(),
               contactWhatsApp: contactWhatsApp.trim(),
               description: description.trim(),
+              // v258: a receipt read fills the review rows - the receipt
+              // photo (already uploaded) rides on EVERY published row.
+              imageUrl: imageUrl || undefined,
               latitude: gpsLat,
               longitude: gpsLng,
             })),
@@ -681,6 +773,32 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
               <Sheet className="w-3.5 h-3.5" />
               Bulk post
             </button>
+            {/* v258: POST WITH RECEIPT - snap the slip, every line item, the
+                merchant, the date and the currency are read from the photo;
+                the rows land in the review list, posting waits for the user. */}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
+              ref={receiptRef}
+              data-testid="receipt-file-input"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) handleReceiptPick(f)
+              }}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => receiptRef.current?.click()}
+              disabled={receiptBusy}
+              data-testid="composer-receipt"
+              title="Post with a receipt - the AI reads every line item, the merchant, the date and the currency from the photo; you review, then post"
+              className="ml-1.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20 cursor-pointer disabled:opacity-60"
+            >
+              {receiptBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ReceiptText className="w-3.5 h-3.5" />}
+              {receiptBusy ? 'Reading...' : 'Receipt'}
+            </button>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pl-[42px]">
             {location.trim() || 'Addis Ababa, Ethiopia'} - answer a few quick questions and I&apos;ll drop the price for you. One drop publishes the price guide AND the product listing on your profile.
@@ -748,11 +866,15 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
                   Next: what did you get? →
                 </button>
               </div>
-            ) : location.trim() ? (
+            ) : askStep !== 1 ? (
               <div className="flex items-center gap-2.5 pl-10" data-testid="ai-answer-where">
                 <span className="min-w-0 flex-1 rounded-xl bg-card border border-border px-3 py-2 text-sm">
                   <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Where</span>
-                  <span className="block truncate font-semibold text-foreground">{location.trim()}</span>
+                  {/* v258: a receipt read can land the user on the review
+                      card WITHOUT a location - the slip never says which
+                      market it is from. Show the empty answer with its Edit
+                      instead of nothing, or there is no way back to Q1. */}
+                  <span className={`block truncate font-semibold ${location.trim() ? 'text-foreground' : 'text-muted-foreground'}`}>{location.trim() || 'Not set yet - tap Edit'}</span>
                 </span>
                 <button type="button" onClick={() => setAskStep(1)} className="shrink-0 text-xs font-semibold text-primary hover:underline cursor-pointer">Edit</button>
               </div>

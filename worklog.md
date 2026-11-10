@@ -1,5 +1,31 @@
 # circubAwd worklog
 
+## v258 (2026-11-10) - Post with a receipt: the AI reads every line and fills the post
+User: "for product post have also post with recipt and aquire all the information form
+the image of the recipt and post".
+
+- RECEIPT BUTTON IN POST PRICE: the composer header grows a sky "Receipt" chip
+  (testid composer-receipt, beside Bulk post) - it opens the camera/file picker; the
+  compressed receipt photo is uploaded FIRST so it doubles as the post photo (proof on
+  every published row), then POST /api/receipt/parse (new) sends it to the vision chain.
+- /api/receipt/parse: auth required (composer is behind the v257 sign-in gate), per-IP
+  10/min rolling limit, 6 MB image cap, image-only 415. The chain mirrors identifyItem:
+  configured OpenAI-compatible / Gemini API (detail 'high', 1400 tokens) -> ZAI direct ->
+  keyless Pollinations vision; extractReceipt() in ai-backends.ts normalizes
+  { merchant, date, currency, items[{name, qty, unitPrice, lineTotal}], total } through
+  the hardened loose-JSON repairer. 422 when the photo yields no line items, 502 when
+  every provider fails.
+- ACQUIRE ALL THE INFORMATION: the extracted rows land in the composer's EXISTING
+  review list (price-list rows) - first item also fills the form answers (name, price,
+  currency when in the whitelist, description gains "From receipt - merchant - date");
+  multi-qty items fold the count into the name ("Coffee x2"); the Optional-details
+  panel auto-opens so the rows are on screen. Users remove any row they don't want.
+- CONFIRM BEFORE POST: nothing posts at parse time - publishing still goes through the
+  same bulk contract (>=2 rows -> POST /api/local-prices/bulk, one price post per row).
+  The listMode rows now also carry the composer's imageUrl, so every receipt row
+  publishes with the receipt photo attached.
+- VERSION: v257 -> v258 (app-version.ts + sw.js), probes re-assert v258.
+
 ## v257 (2026-11-10) - Touching the posting button while signed out brings the sign-in page
 User: "ask me to sign in first to post product while i'm sign out and bring the sign in
 page while i touch the posting button".

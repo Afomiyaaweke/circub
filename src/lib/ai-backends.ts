@@ -629,3 +629,143 @@ export async function llmText(prompt: string, timeoutMs = 20_000): Promise<strin
   console.warn('[ai-backends] text LLM failed everywhere:', failures.join(' | '))
   return null
 }
+
+// ---------------------------------------------------------------------------
+// RECEIPT EXTRACTION (v258) - "post with receipt": read a receipt photo and
+// acquire ALL the information on it - merchant, date, currency, every line
+// item with its qty/unit price/line total - so the composer can fill the
+// price list from the picture and the user only confirms before posting.
+// Same vision chain as identifyItem: configured OpenAI-compatible / Gemini
+// API first, then ZAI direct, then keyless Pollinations vision. Receipts
+// need more fidelity than the product scan, so the keyed backends run with
+// detail 'high' and a bigger token budget; the OCR.space label fallback is
+// NOT in this chain (it cannot structure line items).
+// ---------------------------------------------------------------------------
+
+export interface ReceiptItem {
+  name: string
+  qty: number | null
+  unitPrice: number | null
+  lineTotal: number | null
+}
+
+export interface ReceiptData {
+  merchant: string | null
+  date: string | null
+  currency: string | null
+  items: ReceiptItem[]
+  total: number | null
+}
+
+const RECEIPT_PROMPT = `This is a photo of a store receipt, invoice or till slip. Read the printed text and extract EVERY line item. Respond ONLY with JSON exactly like: {"merchant":"store name or null","date":"YYYY-MM-DD or null","currency":"ISO code like USD or ETB or null","items":[{"name":"item name","qty":number or null,"unitPrice":number or null,"lineTotal":number or null}],"total":number or null}. Copy item names exactly as printed (trim extra spaces). If the image is not a receipt or has no readable line items, respond {"items":[]}.`
+
+function receiptNum(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string') {
+    const n = Number(v.replace(/[^0-9.\-]/g, ''))
+    if (Number.isFinite(n) && v.trim() !== '') return n
+  }
+  return null
+}
+
+function receiptStr(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.replace(/\s+/g, ' ').trim()
+  return s ? s.slice(0, 160) : null
+}
+
+function normalizeReceipt(parsed: Record<string, unknown> | null): ReceiptData | null {
+  if (!parsed) return null
+  const rawItems = Array.isArray(parsed.items) ? parsed.items : []
+  const items: ReceiptItem[] = []
+  for (const it of rawItems.slice(0, 50)) {
+    if (!it || typeof it !== 'object') continue
+    const o = it as Record<string, unknown>
+    const name = receiptStr(o.name)
+    if (!name) continue
+    items.push({
+      name,
+      qty: receiptNum(o.qty ?? o.quantity),
+      unitPrice: receiptNum(o.unitPrice ?? o.price),
+      lineTotal: receiptNum(o.lineTotal ?? o.total ?? o.amount),
+    })
+  }
+  return {
+    merchant: receiptStr(parsed.merchant ?? parsed.store),
+    date: receiptStr(parsed.date),
+    currency: receiptStr(parsed.currency)?.toUpperCase().slice(0, 6) ?? null,
+    items,
+    total: receiptNum(parsed.total),
+  }
+}
+
+// 1) Keyed backends share this runner: one message shape, two detail levels.
+async function receiptViaMessages(
+  send: (messages: unknown) => Promise<unknown>,
+  imageDataUrl: string
+): Promise<ReceiptData> {
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'text', text: RECEIPT_PROMPT },
+      { type: 'image_url', image_url: { url: imageDataUrl, detail: 'high' } },
+    ],
+  }]
+  const res = await send(messages)
+  const out = normalizeReceipt(extractJson(contentOf(res)))
+  if (!out) throw new Error('unparseable response')
+  return out
+}
+
+export async function extractReceipt(imageDataUrl: string): Promise<ReceiptData> {
+  const failures: string[] = []
+
+  // 1) Configured OpenAI-compatible / Gemini API
+  const oa = visionApiConfig()
+  if (oa) {
+    try {
+      // reasoning_effort none: same token-burn guard the product scan uses.
+      return await receiptViaMessages(
+        (messages) => openaiChat(oa, { messages, max_tokens: 1400, reasoning_effort: 'none' }, 30_000),
+        imageDataUrl
+      )
+    } catch (e) {
+      failures.push(`vision-api: ${String((e as Error)?.message || e).slice(0, 80)}`)
+    }
+  }
+
+  // 2) ZAI direct (breaker skips when down)
+  if (Date.now() >= zaiCooldownUntil) {
+    try {
+      return await receiptViaMessages(
+        (messages) => withZai(
+          (z) => z.chat.completions.createVision({ messages, thinking: { type: 'disabled' }, max_tokens: 1200 }) as Promise<unknown>,
+          25_000
+        ),
+        imageDataUrl
+      )
+    } catch (e) {
+      noteZaiFailure(e)
+      failures.push(`zai: ${String((e as Error)?.message || e).slice(0, 80)}`)
+    }
+  } else {
+    failures.push(`zai: circuit-open ${Math.ceil(zaiCooldownRemainingMs() / 1000)}s`)
+  }
+
+  // 3) Keyless Pollinations vision
+  if (Date.now() >= polVisionCooldownUntil) {
+    try {
+      return await receiptViaMessages(
+        (messages) => pollinationsChat({ messages, max_tokens: 1200 }, 20_000, 'openai-fast'),
+        imageDataUrl
+      )
+    } catch (e) {
+      notePollinationsVisionFailure(e)
+      failures.push(`pollinations: ${String((e as Error)?.message || e).slice(0, 80)}`)
+    }
+  } else {
+    failures.push(`pollinations: circuit-open ${Math.ceil(pollinationsVisionCooldownRemainingMs() / 1000)}s`)
+  }
+
+  throw new Error(`All AI providers failed - ${failures.join(' | ')}`)
+}
