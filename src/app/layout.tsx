@@ -149,16 +149,74 @@ export const viewport: Viewport = {
   themeColor: "#059669",
 };
 
+// ============================================================================
+// v260 BOOT SPLASH - the "it's like this on mobile" screenshot fix.
+//
+// The compiled stylesheet is ~240 KB; on a 3G phone the HTML (and its raw
+// text) paints SECONDS before the CSS arrives, and because the stylesheet
+// carries every `hidden` rule even desktop-only widgets (the right sidebar)
+// flash on phones. Parser-order facts this relies on:
+//  - <html class="circub-booting"> below is SSR STATIC - the gate is active
+//    from the first painted byte, before ANY script gets to run;
+//  - the body-first inline <style> is parsed before the rest of the body, so
+//    the gate + splash styles apply without waiting for the stylesheet;
+//  - the reveal script sits AFTER the stylesheet links, and parser-inserted
+//    scripts wait for pending stylesheets - so it runs exactly when the CSS
+//    finished (or failed), never earlier. The 4 s cap covers the FAILED
+//    stylesheet case (listeners attach after the error already fired);
+//  - <noscript> unhides everything for no-JS visitors and crawlers.
+// The splash node stays in the DOM (display:none once ready) so React
+// hydration always finds the exact markup it rendered.
+// ============================================================================
+const BOOT_STYLE = `html.circub-booting body>*:not(#circub-boot){display:none!important}
+#circub-boot{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#02140c;color:#eaf2ee;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
+html.circub-ready #circub-boot{display:none}
+#circub-boot .circub-mark{width:58px;height:58px;border-radius:9999px;background:#14c37c;color:#02140c;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;line-height:1}
+#circub-boot b{font-size:20px;letter-spacing:.2px}
+#circub-boot small{font-size:13px;opacity:.72}
+@keyframes circub-boot-spin{to{transform:rotate(360deg)}}
+#circub-boot .circub-ring{width:44px;height:44px;border-radius:9999px;border:4px solid rgba(234,242,238,.16);border-top-color:#14c37c;animation:circub-boot-spin .9s linear infinite}`;
+const BOOT_SCRIPT = `(function(){
+try{
+var h=document.documentElement;
+var done=false;
+var reveal=function(){if(done)return;done=true;h.classList.add('circub-ready');h.classList.remove('circub-booting')};
+var links=document.querySelectorAll('link[rel="stylesheet"]');
+var pending=0;
+var onOne=function(){pending--;if(pending<=0)reveal()};
+for(var i=0;i<links.length;i++){var l=links[i];pending++;if(l.sheet){onOne();continue}l.addEventListener('load',onOne,{once:true});l.addEventListener('error',onOne,{once:true})}
+if(pending<=0){pending=1;setTimeout(onOne,60)}
+setTimeout(reveal,4000);
+}catch(e){try{document.documentElement.classList.add('circub-ready')}catch(e2){}}
+})();`;
+
+const BOOT_NOSCRIPT = `#circub-boot{display:none!important}html.circub-booting body>*:not(#circub-boot){display:revert!important}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="circub-booting">
       <body
         className={`${geistSans.variable} antialiased bg-background text-foreground`}
       >
+        {/* v260 BOOT SPLASH - SSR-gated (html.circub-booting) and inline-styled
+            so the gate + splash work with zero CSS and zero JS. First in the
+            body so it beats every other paint; <noscript> below unhides the
+            app for no-JS visitors and crawlers. */}
+        <style id="circub-boot-style" dangerouslySetInnerHTML={{ __html: BOOT_STYLE }} />
+        <div id="circub-boot" role="status" aria-label="circubAwd is loading">
+          <div className="circub-ring" />
+          <div className="circub-mark" aria-hidden="true">C</div>
+          <b>circubAwd</b>
+          <small>Loading local prices…</small>
+        </div>
+        <noscript>
+          <style dangerouslySetInnerHTML={{ __html: BOOT_NOSCRIPT }} />
+        </noscript>
+        <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
         <ThemeProvider>
           {/* Sitewide structured data - server-rendered into every page's HTML */}
           <script

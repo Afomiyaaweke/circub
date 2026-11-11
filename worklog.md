@@ -1,5 +1,35 @@
 # circubAwd worklog
 
+## v260 (2026-11-11) - The mobile "raw text soup" screenshot gets a branded boot splash
+User (mobile screenshot): "it's like this on mobile veiw check it" - the phone showed
+the app as unstyled black-on-default text: the desktop right sidebar (What locals are
+saying / Add to your network / Trending now / Top score) fully visible on a phone,
+native-gray buttons, "No local price posts yet" empty state.
+
+- DIAGNOSIS: the sidebar is `hidden lg:block` - seeing it on a phone means the
+  stylesheet was NOT applied at all. The compiled CSS is already old-engine friendly
+  (Lightning CSS bakes every oklch token to hex; color-mix sits behind @supports), so
+  this was NOT an oklch problem - it is the CSS-LOADING WINDOW: the ~240 KB stylesheet
+  arrives SECONDS after the HTML on 3G (the screenshot's status bar shows H/3G), the
+  raw HTML paints first, and the phone browser's forced-dark turns it black.
+- BOOT SPLASH (layout.tsx): parser-order-safe gate - `<html class="circub-booting">`
+  is SSR STATIC so the gate is active from the first painted byte (an inline script
+  could NOT do this: parser-inserted classic scripts only run AFTER pending
+  stylesheets finish, which is exactly the window being fixed); the body-first inline
+  <style> carries the gate + splash styles (works with zero CSS); the splash itself is
+  inline-styled (ring spinner + C mark + "circubAwd / Loading local prices…"); the
+  reveal script sits after the stylesheet links so it fires exactly when the CSS is
+  done, flipping to "circub-ready" (4 s cap covers the FAILED-stylesheet case where
+  the listeners attach after the error already fired); <noscript> unhides everything
+  for no-JS visitors and crawlers. The splash node stays in the DOM (display:none
+  once ready) so React hydration always finds the exact markup it rendered.
+- VERIFIED by task260_boot_probe.py (9 checks): HTML carries the machinery; normal
+  load reaches circub-ready with hydration intact; at 60 KB/s throttling the app is
+  hidden behind the splash WHILE the CSS downloads (sampled from navigation commit,
+  mid-parse) and reveals when the stylesheet lands (~5.7 s); a 404 stylesheet never
+  traps the user. Splash visual captured at /tmp via the exact inline markup.
+- VERSION: v259 -> v260 (app-version.ts + sw.js), probes re-assert v260.
+
 ## v259 (2026-11-11) - Receipt posting lives on the feed, first; the detail card reads at arm's length; the app gets faster
 User: "make the feed recipt posting place and make it first ... the site is slow ...
 there are texts outside the box on a mobile devices ... the detail section of price
