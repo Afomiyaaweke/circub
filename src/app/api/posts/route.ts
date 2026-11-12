@@ -1,6 +1,7 @@
 // Posts: list (with author, likes, comments) + create
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
+import { notifyFollowersNewPost } from '@/lib/email-notify'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { guideDistanceKm } from '@/lib/geo'
@@ -163,6 +164,20 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+    })
+
+    // v261: followers get an email about this post AFTER the response is
+    // sent (after() keeps the function alive; mail failure never affects
+    // the post that already succeeded).
+    after(async () => {
+      const sent = await notifyFollowersNewPost({
+        kind: 'COMMUNITY',
+        authorId: me.id,
+        authorName: me.name,
+        headline: `${me.name} posted to the community feed`,
+        rows: [['Post', post.content.slice(0, 280)]],
+      })
+      if (sent > 0) console.log(`email-notify: ${sent} follower(s) emailed for post ${post.id}`)
     })
 
     return NextResponse.json({ post: { ...post, author: slimAuthor(post.author), comments: post.comments.map((c) => ({ ...c, author: slimAuthor(c.author) })) } }, { status: 201 })

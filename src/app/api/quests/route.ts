@@ -11,8 +11,9 @@
 // session-scoped flags (isMine = I posted this, myClaim = I claimed this) so
 // the board can render the owner's Edit/Delete and the claimer's Drop claim.
 // Applicant details live exclusively in GET /api/quests/mine (poster-only).
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { db } from '@/lib/db'
+import { notifyFollowersNewPost } from '@/lib/email-notify'
 import { getCurrentUser, checkRateLimit, sanitizeInput } from '@/lib/session'
 import { normalizeBountyCurrency } from '@/lib/bounty-money'
 // v255: what the poster asks for - money and/or business partners and/or
@@ -140,6 +141,26 @@ export async function POST(req: NextRequest) {
         userId: me?.id ?? null,
       },
     })
+    // v261: a member's followers get an email about this bounty AFTER the
+    // response is sent. Guest quests (no account attached) have no follower
+    // graph to notify, so delivery only happens for logged-in posters.
+    if (me) {
+      after(async () => {
+        const bountyBit = bountyUsd > 0 ? `${bountyCurrency} ${bountyUsd}` : 'No fixed bounty'
+        const sent = await notifyFollowersNewPost({
+          kind: 'QUEST',
+          authorId: me.id,
+          authorName: me.name,
+          headline: `${me.name} posted a new bounty`,
+          rows: [
+            ['Bounty', bountyBit],
+            ['What', title.slice(0, 200)],
+            ['Where', location],
+          ],
+        })
+        if (sent > 0) console.log(`email-notify: ${sent} follower(s) emailed for quest ${saved.id}`)
+      })
+    }
     return NextResponse.json({ ok: true, id: saved.id })
   } catch (error) {
     console.error('Quest create failed:', error)

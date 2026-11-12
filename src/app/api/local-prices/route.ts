@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { expandCategoryFilter } from '@/lib/categories'
 import { db } from '@/lib/db'
+import { notifyFollowersNewPost } from '@/lib/email-notify'
 import { getCurrentUser, sanitizeInput } from '@/lib/session'
 import { caseInsensitiveWhere } from '@/lib/search'
 import { isValidGps } from '@/lib/location'
@@ -202,6 +203,25 @@ export async function POST(req: NextRequest) {
         }
       } catch { /* story is additive - never blocks the post */ }
     }
+    // v261: followers get an email about this price AFTER the response is
+    // sent - delivery can never delay or fail the post itself.
+    after(async () => {
+      const priceBit = `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? ' - ' + post.priceMax : ''}`
+      const whereBit = [post.neighborhood, post.city, post.country].filter(Boolean).join(', ')
+      const sent = await notifyFollowersNewPost({
+        kind: 'PRICE',
+        authorId: me.id,
+        authorName: me.name,
+        headline: `${me.name} posted a new local price`,
+        rows: [
+          ['Product', `${post.productName}${post.unit ? ` (${post.unit})` : ''}`],
+          ['Price', priceBit],
+          ['Where', whereBit || 'Not specified'],
+        ],
+      })
+      if (sent > 0) console.log(`email-notify: ${sent} follower(s) emailed for price post ${post.id}`)
+    })
+
     return NextResponse.json({ post, story, product }, { status: 201 })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

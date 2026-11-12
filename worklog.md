@@ -1,5 +1,40 @@
 # circubAwd worklog
 
+## v261 (2026-11-12) - Followers get an email the moment someone posts
+User: "make email notification when new post is made". The app already had a
+mailer (Resend REST via plain fetch - contact form v196, forgot-password v239)
+but nothing told followers that the people they follow actually posted.
+
+WHAT SHIPPED
+- src/lib/email-notify.ts - the follower mailer. notifyFollowersNewPost finds
+  the author's active followers (deactivated accounts and the author excluded,
+  hard cap 50 per post), builds one branded dark-green email (C mark, headline
+  like "Abebe posted a new local price", up to 4 label/value rows, CTA button)
+  and sends each one through sendEmail (Resend REST, 8s timeout). Every
+  failure is swallowed and logged - notification is strictly additive.
+- Hooks in the three creation routes, all inside `after()` from next/server
+  so delivery runs AFTER the response and can never delay or fail the post:
+  * POST /api/local-prices -> Product / Price / Where rows
+  * POST /api/posts        -> headline + post content snippet
+  * POST /api/quests       -> member quests only (guest quests have no
+    follower graph): Bounty / What / Where rows
+- RESEND_API_URL env override: TEST SEAM - the E2E probe points delivery at a
+  local mock Resend and asserts real send attempts end to end.
+- Without RESEND_API_KEY the module is a silent no-op (posts unchanged), the
+  same graceful contract forgot-password already uses. Resend's sandbox
+  sender (onboarding@resend.dev) only reaches the account's own address -
+  verify a domain in Resend and set RESEND_FROM to reach arbitrary follower
+  inboxes. Unsubscribe preferences are a future item (no prefs model yet).
+
+PROOF (local :3100 + mock Resend :3101) - task261_email_probe.py 14/14:
+register poster+follower via API -> follow -> price post (email carries
+product name + price range) -> community post (email carries content) ->
+member quest (email carries bounty + where) -> author never a recipient ->
+poster still 201 with the mailer DOWN -> full API cleanup.
+Regressions: task239_probe 29/29, task259 receipt 17/17, task258 9/9,
+task257 gate 8/8, task260 boot 9/9. tsc 20 baseline; build exit 0.
+VERSION: v260 -> v261 (app-version.ts + sw.js), probes re-assert v261.
+
 ## v260 (2026-11-11) - The mobile "raw text soup" screenshot gets a branded boot splash
 User (mobile screenshot): "it's like this on mobile veiw check it" - the phone showed
 the app as unstyled black-on-default text: the desktop right sidebar (What locals are
