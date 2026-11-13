@@ -816,7 +816,11 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         contacts,
       }
     }
-    return { cities, monthRows, cellOf, selfCity, youCities, hasNear: nearOnly.length > 0, hasCompany: pts.some((p) => p.postId !== post.id) }
+    // v262: "company" = another business ACTUALLY VISIBLE in this grid -
+    // exact points from other posts, or a ~similar column that survived.
+    // (A near point whose folded city collides with an exact column is
+    // invisible and must not silence the honest empty note.)
+    return { cities, monthRows, cellOf, selfCity, youCities, hasNear: nearOnly.length > 0, hasCompany: exactPts.some((p) => p.postId !== post.id) || nearOnly.length > 0 }
   })()
 
   const handleAddLink = async (otherId: string) => {
