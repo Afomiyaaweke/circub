@@ -1,5 +1,66 @@
 # circubAwd worklog
 
+## v263 (2026-11-13) - The proforma goes subscription-based: 3 free questions a day, monthly Pro for unlimited
+User: "make the profoma subscription based like monthly and have 3 free quesiton
+every day". The proforma AI (the guided WHERE / WHAT / WHEN / BUDGET
+conversation that prices a shopping list from real community posts) becomes a
+metered feature with a monthly subscription on top.
+
+WHAT SHIPPED
+- ONE FINISHED PROFORMA = ONE QUESTION. Every charging completion of the
+  conversation (budget apply or budget skip with items on the list) consumes
+  one question. The FREE tier gets 3 questions every day; the monthly Pro
+  subscription ($4.99, simulated demo checkout in this build - no gateway keys
+  wired yet) removes the cap while its 30-day period is active. Cancel is
+  honest and immediate: back to FREE the same second, today's usage kept.
+- SERVER IS THE SOURCE OF TRUTH. New /api/proforma routes: quota (GET - the
+  plan chip renders what the server says), ask (POST - consume; 402 = free day
+  used up = the paywall; 401 = guest gate; the client can never grant itself
+  an extra question), subscribe (POST = PRO + periodEnd now+30d, DELETE =
+  cancel). Shared rules live in src/lib/proforma.ts (FREE_DAILY_LIMIT=3,
+  isProActive, consumeProformaQuestion, quotaPayload).
+- NO-CRON DAILY RESET. User gained 4 columns (both prisma schemas; the Vercel
+  build auto-pushes Postgres): proformaPlan ('FREE'|'PRO'), proformaPeriodEnd,
+  proformaUsageDay (UTC YYYY-MM-DD the count belongs to) and proformaUsed. The
+  ask route rolls the counter over when the stored day is not today, so the 3
+  free questions return at midnight UTC without any scheduled job.
+- THE PANEL STAYS USABLE. The plan rides in the header: a "N of 3 free
+  questions left today" chip (FREE), a "Pro · unlimited" chip that opens
+  manage/cancel (Pro) or a "3 free questions a day" pitch (guests). Gate
+  panels swap in WITHOUT destroying the conversation: the paywall shows the
+  reset day and the Pro card; the demo checkout (clearly labelled, no charge)
+  activates Pro immediately; guests get "Sign in to ask" at completion.
+  Editing answers inside the same sitting never re-charges (one consume per
+  mounted session); a page reload starts a new sitting and the server still
+  caps the whole day. Quota-route failures fail OPEN - a metering hiccup can
+  never trap a finished list.
+- SUBSCRIPTION RECEIPT MAIL. sendProReceiptEmail reuses the v261 Resend mailer
+  (same dark-green brand): "Welcome to Pro" + plan / active-until / questions
+  rows, fired inside after() on subscribe so a mailer outage never fails a
+  payment response. Silent no-op without RESEND_API_KEY, like every mail.
+- LANDING HONESTY: the cost FAQ and the estimator feature card now say the
+  proforma includes 3 free questions a day, unlimited with Pro ($4.99/month).
+
+PROOF - task263_proforma_contract.py 20/20 (local :3100 + mock Resend :3102):
+guest quota pitches 3 free; member quota FREE 0/3; asks #1-#3 -> used 1/2/3
+remaining 2/1/0; ask #4 -> 402 with resetDay tomorrow; subscribe -> PRO with
+periodEnd ~30 days + branded receipt email ($4.99 + until-date inside);
+Pro quota unlimited, ask #5 -> 200 unlimited; cancel -> FREE with usage kept
+and the next ask 402 again; unauth ask/subscribe 401; usage-day rolled to
+yesterday via sqlite -> the next ask resets and succeeds (used 1).
+task263_proforma_ui.py 24/24 (Playwright, real browser): chip "3 of 3" fresh;
+build #1 -> results + "2 of 3"; same-sitting refinish stays "2 of 3" (no
+double charge); new sitting "1 of 3" then "0 of 3"; build #4 -> paywall;
+Subscribe -> demo checkout -> Pay -> "Pro is active" -> Continue -> results +
+"Pro · unlimited" chip; Pro chip -> manage -> Cancel -> "Pro cancelled" ->
+"0 of 3" kept; post-cancel completion -> paywall again; guest -> sign-in gate
+("3 free questions every day"); 390px paywall/checkout/results and 320px
+results all zero horizontal overflow. Probe posts cleaned through the API.
+Regressions: task239 29/29, task259 17/17, task262 21/21, task261 14/14,
+task258 11/11, task257 8/8, task260 boot 9/9. tsc 20 baseline; build exit 0;
+sw.js circub-v263.
+VERSION: v262 -> v263 (app-version.ts + sw.js), probes re-assert v263.
+
 ## v262 (2026-11-13) - Compare what is comparable; contact who posted it; all of it on a phone
 User (screenshot of the old "Other price" grid): "while showing other price only
 related post and catagore eg if is bag make it bag only or coffee only coffee and

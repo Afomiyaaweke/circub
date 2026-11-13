@@ -140,7 +140,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How much does circubAwd cost?",
-    a: "circubAwd is completely free - for travelers and for locals. Creating an account, posting prices, asking locals, and installing the mobile app all cost nothing.",
+    a: "circubAwd is completely free - for travelers and for locals. Creating an account, posting prices, asking locals, and installing the mobile app all cost nothing. The proforma planner includes 3 free questions every day; go Pro ($4.99/month) for unlimited proforma questions, cancel any time.",
   },
   {
     q: "How do I install the circubAwd app on my phone?",
@@ -191,7 +191,7 @@ const FEATURES = [
   {
     icon: TrendingUp,
     title: "Proforma cost estimator",
-    body: "List what you'll buy, compare real local prices place by place, and get the best result - an itemized proforma of what to set aside.",
+    body: "List what you'll buy, compare real local prices place by place, and get the best result - an itemized proforma of what to set aside. 3 free questions a day, unlimited with Pro.",
   },
   {
     icon: BadgeCheck,

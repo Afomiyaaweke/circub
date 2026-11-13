@@ -63,6 +63,18 @@ model User {
   deactivatedAt      DateTime?
   deactivationReason String?
 
+  // Proforma subscription (v263). The proforma AI costs one QUESTION per
+  // completed run; the FREE tier gets 3 questions a day, Pro (monthly,
+  // simulated checkout) is unlimited while the period is active. The daily
+  // usage counter rides on two fields: proformaUsageDay is the UTC day
+  // (YYYY-MM-DD) the count belongs to and proformaUsed is the questions
+  // asked that day - the ask route rolls the counter over when the stored
+  // day is not today, so no cron is needed.
+  proformaPlan        String    @default("FREE") // FREE | PRO
+  proformaPeriodEnd   DateTime? // subscription active until (now + 30 days)
+  proformaUsageDay    String?   // UTC day the usage counter belongs to
+  proformaUsed        Int       @default(0) // questions asked on proformaUsageDay
+
   // Company-specific fields
   companyName    String?
   companyWebsite String?

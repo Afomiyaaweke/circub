@@ -40,19 +40,47 @@
  *   - sparse data renders honestly (n=1 rows render; missing item/place
  *     combos say "no prices posted yet", never invented)
  *
+ * v263 - SUBSCRIPTION + DAILY FREE QUOTA (user: "make the proforma
+ * subscription based like monthly and have 3 free question every day"):
+ * one completed proforma run costs ONE question. Everyone gets 3 free
+ * questions every day (UTC midnight reset, enforced server-side by
+ * /api/proforma/ask - the client can never grant itself an extra one);
+ * the monthly Pro subscription ($4.99, simulated demo checkout in this
+ * build) removes the cap while its 30-day period is active and can be
+ * cancelled any time from the panel. Guests browse the conversation but
+ * are asked to sign in when they complete it. Editing answers inside the
+ * same sitting never re-charges (one consume per mounted session) - the
+ * server still caps the day across reloads. A mailer outage or a quota
+ * route failure fails OPEN: the tool keeps working, never traps a list.
+ *
  * Design follows the compass/ prototype (repo root) adapted to the app
  * theme: theme tokens only (dark + light safe), wrapping chips and a
  * horizontally scrollable layout on phones.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRightLeft, CalendarDays, Compass, Lightbulb, Loader2, MapPin, Pencil,
-  Sparkles, ThumbsUp, TrendingDown, TrendingUp, Users, Wallet, X,
+  ArrowRightLeft, CalendarDays, Check, Compass, CreditCard, Crown, Lightbulb,
+  Loader2, Lock, MapPin, Pencil, Sparkles, ThumbsUp, TrendingDown, TrendingUp,
+  Users, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+
+// v263 - the exact shape GET /api/proforma/quota returns.
+interface ProformaQuota {
+  signedIn: boolean
+  plan: 'FREE' | 'PRO'
+  pro: boolean
+  used: number
+  limit: number | null
+  remaining: number | null
+  unlimited: boolean
+  periodEnd: string | null
+  priceLabel: string
+  resetDay: string
+}
 
 interface ToolAuthor {
   name: string
@@ -191,6 +219,125 @@ export function CompassPriceTools() {
   // the chips: a case-insensitive match with a place the community has
   // posted lights its real stats up, anything else is kept as typed.
   const [askPlace, setAskPlace] = useState('')
+
+  // ---- v263 subscription + daily free quota -------------------------------
+  // Server is the source of truth (GET /api/proforma/quota, POST .../ask);
+  // the client only renders what it is told. `gate` swaps the conversation
+  // and the results card for one of the plan panels without destroying the
+  // in-progress answers - "Back" returns to exactly where the user was.
+  const [quota, setQuota] = useState<ProformaQuota | null>(null)
+  const [gate, setGate] = useState<'none' | 'auth' | 'paywall' | 'checkout' | 'subscribed' | 'manage' | 'cancelled'>('none')
+  const [subBusy, setSubBusy] = useState(false)
+  const [subError, setSubError] = useState<string | null>(null)
+  const [demoCard, setDemoCard] = useState({ number: '', exp: '', cvc: '' })
+  // One successful consume per mounted session: editing answers and
+  // re-finishing the SAME sitting never re-charges. A page reload starts a
+  // new sitting and the server still caps the whole day.
+  const countedRef = useRef(false)
+  const completingRef = useRef(false)
+
+  const loadQuota = async (): Promise<ProformaQuota | null> => {
+    try {
+      const r = await fetch('/api/proforma/quota', { cache: 'no-store' })
+      if (!r.ok) return null
+      const d = (await r.json()) as ProformaQuota
+      setQuota(d)
+      return d
+    } catch {
+      return null
+    }
+  }
+  useEffect(() => {
+    void loadQuota()
+  }, [])
+
+  // Is anything on the list? (community chips + typed items that are ON).
+  const anyListed = Object.values(onItems).some(Boolean)
+
+  // The single gate every charging completion runs through. Free day used
+  // up -> 402 -> paywall (the conversation state is kept behind it). Guest
+  // -> sign-in gate. Server/network errors fail OPEN - the tool never traps a
+  // finished list because its own metering endpoint hiccupped.
+  const completeProforma = async () => {
+    if (completingRef.current) return
+    completingRef.current = true
+    try {
+      // Nothing on the list = nothing was priced = free, no question asked.
+      if (!anyListed) {
+        finishCompletion()
+        return
+      }
+      let q = quota ?? (await loadQuota())
+      if (!q) {
+        // Quota endpoint unreachable: fail open rather than trap the user.
+        finishCompletion()
+        return
+      }
+      if (!q.signedIn) {
+        setGate('auth')
+        return
+      }
+      if (q.pro || countedRef.current) {
+        // Pro members are unlimited (the ask route still tracks their usage);
+        // an already-charged sitting re-finishes free.
+        if (q.pro && !countedRef.current) {
+          try {
+            const r = await fetch('/api/proforma/ask', { method: 'POST' })
+            if (r.ok) {
+              const d = await r.json()
+              setQuota((prev) =>
+                prev ? { ...prev, used: d.used ?? prev.used, unlimited: true, pro: true } : prev,
+              )
+            }
+          } catch {
+            /* tracking only - never block Pro on it */
+          }
+          countedRef.current = true
+        }
+        finishCompletion()
+        return
+      }
+      try {
+        const r = await fetch('/api/proforma/ask', { method: 'POST' })
+        if (r.status === 402) {
+          setGate('paywall')
+          return
+        }
+        if (r.status === 401) {
+          setQuota((prev) => (prev ? { ...prev, signedIn: false, pro: false } : prev))
+          setGate('auth')
+          return
+        }
+        if (r.ok) {
+          const d = await r.json()
+          countedRef.current = true
+          setQuota((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  used: d.used ?? prev.used + 1,
+                  remaining: d.remaining ?? Math.max(0, (prev.limit || 3) - (prev.used + 1)),
+                }
+              : prev,
+          )
+          finishCompletion()
+          return
+        }
+        // Any other status: fail open.
+        finishCompletion()
+      } catch {
+        finishCompletion()
+      }
+    } finally {
+      completingRef.current = false
+    }
+  }
+
+  const finishCompletion = () => {
+    setGate('none')
+    setAskDone(true)
+    setAskStep(0)
+  }
 
   useEffect(() => {
     let alive = true
@@ -447,15 +594,69 @@ export function CompassPriceTools() {
   }
 
   // Budget answered: the conversation ends and the results card takes over -
-  // with the budget applied when it is a positive number.
+  // with the budget applied when it is a positive number. v263: this is the
+  // charging moment - completing the conversation costs ONE question (the
+  // gate in completeProforma decides: guest -> sign-in, free day used up ->
+  // paywall, Pro / already-charged sitting -> straight through).
   const askApplyBudget = () => {
-    setAskDone(true)
-    setAskStep(0)
+    void completeProforma()
   }
   const askSkipBudget = () => {
     setBudget('')
-    setAskDone(true)
-    setAskStep(0)
+    void completeProforma()
+  }
+
+  // v263 - simulated monthly checkout (demo: no gateway keys wired in this
+  // build). The server flips the plan for real: PRO + a 30-day period, and
+  // the branded receipt goes out best-effort from the route's after() hook.
+  const subscribePro = async () => {
+    setSubBusy(true)
+    setSubError(null)
+    try {
+      const r = await fetch('/api/proforma/subscribe', { method: 'POST' })
+      if (r.status === 401) {
+        setGate('auth')
+        return
+      }
+      if (!r.ok) {
+        setSubError('Could not start Pro right now - please try again.')
+        return
+      }
+      const d = await r.json()
+      countedRef.current = true
+      setQuota((prev) =>
+        prev
+          ? { ...prev, plan: 'PRO', pro: true, unlimited: true, remaining: null, limit: null, periodEnd: d.periodEnd ?? prev.periodEnd }
+          : prev,
+      )
+      setGate('subscribed')
+    } catch {
+      setSubError('Network hiccup - please try again.')
+    } finally {
+      setSubBusy(false)
+    }
+  }
+
+  // Cancel = honest and immediate: back to FREE, today's used counter keeps
+  // counting, the 3 daily questions return at the next UTC midnight.
+  const cancelPro = async () => {
+    setSubBusy(true)
+    setSubError(null)
+    try {
+      const r = await fetch('/api/proforma/subscribe', { method: 'DELETE' })
+      if (!r.ok) {
+        setSubError('Could not cancel right now - please try again.')
+        return
+      }
+      setQuota((prev) =>
+        prev ? { ...prev, plan: 'FREE', pro: false, unlimited: false, remaining: Math.max(0, (prev.limit ?? 3) - prev.used), limit: 3 } : prev,
+      )
+      setGate('cancelled')
+    } catch {
+      setSubError('Network hiccup - please try again.')
+    } finally {
+      setSubBusy(false)
+    }
   }
 
   // v249: re-open ONE question of the conversation from the results card.
@@ -641,18 +842,53 @@ export function CompassPriceTools() {
 
   return (
     <Card className="p-4 sm:p-5 shadow-sm" data-testid="compass-tools">
-      {/* Header */}
-      <div className="flex items-start gap-3">
+      {/* Header - v263 the plan rides here: a FREE counter, a Pro chip
+          (tap to manage) or a guest sign-in chip, wrapping under the title
+          on narrow phones instead of squeezing it. */}
+      <div className="flex flex-wrap items-start gap-3">
         <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 shrink-0">
           <Compass className="w-4 h-4 text-primary" />
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-foreground">Your proforma</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Four quick questions - then I price your list from real community posts. Nothing
-            invented, nothing preset.
+            Four quick questions - then I price your list from real community posts. One finished
+            proforma = one question: 3 free every day, unlimited with Pro.
           </p>
         </div>
+        {quota && !quota.signedIn && (
+          <button
+            type="button"
+            data-testid="proforma-guest-chip"
+            onClick={() => setGate('auth')}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground hover:border-primary/40 cursor-pointer"
+          >
+            <Sparkles className="w-3 h-3 text-primary" />
+            3 free questions a day
+          </button>
+        )}
+        {quota?.signedIn && !quota.pro && (
+          <span
+            data-testid="proforma-quota-chip"
+            title="One finished proforma = one question. Resets at midnight UTC."
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground"
+          >
+            <Sparkles className="w-3 h-3 text-primary" />
+            {quota.remaining ?? 0} of {quota.limit ?? 3} free questions left today
+          </span>
+        )}
+        {quota?.pro && (
+          <button
+            type="button"
+            data-testid="proforma-pro-chip"
+            onClick={() => setGate('manage')}
+            title="Pro is active - tap to manage your subscription"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:border-emerald-500 cursor-pointer"
+          >
+            <Crown className="w-3 h-3" />
+            Pro · unlimited
+          </button>
+        )}
       </div>
 
       {loading && (
@@ -674,6 +910,235 @@ export function CompassPriceTools() {
         </p>
       )}
 
+      {/* v263 plan panels - each gate swaps in here and the conversation /
+          results stay mounted behind it untouched, so "Back" returns to
+          exactly where the user was. Mobile-first: single column, big tap
+          targets, the actions stack on phones and row up from sm. */}
+      {model && !noPosts && gate !== 'none' && (
+        <div className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3" data-testid="proforma-gate">
+          {gate === 'auth' && (
+            <div className="space-y-2.5" data-testid="proforma-auth-gate">
+              <p className="text-sm font-bold text-foreground">Sign in to ask</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                The proforma prices your list from real community posts - one finished proforma is
+                one question, and every account gets <b className="text-foreground">3 free questions every day</b>.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <button
+                  type="button"
+                  data-testid="proforma-auth-signin"
+                  onClick={() => window.dispatchEvent(new CustomEvent('circub:auth-expired', { detail: { reason: 'Sign in to use your free proforma questions' } }))}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Sign in - it&apos;s free
+                </button>
+                <button
+                  type="button"
+                  data-testid="proforma-auth-back"
+                  onClick={() => setGate('none')}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Back to the proforma
+                </button>
+              </div>
+            </div>
+          )}
+
+          {gate === 'paywall' && (
+            <div className="space-y-2.5" data-testid="proforma-paywall">
+              <p className="text-sm font-bold text-foreground">You&apos;ve used all 3 free questions today</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your next 3 come back at midnight UTC ({quota?.resetDay || 'tomorrow'}). Or go Pro
+                now and keep asking - one finished proforma per question, unlimited.
+              </p>
+              <div className="rounded-lg border border-emerald-500/40 bg-card p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <p className="text-sm font-bold text-foreground">
+                    circubAwd Pro - {quota?.priceLabel || '$4.99'}<span className="font-medium text-muted-foreground">/month</span>
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Unlimited proforma questions, every day. Cancel any time from this panel - no
+                  questions asked.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <button
+                  type="button"
+                  data-testid="proforma-paywall-subscribe"
+                  onClick={() => { setSubError(null); setGate('checkout') }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 cursor-pointer"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  Subscribe monthly - {quota?.priceLabel || '$4.99'}
+                </button>
+                <button
+                  type="button"
+                  data-testid="proforma-paywall-back"
+                  onClick={() => setGate('none')}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Back to the proforma
+                </button>
+              </div>
+            </div>
+          )}
+
+          {gate === 'checkout' && (
+            <div className="space-y-2.5" data-testid="proforma-checkout">
+              <p className="text-sm font-bold text-foreground">Start Pro - {quota?.priceLabel || '$4.99'}/month</p>
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 flex items-start gap-2">
+                <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Demo checkout - no card is charged in this build. Subscribing activates Pro for
+                  30 days immediately; cancel any time from the Pro chip.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  maxLength={19}
+                  placeholder="Card number - e.g. 4242 4242 4242 4242"
+                  value={demoCard.number}
+                  onChange={(e) => setDemoCard((c) => ({ ...c, number: e.target.value.replace(/[^\d ]/g, '').slice(0, 19) }))}
+                  data-testid="proforma-card-number"
+                  aria-label="Card number"
+                  className="h-9 text-sm bg-card"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    maxLength={5}
+                    placeholder="MM/YY"
+                    value={demoCard.exp}
+                    onChange={(e) => setDemoCard((c) => ({ ...c, exp: e.target.value.replace(/[^\d]/g, '').replace(/(\d{2})(\d)/, '$1/$2').slice(0, 5) }))}
+                    data-testid="proforma-card-exp"
+                    aria-label="Expiry month and year"
+                    className="h-9 text-sm bg-card"
+                  />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    maxLength={4}
+                    placeholder="CVC"
+                    value={demoCard.cvc}
+                    onChange={(e) => setDemoCard((c) => ({ ...c, cvc: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                    data-testid="proforma-card-cvc"
+                    aria-label="Security code"
+                    className="h-9 text-sm bg-card"
+                  />
+                </div>
+              </div>
+              {subError && <p className="text-xs font-semibold text-destructive">{subError}</p>}
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <button
+                  type="button"
+                  data-testid="proforma-checkout-pay"
+                  onClick={() => void subscribePro()}
+                  disabled={subBusy || demoCard.number.replace(/\D/g, '').length < 12 || demoCard.exp.length < 4 || demoCard.cvc.length < 3}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-opacity disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {subBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+                  Pay {quota?.priceLabel || '$4.99'} &amp; start Pro
+                </button>
+                <button
+                  type="button"
+                  data-testid="proforma-checkout-back"
+                  onClick={() => { setSubError(null); setGate('paywall') }}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+
+          {gate === 'subscribed' && (
+            <div className="space-y-2.5" data-testid="proforma-subscribed">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/15 shrink-0">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                </span>
+                <p className="text-sm font-bold text-foreground">Pro is active</p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Unlimited proforma questions
+                {quota?.periodEnd ? ` until ${quota.periodEnd.slice(0, 10)}` : ''}. Manage or cancel
+                any time from the Pro chip up top.
+              </p>
+              <button
+                type="button"
+                data-testid="proforma-subscribed-continue"
+                onClick={finishCompletion}
+                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Continue to my proforma
+              </button>
+            </div>
+          )}
+
+          {gate === 'manage' && (
+            <div className="space-y-2.5" data-testid="proforma-manage">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-emerald-600 shrink-0" />
+                <p className="text-sm font-bold text-foreground">Pro subscription</p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Active{quota?.periodEnd ? ` until ${quota.periodEnd.slice(0, 10)}` : ''} - unlimited
+                proforma questions. Cancelling ends Pro immediately and returns you to the 3 free
+                daily questions.
+              </p>
+              {subError && <p className="text-xs font-semibold text-destructive">{subError}</p>}
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                <button
+                  type="button"
+                  data-testid="proforma-manage-cancel"
+                  onClick={() => void cancelPro()}
+                  disabled={subBusy}
+                  className="inline-flex items-center justify-center rounded-full border border-destructive/40 px-4 py-2 text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {subBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Cancel subscription'}
+                </button>
+                <button
+                  type="button"
+                  data-testid="proforma-manage-back"
+                  onClick={() => { setSubError(null); setGate('none') }}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Back to the proforma
+                </button>
+              </div>
+            </div>
+          )}
+
+          {gate === 'cancelled' && (
+            <div className="space-y-2.5" data-testid="proforma-cancelled">
+              <p className="text-sm font-bold text-foreground">Pro cancelled</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                You&apos;re back on the free plan - {quota?.remaining ?? 0} of 3 questions left
+                today, the full 3 return at midnight UTC ({quota?.resetDay || 'tomorrow'}).
+              </p>
+              <button
+                type="button"
+                data-testid="proforma-cancelled-back"
+                onClick={() => setGate('none')}
+                className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+              >
+                Back to the proforma
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {model && !noPosts && (
         <>
           {/* ============ v246 AI-ASKING CONVERSATION ============ */}
@@ -683,7 +1148,7 @@ export function CompassPriceTools() {
               data (busiest places, most-posted products, dates out of
               today, your own totals). Nothing is mocked: every answer
               lands in the same state the v249 results card prices. */}
-          {!askDone && askStep > 0 && (
+          {gate === 'none' && !askDone && askStep > 0 && (
             <div
               className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5"
               data-testid="proforma-ask"
@@ -946,7 +1411,7 @@ export function CompassPriceTools() {
               results: each answer restated with an Edit button that
               re-opens exactly that question, followed by the real numbers
               the tabs used to show. Same honest data, no bare form. */}
-          {askDone && (
+          {gate === 'none' && askDone && (
             emptyList ? (
               <button
                 type="button"

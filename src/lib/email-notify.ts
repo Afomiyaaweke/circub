@@ -142,3 +142,48 @@ export async function notifyFollowersNewPost(payload: NewPostEmail): Promise<num
     return 0
   }
 }
+
+// ---- v263 Pro subscription receipt ----------------------------------------
+// Same dark-green brand as the new-post mail, one row table, fired from the
+// subscribe route inside after() so a mailer outage can never fail a payment
+// response. Returns true when Resend accepted the send.
+export async function sendProReceiptEmail(opts: {
+  to: string
+  name: string
+  periodEnd: Date
+}): Promise<boolean> {
+  try {
+    const until = opts.periodEnd.toISOString().slice(0, 10)
+    const html = [
+      `<div style="margin:0;background:#f4f7f5;padding:28px 12px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif">`,
+      `<div style="max-width:520px;margin:0 auto;background:#0b1f16;border-radius:16px;overflow:hidden;border:1px solid #1c3a2c">`,
+      `<div style="padding:20px 24px;border-bottom:1px solid #1c3a2c">`,
+      `<span style="display:inline-flex;width:40px;height:40px;border-radius:9999px;background:#14c37c;color:#02140c;font-size:22px;font-weight:800;align-items:center;justify-content:center;line-height:1">C</span>`,
+      `<span style="color:#eaf2ee;font-size:18px;font-weight:700;margin-left:10px;vertical-align:middle">circubAwd</span>`,
+      `</div>`,
+      `<div style="padding:24px">`,
+      `<p style="margin:0 0 6px;color:#14c37c;font-size:12px;text-transform:uppercase;letter-spacing:1px">Pro subscription receipt</p>`,
+      `<p style="margin:0 0 16px;color:#eaf2ee;font-size:20px;font-weight:700;line-height:1.3">Welcome to Pro, ${esc(opts.name)} - unlimited proforma questions are on.</p>`,
+      `<table style="width:100%;border-collapse:collapse;background:#02140c;border-radius:12px">`,
+      `<tr><td style="padding:6px 14px;color:#8aa39a;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Plan</td><td style="padding:6px 0;color:#eaf2ee;font-size:14px">Pro - $4.99 / month</td></tr>`,
+      `<tr><td style="padding:6px 14px;color:#8aa39a;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Active until</td><td style="padding:6px 0;color:#eaf2ee;font-size:14px">${esc(until)} (UTC)</td></tr>`,
+      `<tr><td style="padding:6px 14px;color:#8aa39a;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Questions</td><td style="padding:6px 0;color:#eaf2ee;font-size:14px">Unlimited while active</td></tr>`,
+      `</table>`,
+      `<p style="margin:22px 0 0"><a href="${esc(APP_ORIGIN)}" style="display:inline-block;background:#14c37c;color:#02140c;font-weight:700;font-size:15px;padding:12px 26px;border-radius:9999px;text-decoration:none">Build my proforma</a></p>`,
+      `</div>`,
+      `<div style="padding:14px 24px;border-top:1px solid #1c3a2c">`,
+      `<p style="margin:0;color:#8aa39a;font-size:12px;line-height:1.5">You can cancel any time from the proforma panel on circubAwd - cancelling ends Pro immediately and returns you to the 3 free daily questions.</p>`,
+      `</div>`,
+      `</div></div>`,
+    ].join('')
+    const res = await sendEmail({
+      to: [opts.to],
+      subject: `circubAwd Pro receipt - active until ${until}`,
+      html,
+    })
+    return res.ok
+  } catch (e) {
+    console.error('email-notify: pro receipt failed:', e)
+    return false
+  }
+}
