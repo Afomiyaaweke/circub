@@ -370,14 +370,17 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
   // exact-name grouping left 65 of 67 real posts with nothing to show).
   // For every card: exact product matches (normalized - Amharic folds +
   // qualifier stripping via productNamesMatch), then near matches
-  // ("similar"), and when the product stands alone the same-CATEGORY
-  // grid takes over so every card carries a compare strip. Zero extra
-  // requests: it reuses the posts the step-by-step feed already fetched.
+  // ("similar").
+  // v262: the same-CATEGORY fallback strip is GONE - the user asked for
+  // related-only comparison ("if is bag make it bag only or coffee only
+  // coffee"); a card whose product stands alone shows no compare strip
+  // instead of prices from unrelated items. Zero extra requests: it reuses
+  // the posts the step-by-step feed already fetched.
   // v159: entries carry the BUSINESS behind each price - touching a price
   // entry on the card's strip reveals who posted it.
   type CardEntry = { id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }
   const compareByCard = useMemo(() => {
-    type Compare = { kind: 'product' | 'category'; entries: CardEntry[]; extra: number }
+    type Compare = { kind: 'product'; entries: CardEntry[]; extra: number }
     const map = new Map<string, Compare>()
     const placeOf = (p: LocalPricePost) => (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
     const isYou = (p: LocalPricePost) => !!currentUserId && p.authorId === currentUserId
@@ -408,45 +411,10 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
         })
         continue
       }
-      // category fallback - same (normalized) category, same currency
-      const cat: LocalPricePost[] = []
-      for (const p of posts) {
-        if (p.id === self.id || p.currency !== self.currency) continue
-        if (productNamesMatch(self.category || '', p.category || '') !== null) cat.push(p)
-      }
-      if (cat.length === 0) continue
-      const byPlace = new Map<string, { place: string; min: number; max: number; count: number; you: boolean; names: Set<string> }>()
-      for (const p of cat) {
-        const place = placeOf(p)
-        const cur = byPlace.get(place)
-        if (cur) {
-          cur.min = Math.min(cur.min, p.priceMin)
-          cur.max = Math.max(cur.max, p.priceMax)
-          cur.count += 1
-          cur.you = cur.you || isYou(p)
-          const b = businessOf(p)
-          if (b) cur.names.add(b)
-        } else {
-          const names = new Set<string>()
-          const b = businessOf(p)
-          if (b) names.add(b)
-          byPlace.set(place, { place, min: p.priceMin, max: p.priceMax, count: 1, you: isYou(p), names })
-        }
-      }
-      const selfPlace = placeOf(self)
-      const places = [...byPlace.values()].sort((a, b) =>
-        (a.place === selfPlace ? 0 : 1) - (b.place === selfPlace ? 0 : 1) ||
-        (b.you ? 0 : 1) - (a.you ? 0 : 1) ||
-        b.count - a.count || a.place.localeCompare(b.place)
-      )
-      map.set(self.id, {
-        kind: 'category',
-        entries: [
-          { id: `cat-self-${self.id}`, place: selfPlace, min: self.priceMin, max: self.priceMax, you: isYou(self), self: true, near: false, business: businessOf(self) },
-          ...places.slice(0, 2).map((v) => ({ id: `cat-${v.place}`, place: v.place, min: v.min, max: v.max, you: v.you, self: false, near: false, business: v.names.size > 0 ? [...v.names].join(', ') : undefined })),
-        ],
-        extra: Math.max(0, places.length - 2),
-      })
+      // v262: no related post (exact or near) -> no compare strip. The old
+      // category fallback is removed on purpose - unrelated prices (a 25
+      // ETB item beside an 11000 ETB one under "bag") read as nonsense.
+      continue
     }
     return map
   }, [posts, currentUserId])

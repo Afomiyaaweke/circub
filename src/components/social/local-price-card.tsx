@@ -33,14 +33,14 @@ interface LocalPriceCardProps {
   // the rest cheapest-first) + a "You" badge on the viewer's own cards.
   // Computed by the feed from the posts it ALREADY loaded - no requests.
   // v149: `compare.kind` - 'product' (exact/near same-product matches,
-  // near ones marked ~) or 'category' (the fallback when the product
-  // stands alone: same-category prices by location).
+  // near ones marked ~). v262: the 'category' fallback is removed -
+  // related-only comparison.
   isOwnPost?: boolean
   // v154: the viewer's id - lets the fetched compare rows (strip + poster)
   // carry the same "You" chips the feed-computed strip has.
   currentUserId?: string | null
   compare?: {
-    kind: 'product' | 'category'
+    kind: 'product'
     entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }>
     extra: number
   } | null
@@ -101,7 +101,7 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
   // strip (the share poster reuses the same unified source, so all three
   // surfaces - card, modal, poster - agree). compareHold keeps the poster
   // modal on its spinner if Share is tapped while the fetch is in flight.
-  const [fetchedCompare, setFetchedCompare] = useState<{ kind: 'product' | 'category'; entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }>; extra: number } | null>(null)
+  const [fetchedCompare, setFetchedCompare] = useState<{ kind: 'product'; entries: Array<{ id: string; place: string; min: number; max: number; you: boolean; self: boolean; near: boolean; business?: string }>; extra: number } | null>(null)
   // v159: "show the business while touching the price on posters too" -
   // tapping a price entry in the card's compare strip reveals the business
   // behind that price (one at a time; tap again to hide).
@@ -237,32 +237,11 @@ export function LocalPriceCard({ post, onOpen, onVote, onAuthorClick, onMessage,
             ],
             extra: Math.max(0, rows.length - 2),
           })
-        } else {
-          const byCity = new Map<string, { min: number; max: number; count: number; names: Set<string> }>()
-          for (const c of Array.isArray(data.categoryPoints) ? data.categoryPoints : []) {
-            const cur = byCity.get(c.city)
-            if (cur) {
-              cur.min = Math.min(cur.min, c.min)
-              cur.max = Math.max(cur.max, c.max)
-              cur.count += c.authorIds?.length || 1
-              for (const n of (c.authors || [])) cur.names.add(n)
-            } else {
-              byCity.set(c.city, { min: c.min, max: c.max, count: c.authorIds?.length || 1, names: new Set(c.authors || []) })
-            }
-          }
-          const cities = [...byCity.entries()].sort((a, b) =>
-            (a[0] === selfPlace ? 0 : 1) - (b[0] === selfPlace ? 0 : 1) || b[1].count - a[1].count)
-          if (cities.length > 0) {
-            setFetchedCompare({
-              kind: 'category',
-              entries: [
-                selfEntry,
-                ...cities.slice(0, 2).map(([place, v]) => ({ id: `cat-${place}`, place, min: v.min, max: v.max, you: false, self: false, near: false, business: v.names.size > 0 ? [...v.names].join(', ') : undefined })),
-              ],
-              extra: Math.max(0, cities.length - 2),
-            })
-          }
         }
+        // v262: the category-wide fallback ("kind: 'category'") is GONE -
+        // the user asked for related-only comparison ("if is bag make it
+        // bag only"). With no exact/near match the card shows no compare
+        // strip instead of prices from unrelated items.
       } catch {
         compareKeyRef.current = '' // allow a retry when the card re-mounts
       } finally {

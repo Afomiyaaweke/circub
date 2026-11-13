@@ -1,5 +1,55 @@
 # circubAwd worklog
 
+## v262 (2026-11-13) - Compare what is comparable; contact who posted it; all of it on a phone
+User (screenshot of the old "Other price" grid): "while showing other price only
+related post and catagore eg if is bag make it bag only or coffee only coffee and
+make it contact the poster of that price that been compaired and make the whole
+session mobile friendly". The screenshot proved the point: a "bag" grid mixing a
+25 ETB and a 75-11000 ETB price (unrelated same-category posts), "Addis Ababa"
+AND "Addis abeba" as two separate columns, and no way to reach the poster behind
+any compared price.
+
+WHAT SHIPPED
+- RELATED-ONLY COMPARISON. The whole-category fallback grid ("Other price by
+  location and date", fed by every same-category same-currency post) is GONE
+  from all three surfaces it lived on: the detail card, the feed card's
+  compare strip and the share poster's fetch. Comparison is now exact-name
+  posts (bag -> bag, coffee -> coffee) plus honestly-marked ~similar items
+  (near-name variants, e.g. "coffee" vs "coffee ceremony"). A product that
+  stands alone says so honestly: "No other bag prices yet - post bag in
+  another city or month to compare it directly" (detail-no-related-note),
+  hidden the moment any other business contributes a point (even when the
+  city folds into one column).
+- CITY SPELLING FOLD. "Addis abeba" now merges into "Addis Ababa" (alias map
+  + lowercase/space fold; columns key on the folded name, labels keep the
+  first-seen casing) - the duplicate columns from the screenshot cannot
+  happen again for Addis.
+- CONTACT THE COMPARED POSTER. Every table point carries its post id; each
+  cell exposes data-cell-postids and the touched-cell panel now renders one
+  view-&-contact chip per contributing business (detail-cell-contact) that
+  opens THAT poster's own detail card. The detail card itself gained the
+  Contact section the feed card already had (detail-contact: tel: / wa.me /
+  mailto chips from the post's contactPhone / contactWhatsApp / contactEmail)
+  - so two taps from any compared price reach the poster's phone.
+- MOBILE FRIENDLY COMPARE. Both table cells drop to px-2 py-1.5 / text-sm on
+  phones and keep v259's roomy px-3 py-2.5 / text-base from sm up; tables
+  stay inside overflow-x-auto scroll containers with the sticky Date column;
+  390px shows zero horizontal overflow with the modal open.
+- PERF SIDE-EFFECT: /api/local-prices/[id]/similar no longer pays for its
+  second 300-row scan (categoryPoints) on every detail open.
+
+PROOF - task262_related_contact_probe.py 21/21 (local :3100, guest browser):
+A "bag" (Addis Ababa, 2500, phone A) + B "BAG" (Addis abeba, 1200-1300, phone
+B) + C "Probe Shoes" (800, SAME category): category grid gone; one folded
+"Addis Ababa" column; B's price inside as the merged 1200-2500 cell; C's 800
+absent; touching the cell shows both poster chips; B's chip opens B's post
+and B's contact card (+251911000002); A's own contact card present; mobile
+390px zero overflow + 8px compact padding + desktop 12px kept; all posts
+cleaned through the API.
+Regressions: task239 29/29, task259 receipt 17/17, task258 9/9, task257 gate
+8/8, task260 boot 9/9. tsc 20 baseline; build exit 0.
+VERSION: v261 -> v262 (app-version.ts + sw.js), probes re-assert v262.
+
 ## v261 (2026-11-12) - Followers get an email the moment someone posts
 User: "make email notification when new post is made". The app already had a
 mailer (Resend REST via plain fetch - contact form v196, forgot-password v239)

@@ -8,13 +8,16 @@
 // spelling variants like "አበሻ ቀሚስ" vs "ሀበሻ ቀሚስ"). Rows now come back
 // tiered via src/lib/product-name.ts: `near: false` = the same product
 // after normalization, `near: true` = a similar item that still compares
-// honestly WITH a visible "similar" mark. The response also carries
-// `categoryPoints` - the same-category price grid used as the compare
-// table's fallback when nothing matches the product itself, so the
-// compare output is never empty again.
+// honestly WITH a visible "similar" mark.
+// v262: `categoryPoints` (the whole-category fallback grid) is GONE - the
+// user asked for related-only comparison ("if is bag make it bag only or
+// coffee only coffee"), and mixing every same-category post into one grid
+// put incomparable prices (25 vs 75-11000 "bag") side by side. The detail
+// modal now compares exact + near-name posts only, and this endpoint stops
+// paying for a second 300-row scan on every detail open.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { productNamesMatch, productMatchKey } from '@/lib/product-name'
+import { productNamesMatch } from '@/lib/product-name'
 
 const SIMILAR_SELECT = {
   id: true,
@@ -32,21 +35,6 @@ const SIMILAR_SELECT = {
   author: { select: { id: true, name: true, username: true, avatarColor: true, verifiedLocal: true, idVerified: true } },
 }
 
-const CATEGORY_SELECT = {
-  id: true,
-  category: true,
-  currency: true,
-  priceMin: true,
-  priceMax: true,
-  city: true,
-  country: true,
-  createdAt: true,
-  authorId: true,
-  // v159: the business name rides with every category row so a touched
-  // price cell can name the business behind it (touch a price -> see who).
-  author: { select: { name: true } },
-}
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -54,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       where: { id },
       select: { productName: true, category: true, currency: true, priceMin: true, priceMax: true, city: true, country: true, createdAt: true, authorId: true },
     })
-    if (!self) return NextResponse.json({ similar: [], exactCount: 0, nearCount: 0, categoryPoints: [] })
+    if (!self) return NextResponse.json({ similar: [], exactCount: 0, nearCount: 0 })
 
     // NO name-contains prune here: with the Amharic fold a candidate may
     // share NO raw token with the title ("ሀበሻ ቀሚስ" vs "አበሻ ቀሚስ"), so any
@@ -76,48 +64,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // Newest first inside each tier, exact before near, 10 each.
     const similar = [...exact.slice(0, 10), ...near.slice(0, 10)]
 
-    // Category grid for the compare-table fallback: same currency, same
-    // (normalized) category, NOT this post - aggregated to city x month
-    // cells with the author ids so the client can mark the viewer's cells.
-    // v159: cells also carry the contributing BUSINESS NAMES (deduped),
-    // so touching a price in the compare table reveals who posted it.
-    const catRows = await db.localPricePost.findMany({
-      where: { id: { not: id }, currency: self.currency },
-      orderBy: { createdAt: 'desc' },
-      take: 300,
-      select: CATEGORY_SELECT,
-    })
-    const catSelfKey = productMatchKey(self.category || '')
-    const monthOf = (iso: Date) => `${iso.getFullYear()}-${String(iso.getMonth() + 1).padStart(2, '0')}`
-    const cellMap = new Map<string, { city: string; month: string; min: number; max: number; authorIds: Set<string>; names: Map<string, string> }>()
-    for (const r of catRows) {
-      if (!catSelfKey || productMatchKey(r.category || '') !== catSelfKey) continue
-      if (r.currency !== self.currency) continue
-      const city = (r.city && r.city.trim()) || (r.country && r.country.trim()) || 'Unknown'
-      const month = monthOf(r.createdAt)
-      const key = `${city}||${month}`
-      const cell = cellMap.get(key)
-      if (cell) {
-        cell.min = Math.min(cell.min, r.priceMin)
-        cell.max = Math.max(cell.max, r.priceMax)
-        cell.authorIds.add(r.authorId)
-        if (r.author?.name) cell.names.set(r.authorId, r.author.name)
-      } else {
-        const names = new Map<string, string>()
-        if (r.author?.name) names.set(r.authorId, r.author.name)
-        cellMap.set(key, { city, month, min: r.priceMin, max: r.priceMax, authorIds: new Set([r.authorId]), names })
-      }
-    }
-    const categoryPoints = [...cellMap.values()]
-      .sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : a.city.localeCompare(b.city)))
-      .slice(-120)
-      .map((c) => ({ city: c.city, month: c.month, min: c.min, max: c.max, authorIds: [...c.authorIds], authors: [...c.names.values()] }))
-
     return NextResponse.json({
       similar,
       exactCount: exact.length,
       nearCount: near.length,
-      categoryPoints,
     })
   } catch { return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

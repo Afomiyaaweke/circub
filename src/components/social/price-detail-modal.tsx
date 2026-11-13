@@ -24,6 +24,7 @@ import {
   Link2,
   Search,
   Loader2,
+  Phone,
   BarChart3,
   Flame,
   Shield,
@@ -124,18 +125,8 @@ interface SimilarPost {
   author?: { id: string; name?: string | null }
 }
 
-// v149: aggregated same-category price grid (server-side via /similar) used
-// as the compare-table fallback when nothing matches the product itself.
-// v159: `authors` - the contributing BUSINESS NAMES per cell, so touching
-// a price in the table can name who posted it.
-interface CategoryPoint {
-  city: string
-  month: string // YYYY-MM
-  min: number
-  max: number
-  authorIds: string[]
-  authors?: string[]
-}
+// v149: a business selling the SAME product anywhere (auto-compare source,
+// independent of manual links).
 
 const REPORT_OPTIONS = [
   { value: 'INCORRECT_PRICE', label: 'Incorrect price' },
@@ -152,18 +143,8 @@ function formatPrice(value: number | null | undefined, currency: string) {
   return `${currency} ${value}`
 }
 
-// v149: module-level month helpers (the priceTable IIFE has its own; the
-// category fallback table needs them at outer scope).
-function monthKeyOfPublic(iso: string): string | null {
-  const t = new Date(iso)
-  if (Number.isNaN(t.getTime())) return null
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
-}
-function monthLabelOfPublic(key: string): string {
-  const [y, m] = key.split('-').map(Number)
-  if (!y || !m) return key
-  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-}
+// v149: module-level month helpers were shared with the category fallback
+// table, which v262 removed (related-only comparison).
 
 export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, currentUserId, onOpenPost }: PriceDetailModalProps) {
   const [post, setPost] = useState<LocalPricePost | null>(null)
@@ -178,11 +159,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
   const [links, setLinks] = useState<LinkedPostRow[]>([])
   // v144: businesses selling the SAME product anywhere (auto-compare rows).
   const [similar, setSimilar] = useState<SimilarPost[]>([])
-  // v149: same-category price grid for the compare-table fallback.
-  const [categoryPoints, setCategoryPoints] = useState<CategoryPoint[]>([])
   // v159: "touch a price, see the business" - the cell the user last touched
-  // in a compare table (which table it lives in, its label and businesses).
-  const [touchedCell, setTouchedCell] = useState<{ table: 'product' | 'category'; label: string; businesses: string[] } | null>(null)
+  // in a compare table, its label and the poster(s) behind it with their
+  // post ids (v262: each becomes a one-tap view-&-contact jump).
+  const [touchedCell, setTouchedCell] = useState<{ table: 'product'; label: string; contacts: Array<{ name: string; postId: string }> } | null>(null)
   const [showLinkPicker, setShowLinkPicker] = useState(false)
   const [linkSearch, setLinkSearch] = useState('')
   const [linkResults, setLinkResults] = useState<any[]>([])
@@ -239,9 +219,8 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         const postPromise = fetch(`/api/local-prices/${postId}`, { cache: 'no-store' }).then((r) => r.json())
         const linksPromise = fetch(`/api/local-prices/${postId}/links`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null)
         // v144: businesses selling the SAME product - ANY city, ANY country.
-        // v149: the response also carries the same-category price grid
-        // (categoryPoints) used as the table fallback when the product
-        // itself has nothing to compare with.
+        // v262: related-only comparison - exact + near-name posts, the
+        // category-wide fallback grid is gone.
         const similarPromise = fetch(`/api/local-prices/${postId}/similar`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null)
 
         const postData = await postPromise
@@ -255,7 +234,6 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         // for the manage list.
         setLinks(Array.isArray(lData?.links) ? lData.links : [])
         setSimilar(Array.isArray(sData?.similar) ? sData.similar : [])
-        setCategoryPoints(Array.isArray(sData?.categoryPoints) ? sData.categoryPoints : [])
 
         // Fetch consensus + history in the same breath - both only need the
         // post's productName + country + city.
@@ -733,6 +711,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     if (!post) return null
     const cityName = (p: { city?: string | null; country?: string | null }) =>
       (p.city && p.city.trim()) || (p.country && p.country.trim()) || 'Unknown'
+    // v262: cities fold onto ONE column when spellings drift ("Addis Ababa"
+    // vs "Addis abeba" rendered as two columns in the user's screenshot).
+    // Columns key on the folded name; the label keeps the first-seen casing.
+    const CITY_ALIASES: Record<string, string> = { 'addis abeba': 'addis ababa' }
+    const cityKeyOf = (name: string) => {
+      const k = name.trim().toLowerCase().replace(/\s+/g, ' ')
+      return CITY_ALIASES[k] || k
+    }
     const monthKeyOf = (iso: string) => {
       const t = new Date(iso)
       return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`
@@ -741,7 +727,7 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       const [y, m] = key.split('-').map(Number)
       return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     }
-    type TablePt = { city: string; key: string; min: number; max: number; you: boolean; near: boolean; business: string }
+    type TablePt = { cityKey: string; cityDisplay: string; key: string; min: number; max: number; you: boolean; near: boolean; business: string; postId: string }
     const pts: TablePt[] = []
     // v148: "you" = the VIEWER contributed this data point (their own post,
     // or their own earlier posts). You-columns get a chip in the header so
@@ -750,11 +736,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
       !!currentUserId && (p.authorId ?? p.author?.id) === currentUserId
     // v159: every point carries the BUSINESS behind it - touching a price
     // cell names the business (or businesses) that posted that price.
-    const push = (p: { city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string; name?: string | null } | null }, currency: string, near: boolean, business: string) => {
+    const push = (p: { id?: string; city?: string | null; country?: string | null; createdAt: string; priceMin: number; priceMax: number; authorId?: string; author?: { id?: string; name?: string | null } | null }, currency: string, near: boolean, business: string) => {
       if (!post || currency !== post.currency) return
       const key = monthKeyOf(p.createdAt)
       if (Number.isNaN(new Date(p.createdAt).getTime()) || Number.isNaN(new Date(`${key}-01T00:00:00`).getTime())) return
-      pts.push({ city: cityName(p), key, min: p.priceMin, max: p.priceMax, you: youOf(p), near, business })
+      const display = cityName(p)
+      // v262: every point carries its post id - touching a price cell offers
+      // a one-tap "view & contact" jump into the poster's own detail card.
+      pts.push({ cityKey: cityKeyOf(display), cityDisplay: display, key, min: p.priceMin, max: p.priceMax, you: youOf(p), near, business, postId: p.id || post.id })
     }
     push(post, post.currency, false, post.author?.name || 'This business')
     links.forEach((l) => push(l.post, l.post.currency, false, l.post.author?.name || 'A linked business'))
@@ -768,10 +757,10 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     const exactPts = pts.filter((p) => !p.near)
     const nearPts = pts.filter((p) => p.near)
     const counts = new Map<string, number>()
-    pts.forEach((p) => counts.set(p.city, (counts.get(p.city) || 0) + 1))
-    const youCities = new Set(pts.filter((p) => p.you).map((p) => p.city))
-    const selfCity = cityName(post)
-    const exactCities = [...new Set(exactPts.map((p) => p.city))]
+    pts.forEach((p) => counts.set(p.cityKey, (counts.get(p.cityKey) || 0) + 1))
+    const youCities = new Set(pts.filter((p) => p.you).map((p) => p.cityKey))
+    const selfCity = cityKeyOf(cityName(post))
+    const exactCities = [...new Set(exactPts.map((p) => p.cityKey))]
       .sort((x, y) => {
         if (x === selfCity) return -1
         if (y === selfCity) return 1
@@ -782,17 +771,20 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
         return dc !== 0 ? dc : x.localeCompare(y)
       })
       .slice(0, 4)
-    const nearOnly = [...new Set(nearPts.map((p) => p.city))]
+    const nearOnly = [...new Set(nearPts.map((p) => p.cityKey))]
       .filter((c) => !exactCities.includes(c))
       .sort((x, y) => {
-        const cx = nearPts.filter((p) => p.city === x).length
-        const cy = nearPts.filter((p) => p.city === y).length
+        const cx = nearPts.filter((p) => p.cityKey === x).length
+        const cy = nearPts.filter((p) => p.cityKey === y).length
         return cy !== cx ? cy - cx : x.localeCompare(y)
       })
       .slice(0, Math.max(0, 4 - exactCities.length))
+    // display = the first-seen original casing for each folded city key
+    const displayOf = new Map<string, string>()
+    pts.forEach((p) => { if (!displayOf.has(p.cityKey)) displayOf.set(p.cityKey, p.cityDisplay) })
     const cities: Array<{ name: string; display: string; near: boolean }> = [
-      ...exactCities.map((name) => ({ name, display: name, near: false })),
-      ...nearOnly.map((name) => ({ name, display: `~${name}`, near: true })),
+      ...exactCities.map((name) => ({ name, display: displayOf.get(name) || name, near: false })),
+      ...nearOnly.map((name) => ({ name, display: `~${displayOf.get(name) || name}`, near: true })),
     ]
     // Rows: months oldest -> newest like a history table, most recent 6.
     const monthRows = [...new Set(pts.map((p) => p.key))]
@@ -806,88 +798,25 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
     // insertion order (this business first), deduped.
     const cellOf = (key: string, city: string, near: boolean) => {
       const pool = near ? nearPts : exactPts
-      const inCell = pool.filter((p) => p.key === key && p.city === city)
+      const inCell = pool.filter((p) => p.key === key && p.cityKey === city)
       if (inCell.length === 0) return null
+      // v262: the businesses behind the cell WITH their post ids, deduped by
+      // name - the touched-cell panel turns each into a contact jump.
+      const contacts: Array<{ name: string; postId: string }> = []
+      const seenNames = new Set<string>()
+      for (const p of inCell) {
+        if (seenNames.has(p.business)) continue
+        seenNames.add(p.business)
+        contacts.push({ name: p.business, postId: p.postId })
+      }
       return {
         min: Math.min(...inCell.map((p) => p.min)),
         max: Math.max(...inCell.map((p) => p.max)),
         businesses: [...new Set(inCell.map((p) => p.business))],
+        contacts,
       }
     }
-    return { cities, monthRows, cellOf, selfCity, youCities, hasNear: nearOnly.length > 0 }
-  })()
-
-  // ---------------------------------------------------------------------
-  // v149: the CATEGORY fallback table - "{category} price by location and
-  // date". Rendered under the product table when the product grid is a
-  // lone column (nothing matches the product, exact or near): the same
-  // drawn shape, fed by every same-category same-currency post from the
-  // /similar endpoint's categoryPoints, so the compare output is never a
-  // dead end on a solo product.
-  const catTable = (() => {
-    if (!post || categoryPoints.length === 0 || !priceTable || priceTable.cities.length >= 2) return null
-    const selfKey = monthKeyOfPublic(post.createdAt)
-    if (!selfKey) return null
-    type CatPt = { city: string; key: string; min: number; max: number; you: boolean; businesses: string[] }
-    const pts: CatPt[] = [
-      { city: priceTable.selfCity, key: selfKey, min: post.priceMin, max: post.priceMax, you: isOwnPost, businesses: [post.author?.name || 'This business'] },
-    ]
-    for (const c of categoryPoints) {
-      if (c.city === priceTable.selfCity && c.month === selfKey) continue // merged into the self point below
-      pts.push({
-        city: c.city,
-        key: c.month,
-        min: c.min,
-        max: c.max,
-        you: !!currentUserId && c.authorIds.includes(currentUserId),
-        // v159: the businesses behind this aggregated point (server-deduped
-        // names; fall back to a count-shaped label if names are missing).
-        businesses: (c.authors && c.authors.length > 0) ? c.authors : ['A local business'],
-      })
-    }
-    // merge same city+month duplicates (incl. self + a category post)
-    const merged = new Map<string, CatPt>()
-    for (const p of pts) {
-      const k = `${p.city}||${p.key}`
-      const m = merged.get(k)
-      if (m) {
-        m.min = Math.min(m.min, p.min)
-        m.max = Math.max(m.max, p.max)
-        m.you = m.you || p.you
-        m.businesses = [...new Set([...m.businesses, ...p.businesses])]
-      } else merged.set(k, { ...p })
-    }
-    const all = [...merged.values()]
-    const counts = new Map<string, number>()
-    all.forEach((p) => counts.set(p.city, (counts.get(p.city) || 0) + 1))
-    const youCats = new Set(all.filter((p) => p.you).map((p) => p.city))
-    const selfCity = priceTable.selfCity
-    const cities = [...new Set(all.map((p) => p.city))]
-      .sort((x, y) => {
-        if (x === selfCity) return -1
-        if (y === selfCity) return 1
-        const xy = youCats.has(x) ? 0 : 1
-        const yy = youCats.has(y) ? 0 : 1
-        if (xy !== yy) return xy - yy
-        const dc = (counts.get(y) || 0) - (counts.get(x) || 0)
-        return dc !== 0 ? dc : x.localeCompare(y)
-      })
-      .slice(0, 4)
-    const monthRows = [...new Set(all.map((p) => p.key))]
-      .sort()
-      .slice(-6)
-      .map((key) => ({ key, label: monthLabelOfPublic(key) }))
-    // v159: touched cells also name their businesses.
-    const cellOf = (key: string, city: string) => {
-      const inCell = all.filter((p) => p.key === key && p.city === city)
-      if (inCell.length === 0) return null
-      return {
-        min: Math.min(...inCell.map((p) => p.min)),
-        max: Math.max(...inCell.map((p) => p.max)),
-        businesses: [...new Set(inCell.flatMap((p) => p.businesses))],
-      }
-    }
-    return { cities, monthRows, cellOf, youCats }
+    return { cities, monthRows, cellOf, selfCity, youCities, hasNear: nearOnly.length > 0, hasCompany: pts.some((p) => p.postId !== post.id) }
   })()
 
   const handleAddLink = async (otherId: string) => {
@@ -1521,14 +1450,14 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       <table className="w-full text-sm sm:text-base border-collapse">
                         <thead>
                           <tr className="border-y border-border bg-accent">
-                            <th className="sticky left-0 z-10 bg-accent text-left font-bold text-foreground px-3 py-2.5 whitespace-nowrap">Date</th>
+                            <th className="sticky left-0 z-10 bg-accent text-left font-bold text-foreground px-2 py-1.5 sm:px-3 sm:py-2.5 whitespace-nowrap">Date</th>
                             {priceTable.cities.map((col) => (
                               <th
                                 key={col.near ? `~${col.name}` : col.name}
                                 data-testid="detail-price-table-city"
                                 data-near={col.near ? 'true' : undefined}
                                 className={cn(
-                                  'text-right font-bold px-3 py-2.5 whitespace-nowrap',
+                                  'text-right font-bold px-2 py-1.5 sm:px-3 sm:py-2.5 whitespace-nowrap',
                                   col.near ? 'text-muted-foreground italic' : col.name === priceTable.selfCity ? 'text-primary' : 'text-foreground'
                                 )}
                               >
@@ -1552,22 +1481,23 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                             const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
                             return (
                               <tr key={row.key} className="border-b border-border/40 last:border-0">
-                                <td data-testid="detail-price-table-month" className="sticky left-0 z-10 bg-card px-3 py-2.5 text-muted-foreground font-semibold whitespace-nowrap">
+                                <td data-testid="detail-price-table-month" className="sticky left-0 z-10 bg-card px-2 py-1.5 sm:px-3 sm:py-2.5 text-muted-foreground font-semibold whitespace-nowrap">
                                   {row.label}
                                 </td>
                                 {cells.map((v, i) =>
                                   v === null ? (
-                                    <td key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')} className="px-3 py-2.5 text-right text-muted-foreground/40">-</td>
+                                    <td key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')} className="px-2 py-1.5 sm:px-3 sm:py-2.5 text-right text-muted-foreground/40">-</td>
                                   ) : (
                                     <td
                                       key={priceTable.cities[i].name + (priceTable.cities[i].near ? '~' : '')}
                                       data-testid="detail-price-table-cell"
                                       data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
                                       data-cell-businesses={v.businesses.join('|')}
-                                      onClick={() => setTouchedCell((cur) => cur && cur.table === 'product' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}` ? null : { table: 'product', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}`, businesses: v.businesses })}
-                                      title="Touch a price to see the business behind it"
+                                      data-cell-postids={v.contacts.map((c) => c.postId).join('|')}
+                                      onClick={() => setTouchedCell((cur) => cur && cur.table === 'product' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}` ? null : { table: 'product', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${priceTable.cities[i].display}`, contacts: v.contacts })}
+                                      title="Touch a price to see the business behind it - tap a name to contact them"
                                       className={cn(
-                                        'px-3 py-2.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
+                                        'px-2 py-1.5 sm:px-3 sm:py-2.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
                                         priceTable.cities[i].near && 'italic text-muted-foreground',
                                         filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-black' : 'text-foreground font-bold'
                                       )}
@@ -1583,106 +1513,45 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                       </table>
                     </div>
                     {/* v159: touch a price -> the business behind it shows
-                        here, under the table that owns the touched cell. */}
+                        here, under the table that owns the touched cell.
+                        v262: each business is a CONTACT chip - tapping it
+                        opens that poster's own price post where the contact
+                        card (phone / WhatsApp / email) lives. */}
                     {touchedCell && touchedCell.table === 'product' && (
-                      <div data-testid="detail-cell-business" className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap px-2 py-2 sm:px-3 border-t border-border/40 bg-primary/5 text-[11px]">
+                      <div data-testid="detail-cell-business" className="flex items-center gap-x-1.5 gap-y-1 flex-wrap px-2 py-2 sm:px-3 border-t border-border/40 bg-primary/5 text-[11px]">
                         <Store className="w-3 h-3 text-primary shrink-0" />
                         <span className="text-muted-foreground whitespace-nowrap">{touchedCell.label}</span>
-                        <span className="min-w-0 flex-1 truncate font-semibold text-foreground">— {touchedCell.businesses.join(', ')}</span>
+                        {touchedCell.contacts.map((c) => (
+                          <button
+                            key={c.postId}
+                            type="button"
+                            data-testid="detail-cell-contact"
+                            data-contact-name={c.name}
+                            onClick={() => onOpenPost?.(c.postId)}
+                            title={`Open ${c.name}'s price post to contact them`}
+                            className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-semibold text-primary hover:bg-primary/20 transition-colors cursor-pointer max-w-[220px]"
+                          >
+                            <Phone className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{c.name}</span>
+                            <span className="shrink-0">· View &amp; contact</span>
+                          </button>
+                        ))}
                       </div>
+                    )}
+                    {/* v262: related-only comparison (user: "if is bag make it
+                        bag only") - the category-wide fallback grid is gone.
+                        A lone column says so honestly instead of padding the
+                        screen with prices from unrelated items. */}
+                    {priceTable.cities.length === 1 && !priceTable.hasCompany && (
+                      <p data-testid="detail-no-related-note" className="text-xs text-muted-foreground px-3 py-2 border-t border-border/40">
+                        No other &ldquo;{post.productName}&rdquo; prices yet - post &ldquo;{post.productName}&rdquo; in another city or month to compare it directly.
+                      </p>
                     )}
                     {priceTable.hasNear && (
                       <p className="text-xs text-muted-foreground px-3 py-2 border-t border-border/40">
                         ~ similar item - close to this product, not the exact same listing
                       </p>
                     )}
-                  </div>
-                )}
-
-                {/* v149: the category fallback table - when nothing matches
-                    the product (exact or near), the SAME drawn shape fed by
-                    every same-category same-currency post, so the compare
-                    output on a solo product is never a dead end. */}
-                {catTable && (
-                  <div className="mb-3 rounded-xl border-2 border-dashed border-primary/30 bg-card overflow-hidden" data-testid="detail-category-table">
-                    <p className="text-sm sm:text-base font-bold text-foreground px-3 pt-3" data-testid="detail-category-table-title">
-                      {`${post.category || 'Category'} price by location and date (${post.currency})`}
-                    </p>
-                    <div className="overflow-x-auto scrollbar-thin">
-                      <table className="w-full text-sm sm:text-base border-collapse">
-                        <thead>
-                          <tr className="border-y border-border bg-accent">
-                            <th className="sticky left-0 z-10 bg-accent text-left font-bold text-foreground px-3 py-2.5 whitespace-nowrap">Date</th>
-                            {catTable.cities.map((c) => (
-                              <th
-                                key={c}
-                                data-testid="detail-category-table-city"
-                                className={cn(
-                                  'text-right font-bold px-3 py-2.5 whitespace-nowrap',
-                                  c === priceTable?.selfCity ? 'text-primary' : 'text-foreground'
-                                )}
-                              >
-                                {c}
-                                {catTable.youCats.has(c) && (
-                                  <span
-                                    data-testid="detail-category-table-you"
-                                    className="ml-1 align-middle text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/10 rounded-full px-1 py-px"
-                                  >
-                                    You
-                                  </span>
-                                )}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {catTable.monthRows.map((row) => {
-                            const cells = catTable.cities.map((c) => catTable.cellOf(row.key, c))
-                            const filled = cells.filter((v) => v !== null) as Array<{ min: number; max: number }>
-                            const rowMin = filled.length > 0 ? Math.min(...filled.map((v) => v.max)) : Infinity
-                            return (
-                              <tr key={row.key} className="border-b border-border/40 last:border-0">
-                                <td data-testid="detail-category-table-month" className="sticky left-0 z-10 bg-card px-3 py-2.5 text-muted-foreground font-semibold whitespace-nowrap">
-                                  {row.label}
-                                </td>
-                                {cells.map((v, i) =>
-                                  v === null ? (
-                                    <td key={catTable.cities[i]} className="px-3 py-2.5 text-right text-muted-foreground/40">-</td>
-                                  ) : (
-                                    <td
-                                      key={catTable.cities[i]}
-                                      data-testid="detail-category-table-cell"
-                                      data-cheapest={filled.length > 1 && v.max === rowMin ? 'true' : undefined}
-                                      data-cell-businesses={v.businesses.join('|')}
-                                      onClick={() => setTouchedCell((cur) => cur && cur.table === 'category' && cur.label === `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${catTable.cities[i]}` ? null : { table: 'category', label: `${v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`} · ${row.label} · ${catTable.cities[i]}`, businesses: v.businesses })}
-                                      title="Touch a price to see the business behind it"
-                                      className={cn(
-                                        'px-3 py-2.5 text-right whitespace-nowrap cursor-pointer select-none active:bg-primary/10',
-                                        filled.length > 1 && v.max === rowMin ? 'text-emerald-700 font-black' : 'text-foreground font-bold'
-                                      )}
-                                    >
-                                      {v.min === v.max ? `${v.min}` : `${v.min}-${v.max}`}
-                                    </td>
-                                  )
-                                )}
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* v159: touch a price -> the business behind it shows
-                        here, under the category table too. */}
-                    {touchedCell && touchedCell.table === 'category' && (
-                      <div data-testid="detail-cell-business" className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap px-2 py-2 sm:px-3 border-t border-border/40 bg-primary/5 text-[11px]">
-                        <Store className="w-3 h-3 text-primary shrink-0" />
-                        <span className="text-muted-foreground whitespace-nowrap">{touchedCell.label}</span>
-                        <span className="min-w-0 flex-1 truncate font-semibold text-foreground">— {touchedCell.businesses.join(', ')}</span>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground px-3 py-2 border-t border-border/40">
-                      Category average grid - post &ldquo;{post.productName}&rdquo; in another city or month to compare it directly.
-                    </p>
                   </div>
                 )}
 
@@ -2156,6 +2025,50 @@ export function PriceDetailModal({ postId, onClose, onAuthorClick, onMessage, cu
                   <p className="text-[11px] text-muted-foreground/80 italic mt-2">
                     Based on community-reported prices over time.
                   </p>
+                </div>
+              )}
+
+              {/* v262: contact the poster directly - the same channels the
+                  feed card shows, now on the detail card too. The user asked
+                  to "contact the poster of that price" - this is the poster's
+                  own contact card; compared posters are one chip away via the
+                  table's view-&-contact chips above. */}
+              {(post.contactPhone || post.contactWhatsApp || post.contactEmail) && (
+                <div data-testid="detail-contact" className="rounded-xl border border-border p-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-2">Contact the poster</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {post.contactPhone && (
+                      <a
+                        data-testid="detail-contact-phone"
+                        href={`tel:${post.contactPhone}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-card border border-blue-200 text-xs text-foreground hover:bg-blue-50 transition-colors"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        {post.contactPhone}
+                      </a>
+                    )}
+                    {post.contactWhatsApp && (
+                      <a
+                        data-testid="detail-contact-whatsapp"
+                        href={post.contactWhatsApp.startsWith('http') ? post.contactWhatsApp : `https://wa.me/${post.contactWhatsApp.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-card border border-blue-200 text-xs text-foreground hover:bg-blue-50 transition-colors"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        WhatsApp
+                      </a>
+                    )}
+                    {post.contactEmail && (
+                      <a
+                        data-testid="detail-contact-email"
+                        href={`mailto:${post.contactEmail}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-card border border-blue-200 text-xs text-foreground hover:bg-blue-50 transition-colors"
+                      >
+                        {post.contactEmail}
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
 
