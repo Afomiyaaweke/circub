@@ -60,13 +60,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRightLeft, CalendarDays, Check, Compass, CreditCard, Crown, Lightbulb,
-  Loader2, Lock, MapPin, Pencil, Sparkles, ThumbsUp, TrendingDown, TrendingUp,
-  Users, Wallet, X,
+  ArrowRightLeft, CalendarDays, Check, Compass, CreditCard, Crown, FileText, FlaskConical,
+  Lightbulb, ListChecks, Loader2, Lock, MapPin, Minus, Pencil, Plus, Sparkles, ThumbsUp,
+  TrendingDown, TrendingUp, Users, Wallet, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+// v264 research-task bounties ride the same currency whitelist the bounty
+// board uses (the proforma's own currency when it is on the list).
+import { BOUNTY_CURRENCIES } from '@/lib/bounty-money'
 
 // v263 - the exact shape GET /api/proforma/quota returns.
 interface ProformaQuota {
@@ -120,6 +123,8 @@ const BUDGET_ROWS = 6 // budget-locator place rows before the cut
 const SAFE_ROUND_TO = 50 // safe budget rounds UP to a walkable number
 const POSTER_ROWS = 6 // v250 poster rows shown behind the numbers
 const MAX_PLACES = 6 // v250 chosen locations cap - keeps the recap walkable
+const COMPARE_ROWS = 4 // v264 comparison rows per item card before the "+ n more" line
+const MAX_RESEARCH_CARDS = 2 // v264 research-task bounty cards shown at once
 
 // Quantities are not part of the AI conversation - every item counts as 1.
 // (The totals math still takes a quantities map; this keeps it honest.)
@@ -204,21 +209,39 @@ export function CompassPriceTools() {
   const choosePrimary = (key: string) =>
     setMyPlaces((prev) => [key, ...prev.filter((p) => p.toLowerCase() !== key.toLowerCase())])
   const [budget, setBudget] = useState('')
-  // v246 AI-ASKING SETUP (user: "make the proforma like AI asking location
-  // items date and budget with list"): the panel OPENS as a guided
-  // conversation - four one-tap questions (Where / What / When / Budget) -
-  // and v249 the conversation IS the whole proforma: askStep 0 = between
-  // questions, 1..4 = the four questions; askDone = the results card.
-  const [askStep, setAskStep] = useState<0 | 1 | 2 | 3 | 4>(1)
+  // v264 BUILDER (user: "design the proforma like this" + the mockups):
+  // the four-step conversation is GONE. The builder is ONE screen - the
+  // mockup's PLACES / DATES / BUDGET / ITEMS chip sections all visible at
+  // once, live COMPARISON cards underneath (every row is a real post with
+  // its place · date, the cheapest wears the Lowest badge, midpoint prices
+  // say est.), a "Total, cheapest place" summary and the full-width
+  // BUILD PROFORMA button - which is the same charging moment v263 defined
+  // (one finished proforma = one question). askDone = the results card.
   const [askDone, setAskDone] = useState(false)
-  const [askItems, setAskItems] = useState<string[]>([])
   const [askNewItem, setAskNewItem] = useState('')
-  // v248 (user: "make input for location"): the WHERE step takes a TYPED
-  // place, not just the suggestion chips. Committed on Enter or the
-  // Use-this-place button, with the same snap-to-known-place contract as
-  // the chips: a case-insensitive match with a place the community has
-  // posted lights its real stats up, anything else is kept as typed.
+  // v248 (user: "make input for location"): the typed place input, with the
+  // same snap-to-known-place contract as the chips: a case-insensitive match
+  // with a place the community has posted snaps onto that canonical key so
+  // its real stats light up; anything else is kept as typed and honest.
   const [askPlace, setAskPlace] = useState('')
+  // The mockup's "+ Add" chips: each section's editor panel (suggested
+  // chips + typed input) folds away once the user is done. Places and
+  // items START open on an empty builder so the first-run screen still
+  // guides the tap-tap-tap; dates stay folded (they default to today).
+  const [placesOpen, setPlacesOpen] = useState(true)
+  const [datesOpen, setDatesOpen] = useState(false)
+  const [itemsOpen, setItemsOpen] = useState(true)
+  // v264 QUANTITIES - the mockup's PROFORMA table has a Qty column. Every
+  // item defaults to 1; the stepper feeds the same totals() the results
+  // card always used, so low/likely/high and the budget check follow.
+  const [qtyMap, setQtyMap] = useState<Record<string, number>>({})
+  const bumpQty = (name: string, d: number) =>
+    setQtyMap((prev) => ({ ...prev, [name]: Math.min(999, Math.max(1, (prev[name] ?? 1) + d)) }))
+  // v264 RESEARCH TASKS (the mockup's RESEARCH TASK card): a chosen item
+  // with NO real price in scope opens a bounty - "Approve bounty" posts a
+  // RESEARCH quest through the same /api/quests route the Link tab uses,
+  // so price hunters see it on the bounty reel. Per-item form state.
+  const [research, setResearch] = useState<Record<string, { open: boolean; contact: string; amount: string; busy: boolean; done: boolean; error: string | null }>>({})
 
   // ---- v263 subscription + daily free quota -------------------------------
   // Server is the source of truth (GET /api/proforma/quota, POST .../ask);
@@ -336,7 +359,6 @@ export function CompassPriceTools() {
   const finishCompletion = () => {
     setGate('none')
     setAskDone(true)
-    setAskStep(0)
   }
 
   useEffect(() => {
@@ -531,28 +553,29 @@ export function CompassPriceTools() {
   }
 
   // ---- v246 AI-asking helpers ---------------------------------------------
-  // Toggle one suggested item on the answer list (community name or typed).
-  const toggleAskItem = (name: string) => {
-    setAskItems((prev) =>
-      prev.some((n) => n.toLowerCase() === name.toLowerCase())
-        ? prev.filter((n) => n.toLowerCase() !== name.toLowerCase())
-        : [...prev, name],
-    )
-  }
-
-  // Type an extra item into the answer list (Enter or the + button).
-  const addAskTyped = () => {
+  // v264 the builder adds items DIRECTLY to the priced list (the staging
+  // list is gone): a typed name snaps onto its canonical community product
+  // when one exists, otherwise it becomes a custom item - same caps, same
+  // honesty as before.
+  const addTypedItem = () => {
     const name = askNewItem.trim().replace(/\s+/g, ' ').slice(0, 60)
-    if (!name) return
-    setAskItems((prev) =>
-      prev.some((n) => n.toLowerCase() === name.toLowerCase()) ? prev : [...prev, name],
-    )
+    if (!name || !model) return
+    const feedMatch = model.itemNames.find((n) => n.toLowerCase() === name.toLowerCase())
+    if (feedMatch) {
+      setOnItems((prev) => ({ ...prev, [feedMatch]: true }))
+    } else {
+      setCustomItems((prev) =>
+        prev.some((n) => n.toLowerCase() === name.toLowerCase()) || prev.length >= MAX_CUSTOM_ITEMS
+          ? prev
+          : [...prev, name],
+      )
+      setOnItems((prev) => ({ ...prev, [name]: true }))
+    }
     setAskNewItem('')
   }
 
   // v248 typed location input - v250 it ADDS one place at a time so the
-  // proforma can take several locations (the conversation moves on with
-  // the Continue button). Same snap contract as the chips: a
+  // proforma can take several locations. Same snap contract as the chips: a
   // case-insensitive match with a place the community has posted snaps
   // onto that canonical key so its real stats light up; anything else is
   // kept as typed and the tools stay honest.
@@ -567,43 +590,6 @@ export function CompassPriceTools() {
         : [...prev, key],
     )
     setAskPlace('')
-  }
-
-  // Commit the answered list into the state the results card prices: community
-  // names snap onto their canonical product, typed ones become custom items
-  // (same cap). Nothing is mocked - the results price exactly this list from
-  // real posts.
-  const applyAskItems = () => {
-    if (!model) return
-    askItems.forEach((raw) => {
-      const name = raw.trim().replace(/\s+/g, ' ').slice(0, 60)
-      if (!name) return
-      const feedMatch = model.itemNames.find((n) => n.toLowerCase() === name.toLowerCase())
-      if (feedMatch) {
-        setOnItems((prev) => ({ ...prev, [feedMatch]: true }))
-        return
-      }
-      setCustomItems((prev) =>
-        prev.some((n) => n.toLowerCase() === name.toLowerCase()) || prev.length >= MAX_CUSTOM_ITEMS
-          ? prev
-          : [...prev, name],
-      )
-      setOnItems((prev) => ({ ...prev, [name]: true }))
-    })
-    setAskItems([])
-  }
-
-  // Budget answered: the conversation ends and the results card takes over -
-  // with the budget applied when it is a positive number. v263: this is the
-  // charging moment - completing the conversation costs ONE question (the
-  // gate in completeProforma decides: guest -> sign-in, free day used up ->
-  // paywall, Pro / already-charged sitting -> straight through).
-  const askApplyBudget = () => {
-    void completeProforma()
-  }
-  const askSkipBudget = () => {
-    setBudget('')
-    void completeProforma()
   }
 
   // v263 - simulated monthly checkout (demo: no gateway keys wired in this
@@ -659,12 +645,12 @@ export function CompassPriceTools() {
     }
   }
 
-  // v249: re-open ONE question of the conversation from the results card.
-  // The results hide while the conversation runs, and finishing it (or the
-  // X) brings the refreshed results straight back.
-  const reopenAt = (step: 1 | 2 | 3 | 4) => {
+  // v249/v264: the Edit buttons on the results card re-open the BUILDER
+  // (the old one-question-at-a-time conversation is gone). The results hide
+  // while the builder runs, and finishing it again brings the refreshed
+  // results straight back. Finishing never re-charges inside one sitting.
+  const openBuilder = () => {
     setAskDone(false)
-    setAskStep(step)
   }
 
   const chosenKey = model
@@ -684,9 +670,16 @@ export function CompassPriceTools() {
   const noPosts = !!model && model.inCur.length === 0
   const emptyList = chosenNames.length === 0
   const myShort = myPlace ? shortOf(myPlace) : 'your area'
+  // v264 agent-activity number: how many REAL reports stand behind the
+  // list at the main stop (the same rows the proforma table prices).
+  const numReports =
+    model && !emptyList && myPlace
+      ? chosenNames.reduce((a, n) => a + (model.per(n, myPlace)?.n ?? 0), 0)
+      : 0
 
-  // List totals at my place + month trend + top mover tip.
-  const myTotals = model && !emptyList ? model.totals(myPlace, chosenNames, NO_QTY) : null
+  // List totals at my place (v264: QUANTITIES INCLUDED - the mockup's
+  // Qty column feeds the same totals) + month trend + top mover tip.
+  const myTotals = model && !emptyList ? model.totals(myPlace, chosenNames, qtyMap) : null
   const trend = model && !emptyList && myPlace ? model.trendOf(chosenNames, myPlace) : null
   let mover: { name: string; ch: number } | null = null
   if (model && !emptyList) {
@@ -732,7 +725,7 @@ export function CompassPriceTools() {
     model && !emptyList && myTotals
       ? model.places
           .filter((p) => !myPlaces.some((mp) => mp.toLowerCase() === p.key.toLowerCase()))
-          .map((p) => ({ ...p, total: model.totals(p.key, chosenNames, NO_QTY)?.av ?? null }))
+          .map((p) => ({ ...p, total: model.totals(p.key, chosenNames, qtyMap)?.av ?? null }))
           .filter((o) => o.total != null)
           .sort((a, b) => (a.total as number) - (b.total as number))
           .slice(0, 3)
@@ -746,7 +739,7 @@ export function CompassPriceTools() {
       ? myPlaces.map((key) => ({
           key,
           short: shortOf(key),
-          t: model.totals(key, chosenNames, NO_QTY),
+          t: model.totals(key, chosenNames, qtyMap),
         }))
       : []
   const pricedMine = myPlaceRows.filter((r) => r.t != null)
@@ -790,8 +783,8 @@ export function CompassPriceTools() {
           .map((p) => ({
             key: p.key,
             short: p.short,
-            total: model.totals(p.key, chosenNames, NO_QTY)?.av ?? null,
-            nPosts: model.totals(p.key, chosenNames, NO_QTY)?.n ?? 0,
+            total: model.totals(p.key, chosenNames, qtyMap)?.av ?? null,
+            nPosts: model.totals(p.key, chosenNames, qtyMap)?.n ?? 0,
             likes: model.helpful(p.key, chosenNames),
             // How many of the list items this place actually prices - a
             // sparse row that covers only part of the list says so.
@@ -835,6 +828,96 @@ export function CompassPriceTools() {
   const budgetClosest = budgetPlaces[0] ?? null
   const givenFits = myTotals && budgetNum > 0 ? myTotals.av <= budgetNum : null
 
+  // v264 the mockup's COMPARISON + "Total, cheapest place": for every item
+  // on the list, the REAL posts that price it - cheapest first - scoped to
+  // the chosen places when any are chosen (otherwise the whole currency
+  // feed). The first row wears the Lowest badge; a midpoint-derived price
+  // says est. honestly. The total sums each item's cheapest source.
+  const compareScope = useMemo(() => {
+    if (!model || emptyList) return null
+    const scope = myPlaces.length
+      ? model.inCur.filter((p) =>
+          myPlaces.some((mp) => mp.toLowerCase() === model.placeOf(p).toLowerCase()),
+        )
+      : model.inCur
+    const cards = chosenNames.map((name) => {
+      const ps = scope
+        .filter((p) => p.productName.trim() === name)
+        .map((p) => ({
+          post: p,
+          price: model.priceOf(p),
+          est: !(p.recommendedPrice != null && p.recommendedPrice > 0),
+          date: prettyDate(String(p.createdAt).slice(0, 10)),
+          place: shortOf(model.placeOf(p)),
+        }))
+        .sort((a, b) => a.price - b.price)
+      return {
+        name,
+        rows: ps.slice(0, COMPARE_ROWS),
+        more: Math.max(0, ps.length - COMPARE_ROWS),
+        min: ps.length ? ps[0].price : null,
+      }
+    })
+    const priced = cards.filter((c) => c.min != null)
+    return {
+      cards,
+      pricedCount: priced.length,
+      total: priced.length ? priced.reduce((a, c) => a + (c.min as number), 0) : null,
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, chosenKey, myPlaces.join('|')])
+
+  // v264 RESEARCH TASKS: items with NO real price anywhere in scope. Up to
+  // two cards render (the rest stay honest rows) - approving one posts a
+  // RESEARCH bounty through /api/quests exactly like the Link tab does.
+  const researchItems = (compareScope?.cards ?? []).filter((c) => c.min == null).slice(0, MAX_RESEARCH_CARDS)
+  const researchOf = (name: string) =>
+    research[name] ?? { open: false, contact: '', amount: '200', busy: false, done: false, error: null as string | null }
+  const patchResearch = (
+    name: string,
+    patch: Partial<{ open: boolean; contact: string; amount: string; busy: boolean; done: boolean; error: string | null }>,
+  ) => setResearch((prev) => ({ ...prev, [name]: { ...researchOf(name), ...patch } }))
+  // The bounty rides the proforma's own currency when the platform list
+  // knows it, else the local default (ETB) - no invented exchange rates.
+  const researchCur = (BOUNTY_CURRENCIES as readonly string[]).includes(cur) ? cur : 'ETB'
+
+  const approveResearchBounty = async (name: string) => {
+    const st = researchOf(name)
+    const contact = st.contact.trim().slice(0, 200)
+    if (!contact) {
+      patchResearch(name, { error: 'A contact is required so price hunters can reach you.' })
+      return
+    }
+    const amount = Math.max(0, parseFloat(st.amount.replace(/,/g, '')) || 0)
+    patchResearch(name, { busy: true, error: null })
+    try {
+      const r = await fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${name} price research in ${myShort}`.slice(0, 200),
+          details: `Research task opened from a proforma: capture the shelf price of ${name} in ${myShort} - shop name, photo, GPS and a receipt if possible. The reward is paid after review.`,
+          location: myShort.slice(0, 120),
+          bountyUsd: amount,
+          bountyCurrency: researchCur,
+          askTypes: 'RESEARCH',
+          contact,
+        }),
+      })
+      if (r.ok) {
+        patchResearch(name, { done: true, busy: false, open: false })
+        return
+      }
+      const d = await r.json().catch(() => ({}))
+      patchResearch(name, {
+        busy: false,
+        error: typeof (d as { error?: string })?.error === 'string' ? (d as { error: string }).error : 'Could not post the bounty right now.',
+      })
+    } catch {
+      patchResearch(name, { busy: false, error: 'Network hiccup - please try again.' })
+    }
+  }
+
   const chipBase =
     'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer'
   const chipOff = 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
@@ -850,9 +933,11 @@ export function CompassPriceTools() {
           <Compass className="w-4 h-4 text-primary" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-foreground">Your proforma</h3>
+          <h3 className="text-sm font-bold text-foreground" data-testid="proforma-title">
+            circub<span className="text-primary">Awd</span> <span className="text-muted-foreground font-semibold">Proforma</span>
+          </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Four quick questions - then I price your list from real community posts. One finished
+            Pick places, dates and items - I price your list from real community posts. One finished
             proforma = one question: 3 free every day, unlimited with Pro.
           </p>
         </div>
@@ -861,7 +946,7 @@ export function CompassPriceTools() {
             type="button"
             data-testid="proforma-guest-chip"
             onClick={() => setGate('auth')}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground hover:border-primary/40 cursor-pointer"
+            className="w-full sm:w-auto justify-center shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground hover:border-primary/40 cursor-pointer"
           >
             <Sparkles className="w-3 h-3 text-primary" />
             3 free questions a day
@@ -871,7 +956,7 @@ export function CompassPriceTools() {
           <span
             data-testid="proforma-quota-chip"
             title="One finished proforma = one question. Resets at midnight UTC."
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground"
+            className="w-full sm:w-auto justify-center shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-[11px] font-semibold text-foreground"
           >
             <Sparkles className="w-3 h-3 text-primary" />
             {quota.remaining ?? 0} of {quota.limit ?? 3} free questions left today
@@ -883,7 +968,7 @@ export function CompassPriceTools() {
             data-testid="proforma-pro-chip"
             onClick={() => setGate('manage')}
             title="Pro is active - tap to manage your subscription"
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:border-emerald-500 cursor-pointer"
+            className="w-full sm:w-auto justify-center shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:border-emerald-500 cursor-pointer"
           >
             <Crown className="w-3 h-3" />
             Pro · unlimited
@@ -1141,16 +1226,16 @@ export function CompassPriceTools() {
 
       {model && !noPosts && (
         <>
-          {/* ============ v246 AI-ASKING CONVERSATION ============ */}
-          {/* The proforma opens like an assistant asking YOU: four
-              one-tap questions - WHERE, WHAT (the list), WHEN and BUDGET -
-              each with a LIST of real answers taken from the community
-              data (busiest places, most-posted products, dates out of
-              today, your own totals). Nothing is mocked: every answer
-              lands in the same state the v249 results card prices. */}
-          {gate === 'none' && !askDone && askStep > 0 && (
+          {/* ============ v264 ONE-SCREEN BUILDER (the mockups) ============ */}
+          {/* The four-step conversation is GONE. The builder is ONE screen:
+              the mockup's PLACES / DATES / BUDGET / ITEMS chip sections, the
+              live COMPARISON cards (every row a real post - place · date ·
+              price, cheapest wears Lowest, midpoints say est.), the
+              "Total, cheapest place" summary and the full-width BUILD
+              PROFORMA button - the same charging moment v263 defined. */}
+          {gate === 'none' && !askDone && (
             <div
-              className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5"
+              className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3"
               data-testid="proforma-ask"
             >
               <div className="flex items-start gap-2.5">
@@ -1158,248 +1243,367 @@ export function CompassPriceTools() {
                   <Sparkles className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground">Let&apos;s build your proforma</p>
-                  <p className="text-[11px] text-muted-foreground">Four quick questions - I&apos;ll price your list from real posts.</p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0 pt-1">
-                  {[1, 2, 3, 4].map((s) => (
-                    <span
-                      key={s}
-                      aria-hidden
-                      className={cn('w-1.5 h-1.5 rounded-full', askStep === s ? 'bg-primary' : askStep > s ? 'bg-primary/50' : 'bg-border')}
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => { setAskStep(0); setAskDone(true) }}
-                    aria-label="Skip the guided setup"
-                    title="Skip the guided setup"
-                    data-testid="ask-dismiss"
-                    className="ml-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <p className="text-sm font-bold text-foreground">Build your proforma</p>
+                  <p className="text-[11px] text-muted-foreground">Pick the places, dates and items - I price the list from real community posts.</p>
                 </div>
               </div>
 
-              {/* ---- 1 WHERE (v250: takes MORE THAN ONE location) ---- */}
-              {askStep === 1 && (
-                <div className="space-y-2" data-testid="ask-step-where">
-                  <p className="text-sm text-foreground">
-                    <span className="font-bold">Where</span> are you shopping? Pick one place - or as many as you like.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {model.places.slice(0, 6).map((pl) => {
-                      const on = myPlaces.some((p) => p.toLowerCase() === pl.key.toLowerCase())
-                      return (
-                        <button
-                          type="button"
-                          key={pl.key}
-                          data-testid="ask-where-chip"
-                          aria-pressed={on}
-                          onClick={() => togglePlace(pl.key)}
-                          className={cn(chipBase, on ? chipOn : chipOff)}
-                        >
-                          <MapPin className="w-3 h-3 mr-1 inline shrink-0" />
-                          {pl.short}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {/* v248 typed input, v250 multi: each committed place JOINS
-                      the chosen set (a known community place snaps onto its
-                      real prices, anything else stays typed and honest) and
-                      the input clears so the next place can be typed. */}
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      type="text"
-                      maxLength={80}
-                      placeholder="Or type your place (e.g. Hawassa, Bahir Dar)"
-                      value={askPlace}
-                      onChange={(e) => setAskPlace(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyAskPlace() } }}
-                      data-testid="ask-where-input"
-                      aria-label="Type a shopping location"
-                      className="h-8 min-w-[10rem] flex-1 text-sm bg-card"
-                    />
-                    <button
-                      type="button"
-                      data-testid="ask-where-apply"
-                      onClick={applyAskPlace}
-                      disabled={!askPlace.trim()}
-                      className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
+              {/* ---- PLACES (the mockup's chip row: chosen chips + + Add) ---- */}
+              <div className="space-y-1.5" data-testid="builder-places">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Places</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {myPlaces.map((p, i) => (
+                    <span
+                      key={p}
+                      data-testid="proforma-place-chip"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary"
                     >
-                      {myPlaces.length ? 'Add place too' : 'Use this place'}
-                    </button>
-                  </div>
-                  {myPlaces.length > 0 && (
-                    <p className="text-[11px] text-muted-foreground" data-testid="ask-where-count">
-                      {myPlaces.length} location{myPlaces.length === 1 ? '' : 's'} chosen - the first one is the main stop.
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    data-testid="ask-where-next"
-                    onClick={() => {
-                      if (!myPlaces.length && model.places[0]) setMyPlaces([model.places[0].key])
-                      setAskStep(2)
-                    }}
-                    className="text-xs font-semibold text-primary hover:underline cursor-pointer"
-                  >
-                    {myPlaces.length > 1
-                      ? `Continue with ${myPlaces.length} locations →`
-                      : 'Next: what is on the list? →'}
-                  </button>
-                </div>
-              )}
-
-              {/* ---- 2 WHAT (the list) ---- */}
-              {askStep === 2 && (
-                <div className="space-y-2" data-testid="ask-step-items">
-                  <p className="text-sm text-foreground">
-                    <span className="font-bold">What</span> is on your list? Tap everything you need.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {model.items.map((it) => {
-                      const on = askItems.some((n) => n.toLowerCase() === it.name.toLowerCase())
-                      return (
-                        <button
-                          type="button"
-                          key={it.name}
-                          data-testid="ask-item-chip"
-                          aria-pressed={on}
-                          onClick={() => toggleAskItem(it.name)}
-                          className={cn(chipBase, on ? chipOn : chipOff)}
-                        >
-                          {it.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      type="text"
-                      maxLength={60}
-                      placeholder="Or type your own item (e.g. morning bus fare)"
-                      value={askNewItem}
-                      onChange={(e) => setAskNewItem(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAskTyped() } }}
-                      data-testid="ask-item-input"
-                      aria-label="Add your own item to the list"
-                      className="h-8 min-w-[10rem] flex-1 text-sm bg-card"
-                    />
-                    <button
-                      type="button"
-                      data-testid="ask-item-add"
-                      onClick={addAskTyped}
-                      disabled={!askNewItem.trim()}
-                      className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
-                    >
-                      + Add
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    data-testid="ask-items-next"
-                    onClick={() => { applyAskItems(); setAskStep(3) }}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 cursor-pointer"
-                  >
-                    Next: when →
-                  </button>
-                </div>
-              )}
-
-              {/* ---- 3 WHEN ---- */}
-              {askStep === 3 && (
-                <div className="space-y-2" data-testid="ask-step-when">
-                  <p className="text-sm text-foreground"><span className="font-bold">When</span> are you visiting?</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ASK_WHEN.map((w) => (
+                      <span className="max-w-[10rem] truncate">
+                        {shortOf(p)}
+                        {i === 0 ? ' · main stop' : ''}
+                      </span>
                       <button
                         type="button"
-                        key={w.label}
-                        data-testid="ask-when-chip"
-                        onClick={() => {
-                          setVisitFrom(isoDay(new Date(Date.now() + w.fromDays * 86400000)))
-                          setVisitTo(isoDay(new Date(Date.now() + w.toDays * 86400000)))
-                          setAskStep(4)
-                        }}
-                        className={cn(chipBase, chipOff)}
+                        aria-label={`Remove ${p} from the comparison`}
+                        onClick={() => setMyPlaces((prev) => prev.filter((x) => x.toLowerCase() !== p.toLowerCase()))}
+                        className="opacity-70 hover:opacity-100 cursor-pointer"
                       >
-                        <CalendarDays className="w-3 h-3 mr-1 inline shrink-0" />
-                        {w.label}
+                        <X className="w-3 h-3" />
                       </button>
-                    ))}
-                    <button
-                      type="button"
-                      data-testid="ask-when-skip"
-                      onClick={() => { setVisitFrom(''); setVisitTo(''); setAskStep(4) }}
-                      className={cn(chipBase, chipOff)}
-                    >
-                      Just researching
-                    </button>
-                  </div>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    data-testid="builder-places-add"
+                    aria-expanded={placesOpen}
+                    onClick={() => setPlacesOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-primary/40 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    {placesOpen ? 'Hide' : 'Add place'}
+                  </button>
                 </div>
-              )}
-
-              {/* ---- 4 BUDGET ---- */}
-              {askStep === 4 && (
-                <div className="space-y-2" data-testid="ask-step-budget">
-                  <p className="text-sm text-foreground">
-                    Last one - your <span className="font-bold">budget</span> for the list?
-                  </p>
-                  {myTotals && safe != null && (
+                {placesOpen && (
+                  <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5" data-testid="builder-places-panel">
                     <div className="flex flex-wrap gap-1.5">
+                      {model.places.slice(0, 6).map((pl) => {
+                        const on = myPlaces.some((p) => p.toLowerCase() === pl.key.toLowerCase())
+                        return (
+                          <button
+                            type="button"
+                            key={pl.key}
+                            data-testid="ask-where-chip"
+                            aria-pressed={on}
+                            onClick={() => togglePlace(pl.key)}
+                            className={cn(chipBase, on ? chipOn : chipOff)}
+                          >
+                            <MapPin className="w-3 h-3 mr-1 inline shrink-0" />
+                            {pl.short}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="text"
+                        maxLength={80}
+                        placeholder="Or type your place (e.g. Hawassa, Bahir Dar)"
+                        value={askPlace}
+                        onChange={(e) => setAskPlace(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyAskPlace() } }}
+                        data-testid="ask-where-input"
+                        aria-label="Type a shopping location"
+                        className="h-8 min-w-[10rem] flex-1 text-sm bg-background"
+                      />
                       <button
                         type="button"
-                        data-testid="ask-budget-typical"
-                        onClick={() => setBudget(String(Math.round(myTotals!.av)))}
-                        className={cn(chipBase, chipOff)}
+                        data-testid="ask-where-apply"
+                        onClick={applyAskPlace}
+                        disabled={!askPlace.trim()}
+                        className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
                       >
-                        Typical · {money(myTotals!.av, cur)}
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="ask-budget-safe"
-                        onClick={() => setBudget(String(safe!))}
-                        className={cn(chipBase, chipOff)}
-                      >
-                        Safe · {money(safe!, cur)}
+                        {myPlaces.length ? 'Add place too' : 'Use this place'}
                       </button>
                     </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      The first place is the main stop - up to {MAX_PLACES} compared.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* ---- DATES (payment / visiting dates) ---- */}
+              <div className="space-y-1.5" data-testid="builder-dates">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Dates</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {fromShort && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground" data-testid="builder-date-from">
+                      <CalendarDays className="w-3 h-3 text-primary shrink-0" />
+                      From {fromShort}
+                      <button type="button" aria-label="Clear the from date" onClick={() => setVisitFrom('')} className="opacity-70 hover:opacity-100 cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
                   )}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder={`Amount in ${cur || 'your currency'}`}
-                      value={budget}
-                      onChange={(e) => setBudget(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); askApplyBudget() } }}
-                      data-testid="ask-budget-input"
-                      aria-label="Your budget for the list"
-                      className="h-8 min-w-[9rem] flex-1 text-sm bg-card"
-                    />
+                  {toShort && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground" data-testid="builder-date-to">
+                      <CalendarDays className="w-3 h-3 text-primary shrink-0" />
+                      To {toShort}
+                      <button type="button" aria-label="Clear the to date" onClick={() => setVisitTo('')} className="opacity-70 hover:opacity-100 cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {!fromShort && !toShort && (
+                    <span className="text-[11px] text-muted-foreground self-center">No dates - just researching</span>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="builder-dates-add"
+                    aria-expanded={datesOpen}
+                    onClick={() => setDatesOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-primary/40 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    {datesOpen ? 'Hide' : fromShort ? 'Edit dates' : 'Add dates'}
+                  </button>
+                </div>
+                {datesOpen && (
+                  <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5" data-testid="builder-dates-panel">
+                    <div className="flex flex-wrap gap-1.5">
+                      {ASK_WHEN.map((w) => (
+                        <button
+                          type="button"
+                          key={w.label}
+                          data-testid="ask-when-chip"
+                          onClick={() => {
+                            setVisitFrom(isoDay(new Date(Date.now() + w.fromDays * 86400000)))
+                            setVisitTo(isoDay(new Date(Date.now() + w.toDays * 86400000)))
+                          }}
+                          className={cn(chipBase, chipOff)}
+                        >
+                          <CalendarDays className="w-3 h-3 mr-1 inline shrink-0" />
+                          {w.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        data-testid="ask-when-skip"
+                        onClick={() => { setVisitFrom(''); setVisitTo('') }}
+                        className={cn(chipBase, chipOff)}
+                      >
+                        Just researching
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="date"
+                        value={visitFrom}
+                        onChange={(e) => setVisitFrom(e.target.value)}
+                        data-testid="ask-when-from"
+                        aria-label="From date"
+                        className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                      <input
+                        type="date"
+                        value={visitTo}
+                        onChange={(e) => setVisitTo(e.target.value)}
+                        data-testid="ask-when-to"
+                        aria-label="To date"
+                        className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ---- BUDGET (always visible, like the mockup's REQUEST panel) ---- */}
+              <div className="flex items-center gap-2" data-testid="builder-budget">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Budget</p>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={`Optional - amount in ${cur || 'your currency'}`}
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  data-testid="ask-budget-input"
+                  aria-label="Your budget for the list"
+                  className="h-8 min-w-[9rem] flex-1 text-sm bg-card"
+                />
+                {myTotals && safe != null && (
+                  <div className="hidden sm:flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
-                      data-testid="ask-budget-apply"
-                      onClick={askApplyBudget}
-                      className="h-8 shrink-0 rounded-full bg-primary px-4 text-xs font-bold text-primary-foreground shadow-sm transition-opacity hover:bg-primary/90 cursor-pointer"
+                      data-testid="ask-budget-typical"
+                      onClick={() => setBudget(String(Math.round(myTotals!.av)))}
+                      className={cn(chipBase, chipOff)}
                     >
-                      Set up my proforma
+                      Typical · {money(myTotals!.av, cur)}
                     </button>
                     <button
                       type="button"
-                      data-testid="ask-budget-skip"
-                      onClick={askSkipBudget}
-                      className="h-8 shrink-0 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                      data-testid="ask-budget-safe"
+                      onClick={() => setBudget(String(safe!))}
+                      className={cn(chipBase, chipOff)}
                     >
-                      Skip
+                      Safe · {money(safe!, cur)}
                     </button>
                   </div>
+                )}
+              </div>
+
+              {/* ---- ITEMS (the list) ---- */}
+              <div className="space-y-1.5" data-testid="builder-items">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Items</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {chosenNames.map((name) => (
+                    <span
+                      key={name}
+                      data-testid="ask-chosen-item"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      <span className="max-w-[10rem] truncate">{name}</span>
+                      <button
+                        type="button"
+                        data-testid="ask-chosen-item-remove"
+                        aria-label={`Remove ${name} from the list`}
+                        onClick={() => removeListedItem(name)}
+                        className="opacity-80 hover:opacity-100 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    data-testid="builder-items-add"
+                    aria-expanded={itemsOpen}
+                    onClick={() => setItemsOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-primary/40 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    {itemsOpen ? 'Hide' : 'Add item'}
+                  </button>
+                </div>
+                {itemsOpen && (
+                  <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5" data-testid="builder-items-panel">
+                    <div className="flex flex-wrap gap-1.5">
+                      {model.items.map((it) => {
+                        const on = !!onItems[it.name]
+                        return (
+                          <button
+                            type="button"
+                            key={it.name}
+                            data-testid="ask-item-chip"
+                            aria-pressed={on}
+                            onClick={() => toggleItem(it.name)}
+                            className={cn(chipBase, on ? chipOn : chipOff)}
+                          >
+                            {it.name}
+                            <span className={cn('ml-1 text-[10px]', on ? 'opacity-80' : 'opacity-60')}>({it.count})</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="text"
+                        maxLength={60}
+                        placeholder="Or type an item (e.g. Door fittings)"
+                        value={askNewItem}
+                        onChange={(e) => setAskNewItem(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTypedItem() } }}
+                        data-testid="ask-item-input"
+                        aria-label="Type an item for the list"
+                        className="h-8 min-w-[10rem] flex-1 text-sm bg-background"
+                      />
+                      <button
+                        type="button"
+                        data-testid="ask-item-add"
+                        onClick={addTypedItem}
+                        disabled={!askNewItem.trim()}
+                        className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-xs font-semibold text-primary transition-opacity cursor-pointer disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ---- COMPARISON (FROM MARKETPLACE POSTS) - the mockup's cards ---- */}
+              {compareScope && (
+                <div className="space-y-2" data-testid="proforma-compare">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Comparison (from marketplace posts)
+                  </p>
+                  {compareScope.cards.map((card) => (
+                    <div key={card.name} className="rounded-xl border border-border bg-card p-3" data-testid="proforma-compare-card">
+                      <p className="text-sm font-bold text-foreground">{card.name}</p>
+                      {card.rows.length ? (
+                        <>
+                          <div className="mt-1 divide-y divide-border/70">
+                            {card.rows.map((r, i) => (
+                              <div key={r.post.id} className="py-1.5 flex items-center gap-2 text-xs min-w-0" data-testid="proforma-compare-row">
+                                <span className="text-muted-foreground flex-1 min-w-0 truncate">
+                                  {r.place} · {r.date}
+                                </span>
+                                {i === 0 && (
+                                  <span
+                                    className="shrink-0 rounded-full bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300"
+                                    data-testid="proforma-lowest-badge"
+                                  >
+                                    Lowest
+                                  </span>
+                                )}
+                                <span className="font-bold text-foreground shrink-0">{money(r.price, cur)}</span>
+                                {r.est && <span className="text-[10px] text-muted-foreground shrink-0">est.</span>}
+                              </div>
+                            ))}
+                          </div>
+                          {card.more > 0 && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">+ {card.more} more post{card.more === 1 ? '' : 's'}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground" data-testid="proforma-compare-nodata">
+                          No prices posted yet - a research task can fill this gap.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {compareScope.total != null ? (
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-2" data-testid="proforma-total-cheapest">
+                      <p className="text-sm font-bold text-foreground">Total, cheapest place</p>
+                      <b className="text-sm font-black text-foreground" data-testid="proforma-total-cheapest-value">
+                        {money(compareScope.total, cur)}
+                      </b>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground" data-testid="proforma-total-empty">
+                      None of these items has a price yet - the total appears with the first real post. Nothing is invented.
+                    </p>
+                  )}
                 </div>
               )}
+
+              {/* ---- BUILD PROFORMA - the mockup's dark-green button, sticky ---- */}
+              <div className="sticky bottom-1 -mx-1 px-1 pt-1 z-10">
+                <div className="rounded-xl bg-gradient-to-t from-background via-background/95 to-transparent pt-2 pb-1 px-1">
+                  <button
+                    type="button"
+                    data-testid="proforma-build"
+                    onClick={() => void completeProforma()}
+                    className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90 cursor-pointer"
+                  >
+                    Build proforma
+                  </button>
+                  <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                    One finished proforma = one question · 3 free every day, unlimited with Pro
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1416,7 +1620,7 @@ export function CompassPriceTools() {
               <button
                 type="button"
                 data-testid="proforma-reopen"
-                onClick={() => reopenAt(1)}
+                onClick={openBuilder}
                 className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-opacity hover:bg-primary/90 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -1457,7 +1661,7 @@ export function CompassPriceTools() {
                     type="button"
                     data-testid="proforma-edit-where"
                     aria-label="Edit the location"
-                    onClick={() => reopenAt(1)}
+                    onClick={openBuilder}
                     className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
                   >
                     <Pencil className="w-3 h-3" /> Edit
@@ -1494,7 +1698,7 @@ export function CompassPriceTools() {
                     type="button"
                     data-testid="proforma-edit-items"
                     aria-label="Edit the list"
-                    onClick={() => reopenAt(2)}
+                    onClick={openBuilder}
                     className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer shrink-0"
                   >
                     <Pencil className="w-3 h-3" /> Edit
@@ -1509,7 +1713,7 @@ export function CompassPriceTools() {
                     type="button"
                     data-testid="proforma-edit-when"
                     aria-label="Edit the dates"
-                    onClick={() => reopenAt(3)}
+                    onClick={openBuilder}
                     className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
                   >
                     <Pencil className="w-3 h-3" /> Edit
@@ -1528,13 +1732,250 @@ export function CompassPriceTools() {
                     type="button"
                     data-testid="proforma-edit-budget"
                     aria-label="Edit the budget"
-                    onClick={() => reopenAt(4)}
+                    onClick={openBuilder}
                     className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
                   >
                     <Pencil className="w-3 h-3" /> Edit
                   </button>
                 </div>
 
+
+                {/* ---- v264 AGENT ACTIVITY (the mockup's checklist) ---- */}
+                <div className="rounded-xl border border-border bg-card/60 p-3.5" data-testid="proforma-agent-activity">
+                  <h5 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    <ListChecks className="w-4 h-4 text-primary shrink-0" />
+                    Agent activity
+                  </h5>
+                  <ul className="mt-1.5 space-y-1 text-xs text-foreground">
+                    <li className="flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      Planned the item list ({chosenNames.length} item{chosenNames.length === 1 ? '' : 's'})
+                    </li>
+                    <li className="flex items-center gap-1.5" data-testid="proforma-agent-reports">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      Checked community prices ({numReports} report{numReports === 1 ? '' : 's'} at {myShort})
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      Compared {myPlaces.length || 1} chosen place{myPlaces.length === 1 ? '' : 's'} across the marketplace
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      Adjusted for the payment date{visitSpan ? ` (${visitSpan})` : ' - none set'}
+                    </li>
+                    {researchItems.length > 0 && (
+                      <li className="flex items-center gap-1.5" data-testid="proforma-agent-waiting">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
+                        Waiting on {researchItems.length} research task{researchItems.length === 1 ? '' : 's'}
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* ---- v264 THE PROFORMA TABLE (the mockup's PROFORMA panel) ---- */}
+                {/* Item / Qty / Unit price / Source / Confidence, priced at the
+                    main stop from REAL posts. Qty feeds the totals (low /
+                    likely / high) and the budget check follows. No data says
+                    "No data" honestly and points at the research task. */}
+                <div className="rounded-xl border border-border bg-card p-3.5" data-testid="proforma-table">
+                  <h5 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    <FileText className="w-4 h-4 text-primary shrink-0" />
+                    Proforma
+                  </h5>
+                  <div className="mt-2 overflow-x-auto scrollbar-thin">
+                    <table className="w-full text-xs sm:min-w-[420px]">
+                      <thead>
+                        <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                          <th className="py-1.5 pr-2 font-bold">Item</th>
+                          <th className="py-1.5 pr-2 font-bold w-16">Qty</th>
+                          <th className="py-1.5 pr-2 font-bold">Unit price</th>
+                          <th className="py-1.5 pr-2 font-bold hidden sm:table-cell">Source</th>
+                          <th className="py-1.5 font-bold">Confidence</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/70">
+                        {chosenNames.map((name) => {
+                          const s = model!.per(name, myPlace)
+                          const q = qtyMap[name] ?? 1
+                          const conf = s ? (s.n >= 3 ? 'High' : s.n === 2 ? 'Medium' : 'Low') : 'No data'
+                          return (
+                            <tr key={name} data-testid="proforma-table-row">
+                              <td className="py-2 pr-2 font-semibold text-foreground max-w-[9rem] truncate">
+                                {name}
+                                <span className="block sm:hidden text-[10px] font-normal text-muted-foreground">
+                                  {s ? `${s.n} report${s.n === 1 ? '' : 's'} · ${myShort}` : 'Research task open'}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-2">
+                                <span className="inline-flex items-center rounded-full border border-border overflow-hidden" data-testid="proforma-qty">
+                                  <button
+                                    type="button"
+                                    aria-label={`One less ${name}`}
+                                    onClick={() => bumpQty(name, -1)}
+                                    className="w-5 h-6 inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <span className="w-6 text-center font-bold text-foreground" data-testid="proforma-qty-value">{q}</span>
+                                  <button
+                                    type="button"
+                                    aria-label={`One more ${name}`}
+                                    onClick={() => bumpQty(name, 1)}
+                                    className="w-5 h-6 inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              </td>
+                              <td className="py-2 pr-2 font-bold text-foreground whitespace-nowrap">
+                                {s ? money(s.av, cur) : <span className="text-muted-foreground font-semibold">No data</span>}
+                              </td>
+                              <td className="py-2 pr-2 text-muted-foreground hidden sm:table-cell">
+                                {s ? `${s.n} report${s.n === 1 ? '' : 's'} · ${myShort}` : 'Research task open'}
+                              </td>
+                              <td className="py-2">
+                                <span
+                                  className={cn(
+                                    'inline-block rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap',
+                                    conf === 'High'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                      : conf === 'Medium'
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
+                                        : conf === 'Low'
+                                          ? 'bg-accent text-foreground'
+                                          : 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
+                                  )}
+                                  data-testid="proforma-confidence"
+                                >
+                                  {conf}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {myTotals && (
+                    <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-border pt-2.5" data-testid="proforma-totals">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Low</p>
+                        <b className="text-sm text-foreground">{money(myTotals.lo, cur)}</b>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Likely</p>
+                        <b className="text-sm text-foreground">{money(myTotals.av, cur)}</b>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">High</p>
+                        <b className="text-sm text-foreground">{money(myTotals.hi, cur)}</b>
+                      </div>
+                    </div>
+                  )}
+                  {budgetNum > 0 && myTotals && (
+                    <p className="mt-2 text-xs font-bold text-foreground" data-testid="proforma-budget-check">
+                      Budget check: {budgetNum >= myTotals.av ? 'under' : 'over'} by {money(Math.abs(budgetNum - myTotals.av), cur)}
+                    </p>
+                  )}
+                </div>
+
+                {/* ---- v264 RESEARCH TASKS (the mockup's bounty card) ---- */}
+                {/* Chosen items with NO real price anywhere in scope. Approving
+                    posts a RESEARCH bounty through /api/quests - the same route
+                    the Link tab's bounty reel reads - so price hunters collect
+                    the missing number for real. Guests are asked to sign in. */}
+                {researchItems.length > 0 && (
+                  <div
+                    className="rounded-xl border border-amber-300/60 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10 p-3.5 space-y-2.5"
+                    data-testid="proforma-research"
+                  >
+                    <h5 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                      <FlaskConical className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      Research task{researchItems.length > 1 ? 's' : ''} open
+                    </h5>
+                    <p className="text-[11px] text-muted-foreground">
+                      No community price for these yet. Approve a bounty and price hunters collect the real numbers - paid after review.
+                    </p>
+                    {researchItems.map((c) => {
+                      const st = researchOf(c.name)
+                      return (
+                        <div key={c.name} className="rounded-lg border border-border bg-card p-3 space-y-2" data-testid="proforma-research-card">
+                          <p className="text-xs font-bold text-foreground">{c.name} price in {myShort}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Collect the shelf price, shop name, photo, GPS and receipt. Reward {money(parseFloat(st.amount) || 0, researchCur)} - held until review.
+                          </p>
+                          {st.done ? (
+                            <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400" data-testid="proforma-research-posted">
+                              <Check className="w-3.5 h-3.5" />
+                              Bounty posted - price hunters see it on the Link tab.
+                            </p>
+                          ) : !st.open ? (
+                            <button
+                              type="button"
+                              data-testid="proforma-research-approve"
+                              onClick={() => {
+                                if (!quota?.signedIn) {
+                                  window.dispatchEvent(new CustomEvent('circub:auth-expired', { detail: { reason: 'Sign in to open a research bounty' } }))
+                                  return
+                                }
+                                patchResearch(c.name, { open: true })
+                              }}
+                              className="w-full rounded-lg border border-amber-500/60 px-3 py-2 text-xs font-bold text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/10 cursor-pointer"
+                            >
+                              Approve bounty
+                            </button>
+                          ) : (
+                            <div className="space-y-1.5" data-testid="proforma-research-form">
+                              <div className="flex gap-1.5 min-w-0">
+                                <input
+                                  value={st.amount}
+                                  onChange={(e) => patchResearch(c.name, { amount: e.target.value })}
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  aria-label="Reward amount"
+                                  data-testid="proforma-research-amount"
+                                  className="h-8 w-24 shrink-0 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                />
+                                <span className="text-xs font-bold text-muted-foreground self-center shrink-0">{researchCur}</span>
+                                <input
+                                  value={st.contact}
+                                  onChange={(e) => patchResearch(c.name, { contact: e.target.value })}
+                                  placeholder="Your contact - phone / WhatsApp"
+                                  maxLength={200}
+                                  aria-label="Your contact for the bounty"
+                                  data-testid="proforma-research-contact"
+                                  className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                />
+                              </div>
+                              {st.error && <p className="text-[11px] text-red-600 dark:text-red-400" data-testid="proforma-research-error">{st.error}</p>}
+                              <div className="flex gap-1.5">
+                                <button
+                                  type="button"
+                                  data-testid="proforma-research-submit"
+                                  disabled={st.busy}
+                                  onClick={() => void approveResearchBounty(c.name)}
+                                  className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-60 cursor-pointer"
+                                >
+                                  {st.busy ? 'Posting...' : 'Post the bounty'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => patchResearch(c.name, { open: false, error: null })}
+                                  className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* ---- the real numbers - what the tabs used to show ---- */}
                 {/* ---- the real numbers - what the tabs used to show ---- */}
                 {myTotals ? (
                   <>

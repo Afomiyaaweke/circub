@@ -225,6 +225,18 @@
 }
 
 @layer utilities {
+  /* v264 FULL-SCREEN REEL - the bounty/talent decks hide the scrollbar
+     entirely so the swipe feels like a native TikTok feed (a visible bar
+     breaks the illusion and steals width on phones). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: rgb(203 213 225) transparent;

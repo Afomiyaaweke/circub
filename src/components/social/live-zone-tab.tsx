@@ -356,10 +356,85 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
   const [savedQuests, setSavedQuests] = useState<Record<string, boolean>>({})
   const [questFlash, setQuestFlash] = useState<string | null>(null)
   const deckRef = useRef<HTMLDivElement | null>(null)
+  // v264 FULL-SCREEN REEL (user: "make the bounty to slide smooth like
+  // tiktok short video, take the full screen for all the bounty like reel
+  // videos"): the Link tab opens as a TRUE full-screen reel - fixed
+  // inset-0 over the app header and dock, one bounty per snap screen,
+  // TikTok-style scale/fade on the inactive slides, a progress rail, a
+  // counter and keyboard paging. The back chevron (or Escape) drops back
+  // to the normal in-flow tab - the reel is never a trap.
+  const [reelFull, setReelFull] = useState(true)
+  // Active slide index per deck (scroll position / viewport height) - it
+  // drives the fade/scale of the slides and the progress dots.
+  const [bountyIdx, setBountyIdx] = useState(0)
+  const [talentIdx, setTalentIdx] = useState(0)
+  const talentDeckRef = useRef<HTMLDivElement | null>(null)
+
+  // v264 while the reel is full-screen the page behind it must not scroll
+  // (touch bleed-through on phones would drag the whole app up/down).
+  useEffect(() => {
+    if (!reelFull) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [reelFull])
+
+  // v264 keyboard: Escape leaves the reel (a dialog handling its own Escape
+  // always wins - it calls preventDefault, we stay put); ArrowUp/ArrowDown
+  // page through the active deck like TikTok-web on a desktop. Lives AFTER
+  // the `feed` declaration below.
+
+  // v264 snap-slide tracker: every deck is equal-height slides, so the
+  // active index is just scrollTop / slideHeight.
+  const onBountyDeckScroll = () => {
+    const deck = deckRef.current
+    if (!deck || !deck.clientHeight) return
+    const idx = Math.max(0, Math.round(deck.scrollTop / deck.clientHeight))
+    setBountyIdx(idx)
+  }
+  const onTalentDeckScroll = () => {
+    const deck = talentDeckRef.current
+    if (!deck || !deck.clientHeight) return
+    const idx = Math.max(0, Math.round(deck.scrollTop / deck.clientHeight))
+    setTalentIdx(idx)
+  }
+  const jumpDeckTo = (ref: React.RefObject<HTMLDivElement | null>, i: number) => {
+    const d = ref.current
+    if (d && d.clientHeight) d.scrollTo({ top: i * d.clientHeight, behavior: 'smooth' })
+  }
 
   // v229 TikTok feed mode - the mockup's top switcher: 'Instant Bounties'
   // vs 'Talent On Call'. Deals stay the default (v220 deals-first contract).
   const [feed, setFeed] = useState<'bounties' | 'talents'>('bounties')
+
+  // v264 keyboard paging (declared after `feed`): Escape leaves the reel -
+  // a dialog handling its own Escape always wins (it preventDefaults, we
+  // stay put) - and ArrowUp/ArrowDown page through the active deck.
+  useEffect(() => {
+    if (!reelFull) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
+      if (e.key === 'Escape') { setReelFull(false); return }
+      const deck = feed === 'bounties' ? deckRef.current : talentDeckRef.current
+      if (!deck) return
+      const step = deck.clientHeight
+      if (!step) return
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        deck.scrollTo({ top: (Math.round(deck.scrollTop / step) + 1) * step, behavior: 'smooth' })
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        deck.scrollTo({ top: Math.max(0, (Math.round(deck.scrollTop / step) - 1) * step), behavior: 'smooth' })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [reelFull, feed])
+  // A fresh deck (feed switch) starts from the top.
+  useEffect(() => {
+    setBountyIdx(0)
+    setTalentIdx(0)
+  }, [feed])
   // v229 talent rail: per-guide saved flags from the localStorage saved-items
   // store (type 'guide'), mirroring the bounty rail.
   const [savedGuides, setSavedGuides] = useState<Record<string, boolean>>({})
@@ -400,10 +475,16 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
     const deck = deckRef.current
     const card = deck?.querySelector<HTMLElement>(`[data-quest-id="${highlightQuestId}"]`)
     if (deck && card) {
+      // v264: scroll TWICE - once now and once after the deck's height has
+      // settled (fonts/images shift slides mid-glide, and a snap deck that
+      // lands 40px short breaks the shared-bounty handshake).
       deck.scrollTo({ top: card.offsetTop, behavior: 'smooth' })
+      const t2 = setTimeout(() => {
+        try { deck.scrollTo({ top: card.offsetTop, behavior: 'smooth' }) } catch { /* detached */ }
+      }, 350)
       setQuestFlash(highlightQuestId)
       const t = setTimeout(() => { setQuestFlash(null); onHighlightDone?.() }, 2600)
-      return () => clearTimeout(t)
+      return () => { clearTimeout(t); clearTimeout(t2) }
     }
   }, [highlightQuestId, feed, quests, onHighlightDone])
 
@@ -828,16 +909,47 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
   const initialsOf = (name: string) =>
     name.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('') || '?'
   const posterCount = (name: string) => (quests || []).filter((x) => x.posterName === name).length
+  // v264 the slide each reel treats as ACTIVE (scroll position) - it drives
+  // the TikTok-style fade/scale on the other slides and the progress dots.
+  const activeBountyId = filteredQuests.length
+    ? filteredQuests[Math.min(bountyIdx, filteredQuests.length - 1)]?.id
+    : null
+  const activeTalentId = visibleGuides.length
+    ? visibleGuides[Math.min(talentIdx, visibleGuides.length - 1)]?.id
+    : null
 
   return (
-    /* v235: the Link tab renders like every other tab - INSIDE the normal
-       page flow. The app shell above provides the header, the dock and the
-       page paddings; the v230 fixed full-screen reel shell, its back button
-       and the Escape machinery are gone (nav pills are the way around now).
-       The root is a plain in-page column with a viewport-derived height. */
-    <div className="flex flex-col h-[calc(100dvh-150px)] lg:h-[calc(100dvh-120px)] min-h-[540px]" data-testid="link-tab-root">
-      {/* v235 in-page top row - feed switcher + payouts, no back button. */}
+    /* v235 flow + v264 full-screen reel: the tab renders in the normal page
+       flow by default (header/sidebar/dock around it) - but browsing
+       bounties IS the reel, so the tab opens as a FIXED FULL-SCREEN shell
+       (inset-0 over the header and dock, below dialogs and toasts). The
+       top bar's back chevron - or Escape - collapses it back into the
+       normal flow without losing state. */
+    <div
+      className={cn(
+        'flex flex-col bg-background',
+        reelFull
+          ? 'fixed inset-0 z-[45]'
+          : 'h-[calc(100dvh-150px)] lg:h-[calc(100dvh-120px)] min-h-[540px]',
+      )}
+      data-testid="link-tab-root"
+      data-reel-full={reelFull ? 'true' : 'false'}
+    >
+      {/* v235 in-page top row - feed switcher + payouts. v264: inside the
+          reel it gains the back chevron and the slide counter. */}
       <div className="shrink-0 flex items-center gap-2 pl-2 pr-2.5 pb-2 bg-background/95 backdrop-blur border-b border-border" data-testid="link-topbar">
+        {reelFull && (
+          <button
+            type="button"
+            onClick={() => setReelFull(false)}
+            aria-label="Leave the full-screen reel"
+            title="Back to the normal tab"
+            data-testid="reel-back"
+            className="shrink-0 w-9 h-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center cursor-pointer transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+        )}
 
         {/* v229 FEED MODE SWITCHER - the mockup's TikTok mode pills, fed with
             REAL counts (open bounties / registered talent). Bounties stay the
@@ -885,7 +997,18 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
 
         {/* My Payouts & Escrow - the one action the user asked to keep in the
             header ("only keep the toggle and my escrow"). Icon-only on
-            phones, full label from md up. */}
+            phones, full label from md up. v264: inside the reel a slim slide
+            counter rides beside it. */}
+        {reelFull && (
+          <span
+            data-testid="reel-counter"
+            className="shrink-0 rounded-full bg-accent border border-border px-2 py-1 text-[10px] font-bold text-muted-foreground tabular-nums"
+          >
+            {feed === 'bounties'
+              ? `${filteredQuests.length ? Math.min(bountyIdx + 1, filteredQuests.length) : 0} / ${filteredQuests.length}`
+              : `${visibleGuides.length ? Math.min(talentIdx + 1, visibleGuides.length) : 0} / ${visibleGuides.length}`}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => setBookingsOpen(true)}
@@ -1164,7 +1287,8 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
             <div
               ref={deckRef}
               data-testid="bounty-swipe"
-              className={cn('relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-thin bg-background', showQuestForm && 'hidden')}
+              onScroll={onBountyDeckScroll}
+              className={cn('relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-none bg-background', showQuestForm && 'hidden')}
             >
               {filteredQuests.map((q, idx) => {
                 const isClaimed = q.claimed || locallyClaimed[q.id]
@@ -1175,7 +1299,10 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                      width; the card content lives in a centered 560px column
                      on desktop (TikTok-web style) and goes edge-to-edge on
                      phones. Content below is one level shallower than it
-                     looks - the wrapper exists purely for the desktop gutters. */
+                     looks - the wrapper exists purely for the desktop gutters.
+                     v264 smooth reel: the INACTIVE slides ease down to
+                     opacity-60 + scale-[0.97] so swiping feels like TikTok's
+                     crossfade, not a hard jump. */
                   <div
                     key={q.id}
                     data-quest-id={q.id}
@@ -1188,7 +1315,8 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                         phone width, and min-w-0 keeps long lines truncating
                         instead of colliding. */}
                     <div className={cn(
-                      'relative h-full w-full max-w-[560px] mx-auto flex bg-card shadow-md overflow-hidden border-border sm:border-x',
+                      'relative h-full w-full max-w-[560px] mx-auto flex bg-card shadow-md overflow-hidden border-border sm:border-x transition-[opacity,transform] duration-300 ease-out',
+                      activeBountyId === q.id ? 'opacity-100 scale-100' : 'opacity-60 scale-[0.97]',
                       questFlash === q.id && 'ring-2 ring-primary ring-inset'
                     )}>
                     {/* mockup accent glow - rotated per card */}
@@ -1387,7 +1515,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                               <p className="text-[11px] text-muted-foreground">
                                 {isClaimed
                                   ? `${q.claimCount} already claimed - you can too, the poster sees every taker`
-                                  : '1-click claim - the poster&apos;s contact opens instantly'}
+                                  : "1-click claim - the poster's contact opens instantly"}
                               </p>
                             </div>
                           )}
@@ -1533,6 +1661,28 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                   Refresh for new drops
                 </Button>
               </div>
+
+              {/* v264 progress rail - one dot per bounty (capped at 12, the
+                  counter chip carries the rest). Tap a dot to glide there. */}
+              {filteredQuests.length > 0 && (
+                <div className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-1.5" data-testid="reel-dots">
+                  {filteredQuests.slice(0, 12).map((q, i) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      aria-label={`Go to bounty ${i + 1}`}
+                      onClick={() => jumpDeckTo(deckRef, i)}
+                      className={cn(
+                        'pointer-events-auto w-1.5 rounded-full transition-all duration-300 cursor-pointer',
+                        i === Math.min(bountyIdx, filteredQuests.length - 1) ? 'h-4 bg-primary' : 'h-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70',
+                      )}
+                    />
+                  ))}
+                  {filteredQuests.length > 12 && (
+                    <span className="text-[9px] font-bold text-muted-foreground">+{filteredQuests.length - 12}</span>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1944,7 +2094,9 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
         ) : (
           <div
             data-testid="talent-swipe"
-            className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-thin bg-background"
+            ref={talentDeckRef}
+            onScroll={onTalentDeckScroll}
+            className="relative flex-1 min-h-0 w-full overflow-y-auto overscroll-contain snap-y snap-mandatory scrollbar-none bg-background"
           >
             {visibleGuides.map((g, idx) => {
               const isOwn = me?.id === g.id
@@ -1956,7 +2108,10 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                 <div key={g.id} data-testid="talent-card" className="relative h-full w-full snap-start snap-always flex bg-background">
                   {/* v237 no-overlap card: rail is a flex sibling column (never
                       over the text), content keeps min-w-0. */}
-                  <div className="relative h-full w-full max-w-[560px] mx-auto flex bg-card shadow-md overflow-hidden border-border sm:border-x">
+                  <div className={cn(
+                    'relative h-full w-full max-w-[560px] mx-auto flex bg-card shadow-md overflow-hidden border-border sm:border-x transition-[opacity,transform] duration-300 ease-out',
+                    activeTalentId === g.id ? 'opacity-100 scale-100' : 'opacity-60 scale-[0.97]',
+                  )}>
                   <div className={cn('absolute -left-12 -top-12 w-44 h-44 rounded-full blur-2xl pointer-events-none', DECK_GLOWS[(idx + 1) % DECK_GLOWS.length])} aria-hidden="true" />
                   <div className="relative flex-1 min-w-0 min-h-0 flex flex-col p-3.5 sm:p-5">
                     {/* profile header: avatar tile + name/ID + role line +
