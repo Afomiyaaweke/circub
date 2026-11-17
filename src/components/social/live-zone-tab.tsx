@@ -349,9 +349,11 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
   // v245 ONE SEARCH BAR for bounties - the tier pills moved off their own row
   // into the search part (same one-search-bar pattern as the talent feed).
   const [bountySearch, setBountySearch] = useState('')
-  // v246 ICON-ONLY SEARCH: the bounty search pill collapses to one round
-  // icon; tapping it expands the pill in flow (the Post pill keeps its
-  // seat). A set search keeps a dot on the icon so the filter stays visible.
+  // v246 ICON-ONLY SEARCH: the search pill collapses to one round icon.
+  // v265: the icon itself moved to the TOP BAR beside My Payouts & Escrow
+  // (user: "remove the post button and make the search next to the
+  // escrow") and toggles the active feed's search; the Post pill is gone
+  // from the row. A set search keeps a dot on the icon.
   const [bountySearchOpen, setBountySearchOpen] = useState(false)
   const [savedQuests, setSavedQuests] = useState<Record<string, boolean>>({})
   const [questFlash, setQuestFlash] = useState<string | null>(null)
@@ -1009,6 +1011,29 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
               : `${visibleGuides.length ? Math.min(talentIdx + 1, visibleGuides.length) : 0} / ${visibleGuides.length}`}
           </span>
         )}
+        {/* v265 THE SEARCH, NEXT TO THE ESCROW (user: "remove the post
+            button and make the search next to the escrow"): ONE round
+            search icon rides the top bar beside My Payouts & Escrow and
+            works on the ACTIVE feed - bounties on the bounty tab, talent
+            on the talent tab. Tapping it unfolds the same expanded pill
+            in the feed's own row below; a set search keeps the dot. */}
+        <button
+          type="button"
+          data-testid="topbar-search-toggle"
+          aria-expanded={feed === 'bounties' ? bountySearchOpen : talentSearchOpen}
+          aria-label={feed === 'bounties' ? 'Search bounties' : 'Search talent'}
+          title={feed === 'bounties' ? 'Search bounties - or type Hunter / Helper / Scout' : 'Search talent - or type Scout / Helper / Hunter / Agent'}
+          onClick={() => {
+            if (feed === 'bounties') setBountySearchOpen((v) => !v)
+            else setTalentSearchOpen((v) => !v)
+          }}
+          className="relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <Search className="w-4 h-4" />
+          {(feed === 'bounties' ? !!bountySearch.trim() : !!search.trim()) && (
+            <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+          )}
+        </button>
         <button
           type="button"
           onClick={() => setBookingsOpen(true)}
@@ -1040,19 +1065,18 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
             title / details / location AND the tier keywords hunter /
             helper / scout ("all" resets); the active tier shows as a
             removable chip inside the pill. Sits ABOVE the loading/empty
-            checks so it (and the Post pill) is always reachable, even on
-            an empty board. */}
-        {/* v246 ICON-ONLY SEARCH - the search pill collapses to a single
-            round icon (user: "make all the search only icon not a bar
-            everywhere"); tapping it expands the same pill in the normal
-            flow. Tier keywords hunter / helper / scout still filter from
-            the expanded pill and the active tier shows as a removable
-            chip inside it. The Post pill keeps its seat on the row. Sits
-            ABOVE the loading/empty checks so it is always reachable, even
-            on an empty board. */}
-        <div className="shrink-0 px-2.5 pt-1.5" data-testid="bounty-search-bar">
-          <div className="flex items-center gap-1.5 mx-auto w-full max-w-[560px]">
-            {bountySearchOpen ? (
+            checks so it is always reachable, even on an empty board. */}
+        {/* v265 SEARCH MOVED TO THE TOP BAR + POST BUTTON GONE (user:
+            "remove the post button and make the search next to the
+            escrow"): the collapsed round icon now rides the top bar
+            beside My Payouts & Escrow, so this row only exists while the
+            search is OPEN - the expanded pill fills it (tier chip still
+            removable inside). The Post pill is gone from the row; posting
+            stays on the deck's action rail (+ next to Claim / Share) and
+            on the empty-board CTA below. */}
+        {bountySearchOpen && (
+          <div className="shrink-0 px-2.5 pt-1.5" data-testid="bounty-search-bar">
+            <div className="flex items-center gap-1.5 mx-auto w-full max-w-[560px]">
               <div className="flex items-center flex-1 min-w-0 gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-3 pr-1" data-testid="bounty-search-pill">
                 <Search className="w-4 h-4 text-muted-foreground pointer-events-none shrink-0" />
                 <Input
@@ -1086,49 +1110,9 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                data-testid="bounty-search-toggle"
-                aria-expanded={false}
-                aria-label="Search bounties"
-                title="Search bounties - or type Hunter / Helper / Scout"
-                onClick={() => setBountySearchOpen(true)}
-                className="relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border border-input bg-card text-muted-foreground shadow-xs hover:text-foreground hover:border-primary/40 transition-colors cursor-pointer"
-              >
-                <Search className="w-4 h-4" />
-                {!!bountySearch.trim() && (
-                  <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
-                )}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                // v254: posting a bounty needs an account - guests get the
-                // sign-up modal instead of the guest name+contact form.
-                if (!me) {
-                  if (onRequireSignUp) onRequireSignUp()
-                  toast({ title: 'Sign up to post', description: 'Create a free account to post bounties. It takes 10 seconds.' })
-                  return
-                }
-                // Opening the form fresh always means a NEW post - cancel any
-                // in-flight edit so stale pre-filled values don't leak in.
-                setShowQuestForm((v) => {
-                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQCurrency('USD'); setQContact('') }
-                  return !v
-                })
-                setQPostErr('')
-              }}
-              data-testid="bounty-post-link"
-              aria-expanded={showQuestForm}
-              className="shrink-0 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-3.5 h-3.5 shrink-0" />
-              {editingQuest ? 'Cancel edit' : 'Post'}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* v245: the posting form takes the FULL board now - it was a slim
             max-h-[46dvh] sheet squeezed above the deck. While it is open the
@@ -1278,7 +1262,31 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
         {!quests ? (
           <p className="px-3 py-2 text-sm text-muted-foreground shrink-0" data-testid="bounty-loading">Loading bounties...</p>
         ) : quests.length === 0 ? (
-          <p className="px-3 py-2 text-sm text-muted-foreground shrink-0" data-testid="bounty-empty">No open bounties yet - post the first instant quest.</p>
+          <div className="px-3 py-2 shrink-0" data-testid="bounty-empty">
+            <p className="text-sm text-muted-foreground">No open bounties yet - be the first to post one.</p>
+            <button
+              type="button"
+              data-testid="bounty-empty-post"
+              onClick={() => {
+                // v254: posting a bounty needs an account - guests get the
+                // sign-up modal instead of the guest name+contact form.
+                if (!me) {
+                  if (onRequireSignUp) onRequireSignUp()
+                  toast({ title: 'Sign up to post', description: 'Create a free account to post bounties. It takes 10 seconds.' })
+                  return
+                }
+                setShowQuestForm((v) => {
+                  if (!v) { setEditingQuest(null); setQTitle(''); setQDetails(''); setQLocation(''); setQDeadline(''); setQBounty(''); setQCurrency('USD'); setQContact('') }
+                  return true
+                })
+                setQPostErr('')
+              }}
+              className="mt-2 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              Post the first bounty
+            </button>
+          </div>
         ) : (
           <>
             {/* v230 the deck itself: FULL SCREEN - the reel fills everything
@@ -1702,15 +1710,18 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
           lane keywords scout/helper/hunter/agent), the active-lane chip,
           then AI Match / Available / Near me as icon toggles. */}
       {/* v246 ICON-ONLY SEARCH - the user: "make all the search only icon
-          not a bar everywhere". The pill collapses to one round icon; the
-          expanded pill keeps the lane chip, and the AI Match / Available /
-          Near me toggles stay on the row beside it (they are not search).
-          Everything still filters the SAME swipe deck below (no new page). */}
+          not a bar everywhere". v265: the collapsed icon itself moved UP
+          to the top bar beside My Payouts & Escrow (user: "make the
+          search next to the escrow") - it toggles THIS feed's search.
+          The expanded pill keeps the lane chip, and the AI Match /
+          Available / Near me toggles stay on the row beside it (they are
+          not search). Everything still filters the SAME swipe deck below
+          (no new page). */}
       <div className="shrink-0 px-2.5 pt-1.5" data-testid="talent-search-bar">
         {/* Desktop: the row rides the same centered 560px column as the
             swipe cards instead of stretching across the viewport. */}
         <div className="flex items-center gap-1.5 mx-auto w-full max-w-[560px]">
-          {talentSearchOpen ? (
+          {talentSearchOpen && (
             <div className="flex items-center flex-1 min-w-0 gap-0.5 rounded-full border border-input bg-card shadow-xs overflow-hidden pl-3 pr-1" data-testid="talent-search-pill">
               <Search className="w-4 h-4 text-muted-foreground pointer-events-none shrink-0" />
               <Input
@@ -1744,21 +1755,6 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              data-testid="talent-search-toggle"
-              aria-expanded={false}
-              aria-label="Search talent"
-              title="Search talent - or type Scout / Helper / Hunter / Agent"
-              onClick={() => setTalentSearchOpen(true)}
-              className="relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border border-input bg-card text-muted-foreground shadow-xs hover:text-foreground hover:border-primary/40 transition-colors cursor-pointer"
-            >
-              <Search className="w-4 h-4" />
-              {!!search.trim() && (
-                <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
-              )}
-            </button>
           )}
           {/* AI Guide Match - tap to open the ask form in the panel below;
               a finished match keeps the button lit. */}

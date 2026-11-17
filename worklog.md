@@ -1,5 +1,25 @@
 # circubAwd worklog
 
+## v265 (2026-11-17) - The Post pill leaves the bounty row; search rides the top bar next to escrow
+User: "remove the post button and make the search next to the escowrt" (screenshot:
+Instant Bounties / Talent On Call switcher, the 1/5 reel counter, My Payouts &
+Escrow - and below them a lone round search icon next to the green + Post pill).
+The green + Post pill is GONE from the bounty search row: posting stays reachable
+through the deck's action rail (+ next to Claim / Share on every bounty) and a new
+green "Post the first bounty" CTA on the empty board (guests still get the sign-up
+modal). The round search icon moved UP into the top bar, sitting right beside
+My Payouts & Escrow, and is ADAPTIVE: on the bounty tab it opens the bounty search
+pill (tier keywords Hunter / Helper / Scout and the removable tier chip unchanged),
+on the talent tab it opens the talent search pill (lane keywords unchanged) - so
+the redundant collapsed icons in both feed rows are removed and the rows now only
+exist while a search is open. A set search keeps the dot on the top-bar icon.
+task265_topbar_search_probe drives it end to end (post pill absent, search icon
+sits LEFT of the escrow button on one row, opens/closes the bounty pill, tier chip
+filter works, talent tab reuses the same icon for the talent pill, rail + still
+opens the post form, 390px + 320px zero overflow). Regressions: task239 29/29,
+task259 17/17, task261 14/14, task262 21/21, task263_proforma_contract 20/20,
+task264_proforma_reel_probe 53/53. tsc 20 baseline; build exit 0; sw.js circub-v265
+
 ## v263 (2026-11-13) - The proforma goes subscription-based: 3 free questions a day, monthly Pro for unlimited
 User: "make the profoma subscription based like monthly and have 3 free quesiton
 every day". The proforma AI (the guided WHERE / WHAT / WHEN / BUDGET
