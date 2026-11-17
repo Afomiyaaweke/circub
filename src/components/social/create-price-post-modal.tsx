@@ -58,6 +58,13 @@ interface CreatePricePostModalProps {
   onOpenChange: (open: boolean) => void
   onCreated: () => void
   prefill?: CreatePricePostPrefill | null
+  // v267: WHERE a receipt publish lands. 'local' (default) publishes the
+  // parsed rows as local price posts (the Local tab's own composer).
+  // 'feed' - the Feed tab's receipt place - publishes the WHOLE slip as ONE
+  // community post on /api/posts (itemized lines + the receipt photo), so
+  // every receipt lives in the feed, not on the Local price board
+  // (user: "make the post of all the receipt ... take them all to the feed").
+  destination?: 'local' | 'feed'
 }
 
 const CURRENCIES = ['USD', 'ETB', 'KES', 'UGX', 'MYR', 'EUR', 'INR', 'CNY', 'JPY', 'GBP', 'AUD', 'NGN', 'TZS', 'RWF', 'GHS', 'HKD', 'AED', 'ZAR', 'CAD', 'SGD', 'THB', 'EGP', 'MAD']
@@ -95,7 +102,7 @@ interface ParsedListRow {
   price: string
 }
 
-export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }: CreatePricePostModalProps) {
+export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, destination = 'local' }: CreatePricePostModalProps) {
   const [postType, setPostType] = useState<'PRODUCT' | 'SERVICE'>('PRODUCT')
   const [productName, setProductName] = useState('')
   const [description, setDescription] = useState('')
@@ -140,6 +147,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
   // user confirms every row before anything posts.
   const receiptRef = useRef<HTMLInputElement | null>(null)
   const [receiptBusy, setReceiptBusy] = useState(false)
+  // v267: the merchant + date the vision chain read off the slip - the feed
+  // post's headline ("Receipt from FRESH MART - 2026-11-10") is built from
+  // them when the composer publishes with destination='feed'.
+  const [receiptMerchant, setReceiptMerchant] = useState('')
+  const [receiptDate, setReceiptDate] = useState('')
   // "Make it story while posting a new price": ON by default - publishing
   // also shares the price as a 24h story banner in the feed's stories strip.
   const [alsoStory, setAlsoStory] = useState(true)
@@ -327,6 +339,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     setImageUrl('')
     setCompareResult(null)
     setComparing(false)
+    // v267: the slip metadata the feed post headline was built from.
+    setReceiptMerchant('')
+    setReceiptDate('')
     // v247 conversation state - every reopen starts on question one,
     // details collapsed, ask hidden.
     setAskStep(1)
@@ -531,6 +546,10 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
       if (cur && CURRENCIES.includes(cur)) setCurrency(cur)
       const merchant = String(data?.merchant || '')
       const date = String(data?.date || '')
+      // v267: remembered for the feed post headline when this composer
+      // publishes with destination='feed' (the Feed tab's receipt place).
+      setReceiptMerchant(merchant)
+      setReceiptDate(date)
       if ((merchant || date) && !description.trim()) {
         setDescription(`From receipt${merchant ? ` - ${merchant}` : ''}${date ? ` - ${date}` : ''}`)
       }
@@ -567,6 +586,75 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
     // stores a single price) and both filled still gives a real range.
     const minFilled = priceMin.trim() !== ''
     const maxFilled = priceMax.trim() !== ''
+
+    // v267: THE FEED TAKES EVERY RECEIPT. Publishing with destination='feed'
+    // (the Feed tab's receipt place) turns the whole slip into ONE community
+    // post on /api/posts: the merchant + date headline, every itemized line
+    // with its price and the receipt photo as the proof image. The receipt
+    // lives in the feed, not on the Local price board (user: "make the post
+    // of all the receipt ... take them all to the feed"). A community post
+    // asks no location - the slip itself is the context, so the composer's
+    // "City, Country" contract does not apply here.
+    if (destination === 'feed') {
+      const singlePrice = minFilled && maxFilled && priceMin.trim() !== priceMax.trim()
+        ? `${priceMin} - ${priceMax}`
+        : (minFilled ? priceMin : maxFilled)
+      let rows: ParsedListRow[] = listRows
+      if (!rows.length && !!productName.trim() && !!singlePrice) {
+        rows = [{ productName: productName.trim(), price: String(singlePrice) }]
+      }
+      if (!rows.length) {
+        toast({
+          title: 'Nothing to post',
+          description: 'The receipt read found no items yet - scan a readable slip or add an item first.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setSaving(true)
+      try {
+        const num = (s: string) => {
+          const n = Number(String(s).replace(/[^0-9.\-]/g, ''))
+          return Number.isFinite(n) ? n : 0
+        }
+        const total = rows.reduce((s, r) => s + num(r.price), 0)
+        const lines: string[] = []
+        lines.push(receiptMerchant ? `Receipt from ${receiptMerchant}` : 'Receipt')
+        if (receiptDate) lines.push(receiptDate)
+        lines.push('')
+        for (const r of rows) lines.push(`${r.productName} - ${r.price}${currency ? ` ${currency}` : ''}`)
+        if (rows.length > 1 && total > 0) {
+          lines.push('')
+          lines.push(`Total: ${total % 1 === 0 ? String(total) : total.toFixed(2)} ${currency}`)
+        }
+        const res = await authFetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: lines.join('\n'), imageUrl: imageUrl || undefined }),
+        })
+        if (!res.ok) {
+          const e = await res.json().catch(() => null)
+          throw new Error(e?.error || 'Could not post the receipt to the feed')
+        }
+        toast({
+          title: 'Receipt posted to the feed',
+          description: `${rows.length} item${rows.length !== 1 ? 's' : ''}${receiptMerchant ? ` from ${receiptMerchant}` : ''} ${rows.length !== 1 ? 'are' : 'is'} live on the community feed.`,
+        })
+        reset()
+        onOpenChange(false)
+        onCreated()
+      } catch (e) {
+        toast({
+          title: 'Posting failed',
+          description: (e as Error).message,
+          variant: 'destructive',
+        })
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+
     if (listMode) {
       if (!location.trim() || currency.trim() === '') {
         toast({
@@ -1383,7 +1471,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill }:
             className="flex-1 px-6 h-11 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold gap-2"
           >
             <Rocket className="w-4 h-4" />
-            {saving ? 'Dropping...' : 'Drop Price Now'}
+            {saving ? 'Dropping...' : destination === 'feed' ? 'Post receipt to feed' : 'Drop Price Now'}
           </Button>
         </div>
       </DialogContent>

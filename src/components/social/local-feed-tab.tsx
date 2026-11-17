@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
-import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Search, ReceiptText } from 'lucide-react'
+import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Search } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,11 +114,14 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
   // again. undefined = no pending intent; null = blank composer; object =
   // the prefill that was captured (camera-search "Post this product").
   const pendingPostRef = useRef<CreatePricePostPrefill | null | undefined>(undefined)
-  // v259: the feed's own receipt picker (hidden input). It must live HERE,
-  // not in the composer - mobile browsers only open a file picker from a
-  // DIRECT user gesture, so the first Receipt tap opens the picker in the
-  // same gesture and the composer just receives the picked File.
-  const feedReceiptRef = useRef<HTMLInputElement | null>(null)
+  // v267: THE RECEIPT ENTRIES LEFT THE LOCAL TAB (user: "make the post of all
+  // the receipt ... take them all to the feed ... remove all the first ones")
+  // - the v259 receipt banner / Receipt action / hidden picker / empty-state
+  // receipt button are GONE here (picker ref included). The Feed tab
+  // (nav "Feed") is the one receipt posting place: it runs the same composer
+  // with destination="feed" and the finished slip publishes as ONE community
+  // post in the feed. The Local tab keeps manual posting: Proforma, Post
+  // Price and the bulk poster.
   const [searchImage, setSearchImage] = useState<string | null>(null)
   const [searchingByImage, setSearchingByImage] = useState(false)
   // User location for the camera-search price comparison - resolved once
@@ -767,20 +770,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
           it, so each action has exactly one entry point. The Link tab's
           own header stays untouched. */}
       <div className="flex items-center justify-end gap-2 flex-wrap" data-testid="local-actions-row">
-        {/* v259: THE RECEIPT PLACE - the FIRST posting action on the feed,
-            ahead of Proforma and Post Price (user: "make the feed receipt
-            posting place and make it first"). One tap opens the camera/
-            gallery picker IN THE SAME GESTURE (mobile browsers only open
-            file pickers from a direct user touch), the composer then takes
-            the picked slip and the AI reads it - see the banner below. */}
-        <Button
-          onClick={() => feedReceiptRef.current?.click()}
-          className="bg-sky-600 hover:bg-sky-500 gap-1.5 shadow-sm h-9 px-3"
-          data-testid="feed-receipt-open"
-          title="Post with a receipt - the AI reads every line item, the merchant, the date and the currency off the photo; you review, then post"
-        >
-          <ReceiptText className="w-4 h-4" /> <span className="text-xs sm:text-sm">Receipt</span>
-        </Button>
         {/* v246 the search ICON - replaces the persistent bar (v241). It
             toggles the search field below; a live search keeps a dot on it. */}
         <button
@@ -847,44 +836,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
           )}
         </div>
       )}
-
-      {/* v259: the hidden receipt picker behind both receipt entries (the
-          first button in the actions row and the banner below). Picking a
-          slip opens the composer with the file - the parse starts by itself,
-          no second tap. */}
-      <input
-        ref={feedReceiptRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
-        data-testid="feed-receipt-input"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          e.target.value = ''
-          if (f) openComposer({ receiptFile: f })
-        }}
-        className="hidden"
-      />
-
-      {/* v259: the receipt BANNER - the visible receipt posting place at the
-          top of the feed (above the stories strip). Whole card is tappable. */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => feedReceiptRef.current?.click()}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') feedReceiptRef.current?.click() }}
-        className="flex cursor-pointer items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 shadow-sm transition-colors hover:bg-sky-100 dark:border-sky-500/30 dark:bg-sky-500/10 dark:hover:bg-sky-500/20"
-        data-testid="feed-receipt-banner"
-        title="Snap a receipt - the AI reads every item, price and date. You confirm, then post."
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-500/20">
-          <ReceiptText className="h-4 w-4 text-sky-700 dark:text-sky-300" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-foreground leading-tight">Post with a receipt</span>
-          <span className="block text-xs text-muted-foreground leading-snug">Snap the slip - the AI reads every item, price and date. You confirm, then post.</span>
-        </span>
-        <span className="flex h-9 shrink-0 items-center rounded-lg bg-sky-600 px-3 text-xs font-bold text-white">Snap receipt</span>
-      </div>
 
       {/* Price stories - every newly posted price is shared as a 24h story
           banner here (the composer creates it on publish). Hidden entirely
@@ -1192,7 +1143,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
             {ownerFilter !== 'all' && (
               <Button variant="outline" onClick={() => { ownerTapRef.current = true; setOwnerFilter('all') }} className="gap-1.5" data-testid="empty-reset-poster-filter">Show all posts</Button>
             )}
-            <Button onClick={() => feedReceiptRef.current?.click()} className="bg-sky-600 hover:bg-sky-500 gap-1.5" data-testid="empty-receipt-open"><ReceiptText className="w-4 h-4" /> Post with receipt</Button>
             <Button onClick={() => openComposer(null)} className="bg-primary hover:bg-primary/90 gap-1.5"><Plus className="w-4 h-4" /> Post a Local Price</Button>
           </div>
         </Card>

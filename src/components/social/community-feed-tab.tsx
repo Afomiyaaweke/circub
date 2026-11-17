@@ -22,9 +22,16 @@
 // one tap opens the camera/gallery picker IN THE SAME GESTURE (mobile
 // browsers only open file pickers from a direct user touch), the same
 // CreatePricePostModal takes the picked slip and the AI reads every item,
-// price and date - the user reviews, then posts the prices to the Local
-// feed. Guests get the sign-up nudge (same circub:auth-expired event the
-// composer's Post button uses).
+// price and date.
+//
+// v267: EVERY RECEIPT POST LIVES IN THE FEED (user: "make the post of all
+// the receipt ... take them all to the feed and add some sample, remove all
+// the first ones") - publishing the reviewed slip with destination="feed"
+// creates ONE community post on /api/posts (merchant headline, itemized
+// lines, total, the receipt photo) instead of local price rows on the Local
+// tab, the Local tab's own receipt entries are removed, and three SAMPLE
+// receipt posts (SEED_RECEIPT_POSTS) lead the feed so the format is visible
+// from day one. Guests keep the sign-up gate (circub:auth-expired).
 
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import {
@@ -139,6 +146,88 @@ The Battle tab ranks the top deal-hunters each week. Post a price yourself to cl
     reposts: [],
     comments: [],
     createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+  },
+]
+
+// v267: SAMPLE RECEIPT POSTS - the feed is where every receipt lives now,
+// so the seeds show exactly what a receipt post looks like: the itemized
+// slip as text (merchant headline, every line with its price, the total)
+// plus the receipt photo. Same display-only rules as the other seeds -
+// they cannot be edited, deleted, shared or saved.
+const SEED_RECEIPT_POSTS: Post[] = [
+  {
+    id: 'seed-receipt-freshmart',
+    content: `Receipt from Fresh Mart - 2026-11-10
+
+2 x Coffee Beans - 11.00 ETB
+1 x Yirga Cheffe 250g - 9.50 ETB
+3 x Sugar 1kg - 6.00 ETB
+
+Total: 26.50 ETB
+
+Snapped the slip right at the till - coffee beans at 11 ETB a pack is the best Bole price I have seen this week.`,
+    imageUrl: '/seed-images/receipt-slip-freshmart.jpg',
+    authorId: 'seed',
+    author: {
+      id: 'seed-r1',
+      name: 'Hanna Girma',
+      avatarColor: 'sky',
+      headline: 'Price hunter',
+      location: 'Addis Ababa, Ethiopia',
+    },
+    likes: [],
+    reposts: [],
+    comments: [],
+    createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+  },
+  {
+    id: 'seed-receipt-merkato',
+    content: `Receipt from Merkato Spice House - 2026-11-09
+
+1 x Berbere 1kg - 340.00 ETB
+2 x Mitmita 250g - 120.00 ETB
+1 x Korerima 200g - 85.00 ETB
+
+Total: 665.00 ETB
+
+The whole spice restock for less than 700 birr - post your slip if you found cheaper in Merkato.`,
+    imageUrl: '/seed-images/receipt-slip-merkato.jpg',
+    authorId: 'seed',
+    author: {
+      id: 'seed-r2',
+      name: 'Dawit Tesfaye',
+      avatarColor: 'emerald',
+      headline: 'Home cook',
+      location: 'Addis Ababa, Ethiopia',
+    },
+    likes: [],
+    reposts: [],
+    comments: [],
+    createdAt: new Date(Date.now() - 1000 * 60 * 130).toISOString(),
+  },
+  {
+    id: 'seed-receipt-techhub',
+    content: `Receipt from TechHub Nairobi - 2026-11-08
+
+1 x USB-C cable 2m - 450.00 KES
+1 x 20W charger - 1,250.00 KES
+
+Total: 1,700.00 KES
+
+Receipt proof beats screenshots - the charger was quoted 1,800 KES at the mall kiosk two streets away.`,
+    imageUrl: '/seed-images/receipt-slip-techhub.jpg',
+    authorId: 'seed',
+    author: {
+      id: 'seed-r3',
+      name: 'Sara Okello',
+      avatarColor: 'rose',
+      headline: 'Deal hunter',
+      location: 'Nairobi, Kenya',
+    },
+    likes: [],
+    reposts: [],
+    comments: [],
+    createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
   },
 ]
 
@@ -265,8 +354,11 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
   }, [highlightPostId, loading])
 
   // Merge seed posts with real posts (seeds first, then real posts by sort).
-  // Seeds never appear in the Saved filter - they cannot be bookmarked.
-  const allPosts = sort === 'saved' ? posts : [...SEED_POSTS, ...posts]
+  // v267: the sample RECEIPT posts lead the seeds - the feed is the receipt
+  // place and the samples show what a receipt post looks like. Seeds never
+  // appear in the Saved filter - they cannot be bookmarked.
+  const allSeeds = [...SEED_RECEIPT_POSTS, ...SEED_POSTS]
+  const allPosts = sort === 'saved' ? posts : [...allSeeds, ...posts]
   const sortedPosts = sort === 'top'
     ? [...allPosts].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0))
     : allPosts
@@ -345,9 +437,9 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
     // Seed posts can't be liked via the API — just toggle locally
     if (postId.startsWith('seed-')) {
       setPosts((prev) => {
-        // seed posts live in SEED_POSTS, not in `posts` state; toggle in a
-        // local-likes map by mutating the seed array reference.
-        const seed = SEED_POSTS.find((p) => p.id === postId)
+        // seed posts live in the seed arrays, not in `posts` state; toggle
+        // in a local-likes map by mutating the seed array reference.
+        const seed = allSeeds.find((p) => p.id === postId)
         if (seed) {
           const already = seed.likes.some((l) => l.userId === me?.id)
           seed.likes = already ? seed.likes.filter((l) => l.userId !== me!.id) : [...seed.likes, { id: 'me', userId: me!.id }]
@@ -378,7 +470,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
     if (!text) return
     // Seed posts can't receive real comments via API — add locally
     if (postId.startsWith('seed-')) {
-      const seed = SEED_POSTS.find((p) => p.id === postId)
+      const seed = allSeeds.find((p) => p.id === postId)
       if (seed) {
         seed.comments = [...seed.comments, {
           id: `local-${Date.now()}`,
@@ -569,7 +661,7 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold text-foreground leading-tight">Post with a receipt</span>
-            <span className="block text-xs text-muted-foreground leading-snug">Snap the slip - the AI reads every item, price and date. You confirm, then post.</span>
+            <span className="block text-xs text-muted-foreground leading-snug">Snap the slip - the AI reads every item, and your receipt posts right here in the feed.</span>
           </span>
           <span className="flex h-9 shrink-0 items-center rounded-lg bg-sky-600 px-3 text-xs font-bold text-white">Snap receipt</span>
         </div>
@@ -943,17 +1035,19 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
         )}
       </div>
 
-      {/* v266 the SAME price composer the Local tab uses - opened with the
-          picked receipt slip (the AI parse starts by itself) or empty for a
-          manual price post; onCreated clears the prefill. A finished receipt
-          posts its prices to the Local feed and the modal's own toasts tell
-          the user what went live. */}
+      {/* v266/v267 the SAME price composer the Local tab uses - opened with
+          the picked receipt slip (the AI parse starts by itself). v267: the
+          publish lands IN THE FEED - destination="feed" turns the reviewed
+          slip into ONE community post (itemized lines + the receipt photo)
+          instead of local price rows, and onCreated refetches so the new
+          receipt post appears without a reload. */}
       <Suspense fallback={null}>
         <CreatePricePostModal
           open={receiptModalOpen}
           onOpenChange={setReceiptModalOpen}
-          onCreated={() => setReceiptPrefill(null)}
+          onCreated={() => { setReceiptPrefill(null); fetchPosts(sort) }}
           prefill={receiptPrefill}
+          destination="feed"
         />
       </Suspense>
     </div>

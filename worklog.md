@@ -1,5 +1,52 @@
 # circubAwd worklog
 
+## v267 (2026-11-17) - Every receipt post lives in the Feed; the Local tab's receipt entries are gone; samples lead the feed
+User: "make the post of all the recipt on the take them all to the feed and
+add some sample remove all the first and" - v266 put the receipt posting
+PLACE on the Feed tab but still published the parsed rows to the Local feed.
+v267 completes the move.
+
+WHAT SHIPPED
+- RECEIPTS PUBLISH INTO THE FEED. The Feed tab's composer (the same
+  CreatePricePostModal the Local tab uses) now takes destination="feed":
+  publishing the reviewed slip turns the WHOLE receipt into ONE community
+  post on /api/posts - "Receipt from <merchant>" + the date, every itemized
+  line with its price and currency, a computed Total line, and the receipt
+  photo as the proof image (the AI's merchant/date read is remembered in
+  the composer and heads the post). The publish button reads "Post receipt
+  to feed" there, the toast confirms, and onCreated refetches so the new
+  post appears without a reload. A community post asks no location - the
+  slip itself is the context, so the composer's "City, Country" contract
+  does not apply on this path.
+- THE FIRST PLACE IS CLEANED OUT. The Local tab lost every receipt entry:
+  the sky banner, the Receipt action in the actions row, the hidden picker
+  and the empty-state "Post with receipt" button (picker ref + icon import
+  included). The Local tab keeps its own posting tools - Proforma, Post
+  Price, bulk poster - and the manual composer still publishes local price
+  posts exactly as before (destination defaults to 'local').
+- SAMPLE RECEIPTS LEAD THE FEED. Three display-only seed posts
+  (SEED_RECEIPT_POSTS - Fresh Mart groceries, Merkato Spice House restock,
+  TechHub Nairobi accessories) render at the top of the Feed tab, each
+  "Receipt from ..." with itemized lines + a Total and a real receipt-slip
+  photo generated into /public/seed-images/receipt-slip-*.jpg, so the
+  format is visible from day one. Seed likes/comments work on them (the
+  seed lookup now covers both arrays).
+- Guests keep the v266 gate: banner + composer action fire the same
+  circub:auth-expired event before any picker opens.
+
+VERIFICATION: task267_feed_receipt_move_probe 28/28 end to end (Local
+entries absent, Proforma + Post Price intact, banner above composer, picker
+accepts heic, three samples with slip photos render, slip -> composer ->
+AI rows -> "Post receipt to feed" -> ONE feed post with merchant headline +
+Total + slip photo, /api/local-prices for the author stays EMPTY, 390px +
+320px zero overflow, guest gate, self-clean). Regressions: task239 29/29,
+task257 8/8, task258 11/11, task259 15/15 (re-pointed: Local receipt
+entries asserted gone, manual price flow + detail-card hierarchy driven
+through Post Price), task260 boot 9/9 (re-pointed to the actions row),
+task261 14/14, task262 21/21, task263 contract 20/20 + UI 24/24, task264
+reel 53/53, task265 24/24, task266 13/13. tsc 20 baseline; build exit 0;
+sw.js circub-v267
+
 ## v266 (2026-11-17) - The Feed tab becomes the receipt posting place
 User: "make the feed recipt posting place" - v259 put the receipt place on the
 LOCAL tab; now the community FEED tab (the nav's "Feed") carries the SAME
