@@ -1,5 +1,28 @@
 # circubAwd worklog
 
+## v266 (2026-11-17) - The Feed tab becomes the receipt posting place
+User: "make the feed recipt posting place" - v259 put the receipt place on the
+LOCAL tab; now the community FEED tab (the nav's "Feed") carries the SAME
+receipt posting flow: the sky "Post with a receipt" banner sits at the very top
+of the feed, above the composer, and a Receipt action rides the composer row
+next to Photo / Emoji as the second entry. Both entries open the camera/gallery
+picker IN THE SAME GESTURE (hidden ref'd input, mobile browsers only open file
+pickers from a direct user touch), and the picked slip flows into the SAME
+CreatePricePostModal the Local tab uses (mounted with Suspense in the feed tab)
+- the AI reads every item, price and date, the parsed rows land straight in the
+priced list, the user reviews, then posts the prices to the Local feed. Guests
+are gated BEFORE the native file picker opens (a file dialog is not a sign-up
+nudge): banner and composer action fire the same circub:auth-expired event as
+the composer's Post button, so the register window opens. The composer action
+labels collapse to icons below 380px so Photo + Receipt + Emoji + Post stay on
+one row at 320px. task266_feed_receipt_probe 13/13 end to end (banner above
+composer, composer action, heic accept list, same-gesture file chooser, slip
+parsed into 3 priced rows, composer closes cleanly, 390px + 320px zero
+overflow, guest tap opens the register window). Regressions: task239 29/29,
+task257 8/8, task258 11/11, task259 17/17, task260 boot 9/9, task261 14/14,
+task262 21/21, task263 contract 20/20 + UI 24/24, task264 reel 53/53, task265
+24/24. tsc 20 baseline; build exit 0; sw.js circub-v266
+
 ## v265 (2026-11-17) - The Post pill leaves the bounty row; search rides the top bar next to escrow
 User: "remove the post button and make the search next to the escowrt" (screenshot:
 Instant Bounties / Talent On Call switcher, the 1/5 reel counter, My Payouts &

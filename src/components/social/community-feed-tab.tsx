@@ -14,11 +14,22 @@
 // first thing on screen and the feed reads like a real timeline. Seed
 // posts are written as ordinary local members (no "TIP" badge, no
 // emerald tint) so the feed looks like real people talking from day one.
+//
+// v266: THE FEED IS THE RECEIPT POSTING PLACE (user: "make the feed
+// receipt posting place") - v259 put the receipt place on the Local tab;
+// now the community Feed tab gets the SAME receipt posting flow: a sky
+// banner above the composer plus a Receipt action in the composer row,
+// one tap opens the camera/gallery picker IN THE SAME GESTURE (mobile
+// browsers only open file pickers from a direct user touch), the same
+// CreatePricePostModal takes the picked slip and the AI reads every item,
+// price and date - the user reviews, then posts the prices to the Local
+// feed. Guests get the sign-up nudge (same circub:auth-expired event the
+// composer's Post button uses).
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import {
   Send, Heart, MessageSquare, Image as ImageIcon, Smile, Loader2,
-  Search, Bookmark, Share2, Pencil, Trash2, X,
+  Search, Bookmark, Share2, Pencil, Trash2, X, ReceiptText,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -27,6 +38,9 @@ import { useToast } from '@/hooks/use-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import { cn } from '@/lib/utils'
 import type { User, Post, Comment } from '@/lib/types'
+
+const CreatePricePostModal = lazy(() => import('./create-price-post-modal').then((m) => ({ default: m.CreatePricePostModal })))
+import type { CreatePricePostPrefill } from './create-price-post-modal'
 
 interface CommunityFeedTabProps {
   me: User | null
@@ -144,6 +158,14 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
   const [imageUrl, setImageUrl] = useState('')
   const [posting, setPosting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  // v266 THE RECEIPT PLACE on the Feed tab - the same flow the Local tab
+  // got in v259: the hidden picker must live in a ref so the first tap on
+  // the banner / composer action opens it in the SAME user gesture, the
+  // picked slip then opens the price composer and the AI parse starts by
+  // itself (no second tap).
+  const feedReceiptRef = useRef<HTMLInputElement | null>(null)
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false)
+  const [receiptPrefill, setReceiptPrefill] = useState<CreatePricePostPrefill | null>(null)
   // v226: sort chips removed from the UI - the feed is always 'recent',
   // which is what the header pills used to default to anyway.
   const [sort] = useState<SortMode>('recent')
@@ -271,6 +293,19 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
     } finally {
       setUploading(false)
     }
+  }
+
+  // v266: guests can browse the feed but cannot post receipts - the sign-up
+  // nudge fires the SAME auth event the composer's Post button uses, so the
+  // landing auth window opens exactly like it does for community posts.
+  const openReceiptComposer = (file: File | null) => {
+    if (isGuest) {
+      toast({ title: 'Sign up to post', description: 'Create a free account to post with a receipt. It takes 10 seconds.', variant: 'destructive' })
+      window.dispatchEvent(new CustomEvent('circub:auth-expired'))
+      return
+    }
+    setReceiptPrefill(file ? { receiptFile: file } : null)
+    setReceiptModalOpen(true)
   }
 
   const handlePost = async () => {
@@ -507,6 +542,53 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
           post column - the full tab width is available on every screen;
           posts stay a readable 680px. */}
       <div className="max-w-[680px] mx-auto space-y-3 pb-4">
+        {/* v266 THE RECEIPT PLACE - the visible receipt posting entry at the
+            top of the Feed tab (above the composer), same sky banner as the
+            Local tab's v259 place. Whole card is tappable; the hidden picker
+            below opens in the same gesture. */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            // v266 guests are gated BEFORE the picker - a native file dialog
+            // is not the sign-up nudge (same auth event as the Post button).
+            if (isGuest) {
+              toast({ title: 'Sign up to post', description: 'Create a free account to post with a receipt. It takes 10 seconds.', variant: 'destructive' })
+              window.dispatchEvent(new CustomEvent('circub:auth-expired'))
+              return
+            }
+            feedReceiptRef.current?.click()
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') feedReceiptRef.current?.click() }}
+          className="flex cursor-pointer items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 shadow-sm transition-colors hover:bg-sky-100 dark:border-sky-500/30 dark:bg-sky-500/10 dark:hover:bg-sky-500/20"
+          data-testid="feed-tab-receipt-banner"
+          title="Snap a receipt - the AI reads every item, price and date. You confirm, then post."
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-500/20">
+            <ReceiptText className="h-4 w-4 text-sky-700 dark:text-sky-300" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-foreground leading-tight">Post with a receipt</span>
+            <span className="block text-xs text-muted-foreground leading-snug">Snap the slip - the AI reads every item, price and date. You confirm, then post.</span>
+          </span>
+          <span className="flex h-9 shrink-0 items-center rounded-lg bg-sky-600 px-3 text-xs font-bold text-white">Snap receipt</span>
+        </div>
+
+        {/* v266 the hidden receipt picker behind both Feed-tab receipt
+            entries (the banner above and the composer action below). */}
+        <input
+          ref={feedReceiptRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
+          data-testid="feed-tab-receipt-input"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ''
+            if (f) openReceiptComposer(f)
+          }}
+          className="hidden"
+        />
+
         {/* Composer */}
         <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-sm" data-testid="community-composer">
           <div className="flex items-start gap-3">
@@ -561,15 +643,38 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
                     className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 text-primary" />}
-                    <span>Photo</span>
+                    <span className="hidden min-[380px]:inline">Photo</span>
+                  </button>
+                  {/* v266 Receipt action in the composer row - the second
+                      entry to the same picker (the banner above is the
+                      first). One tap opens the camera/gallery in the same
+                      gesture; the slip then flows into the AI composer.
+                      Guests are gated BEFORE the picker (a native file
+                      dialog is not the sign-up nudge). */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isGuest) {
+                        toast({ title: 'Sign up to post', description: 'Create a free account to post with a receipt. It takes 10 seconds.', variant: 'destructive' })
+                        window.dispatchEvent(new CustomEvent('circub:auth-expired'))
+                        return
+                      }
+                      feedReceiptRef.current?.click()
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-sky-600 transition-colors"
+                    data-testid="feed-tab-receipt-open"
+                    title="Post with a receipt - the AI reads every line item, the merchant, the date and the currency off the photo; you review, then post"
+                  >
+                    <ReceiptText className="w-3.5 h-3.5 text-sky-600" />
+                    <span className="hidden min-[380px]:inline">Receipt</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setDraft((c) => c + ' 😊')}
                     className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Smile className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Emoji</span>
+                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Smile className="w-3.5 h-3.5 text-amber-500" />}
+                    <span className="hidden min-[380px]:inline">Emoji</span>
                   </button>
                 </div>
                 <Button
@@ -837,6 +942,20 @@ export function CommunityFeedTab({ me, highlightPostId, onHighlightDone }: Commu
           </ul>
         )}
       </div>
+
+      {/* v266 the SAME price composer the Local tab uses - opened with the
+          picked receipt slip (the AI parse starts by itself) or empty for a
+          manual price post; onCreated clears the prefill. A finished receipt
+          posts its prices to the Local feed and the modal's own toasts tell
+          the user what went live. */}
+      <Suspense fallback={null}>
+        <CreatePricePostModal
+          open={receiptModalOpen}
+          onOpenChange={setReceiptModalOpen}
+          onCreated={() => setReceiptPrefill(null)}
+          prefill={receiptPrefill}
+        />
+      </Suspense>
     </div>
   )
 }
