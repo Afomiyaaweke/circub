@@ -1,5 +1,39 @@
 # circubAwd worklog
 
+## v268 (2026-11-18) - Everything is mobile responsive; the posting composer header was the breaker
+User: "make sure every thing is mobile responsive eg the posting is not check
+it all". A 390px + 320px audit sweep across 15 surfaces (local home, post-price
+composer, bulk poster, proforma panel, feed home, feed composer, link reel,
+quest form, bookings, profile, network, notifications, product detail, landing,
+login) found three REAL phone breakages and fixed all of them:
+
+1. THE POSTING COMPOSER (the user's example) - create-price-post-modal.tsx:
+   the Quick Price Drop header was one nowrap flex row; the title wrapped to
+   three lines and the Receipt chip sat 88px OFF SCREEN at 390px (right edge
+   476 > 390) - receipt posting was unreachable on phones. The row now wraps:
+   back + one-line title + 30s chip hold line one; Karma / Bulk post / Receipt
+   fold onto their own full-width chip line below 640px (sm:contents keeps the
+   desktop single row identical).
+2. Notifications panel - notification-bell.tsx: a fixed 300px panel anchored
+   to the bell hung 30px off-screen LEFT at 390px and 100px at 320px. It now
+   pins to the viewport edges on phones (fixed inset-x-2 top-14); sm+ keeps
+   the anchored 340px panel.
+3. Proforma builder typed-place row - compass-price-tools.tsx: min-w-[10rem]
+   input + the apply button overflowed the panel 19px right at 320px. The row
+   wraps now and the input shrinks below 640px (min-w-0 sm:min-w-[10rem]).
+
+task268_mobile_everything_probe 16/16: version v268, composer chip geometry at
+390 + 320 (all three chips reachable, title one line, chips under the title
+row), notif panel inside the viewport with zero document scroll at 390 + 320,
+place row inside the panel at 320, and the 30-audit sweep (15 surfaces x
+390/320) zero horizontal overflow - screenshots in /tmp/v268_audit/.
+Regressions: task239 29/29, task257 8/8, task258 11/11, task259 15/15, task260
+9/9, task261 14/14, task262 21/21, task263 contract 20/20 + UI 24/24, task264
+reel 53/53, task265 24/24, task266 13/13, task267 28/28 (285 checks green).
+Prod: task268_prod_spotcheck 8/8 (v268 served, composer chips 32..374 inside
+390, panel pinned 8..382, local/feed/landing zero overflow at 390 + 320).
+tsc 20 baseline; build exit 0; sw.js circub-v268.
+
 ## v267 (2026-11-17) - Every receipt post lives in the Feed; the Local tab's receipt entries are gone; samples lead the feed
 User: "make the post of all the recipt on the take them all to the feed and
 add some sample remove all the first and" - v266 put the receipt posting
