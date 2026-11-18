@@ -1303,7 +1303,10 @@ export function CompassPriceTools() {
                         )
                       })}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    {/* v268 mobile: the typed place wraps under the field
+                        below 640px - min-w-[10rem] + the button overflowed
+                        the panel 19px right at 320px. */}
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <Input
                         type="text"
                         maxLength={80}
@@ -1313,7 +1316,7 @@ export function CompassPriceTools() {
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyAskPlace() } }}
                         data-testid="ask-where-input"
                         aria-label="Type a shopping location"
-                        className="h-8 min-w-[10rem] flex-1 text-sm bg-background"
+                        className="h-8 min-w-0 sm:min-w-[10rem] flex-1 text-sm bg-background"
                       />
                       <button
                         type="button"

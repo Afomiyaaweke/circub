@@ -846,7 +846,11 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
           positioning can never cover the app's nav bars). */}
       <DialogContent className="sm:max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-4 sm:p-6 md:p-8 gap-0 bg-[#f6f8f7] dark:bg-background max-lg:top-0! max-lg:bottom-0! max-lg:left-0! max-lg:right-0! max-lg:translate-x-0! max-lg:translate-y-0! max-lg:w-full! max-lg:max-w-none! max-lg:h-dvh! max-lg:max-h-none! max-lg:rounded-none! max-lg:border-0!">
         <DialogHeader className="mb-3">
-          <div className="flex items-center gap-2.5">
+          {/* v268 mobile: the row wraps - back + title hold line one, the
+              Karma / Bulk post / Receipt chips fold onto their own full-width
+              line below 640px so the Receipt button (88px off-screen at 390
+              before) is always reachable. */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
             <button
               type="button"
               onClick={handleCancel}
@@ -856,13 +860,14 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <DialogTitle className="flex items-center gap-2 text-xl font-extrabold text-foreground">
-              Quick Price Drop
-              <span title="A first-hand drop takes about 30 seconds" className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-extrabold text-foreground">
+              <span className="whitespace-nowrap">Quick Price Drop</span>
+              <span title="A first-hand drop takes about 30 seconds" className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
                 <Zap className="w-3 h-3" />
                 30s
               </span>
             </DialogTitle>
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto sm:contents">
             <span title="First-hand prices earn Karma" data-testid="karma-chip" className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-2.5 py-1 text-xs font-bold">
               <Zap className="w-3.5 h-3.5" />
               +15 Karma
@@ -906,6 +911,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
               {receiptBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ReceiptText className="w-3.5 h-3.5" />}
               {receiptBusy ? 'Reading...' : 'Receipt'}
             </button>
+            </div>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pl-[42px]">
             {location.trim() || 'Addis Ababa, Ethiopia'} - answer a few quick questions and I&apos;ll drop the price for you. One drop publishes the price guide AND the product listing on your profile.
