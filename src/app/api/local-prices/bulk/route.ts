@@ -14,7 +14,7 @@ import { isValidGps } from '@/lib/location'
 //     productName, price | priceMin+priceMax, city?, country?, contactPhone?,
 //     contactEmail?, contactWhatsApp?, imageUrl?, description?
 //   }, ...],
-//   defaults: { currency, category?, postType?, country?, city?, alsoStory?,
+//   defaults: { currency, category?, postType?, country?, city?,
 //               ownsShop?, shopOwnerName? }
 // v183: the batch can declare WHO sells the items - ownsShop marks every row
 // as a first-party shop-owner post (amber badge) and shopOwnerName is the
@@ -27,8 +27,7 @@ import { isValidGps } from '@/lib/location'
 //   update) and flips isLocal, exactly like the single-post composer does.
 // - PRODUCT rows get their auto Product twin (marketplace listing), also
 //   per-row best-effort: a twin failure never blocks the price post.
-// - Stories are OFF for bulk by default - a 50-row paste must not flood the
-//   stories strip; callers can opt in per batch via defaults.alsoStory.
+// - v270: the stories feature is gone - no per-row story is created.
 
 const MAX_ROWS = 50
 
@@ -96,7 +95,6 @@ export async function POST(req: NextRequest) {
     const defPhone = str(d.contactPhone)
     const defEmail = str(d.contactEmail)
     const defWhatsApp = str(d.contactWhatsApp)
-    const alsoStory = d.alsoStory === true
     // v183: batch-level shop ownership. Strict boolean like the single-post
     // route (no string leakage); the name is trimmed + capped at 100 chars.
     const defOwnsShop = d.ownsShop === true || d.ownsShop === 'true'
@@ -188,24 +186,6 @@ export async function POST(req: NextRequest) {
             })
             await db.user.update({ where: { id: me.id }, data: { postsCount: { increment: 1 } } })
           } catch (e) { console.error('Bulk twin product failed (post kept):', e) }
-        }
-
-        // Opt-in 24h story per posted row (default OFF for bulk).
-        if (alsoStory) {
-          try {
-            const now = new Date()
-            const priceBit = `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? '-' + post.priceMax : ''}`
-            await db.story.create({
-              data: {
-                imageUrl: post.imageUrl,
-                caption: `${post.productName} · ${priceBit}`.slice(0, 300),
-                authorId: me.id,
-                pricePostId: post.id,
-                createdAt: now,
-                expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
-              },
-            })
-          } catch { /* story is additive */ }
         }
       } catch (e: any) {
         console.error(`Bulk row ${i + 1} failed:`, e)

@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     // so the item appears on the profile/marketplace without a second form.
     // The twin carries the unit + pack size and a representative price (the
     // midpoint of the local range). Best-effort: a twin failure never blocks
-    // the price post itself - exactly like the story below.
+    // the price post itself.
     let product: Record<string, unknown> | null = null
     if (post.postType !== 'SERVICE' && body.makeProduct !== false) {
       try {
@@ -179,30 +179,6 @@ export async function POST(req: NextRequest) {
         await db.user.update({ where: { id: me.id }, data: { postsCount: { increment: 1 } } })
       } catch (e) { console.error('Twin product creation failed (post kept):', e) }
     }
-    // "Make it story while posting a new price": the composer sends
-    // alsoStory (default true) and the new price is IMMEDIATELY shared as a
-    // 24-hour story banner - the whole feed sees it in the stories strip.
-    // Best-effort: a story failure never blocks the price post itself.
-    let story: Record<string, unknown> | null = null
-    if (body.alsoStory === true) {
-      try {
-        const now = new Date()
-        const dupe = await db.story.findUnique({ where: { pricePostId: post.id } })
-        if (!dupe) {
-          const priceBit = `${post.currency} ${post.priceMin}${post.priceMin !== post.priceMax ? '-' + post.priceMax : ''}`
-          story = await db.story.create({
-            data: {
-              imageUrl: post.imageUrl,
-              caption: `${post.productName} · ${priceBit}`.slice(0, 300),
-              authorId: me.id,
-              pricePostId: post.id,
-              createdAt: now,
-              expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
-            },
-          })
-        }
-      } catch { /* story is additive - never blocks the post */ }
-    }
     // v261: followers get an email about this price AFTER the response is
     // sent - delivery can never delay or fail the post itself.
     after(async () => {
@@ -222,6 +198,6 @@ export async function POST(req: NextRequest) {
       if (sent > 0) console.log(`email-notify: ${sent} follower(s) emailed for price post ${post.id}`)
     })
 
-    return NextResponse.json({ post, story, product }, { status: 201 })
+    return NextResponse.json({ post, product }, { status: 201 })
   } catch (error) { console.error('Failed:', error); return NextResponse.json({ error: 'Failed' }, { status: 500 }) }
 }

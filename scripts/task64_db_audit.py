@@ -10,7 +10,6 @@ TABLES = {
     "Post": ["content"],
     "Comment": ["content"],
     "Message": ["content"],
-    "Story": ["caption"],
     "LocalPricePost": ["productName", "description", "localTip"],
     "LocalPriceReport": ["note"],
     "GuideRating": ["comment"],

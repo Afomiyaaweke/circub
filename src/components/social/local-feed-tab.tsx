@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LocalProductCard } from './local-product-card'
-import { PriceStoriesStrip } from './price-stories-strip'
 import { CATEGORIES, CATEGORY_GROUPS, ALL_CATEGORIES, categoryFilterOptions, matchCategoryLoose } from '@/lib/categories'
 // v259 PERF: the four heavy modals (detail 2300+ lines, composer 1400+, edit,
 // profile) are code-split instead of riding inside the feed's first chunk -
@@ -868,11 +867,6 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
           )}
         </div>
       )}
-
-      {/* Price stories - every newly posted price is shared as a 24h story
-          banner here (the composer creates it on publish). Hidden entirely
-          while nothing is live. */}
-      <PriceStoriesStrip onOpenPost={setDetailPostId} />
 
       {/* v234: the whole FILTER BAR is gone - the user: "remove this
           bar ... don't take it to new page, keep it in the same page".

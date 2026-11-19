@@ -148,7 +148,6 @@ model User {
   // Direct messages
   msgsSent       Message[]    @relation("MsgSender")
   msgsReceived   Message[]    @relation("MsgReceiver")
-  stories        Story[]
 
   // v179: business link / unlink notifications (header bell)
   notifsReceived Notification[] @relation("NotificationRecipient")
@@ -334,27 +333,6 @@ model Message {
   @@index([senderId, receiverId, createdAt]) // conversation thread
 }
 
-model Story {
-  id        String   @id @default(cuid())
-  // Photo stories carry the uploaded image; price stories (auto-shared when
-  // a price post is published) may have no photo - the client renders a
-  // price banner for those instead of an image.
-  imageUrl  String?
-  caption   String?
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  // The price post this story was shared from (created automatically when a
-  // new price goes out through the composer). Cascade: deleting the post
-  // removes its story with it.
-  pricePostId String?  @unique
-  pricePost   LocalPricePost? @relation(fields: [pricePostId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  expiresAt DateTime // createdAt + 24h — stories disappear like Instagram
-
-  @@index([authorId, expiresAt])
-  @@index([expiresAt])
-}
-
 // Symmetric links between price posts ("same item posted elsewhere"): one
 // row per pair with the ids stored normalized (postAId < postBId), so the
 // @@unique makes a duplicate link impossible from either direction. Managed
@@ -462,9 +440,7 @@ model LocalPricePost {
   votes            LocalPriceVote[]
   reports          LocalPriceReport[]
 
-  // Stories shared from this post (auto-created on publish, live 24h) and
-  // symmetric links to other price posts for the same item elsewhere.
-  stories          Story[]
+  // Symmetric links to other price posts for the same item elsewhere.
   linksA           PricePostLink[] @relation("PricePostLinkA")
   linksB           PricePostLink[] @relation("PricePostLinkB")
 

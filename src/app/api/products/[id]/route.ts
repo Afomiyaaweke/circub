@@ -57,7 +57,7 @@ export async function DELETE(
 
     // v122: products created from the unified price composer are twins of a
     // LocalPricePost (Product.localPricePostId). One thing, one delete: the
-    // twin price post (with its votes/story/link rows via cascade) goes too.
+    // twin price post (with its votes/link rows via cascade) goes too.
     // Best-effort: the product itself always goes away even if this fails.
     try {
       if (product.localPricePostId) {

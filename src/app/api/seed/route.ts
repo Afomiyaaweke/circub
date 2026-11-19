@@ -288,7 +288,6 @@ async function handle(req: NextRequest) {
         ['Post', ['content']],
         ['Comment', ['content']],
         ['Message', ['content']],
-        ['Story', ['caption']],
         ['LocalPricePost', ['productName', 'description', 'localTip']],
         ['LocalPriceReport', ['note']],
         ['GuideRating', ['comment']],

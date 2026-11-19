@@ -1,7 +1,7 @@
 'use client'
 
 // Device back (Android hardware button / gesture, browser back) should close
-// the topmost open overlay - modal, full-tab editor, story viewer - and
+// the topmost open overlay - modal, full-tab editor - and
 // reveal the position underneath, the way native apps behave. Without this,
 // one back press while an overlay is open exits the whole page (PWA: the
 // app closes) instead of stepping back to where the user was.

@@ -2,15 +2,14 @@
 
 // ============================================================================
 // PROFILE TAB - Instagram-style profile section.
-// Your avatar with a story ring, a stats row, a 24-hour Stories row
-// (add / view / delete) and a manage grid for everything you have posted -
+// Your avatar, a stats row and a manage grid for everything you have posted -
 // feed posts, price listings, marketplace products - each one deletable
 // straight from its tile, with a confirmation before it goes.
 // ============================================================================
 
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import {
-  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, ChevronRight, Compass, CreditCard, DollarSign, Gem, Image as ImageIcon, Languages, LayoutGrid, Loader2,
+  AtSign, Award, BadgeCheck, BookUser, Bookmark, Briefcase, Camera, ChevronLeft, Compass, CreditCard, DollarSign, Gem, Image as ImageIcon, Languages, LayoutGrid, Loader2,
   Check, CheckCircle2, Heart, Lightbulb, Lock, Mail, MapPin, MessageCircle, Package, Phone, Plus, Pencil, Share2, ShieldCheck, Sparkles, Star, Swords, Trash2, UserCircle, Users, UserX, Video, X, Zap,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -84,14 +83,6 @@ interface MyProduct {
   imageUrl?: string | null; description?: string | null; unit?: string | null; createdAt: string
   localPricePostId?: string | null
 }
-interface MyStory {
-  // Price stories (auto-shared when a price post is published) may have no
-  // photo - the ring/viewer render a price banner for those.
-  id: string; imageUrl?: string | null; caption?: string | null
-  author?: { id: string; name: string; profilePicture?: string | null; avatarColor?: string }
-  pricePost?: { id: string; productName: string; currency: string; priceMin: number; priceMax: number } | null
-  createdAt: string; expiresAt: string
-}
 
 // v219: bounty management (Profile > Bounties). Applicants' names + contacts
 // come from GET /api/quests/mine - a poster-only, owner-scoped endpoint.
@@ -118,7 +109,6 @@ type Deletable =
   | { kind: 'post'; id: string; label: string }
   | { kind: 'listing'; id: string; label: string }
   | { kind: 'product'; id: string; label: string }
-  | { kind: 'story'; id: string; label: string }
   | { kind: 'quest'; id: string; label: string }
 
 function timeAgo(iso: string): string {
@@ -182,7 +172,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const [loadingMoreGrid, setLoadingMoreGrid] = useState(false)
   const gridSentinelRef = useRef<HTMLDivElement | null>(null)
   const [products, setProducts] = useState<MyProduct[]>([])
-  const [stories, setStories] = useState<MyStory[]>([])
   const [loading, setLoading] = useState(!isGuest)
 
   // v219: bounty management state (Profile > Bounties tab).
@@ -230,15 +219,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     else if (item.kind === 'listing') onOpenListing(item.listing.id)
     else setProductView(item.product)
   }
-
-  // Story creation
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [newStoryImage, setNewStoryImage] = useState<string | null>(null)
-  const [newStoryCaption, setNewStoryCaption] = useState('')
-  const [publishing, setPublishing] = useState(false)
-
-  // Story viewer
-  const [viewerIndex, setViewerIndex] = useState(-1)
 
   // Content viewers
   const [postView, setPostView] = useState<MyPost | null>(null)
@@ -317,11 +297,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   const fetchAll = useCallback(async () => {
     if (isGuest) return
     if (!hasContentRef.current) setLoading(true)
-    const [p, l, pr, st, q] = await Promise.allSettled([
+    const [p, l, pr, q] = await Promise.allSettled([
       fetch(`/api/posts?authorId=${me.id}&limit=12`).then((r) => r.json()),
       fetch(`/api/local-prices?authorId=${me.id}&limit=12`).then((r) => r.json()),
       fetch(`/api/products?authorId=${me.id}`).then((r) => r.json()),
-      fetch('/api/stories').then((r) => r.json()),
       fetch('/api/quests/mine').then((r) => r.json()),
     ])
     if (p.status === 'fulfilled' && p.value?.posts) setPosts(p.value.posts)
@@ -333,9 +312,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       pricesHasMore: l.status === 'fulfilled' ? Boolean(l.value?.hasMore) : false,
     })
     if (pr.status === 'fulfilled' && pr.value?.products) setProducts(pr.value.products)
-    if (st.status === 'fulfilled' && Array.isArray(st.value?.stories)) {
-      setStories(st.value.stories.filter((s: MyStory & { authorId?: string }) => s.authorId === me.id || s.author?.id === me.id))
-    }
     if (q.status === 'fulfilled' && q.value && !q.value.error) {
       setMyQuests({
         posted: Array.isArray(q.value.posted) ? q.value.posted : [],
@@ -433,8 +409,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
   // page. Every full-screen surface in this tab registers here.
   useBackClose(editing && !isGuest, () => setEditing(false))
   useBackClose(verifying && !isGuest, () => setVerifying(false))
-  useBackClose(viewerIndex >= 0, () => setViewerIndex(-1))
-  useBackClose(!!newStoryImage, () => { setNewStoryImage(null); setNewStoryCaption('') })
   useBackClose(!!postView, () => setPostView(null))
   useBackClose(!!productView, () => setProductView(null))
   useBackClose(!!savedView, () => setSavedView(null))
@@ -477,15 +451,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     }
     setPriceComposerOpen(true)
   }
-
-  // Auto-advance the story viewer every 6 seconds (Instagram-style)
-  useEffect(() => {
-    if (viewerIndex < 0) return
-    const t = setTimeout(() => {
-      setViewerIndex((i) => (i + 1 >= stories.length ? -1 : i + 1))
-    }, 6000)
-    return () => clearTimeout(t)
-  }, [viewerIndex, stories.length])
 
   // ------------------------------------------------------------- edit mode
   const openEdit = useCallback(() => {
@@ -866,53 +831,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     } finally { setSaving(false) }
   }
 
-  // ---------------------------------------------------------------- stories
-  const pickStoryImage = () => {
-    if (isGuest) { onSignUp(); return }
-    fileRef.current?.click()
-  }
-
-  const handleStoryFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    try {
-      const compressed = ensureRenderableImage(await compressImage(file, 1080, 0.8))
-      const fd = new FormData()
-      fd.append('file', compressed)
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Upload failed') }
-      const data = await res.json()
-      setNewStoryImage(data.url)
-      setNewStoryCaption('')
-    } catch (err) {
-      toast({ title: 'Upload failed', description: (err as Error).message, variant: 'destructive' })
-    }
-  }
-
-  const shareStory = async () => {
-    if (!newStoryImage) return
-    setPublishing(true)
-    try {
-      const res = await fetch('/api/stories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: newStoryImage, caption: newStoryCaption }),
-      })
-      if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Could not share your story') }
-      const data = await res.json()
-      setStories((s) => [...s, data.story])
-      setNewStoryImage(null)
-      setNewStoryCaption('')
-      toast({ title: 'Story shared', description: 'It disappears automatically after 24 hours.' })
-    } catch (err) {
-      toast({ title: 'Share failed', description: (err as Error).message, variant: 'destructive' })
-    } finally {
-      setPublishing(false)
-    }
-  }
-
   // ---------------------------------------------------------------- deletes
   const doDelete = async () => {
     if (!confirm) return
@@ -922,8 +840,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
       kind === 'post' ? `/api/posts/${id}` :
       kind === 'listing' ? `/api/local-prices/${id}` :
       kind === 'product' ? `/api/products/${id}` :
-      kind === 'quest' ? `/api/quests/${id}` :
-      `/api/stories/${id}`
+      `/api/quests/${id}`
     try {
       const res = await fetch(url, { method: 'DELETE' })
       if (res.status === 401) { dispatchAuthExpired('session-expired'); return }
@@ -949,12 +866,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
         fetch('/api/quests/mine').then((r) => (r.ok ? r.json() : null)).then((d) => {
           if (d && !d.error) setMyQuests({ posted: Array.isArray(d.posted) ? d.posted : [], claimed: Array.isArray(d.claimed) ? d.claimed : [] })
         }).catch(() => {})
-      } else {
-        setStories((list) => {
-          const next = list.filter((x) => x.id !== id)
-          return next
-        })
-        setViewerIndex(-1)
       }
       toast({ title: `${label} deleted` })
       onUserChanged()
@@ -1528,7 +1439,7 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           </div>
           <h2 className="text-lg font-bold text-foreground mb-1.5">Your profile lives here</h2>
           <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-            Posts, price listings, products and 24-hour stories - all in one place, like your favourite social app.
+            Posts, price listings and products - all in one place, like your favourite social app.
             Sign up free to make it yours.
           </p>
           <div className="flex flex-col gap-2">
@@ -2230,23 +2141,16 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
     // v122: twin products count inside Listings (they ARE the same thing) -
     // only standalone products count here.
     { value: products.filter((pr) => !pr.localPricePostId).length, label: 'Products' },
-    { value: stories.length, label: 'Stories' },
   ]
 
   return (
     <div className="flex-1 min-w-0 pb-10">
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleStoryFile} />
 
       {/* ------------------------------------------------ header (IG-style) */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-6">
         <div className="flex items-center gap-6 sm:gap-10">
-          {/* Avatar with story ring when you have live stories */}
-          <div
-            className={cn(
-              'rounded-full shrink-0',
-              stories.length > 0 ? 'bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[3px]' : 'bg-muted-foreground/25 p-[3px]'
-            )}
-          >
+          {/* Avatar */}
+          <div className="rounded-full shrink-0 bg-muted-foreground/25 p-[3px]">
             <div className="rounded-full bg-background p-[2px]">
               <Avatar className="w-20 h-20 sm:w-24 sm:h-24 overflow-hidden">
                 {me.profilePicture ? (
@@ -2257,10 +2161,10 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
               </Avatar>
             </div>
           </div>
-          {/* Stats - Instagram puts them beside the avatar. v224 mobile pass:
-              4 columns crush "Following"-width labels on a 360px phone, so
-              phones get a roomy 2x2 and sm+ keeps the single row. */}
-          <div className="flex-1 grid grid-cols-2 gap-2 text-center sm:grid-cols-4 sm:gap-1">
+          {/* Stats - Instagram puts them beside the avatar. v270: three
+              stats - Posts, Listings, Products - in a single row (the old
+              fourth cell was the Stories count). */}
+          <div className="flex-1 grid grid-cols-3 gap-2 text-center sm:gap-1">
             {stats.map((s) => (
               <div key={s.label}>
                 <p className="text-lg sm:text-xl font-bold text-foreground leading-tight">{loading ? '·' : s.value}</p>
@@ -2315,43 +2219,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
             {isIdVerified ? <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" /> : <ShieldCheck className="w-4 h-4 text-primary shrink-0" />}
             {isIdVerified ? 'Verified' : 'Get verified'}
           </Button>
-          <Button onClick={pickStoryImage} className="flex-1 min-w-[calc(50%-0.25rem)] sm:min-w-0 h-9 rounded-lg text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
-            <Camera className="w-4 h-4" /> New story
-          </Button>
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------ stories row */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 mt-4">
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto py-1 scrollbar-thin">
-          {/* Add / Your story */}
-          <button onClick={pickStoryImage} className="shrink-0 flex flex-col items-center gap-1 w-16" aria-label="Add to your story">
-            <div className="relative w-14 h-14 rounded-full border border-border flex items-center justify-center bg-accent/40">
-              <Plus className="w-5 h-5 text-primary" />
-              {stories.length > 0 && (stories[stories.length - 1].imageUrl ? (
-                <img loading="lazy" decoding="async" src={stories[stories.length - 1].imageUrl!} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover opacity-40" />
-              ) : (
-                <span className="absolute inset-0 w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 opacity-60" />
-              ))}
-            </div>
-            <span className="text-[10px] text-muted-foreground">Your story</span>
-          </button>
-          {stories.map((s, i) => (
-            <button key={s.id} onClick={() => setViewerIndex(i)} className="shrink-0 flex flex-col items-center gap-1 w-16" aria-label={`Open story from ${timeAgo(s.createdAt)}`}>
-              <div className="rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2.5px] w-14 h-14">
-                <div className="rounded-full bg-background p-[1.5px] w-full h-full">
-                  {s.imageUrl ? (
-                    <img src={s.imageUrl} alt="Your story" className="w-full h-full rounded-full object-cover" loading="lazy" />
-                  ) : (
-                    <span className="w-full h-full rounded-full bg-gradient-to-br from-primary/25 to-emerald-100 dark:to-emerald-950 flex items-center justify-center text-[7px] font-bold text-primary leading-none text-center px-0.5">
-                      {s.pricePost ? `${s.pricePost.currency} ${s.pricePost.priceMin}` : 'Price'}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <span className="text-[10px] text-muted-foreground">{timeAgo(s.createdAt).replace(' ago', '')}</span>
-            </button>
-          ))}
         </div>
       </div>
 
@@ -2464,100 +2331,6 @@ export function ProfileTab({ me, editSignal = 0, initialSection = null, sectionB
           </>
         )}
       </div>
-
-      {/* --------------------------------------------- story viewer (dark) */}
-      <Dialog open={viewerIndex >= 0} onOpenChange={(o) => { if (!o) setViewerIndex(-1) }}>
-        <DialogContent className="max-w-[420px] w-[calc(100vw-2rem)] h-[80vh] p-0 bg-black border-0 overflow-hidden gap-0 [&>button]:hidden">
-          <DialogTitle className="sr-only">Story</DialogTitle>
-          {viewerIndex >= 0 && stories[viewerIndex] && (
-            <div className="relative w-full h-full select-none">
-              {/* progress segments */}
-              <div className="absolute top-2 inset-x-2 z-20 flex gap-1">
-                {stories.map((_, i) => (
-                  <div key={i} className="h-0.5 flex-1 rounded-full overflow-hidden bg-card/30">
-                    <div className={cn('h-full bg-card transition-all duration-500', i < viewerIndex ? 'w-full' : i === viewerIndex ? 'w-full' : 'w-0')} />
-                  </div>
-                ))}
-              </div>
-              {/* author + actions */}
-              <div className="absolute top-5 inset-x-2 z-20 flex items-center gap-2">
-                <Avatar className="w-7 h-7 overflow-hidden">
-                  {stories[viewerIndex].author?.profilePicture ? (
-                    <img loading="lazy" decoding="async" src={avatarSrc(stories[viewerIndex].author!.profilePicture!)} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <AvatarFallback className="bg-primary/30 text-white text-[10px] font-bold">{me.name.charAt(0).toUpperCase()}</AvatarFallback>
-                  )}
-                </Avatar>
-                <span className="text-xs font-medium text-white">{me.name}</span>
-                <span className="text-[10px] text-white/70">{timeAgo(stories[viewerIndex].createdAt)}</span>
-                <div className="ml-auto flex items-center gap-1">
-                  <button onClick={() => setConfirm({ kind: 'story', id: stories[viewerIndex].id, label: 'Story' })}
-                    className="p-1.5 rounded-full hover:bg-card/15 text-white" aria-label="Delete story">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setViewerIndex(-1)} className="p-1.5 rounded-full hover:bg-card/15 text-white" aria-label="Close story">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              {/* image (photo stories) or price banner (imageless price stories) */}
-              {stories[viewerIndex].imageUrl ? (
-                <img loading="lazy" decoding="async" src={stories[viewerIndex].imageUrl} alt="Story" className="absolute inset-0 w-full h-full object-contain" />
-              ) : (
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-emerald-600 via-primary to-emerald-900 flex flex-col items-center justify-center text-center px-6 gap-2">
-                  {stories[viewerIndex].pricePost && (
-                    <>
-                      <span className="text-3xl font-black text-white drop-shadow">
-                        {stories[viewerIndex].pricePost.currency} {stories[viewerIndex].pricePost.priceMin}{stories[viewerIndex].pricePost.priceMin !== stories[viewerIndex].pricePost.priceMax ? `-${stories[viewerIndex].pricePost.priceMax}` : ''}
-                      </span>
-                      <span className="text-base font-semibold text-white/95 drop-shadow">{stories[viewerIndex].pricePost.productName}</span>
-                    </>
-                  )}
-                  <span className="text-[9px] uppercase tracking-widest text-white/60 mt-2">circubAwd price story</span>
-                </div>
-              )}
-              {/* caption */}
-              {stories[viewerIndex].caption && (
-                <div className="absolute bottom-6 inset-x-4 z-20 text-center">
-                  <p className="inline-block px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur text-white text-sm">{stories[viewerIndex].caption}</p>
-                </div>
-              )}
-              {/* tap zones + arrows */}
-              <button className="absolute inset-y-0 left-0 w-1/3 z-10 focus:outline-none" aria-label="Previous"
-                onClick={() => setViewerIndex((i) => (i > 0 ? i - 1 : 0))} />
-              <button className="absolute inset-y-0 right-0 w-2/3 z-10 focus:outline-none" aria-label="Next"
-                onClick={() => setViewerIndex((i) => (i + 1 >= stories.length ? -1 : i + 1))} />
-              {viewerIndex > 0 && (
-                <button onClick={() => setViewerIndex((i) => Math.max(0, i - 1))} aria-label="Previous story"
-                  className="hidden sm:flex absolute left-[-56px] top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-card shadow-md items-center justify-center text-foreground">
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-              )}
-              {viewerIndex < stories.length - 1 && (
-                <button onClick={() => setViewerIndex((i) => i + 1)} aria-label="Next story"
-                  className="hidden sm:flex absolute right-[-56px] top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-card shadow-md items-center justify-center text-foreground">
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* -------------------------------------------------- new story modal */}
-      <Dialog open={!!newStoryImage} onOpenChange={(o) => { if (!o) { setNewStoryImage(null); setNewStoryCaption('') } }}>
-        <DialogContent className="max-w-sm">
-          <DialogTitle className="sr-only">New story</DialogTitle>
-          <h3 className="text-base font-bold text-foreground">New story</h3>
-          <p className="text-xs text-muted-foreground -mt-1">Visible for 24 hours, then it disappears automatically.</p>
-          {newStoryImage && <img loading="lazy" decoding="async" src={newStoryImage} alt="Story preview" className="w-full max-h-[50vh] object-contain rounded-lg bg-black/5" />}
-          <Input value={newStoryCaption} onChange={(e) => setNewStoryCaption(e.target.value)} placeholder="Add a caption (optional)" maxLength={300} />
-          <Button onClick={shareStory} disabled={publishing} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5">
-            {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {publishing ? 'Sharing...' : 'Share story'}
-          </Button>
-        </DialogContent>
-      </Dialog>
 
       {/* ------------------------------------------------- post view dialog */}
       <Dialog open={!!postView} onOpenChange={(o) => { if (!o) setPostView(null) }}>

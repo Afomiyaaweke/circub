@@ -1,5 +1,55 @@
 # circubAwd worklog
 
+## v270 (2026-11-19) - The post-story feature is GONE, everywhere
+User: "remove the post story session at all". The 24h Instagram-style stories
+feature had four surfaces - the PriceStoriesStrip on the Local feed (rings +
+dark story viewer), the composer's "Also share as a 24h story banner"
+checkbox (ON by default) plus the server-side auto-story created on every
+price publish, the profile tab's whole story section (avatar story ring,
+24-hour Stories row with Your-story add tile, "New story" camera button +
+picker + caption modal, dark story viewer, a fourth "Stories" stat), and the
+API/DB layer (/api/stories GET/POST/DELETE + the Story Prisma model with its
+cascade back-relations). v270 removes ALL of it:
+
+UI: price-stories-strip.tsx deleted - the Local feed now starts directly
+with the action row; local-feed-tab import + render gone. Composer: the
+also-story row/checkbox removed, alsoStory no longer sent (single or bulk
+defaults), the publish toast no longer advertises a story banner, draft
+save/restore drops the flag, bulk defaults stop forcing alsoStory:false.
+Profile: MyStory interface, Deletable 'story' kind, stories state, story
+fetch in fetchAll, story back-close registrations, the 6s auto-advance
+effect, pickStoryImage/handleStoryFile/shareStory handlers, the story
+branch in doDelete, the hidden story file input, the avatar story ring
+(now a plain ring), the "New story" action button, the whole Stories row,
+the dark story viewer and the New-story modal are all deleted; the stats
+row shrinks to three (Posts / Listings / Products, grid-cols-3 on phones
+too) and the guest upsell line no longer mentions stories.
+
+API/DB: /api/stories GET+POST and /api/stories/[id] DELETE routes deleted
+(both 404 now); POST /api/local-prices no longer auto-creates a 24h story -
+the response is { post, product } with no story key, and a legacy
+alsoStory:true body is silently ignored; /api/local-prices/bulk accepts the
+legacy defaults.alsoStory flag without breaking and creates no per-row
+stories; the seed wipe list and scripts/task64_db_audit.py drop the Story
+table; types.ts loses PriceStory/PriceStoryPost; prisma schema.prisma +
+schema.postgres.prisma lose the Story model and its User/LocalPricePost
+back-relations (prisma generate clean); globals.css loses the
+story-progress animation; stale story comments cleaned (upload route,
+back-close, products cascade comment).
+
+Proof: task270_stories_removed_probe 22/22 - version v270, GET/DELETE
+/api/stories 404, POST /api/local-prices with alsoStory:true still 201 and
+the response carries NO story key, bulk with the legacy flag count=2, the
+published post lives on the Local feed, member + guest Local feed show no
+strip/rings/"Price stories" copy, the composer has no story checkbox/copy,
+the profile has no New-story button / Your-story entry / Stories stat and
+renders the three stats, and local home + composer + profile are zero-
+overflow at 390px AND 320px. Regressions: task239 29/29, task257 8/8,
+task258 contract 11/11 + UI 9/9, task259 15/15, task260 9/9, task261 14/14,
+task262 21/21, task263 contract 20/20 + UI 24/24, task264 reel 53/53,
+task265 24/24, task266 13/13, task267 28/28, task268 16/16, task269 29/29.
+tsc 20 baseline; build exit 0; sw.js circub-v270.
+
 ## v269 (2026-11-19) - The SEO is GLOBAL; worldwide coverage said out loud to crawlers
 User: "make the seo not only in ethiopia make it more global". An audit of what
 crawlers actually see (SSR head + rendered guest shell) showed the coverage was

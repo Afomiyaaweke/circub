@@ -5,7 +5,7 @@ export const runtime = 'nodejs'
 // ============================================================================
 // MEDIA UPLOAD - accepts FormData 'file', returns { url } for direct use in
 // <img>/<video>. The URL is a base64 data URL persisted by the caller (post
-// imageUrl, avatar, product image, story, guide document), so it works on any
+// imageUrl, avatar, product image, guide document), so it works on any
 // host - including serverless/read-only filesystems where writing to public/
 // would be lost.
 //

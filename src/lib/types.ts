@@ -238,39 +238,6 @@ export interface PriceHistoryPoint {
   date?: string
 }
 
-// A story shared from a price post (24h banner in the feed strip).
-export interface PriceStoryPost {
-  id: string
-  productName: string
-  category?: string
-  currency: string
-  priceMin: number
-  priceMax: number
-  city?: string | null
-  country?: string | null
-  imageUrl?: string | null
-}
-
-export interface PriceStory {
-  id: string
-  imageUrl?: string | null // null on imageless price stories -> banner render
-  caption?: string | null
-  authorId: string
-  author?: {
-    id: string
-    name: string
-    avatarColor: string
-    profilePicture?: string | null
-    verifiedLocal?: boolean
-    isLocal?: boolean
-    idVerified?: boolean
-  } | null
-  pricePostId?: string | null
-  pricePost?: PriceStoryPost | null
-  createdAt: string
-  expiresAt: string
-}
-
 export interface LocalPriceHistory {
   productName: string
   country: string

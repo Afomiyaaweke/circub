@@ -152,9 +152,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
   // them when the composer publishes with destination='feed'.
   const [receiptMerchant, setReceiptMerchant] = useState('')
   const [receiptDate, setReceiptDate] = useState('')
-  // "Make it story while posting a new price": ON by default - publishing
-  // also shares the price as a 24h story banner in the feed's stories strip.
-  const [alsoStory, setAlsoStory] = useState(true)
   // v122: marketplace details from the unified composer. unit '' = 'each'
   // (no suffix); quantity '' = not set. Both ride along to the auto-created
   // product listing.
@@ -278,7 +275,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
         if (typeof d.unit === 'string') setUnit(d.unit)
         if (typeof d.priceListText === 'string') setPriceListText(d.priceListText)
         if (Array.isArray(d.listRows)) setListRows(d.listRows)
-        if (typeof d.alsoStory === 'boolean') setAlsoStory(d.alsoStory)
         // Land the conversation on the first question the draft left open.
         setAskStep(
           !(d.location || '').trim() ? 1
@@ -304,7 +300,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
         postType, productName, description, category, currency, priceMin, priceMax,
         localTip, contactPhone, contactEmail, contactWhatsApp, location, neighborhood,
         market, ownsShop, shopOwnerName, quantity, unit, priceListText, listRows,
-        alsoStory, ts: Date.now(),
+        ts: Date.now(),
       }))
       toast({ title: 'Draft saved on this device', description: 'Reopen the composer and tap Restore to continue where you left off.' })
       reset()
@@ -332,7 +328,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
     setPriceListText('')
     setListRows([])
     setListHint(null)
-    setAlsoStory(true)
     setQuantity('')
     setUnit('')
     setCategory('Other')
@@ -438,7 +433,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
       }
       setListRows(mapped)
       // The first row fills the form so a one-item list behaves like a
-      // normal single post (photo and the story banner still apply).
+      // normal single post (the photo still applies).
       const first = mapped[0]
       setProductName(first.productName)
       const raw = first.price.replace(/[^0-9.\-]/g, '')
@@ -576,8 +571,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
     // v189: with TWO or more parsed price-list rows the composer publishes
     // the whole list through the bulk endpoint - one price post per row,
     // every row carrying the conversation's location, category, currency
-    // and contacts. Photo, local tip and the story banner stay single-post
-    // features.
+    // and contacts. Photo and local tip stay single-post features.
     const listMode = listRows.length >= 2
     // v178: ONE price is enough. The composer used to demand BOTH a min and
     // a max, so a user who knows a single price had to type it twice before
@@ -728,9 +722,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
               // the Shop owner badge, unticked = ordinary shared prices.
               ownsShop,
               shopOwnerName: ownsShop ? shopOwnerName.trim() : '',
-              // A multi-row list must not flood the stories strip - bulk
-              // stories stay OFF (the bulk poster's own rule since v173).
-              alsoStory: false,
             },
           }),
         })
@@ -785,7 +776,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
           // v189: the shop name rides along (same column the bulk poster
           // fills) so a single first-party post shows WHO sells it.
           shopOwnerName: ownsShop ? shopOwnerName.trim() : '',
-          alsoStory,
           quantity,
           unit,
           category,
@@ -796,17 +786,9 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
         const e = await res.json()
         throw new Error(e.error || 'Failed to save')
       }
-      const data = await res.json().catch(() => ({ story: null }))
-      if (data?.story) {
-        // Tell the stories strip on the feed to refetch - the new banner
-        // appears without a reload.
-        try { window.dispatchEvent(new Event('circub:stories-changed')) } catch {}
-      }
       toast({
         title: 'Price published - and listed!',
-        description: data?.story
-          ? `${productName} is live as a price guide, a 24h story banner AND a product on your profile.`
-          : `${productName} is live as a price guide and a product on your profile.`,
+        description: `${productName} is live as a price guide and a product on your profile.`,
       })
       reset()
       onOpenChange(false)
@@ -1175,7 +1157,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
                   </div>
                 </div>
 
-                {/* PHOTO + story - the dashed photo box from the mockup.
+                {/* PHOTO - the dashed photo box from the mockup.
                     The AI reads the photo and pulls matching real prices. */}
                 <div>
                   <input
@@ -1218,24 +1200,6 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
                     attached photo - price the product against the feed
                     BEFORE publishing. */}
                 {(comparing || compareResult) && <ComparePreview result={compareResult} identifying={comparing} />}
-
-                {/* Share as story - ON by default. */}
-                <label
-                  data-testid="also-story-row"
-                  className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 cursor-pointer select-none"
-                >
-                  <input
-                    type="checkbox"
-                    checked={alsoStory}
-                    onChange={(e) => setAlsoStory(e.target.checked)}
-                    className="mt-0.5 accent-emerald-600 w-4 h-4"
-                    data-testid="also-story-checkbox"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-xs font-semibold text-foreground">Also share as a 24h story banner</span>
-                    <span className="block text-[11px] text-muted-foreground mt-0.5">Your price appears in the stories strip at the top of the feed for 24 hours.</span>
-                  </span>
-                </label>
 
                 {/* Optional details - the power features live in ONE
                     collapsible so the conversation stays the whole surface:
