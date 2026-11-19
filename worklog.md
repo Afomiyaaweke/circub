@@ -45,6 +45,20 @@ redirect for Configuration, access_denied chain ends inside the app, debug
 endpoint healthy, token probe returns a real Google verdict, handoff intact,
 webview toast blocks navigation), task271_local_google_session_probe 6/6
 (forged Google session -> /me 200, auto-create works, tampered cookie 401).
+Prod (7fe1b02 live): task271_prod_spotcheck 7/7 - sw.js circub-v271, config
+endpoint configured:true, Configuration error hops straight to
+/?error=Configuration, access_denied chain ends inside the app, token probe
+verdict invalid_grant = HEALTHY (Google ACCEPTS the prod client_id +
+client_secret, so the server config is not the failure), click-through
+reaches the clean Google sign-in page, WhatsApp-UA click shows the webview
+toast with zero navigation; task269_prod_spotcheck 9/9, task270_prod_spotcheck
+14/14. Bottom line for the report: the server chain is healthy end to end -
+the realistic failure modes are Google blocking OAuth inside chat-app
+webviews (now detected + explained in-app) and transient roundtrip errors
+(now shown with the exact NextAuth code on the in-app banner); remaining
+unverifiable-without-a-Google-account possibilities are consent-screen
+Testing mode / unverified-app gating, which Google reports AFTER the account
+sign-in and would read as "Access blocked" on Google's own page.
 Regressions: 345/345 across the full suite (task239 29, task257 8, task258
 contract 11 + UI 9, task259 15, task260 9, task261 14, task262 21, task263
 contract 20 + UI 24, task264 53, task265 24, task266 13, task267 28, task268
