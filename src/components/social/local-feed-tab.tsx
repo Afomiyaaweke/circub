@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
-import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Search } from 'lucide-react'
+import { MapPin, Plus, PackageOpen, X, Loader2, BadgeCheck, PenLine, ClipboardList, Search, Globe } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,38 @@ import type { LocalPricePost } from '@/lib/types'
 // The reader scrolls, the bottom sentinel asks for the next 10; the server
 // never answers a take-100 query from the feed again.
 const FEED_STEP = 10
+
+// ============================================================================
+// v269 GLOBAL SEO - WORLD SAMPLE PRICES strip.
+// The Local feed is the app's crawled home surface, and every real post on
+// it today comes from one market, so crawlers read circubAwd as a single-
+// country site. These display-only sample cards sit ABOVE the "Local
+// Products" grid whenever no filter is active and show the SAME card format
+// from eight cities across four continents, each in its own currency -
+// honest typical ranges, no fake precision. Same rules as the v267 receipt
+// seeds: display-only, no open/vote/edit/delete, and they are clearly
+// labelled samples.
+// ============================================================================
+interface WorldSample {
+  id: string
+  name: string
+  city: string
+  country: string
+  currency: string
+  min: number
+  max: number
+}
+
+const WORLD_SAMPLE_POSTS: WorldSample[] = [
+  { id: 'seed-world-nairobi', name: 'Matatu fare - CBD to Westlands', city: 'Nairobi', country: 'Kenya', currency: 'KES', min: 100, max: 200 },
+  { id: 'seed-world-lagos', name: 'Generator repair call-out', city: 'Lagos', country: 'Nigeria', currency: 'NGN', min: 8000, max: 15000 },
+  { id: 'seed-world-london', name: 'Flat white (café)', city: 'London', country: 'United Kingdom', currency: 'GBP', min: 3.2, max: 4.5 },
+  { id: 'seed-world-manila', name: 'Mango (per kg, wet market)', city: 'Manila', country: 'Philippines', currency: 'PHP', min: 120, max: 180 },
+  { id: 'seed-world-dubai', name: 'Abra ride across the Creek', city: 'Dubai', country: 'United Arab Emirates', currency: 'AED', min: 1, max: 3 },
+  { id: 'seed-world-berlin', name: 'Späti beer (0.5L)', city: 'Berlin', country: 'Germany', currency: 'EUR', min: 1.5, max: 2.5 },
+  { id: 'seed-world-mexico', name: 'Street taco', city: 'Mexico City', country: 'Mexico', currency: 'MXN', min: 15, max: 25 },
+  { id: 'seed-world-tokyo', name: 'Ramen bowl (shoyu)', city: 'Tokyo', country: 'Japan', currency: 'JPY', min: 900, max: 1400 },
+]
 
 interface LocalFeedTabProps {
   onRefreshUser: () => void
@@ -778,7 +810,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
           data-testid="local-search-toggle"
           aria-expanded={searchOpen}
           aria-label={searchOpen ? 'Close search' : 'Search prices'}
-          title={searchOpen ? 'Close search' : 'Search prices - try "coffee, Addis Ababa"'}
+          title={searchOpen ? 'Close search' : 'Search prices - try "coffee, Nairobi" - or any city'}
           className={cn(
             'relative inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border shadow-sm transition-colors cursor-pointer',
             searchOpen || search
@@ -818,7 +850,7 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
             autoComplete="off"
             autoFocus
             data-testid="local-search-input"
-            placeholder='Search prices... try "coffee, Addis Ababa"'
+            placeholder='Search prices... try "coffee, Nairobi" - or any city'
             value={searchRaw}
             onChange={(e) => setSearchRaw(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') setSearch((searchCommaIdx === -1 ? searchRaw : searchRaw.slice(0, searchCommaIdx)).trim()) }}
@@ -1148,6 +1180,39 @@ export function LocalFeedTab({ onRefreshUser, onMessage, onRequireSignUp, onRequ
         </Card>
       ) : (
         <>
+          {/* v269 GLOBAL SEO: the World prices sample strip - eight display-
+              only sample cards from eight cities in their own currencies,
+              shown while no filter is active, so the crawled home surface
+              reads as a worldwide price guide (and new users see the format
+              beyond their own market). Purely display-only. */}
+          {(!search && country === 'All countries' && city === 'All cities' && category === ALL_CATEGORIES && ownerFilter === 'all') && (
+            <section aria-label="World prices - sample prices from around the world" data-testid="world-prices-strip" className="rounded-2xl border border-border bg-card/60 p-3">
+              <div className="flex items-center gap-2 px-1">
+                <Globe className="w-4 h-4 text-primary shrink-0" />
+                <h2 className="text-sm font-bold text-foreground leading-tight">World prices</h2>
+                <span className="text-[11px] text-muted-foreground min-w-0 truncate">sample prices from eight cities, in their own currencies</span>
+              </div>
+              <div className="mt-2 flex gap-2.5 overflow-x-auto scrollbar-thin pb-1" data-testid="world-prices-row">
+                {WORLD_SAMPLE_POSTS.map((w) => (
+                  <div
+                    key={w.id}
+                    data-testid={`world-sample-card-${w.id.replace('seed-world-', '')}`}
+                    className="shrink-0 w-[150px] rounded-xl border border-border bg-background p-2.5 flex flex-col gap-1"
+                  >
+                    <span className="inline-flex self-start items-center gap-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                      <Globe className="w-2.5 h-2.5" /> Sample
+                    </span>
+                    <p className="text-[11px] font-semibold text-foreground leading-snug line-clamp-2 min-h-[2.2rem]">{w.name}</p>
+                    <p className="text-xs font-bold text-primary">{w.currency} {w.min.toLocaleString('en-US')} - {w.max.toLocaleString('en-US')}</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 min-w-0">
+                      <MapPin className="w-2.5 h-2.5 shrink-0" />
+                      <span className="truncate">{w.city}, {w.country}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
           {/* v226: Dantty-style "Local Products" marketplace section - the
               price posts ARE the products. Square-photo cards in a dense
               grid (2 cols on phones, 4 on desktop) with one Compare

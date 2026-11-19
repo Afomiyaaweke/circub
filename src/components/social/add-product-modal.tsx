@@ -217,7 +217,7 @@ export function AddProductModal({ open, onOpenChange, onCreated }: AddProductMod
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
-                  placeholder="e.g. Ethiopian Arabica Coffee Beans"
+                  placeholder="e.g. Arabica Coffee Beans (1kg)"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="pl-9"

@@ -1068,9 +1068,9 @@ export function BulkPostModal({ open, onOpenChange, onCreated }: BulkPostModalPr
               )}
               {showLoc && (
                 <div className="flex items-center gap-1.5 flex-wrap" data-testid="bulk-location-editors">
-                  <Input value={defCity} onChange={(e) => setDefCity(e.target.value)} className="h-8 text-xs w-[calc(50%-0.75rem)] sm:w-40 bg-card" placeholder="e.g. Addis Ababa" data-testid="bulk-default-city" />
+                  <Input value={defCity} onChange={(e) => setDefCity(e.target.value)} className="h-8 text-xs w-[calc(50%-0.75rem)] sm:w-40 bg-card" placeholder="e.g. Nairobi" data-testid="bulk-default-city" />
                   <span className="hidden sm:inline text-muted-foreground text-xs">,</span>
-                  <Input value={defCountry} onChange={(e) => setDefCountry(e.target.value)} className="h-8 text-xs w-[calc(50%-0.75rem)] sm:w-40 bg-card" placeholder="e.g. Ethiopia" data-testid="bulk-default-country" />
+                  <Input value={defCountry} onChange={(e) => setDefCountry(e.target.value)} className="h-8 text-xs w-[calc(50%-0.75rem)] sm:w-40 bg-card" placeholder="e.g. Kenya" data-testid="bulk-default-country" />
                   <p className="text-[11px] text-muted-foreground w-full">Applies to every row left empty - row cells always win.</p>
                 </div>
               )}

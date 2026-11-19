@@ -914,7 +914,7 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
             </div>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pl-[42px]">
-            {location.trim() || 'Addis Ababa, Ethiopia'} - answer a few quick questions and I&apos;ll drop the price for you. One drop publishes the price guide AND the product listing on your profile.
+            {location.trim() || 'your city'} - answer a few quick questions and I&apos;ll drop the price for you. One drop publishes the price guide AND the product listing on your profile.
           </DialogDescription>
         </DialogHeader>
 
@@ -958,12 +958,12 @@ export function CreatePricePostModal({ open, onOpenChange, onCreated, prefill, d
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-foreground">Where did you buy or find it?</p>
-                    <p className="text-[11px] text-muted-foreground">Type it as City, Country - e.g. Addis Ababa, Ethiopia.</p>
+                    <p className="text-[11px] text-muted-foreground">Type it as City, Country - e.g. Nairobi, Kenya or London, UK.</p>
                   </div>
                 </div>
                 <Input
                   data-testid="composer-location-input"
-                  placeholder="e.g. Addis Ababa, Ethiopia"
+                  placeholder="e.g. Nairobi, Kenya"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && location.trim()) { e.preventDefault(); setAskStep(2) } }}

@@ -717,7 +717,7 @@ export function HelpClient() {
               <input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="Location - e.g. Merkato, Addis"
+                placeholder="Location - e.g. Kariakoo, Dar es Salaam"
                 maxLength={120}
                 className={questInputCls}
                 data-testid="quest-input-location"

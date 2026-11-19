@@ -1163,7 +1163,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
               <input
                 value={qLocation}
                 onChange={(e) => setQLocation(e.target.value)}
-                placeholder="Location - e.g. Merkato, Addis"
+                placeholder="Location - e.g. Kariakoo, Dar es Salaam"
                 maxLength={120}
                 className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 data-testid="quest-input-location"

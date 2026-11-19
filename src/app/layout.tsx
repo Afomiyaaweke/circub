@@ -23,9 +23,15 @@ const geistSans = Geist({
 // research real prices and real answers in any city.
 export const metadata: Metadata = {
   metadataBase: new URL("https://circubawd.vercel.app"),
-  title: "circubAwd · Market research in minutes - real prices and answers from locals",
-  description: "The best market research tool is the crowd that lives there. Real local prices, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - free on circubAwd.",
-  keywords: ["market research", "market research tool", "best market research tool", "price intelligence", "consumer insights", "field research", "real local prices", "travel prices", "what things cost", "verified locals", "community prices", "find local businesses", "proforma", "registered sales", "circubAwd"],
+  // v269 GLOBAL SEO: the title / description / keywords now say the coverage
+  // out loud - any city, any country, any currency - so Google and the AI
+  // answer engines rank circubAwd for worldwide price research, not one
+  // market. (The community itself is worldwide: prices post wherever locals
+  // post, the composer resolves every UN member state, and the app UI ships
+  // in six languages.)
+  title: "circubAwd · Market research in minutes - real prices and answers from locals in any country",
+  description: "Real local prices from any city and any country, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - the worldwide crowd-sourced price guide, free on circubAwd.",
+  keywords: ["market research", "market research tool", "best market research tool", "price intelligence", "consumer insights", "field research", "real local prices", "prices worldwide", "global price comparison", "cost of living comparison", "travel prices", "travel budget planner", "what things cost", "what things cost around the world", "verified locals", "community prices", "local prices any country", "find local businesses", "proforma", "registered sales", "circubAwd"],
   authors: [{ name: "circubAwd Team" }],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -41,7 +47,16 @@ export const metadata: Metadata = {
   verification: {
     google: "k4y2XXT7oVqj2RFHW2DErwumylcLCunw9gsFo9ld3ts",
   },
-  alternates: { canonical: "/" },
+  // v269: hreflang makes the region coverage explicit - one canonical page,
+  // the default for every locale (x-default) plus English, so search engines
+  // never scope the site to one country by accident.
+  alternates: {
+    canonical: "/",
+    languages: {
+      "x-default": "/",
+      "en": "/",
+    },
+  },
   robots: {
     index: true,
     follow: true,
@@ -63,24 +78,25 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "circubAwd · Market research in minutes - real prices and answers from locals",
-    description: "The best market research tool is the crowd that lives there. Real local prices, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - free on circubAwd.",
+    title: "circubAwd · Market research in minutes - real prices and answers from locals in any country",
+    description: "Real local prices from any city and any country, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - the worldwide crowd-sourced price guide, free on circubAwd.",
     url: "/",
     siteName: "circubAwd",
     type: "website",
+    locale: "en_US",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "circubAwd - know what things actually cost while you travel, from the locals",
+        alt: "circubAwd - know what things actually cost anywhere in the world, from the locals",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "circubAwd · Market research in minutes - real prices and answers from locals",
-    description: "The best market research tool is the crowd that lives there. Real local prices, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - free on circubAwd.",
+    title: "circubAwd · Market research in minutes - real prices and answers from locals in any country",
+    description: "Real local prices from any city and any country, cash-bounty questions answered in minutes, an AI price scanner, itemized proforma estimates and registered sellers - the worldwide crowd-sourced price guide, free on circubAwd.",
     images: ["/og-image.png"],
   },
 };
@@ -100,7 +116,7 @@ const SITE_JSON_LD = {
       "url": "https://circubawd.vercel.app/",
       "inLanguage": "en",
       "description":
-        "Market research in minutes: locals post real prices for products, services, restaurants and transport, answer cash-bounty questions, and the community votes so accurate data rises to the top.",
+        "Market research in minutes, worldwide: locals in any city and any country post real prices for products, services, restaurants and transport, answer cash-bounty questions, and the community votes so accurate data rises to the top.",
     },
     {
       "@type": "WebApplication",
@@ -111,7 +127,14 @@ const SITE_JSON_LD = {
       "operatingSystem": "Any (installable web app - Android, iOS, desktop)",
       "browserRequirements": "Requires JavaScript",
       "description":
-        "The fastest market research tool for any city: real local prices, cash-bounty questions answered by locals in minutes, an AI price scanner, an itemized proforma cost estimator, on-demand research talent, and registered sellers. Free, no app store needed.",
+        "The fastest market research tool for any city and any country: real local prices, cash-bounty questions answered by locals in minutes, an AI price scanner, an itemized proforma cost estimator, on-demand research talent, and registered sellers. Free, no app store needed.",
+      // v269 GLOBAL: tell the machines the coverage explicitly - worldwide
+      // service area, prices in any currency, and the six UI languages the
+      // app actually ships in (i18n.tsx LANGUAGES).
+      "areaServed": "Worldwide",
+      "availableLanguage": [
+        "English", "Amharic", "Swahili", "Arabic", "French", "Chinese"
+      ],
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -119,6 +142,7 @@ const SITE_JSON_LD = {
       },
       "featureList": [
         "Price intelligence - real local prices posted by locals",
+        "Prices in any currency - any city, any country",
         "Cash-bounty questions answered by locals in minutes",
         "AI price scanner (PriceLens)",
         "Itemized proforma cost estimator",
@@ -138,6 +162,7 @@ const SITE_JSON_LD = {
       "url": "https://circubawd.vercel.app/",
       "logo": "https://circubawd.vercel.app/logo.png",
       "email": "support@tenetbid.com",
+      "areaServed": "Worldwide",
     },
   ],
 };
