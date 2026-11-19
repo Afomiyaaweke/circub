@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
-import { startGoogleSignIn } from '@/lib/google-signin'
+import { startGoogleSignIn, googleSignInFailureText } from '@/lib/google-signin'
 import { useLanguage } from '@/lib/i18n'
 
 interface RegisterModalProps {
@@ -137,14 +137,13 @@ export function RegisterModal({ open, onOpenChange, onAuthed, onSwitchToLogin }:
       return
     }
     setGoogleLoading(true)
-    const ok = await startGoogleSignIn()
-    if (!ok) {
+    // v271: typed failure reasons - a 'webview' detection gets the specific
+    // "open in Chrome / Safari" message instead of a generic retry toast.
+    const result = await startGoogleSignIn()
+    if (result !== 'ok') {
       setGoogleLoading(false)
-      toast({
-        title: 'Google sign-in unavailable',
-        description: 'Google OAuth is not configured on this server. Use email + password instead.',
-        variant: 'destructive',
-      })
+      const { title, description } = googleSignInFailureText(result)
+      toast({ title, description, variant: 'destructive' })
     }
     // If ok, the browser is navigating away to Google — leave loading state on.
   }

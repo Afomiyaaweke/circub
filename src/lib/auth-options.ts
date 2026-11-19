@@ -30,26 +30,17 @@ if (
 // dance and still appear signed out. Passing these exact options everywhere
 // keeps the secret and provider config identical on both sides.
 //
-// Dynamic NextAuth URL - works on Vercel production + preview + localhost.
-//
-// CRITICAL for Google OAuth: the redirect_uri we send to Google MUST match
-// what's in Google Cloud Console → Authorized redirect URIs.
-//
-// Resolution order:
-//   1. NEXTAUTH_URL env var IF it's not a localhost URL on Vercel production
-//      (catches the common mistake of accidentally setting
-//       NEXTAUTH_URL=http://localhost:3000 in Vercel env vars)
-//   2. VERCEL_URL env var (auto-set by Vercel for every deployment)
-//   3. NODE_ENV=development → http://localhost:3000 (local dev fallback)
-//   4. undefined (let NextAuth infer from the request host)
-//
-// IMPORTANT - the matching redirect URI must exist in Google Console:
-//   - For production: https://circubawd.vercel.app/api/auth/callback/google
-//   - For each preview URL you want to test: https://<preview>.vercel.app/api/auth/callback/google
-//   - For local dev: http://localhost:3000/api/auth/callback/google
-//
-// To get a STABLE redirect_uri that doesn't change per deploy, set
-// NEXTAUTH_URL=https://circubawd.vercel.app in Vercel env vars (Production only).
+// v271 TRUTH about the `url` option: next-auth/core/init.js spreads
+// ...authOptions and then OVERWRITES options.url with parseUrl(request
+// origin), so whatever this module exports under `url` is never used by the
+// core - redirect_uri, callbackUrl validation and every redirect are built
+// from the REQUEST host (verified: prod handshake emits redirect_uri=
+// https://circubawd.vercel.app/... even when this function returned the
+// per-deployment VERCEL_URL). The helper below is kept only as
+// documentation + for anything external that reads nextAuthOptions.url
+// directly; the old VERCEL_URL branch that returned rotating per-deployment
+// URLs (circub-xxxx.vercel.app) is gone because it was misleading and, in
+// the event next-auth ever stops overriding, actively wrong for OAuth.
 function getAuthUrl(): string | undefined {
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
 
@@ -58,20 +49,22 @@ function getAuthUrl(): string | undefined {
     // always a leaked local-dev value that breaks OAuth.
     if (isProd && process.env.NEXTAUTH_URL.startsWith('http://localhost')) {
       console.warn(
-        `[nextauth] NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL} on production - ignoring and falling back to VERCEL_URL. To use a custom domain, set NEXTAUTH_URL=https://yourdomain.com (NOT localhost).`
+        `[nextauth] NEXTAUTH_URL is set to ${process.env.NEXTAUTH_URL} on production - ignoring it. To use a custom domain, set NEXTAUTH_URL=https://yourdomain.com (NOT localhost).`
       )
-    } else {
-      return process.env.NEXTAUTH_URL
+      return undefined
     }
+    return process.env.NEXTAUTH_URL
   }
 
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  if (process.env.NODE_ENV !== 'production') return 'http://localhost:3000'
+  // No NEXTAUTH_URL: leave it undefined and let next-auth infer from the
+  // request host (what actually happens today either way).
   return undefined
 }
 
-// `url` is consumed by NextAuth's core at runtime (base url for redirects)
-// but is missing from the published NextAuthOptions type - intersect it in.
+// `url` is NOT used by next-auth's core (init.js overwrites it with the
+// request origin - see the v271 TRUTH note above). It is exposed for any
+// external reader that wants the documented intent, and intersects the
+// published NextAuthOptions type which omits it.
 export const nextAuthOptions: NextAuthOptions & { url?: string } = {
   providers: [
     GoogleProvider({
@@ -130,6 +123,12 @@ export const nextAuthOptions: NextAuthOptions & { url?: string } = {
   },
   pages: {
     signIn: '/',
+    // v271: NextAuth's own error routes used to land on the BARE built-in
+    // error page (/api/auth/error → /api/auth/signin → ... a white next-auth
+    // branded page). Every error code now goes straight back to the app's
+    // home route, where the ?error= reader paints the oauth-error-banner:
+    // core/index.js appends `?error=<code>` to pages.error automatically.
+    error: '/',
   },
   session: {
     strategy: 'jwt',

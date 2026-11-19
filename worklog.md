@@ -1,5 +1,55 @@
 # circubAwd worklog
 
+## v271 (2026-11-19) - Google auth: audited end to end, hardened where it was actually breakable
+User: "the google auth is not working right". A 9-point audit of the whole
+OAuth chain (every link probed empirically, not by reading config) found the
+in-repo flow is sound: the prod handshake completes (csrf -> POST signin ->
+Google consent URL carrying redirect_uri=https://circubawd.vercel.app/api/
+auth/callback/google), Google accepts the client (a real Chromium click-
+through lands on "Sign in - Google Accounts" with no mismatch/error), the
+state + PKCE + callback-url cookies are set correctly, all 57 API routes use
+the shared getSessionEmail/getCurrentUser helpers, and a forged Google
+session JWT (next-auth/jwt encode, the exact cookie the callback would set)
+is recognized by /api/auth/me including the first-sign-in auto-create path
+(6/6). What the audit DID find and v271 fixes:
+
+(1) The hardcoded fallback OAuth client id in auth-options.ts is DELETED at
+Google - local repro: consent page and token endpoint both answer
+deleted_client, so any deployment that ever loses GOOGLE_CLIENT_ID serves a
+dead Google button that blames the user, not the config.
+(2) NextAuth error branches used to land on the bare built-in error page
+chain (/api/auth/error -> /api/auth/signin -> home). pages.error is now "/"
+so Configuration-class errors jump straight to /?error=<code> where the
+inline oauth-error-banner fires, and the banner now quotes the raw code
+("(code: OAuthCallback)") so a user report is diagnosable from one glance.
+(3) Chat-app webviews: Google refuses OAuth inside embedded browsers
+("This browser or app may not be secure") and most first visits in our
+market come from a WhatsApp/Facebook/Instagram link. startGoogleSignIn now
+detects webview user agents up front and both login + register modals show
+"Open circubAwd in a real browser first" instead of letting the user die
+silently on Google's page.
+(4) The misleading getAuthUrl() VERCEL_URL branch (rotating per-deployment
+URLs like circub-xxxx.vercel.app) is gone; the comment now documents the
+verified truth: next-auth/core/init.js overwrites options.url with the
+request origin, so redirect_uri is always the request host and the url
+option is inert.
+(5) NEW diagnostic: /api/debug-auth/google?probe=token performs a REAL
+token-exchange attempt with the configured client_id + client_secret and a
+deliberately invalid code, then reports Google's own verdict - invalid_grant
+= credentials valid (healthy), invalid_client = wrong secret (the actual
+root cause class for "google auth is not working"), redirect_uri_mismatch =
+callback not registered. The secret is never echoed.
+
+Proof: task271_google_fix_probe 8/8 local (v271 served, one-hop error
+redirect for Configuration, access_denied chain ends inside the app, debug
+endpoint healthy, token probe returns a real Google verdict, handoff intact,
+webview toast blocks navigation), task271_local_google_session_probe 6/6
+(forged Google session -> /me 200, auto-create works, tampered cookie 401).
+Regressions: 345/345 across the full suite (task239 29, task257 8, task258
+contract 11 + UI 9, task259 15, task260 9, task261 14, task262 21, task263
+contract 20 + UI 24, task264 53, task265 24, task266 13, task267 28, task268
+16, task269 29, task270 22). tsc 20 baseline; build exit 0; sw.js circub-v271.
+
 ## v270 (2026-11-19) - The post-story feature is GONE, everywhere
 User: "remove the post story session at all". The 24h Instagram-style stories
 feature had four surfaces - the PriceStoriesStrip on the Local feed (rings +

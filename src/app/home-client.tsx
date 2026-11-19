@@ -238,9 +238,12 @@ function HomeInner() {
     const err = params.get('error')
     if (err) {
       const misconfigured = err === 'Configuration'
+      // v271: the raw NextAuth error code rides along in the copy - it is
+      // the ONE detail that distinguishes a cancelled consent from a server
+      // misconfiguration when a user reports "google auth is not working".
       setOauthErrorMsg(misconfigured
         ? 'Google OAuth is not fully configured on the server. Use email + password to sign in or register.'
-        : 'Google sign-in could not be completed. Please try again, or use email + password.')
+        : `Google sign-in could not be completed. Please try again, or use email + password. (code: ${err})`)
       // Clean the URL so the banner doesn't re-fire on refresh.
       const url = window.location.origin + window.location.pathname
       window.history.replaceState({}, '', url)

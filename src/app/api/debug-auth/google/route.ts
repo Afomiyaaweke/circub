@@ -4,6 +4,19 @@
 //
 // Usage: visit https://your-app.vercel.app/api/debug-auth/google
 // (or http://localhost:3000/api/debug-auth/google)
+//
+// v271: append ?probe=token to also run a REAL OAuth token-exchange attempt
+// against Google with the configured client_id + client_secret and a
+// deliberately invalid authorization code. Google's answer tells us exactly
+// which link in the chain is broken - without ever revealing the secret:
+//   invalid_grant            → credentials are VALID (the fake code is the
+//                              only thing rejected = config is healthy)
+//   invalid_client           → the client id / secret pair is WRONG (this is
+//                              the "Google auth not working" root cause)
+//   redirect_uri_mismatch    → the callback URL is not registered in Google
+//                              Cloud Console
+// Any 200/other response is reported raw. The probe is gated behind the
+// explicit query flag so plain health checks never hit Google's endpoints.
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { nextAuthOptions } from '@/lib/auth-options'
@@ -53,6 +66,47 @@ export async function GET(req: NextRequest) {
     ? `${runtimeUrl.replace(/\/$/, '')}/api/auth/callback/google`
     : null
 
+  // v271: token-exchange probe (only with ?probe=token). Fires the exact
+  // request NextAuth's callback will fire, with an invalid code, so Google's
+  // own error code identifies the broken link. The client secret is never
+  // echoed back - only Google's verdict.
+  let tokenProbe: {
+    status: number
+    googleError: string | null
+    verdict: string
+  } | null = null
+
+  if (req.nextUrl.searchParams.get('probe') === 'token') {
+    const clientId = process.env.GOOGLE_CLIENT_ID || '349861539680-usdnfntjka3jkm5n2violbmqdq986jik.apps.googleusercontent.com'
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
+    try {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code: 'circub-diagnostic-invalid-code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri || `${req.nextUrl.origin}/api/auth/callback/google`,
+          grant_type: 'authorization_code',
+        }),
+      })
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      const googleError = body.error || null
+      let verdict = 'unexpected response - inspect status'
+      if (googleError === 'invalid_grant') {
+        verdict = 'HEALTHY: client_id + client_secret accepted by Google (only the fake code was rejected)'
+      } else if (googleError === 'invalid_client') {
+        verdict = 'BROKEN: Google rejected the client_id/client_secret pair - the secret on this deployment does not match the Google Cloud Console OAuth client'
+      } else if (googleError === 'redirect_uri_mismatch') {
+        verdict = 'BROKEN: the callback redirect_uri is not registered in Google Cloud Console → Authorized redirect URIs'
+      }
+      tokenProbe = { status: res.status, googleError, verdict }
+    } catch (e: any) {
+      tokenProbe = { status: 0, googleError: null, verdict: `probe fetch failed: ${e?.message || 'unknown'}` }
+    }
+  }
+
   return NextResponse.json({
     timestamp: new Date().toISOString(),
     runtime: {
@@ -91,6 +145,8 @@ export async function GET(req: NextRequest) {
           }
         : null,
     },
+    // v271: present only when the request came with ?probe=token.
+    tokenProbe,
     checklist: {
       // Things to verify when Google sign-in fails
       step1_redirectUriInGoogle: `Add ${redirectUri || '(unknown)'} to Google Cloud Console → Credentials → Authorized redirect URIs`,

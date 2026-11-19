@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
-import { startGoogleSignIn } from '@/lib/google-signin'
+import { startGoogleSignIn, googleSignInFailureText } from '@/lib/google-signin'
 
 interface LoginModalProps {
   open: boolean
@@ -101,14 +101,13 @@ export function LoginModal({ open, onOpenChange, onAuthed, onSwitchToRegister, o
       return
     }
     setGoogleLoading(true)
-    const ok = await startGoogleSignIn()
-    if (!ok) {
+    // v271: typed failure reasons - a 'webview' detection gets the specific
+    // "open in Chrome / Safari" message instead of a generic retry toast.
+    const result = await startGoogleSignIn()
+    if (result !== 'ok') {
       setGoogleLoading(false)
-      toast({
-        title: 'Google sign-in failed',
-        description: 'Could not start Google sign-in. Please try again, or use email + password.',
-        variant: 'destructive',
-      })
+      const { title, description } = googleSignInFailureText(result)
+      toast({ title, description, variant: 'destructive' })
     }
   }
 
