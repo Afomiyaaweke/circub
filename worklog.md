@@ -1,5 +1,48 @@
 # circubAwd worklog
 
+## v269 (2026-11-19) - The SEO is GLOBAL; worldwide coverage said out loud to crawlers
+User: "make the seo not only in ethiopia make it more global". An audit of what
+crawlers actually see (SSR head + rendered guest shell) showed the coverage was
+never STATED: no areaServed, no hreflang, keywords without one global phrase,
+the single-market string in the SSR HTML was the Local search tooltip
+("coffee, Addis Ababa"), the composer greeted the world as "Addis Ababa,
+Ethiopia", and the crawled Local feed reads single-market because every real
+post comes from one country. Now:
+
+HEAD: title "...real prices and answers from locals in any country",
+description "any city and any country", keywords gain prices worldwide /
+global price comparison / cost of living comparison / local prices any
+country / what things cost around the world, hreflang x-default + en (one
+canonical page, default for every locale), og:locale en_US, og-image alt
+worldwide. JSON-LD: WebApplication + Organization carry areaServed Worldwide,
+availableLanguage lists the six real UI languages (English Amharic Swahili
+Arabic French Chinese), featureList gains "Prices in any currency - any city,
+any country", WebSite description says worldwide.
+
+CONTENT: the Local feed (the crawled home surface) leads with the WORLD
+PRICES sample strip - eight display-only Sample-chip cards (Matatu fare
+Nairobi KES, generator repair Lagos NGN, flat white London GBP, mango Manila
+PHP, abra ride Dubai AED, Spati beer Berlin EUR, street taco Mexico City MXN,
+ramen Tokyo JPY) in a horizontal scroll row above Local Products whenever no
+filter is active, hidden while searching (same display-only rules as the
+v267 receipt seeds). The search tooltip/placeholder example is now "coffee,
+Nairobi - or any city"; the composer greeting defaults to "your city" with a
+Nairobi example; quest/bulk/product placeholders diversified (Kariakoo Dar
+es Salaam, Nairobi, Kenya, neutral coffee). The app itself was already
+global (all UN member states resolve in the composer, filters derive
+countries from live posts) - now the machines can SEE it.
+
+task269_seo_global_probe 29/29 (title/description/keywords/hreflang/og:locale,
+JSON-LD areaServed + six languages + feature line, SSR HTML zero single-market
+strings, strip renders 8 cards 8 currencies 8 cities, hides on search returns
+on clear, composer greeting "your city", 390 + 320 zero overflow). Prod:
+task269_prod_spotcheck 9/9 (v269 served, hreflang live, areaServed Worldwide,
+zero single-market SSR strings, strip with 8 samples live). Regressions:
+task239 29/29, task257 8/8, task258 11/11, task259 15/15, task260 9/9,
+task261 14/14, task262 21/21, task263 contract 20/20 + UI 24/24, task264 reel
+53/53, task265 24/24, task266 13/13, task267 28/28, task268 16/16.
+tsc 20 baseline; build exit 0; sw.js circub-v269.
+
 ## v268 (2026-11-18) - Everything is mobile responsive; the posting composer header was the breaker
 User: "make sure every thing is mobile responsive eg the posting is not check
 it all". A 390px + 320px audit sweep across 15 surfaces (local home, post-price
