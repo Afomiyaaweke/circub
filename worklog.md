@@ -1,5 +1,55 @@
 # circubAwd worklog
 
+## v272 (2026-11-26) - the receipt feed leads the app; the Link tab keeps the nav dock
+User: "make the recipt feed infront of the local and make keep the nav icon on
+the link too don't take it to full screen". Two navigation contracts changed.
+
+1. THE RECEIPT FEED COMES FIRST. Every receipt lives on the community Feed
+   tab since v267, so the Feed tab moved from LAST to FIRST in the nav: the
+   bottom dock and the desktop pills now order Feed, Local, Link, Profile
+   (header.tsx TABS array), and home-client opens on `community` by default -
+   a fresh visit (or a visitor without a saved position) lands straight on
+   the receipt feed: the "Post with a receipt" banner, the composer and the
+   Fresh Mart / Merkato / TechHub sample receipt posts are the first screen.
+   The last-position memory still restores the tab the user was really on;
+   `?post=` / `?community=` / `?quest=` deep links behave as before.
+
+2. THE LINK TAB STOPS GOING FULL SCREEN. The v264 fixed inset-0 reel shell
+   covered the app header AND the bottom nav dock; per the user it is
+   retired: live-zone-tab renders in the normal content column again
+   (w-full min-w-0 lg:flex-1 with the v235 height calc, TikTok-web style
+   centered 560px bounty card on desktop, edge-to-edge on phones). The back
+   chevron (reel-back), the 1/N counter chip (reel-counter), the body scroll
+   lock and the Escape-to-collapse handler are deleted; data-reel-full is
+   now a constant "false" contract. The smooth reel STAYS: one bounty per
+   snap-mandatory slide, inactive-slide crossfade (opacity-60 scale-97),
+   progress dots capped at 12, ArrowUp/ArrowDown paging - all inside the
+   tab's own column, so the dock and the header stay visible and usable on
+   the Link tab on every viewport.
+
+Proof: task272_receipt_feed_first_probe 23/23 (version v272; fresh visit
+opens the receipt feed with banner + composer + sample posts with NO click
+on desktop AND mobile; pill/dock order community-local-guides-profile; Feed
+tab aria-current on load; dock navigates Local then back; link-tab-root
+in-flow data-reel-full=false position!=fixed; dock sits BELOW the tab
+column; Profile opens from the Link tab via the dock; no body scroll lock;
+reel-back/reel-counter absent from bundle + DOM; desktop header not
+covered). Prod spotcheck task272_prod_spotcheck 15/15 on
+https://circubawd.vercel.app.
+
+Regressions re-pointed for the new contracts: task264 R-block now asserts
+the IN-FLOW reel (position!=fixed, header/dock not taken over, counter chip
+gone, dock nav from the Link tab, fresh mount stays in-flow, new M1c
+dock-visibility at 390px) 52/52; task265 T10 counter-gone + pill reachable
+24/24; task262/263/267/268/269/270 boot to Local explicitly (the app no
+longer opens on Local); task269 S2 re-pointed to the RENDERED Local search
+tooltip (S2b) since the SSR HTML now renders the Feed tab composer. Full
+suite 358/358 (task239 29, task257 8, task258 11+9, task259 15, task260 9,
+task261 14, task262 21, task263 20+24, task264 52, task265 24, task266 13,
+task267 28, task268 16, task269 29, task270 22, task271 8+6). tsc 20
+baseline; build exit 0; sw.js circub-v272; prod spotcheck 15/15 + visual
+shots of both surfaces (desktop + mobile, boot view + Link tab).
+
 ## v271 (2026-11-19) - Google auth: audited end to end, hardened where it was actually breakable
 User: "the google auth is not working right". A 9-point audit of the whole
 OAuth chain (every link probed empirically, not by reading config) found the
