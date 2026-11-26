@@ -358,33 +358,22 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
   const [savedQuests, setSavedQuests] = useState<Record<string, boolean>>({})
   const [questFlash, setQuestFlash] = useState<string | null>(null)
   const deckRef = useRef<HTMLDivElement | null>(null)
-  // v264 FULL-SCREEN REEL (user: "make the bounty to slide smooth like
-  // tiktok short video, take the full screen for all the bounty like reel
-  // videos"): the Link tab opens as a TRUE full-screen reel - fixed
-  // inset-0 over the app header and dock, one bounty per snap screen,
-  // TikTok-style scale/fade on the inactive slides, a progress rail, a
-  // counter and keyboard paging. The back chevron (or Escape) drops back
-  // to the normal in-flow tab - the reel is never a trap.
-  const [reelFull, setReelFull] = useState(true)
+  // v264 made the Link tab a TRUE full-screen reel (fixed inset-0 over the
+  // header and dock). v272: REVERTED to the in-flow tab (user: "make keep
+  // the nav icon on the link too don't take it to full screen") - the tab
+  // renders in the normal page flow again so the bottom nav dock (and the
+  // header) stay visible and usable on the Link tab. The smooth part of the
+  // reel STAYS: one bounty per snap slide, TikTok-style scale/fade on the
+  // inactive slides, progress dots and keyboard paging - all inside the
+  // tab's own column, never covering the nav.
   // Active slide index per deck (scroll position / viewport height) - it
   // drives the fade/scale of the slides and the progress dots.
   const [bountyIdx, setBountyIdx] = useState(0)
   const [talentIdx, setTalentIdx] = useState(0)
   const talentDeckRef = useRef<HTMLDivElement | null>(null)
 
-  // v264 while the reel is full-screen the page behind it must not scroll
-  // (touch bleed-through on phones would drag the whole app up/down).
-  useEffect(() => {
-    if (!reelFull) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [reelFull])
-
-  // v264 keyboard: Escape leaves the reel (a dialog handling its own Escape
-  // always wins - it calls preventDefault, we stay put); ArrowUp/ArrowDown
-  // page through the active deck like TikTok-web on a desktop. Lives AFTER
-  // the `feed` declaration below.
+  // v264 keyboard: ArrowUp/ArrowDown page through the active deck like
+  // TikTok-web on a desktop. Lives AFTER the `feed` declaration below.
 
   // v264 snap-slide tracker: every deck is equal-height slides, so the
   // active index is just scrollTop / slideHeight.
@@ -409,14 +398,12 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
   // vs 'Talent On Call'. Deals stay the default (v220 deals-first contract).
   const [feed, setFeed] = useState<'bounties' | 'talents'>('bounties')
 
-  // v264 keyboard paging (declared after `feed`): Escape leaves the reel -
-  // a dialog handling its own Escape always wins (it preventDefaults, we
-  // stay put) - and ArrowUp/ArrowDown page through the active deck.
+  // v264 keyboard paging (declared after `feed`): ArrowUp/ArrowDown page
+  // through the active deck (v272: Escape no longer collapses anything -
+  // the tab is in-flow and never covers the nav).
   useEffect(() => {
-    if (!reelFull) return
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return
-      if (e.key === 'Escape') { setReelFull(false); return }
       const deck = feed === 'bounties' ? deckRef.current : talentDeckRef.current
       if (!deck) return
       const step = deck.clientHeight
@@ -431,7 +418,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [reelFull, feed])
+  }, [feed])
   // A fresh deck (feed switch) starts from the top.
   useEffect(() => {
     setBountyIdx(0)
@@ -921,37 +908,20 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
     : null
 
   return (
-    /* v235 flow + v264 full-screen reel: the tab renders in the normal page
-       flow by default (header/sidebar/dock around it) - but browsing
-       bounties IS the reel, so the tab opens as a FIXED FULL-SCREEN shell
-       (inset-0 over the header and dock, below dialogs and toasts). The
-       top bar's back chevron - or Escape - collapses it back into the
-       normal flow without losing state. */
+    /* v235 flow + v272 in-flow again: the tab renders in the normal page
+       flow - the app header, the right sidebar and the BOTTOM NAV DOCK
+       stay around it and usable (user: "make keep the nav icon on the link
+       too don't take it to full screen"). The v264 fixed inset-0 full-screen
+       shell is gone; the smooth reel (snap slides, crossfade, dots, keyboard
+       paging) lives INSIDE this column. */
     <div
-      className={cn(
-        'flex flex-col bg-background',
-        reelFull
-          ? 'fixed inset-0 z-[45]'
-          : 'h-[calc(100dvh-150px)] lg:h-[calc(100dvh-120px)] min-h-[540px]',
-      )}
+      className="flex flex-col bg-background w-full min-w-0 lg:flex-1 h-[calc(100dvh-150px)] lg:h-[calc(100dvh-120px)] min-h-[540px]"
       data-testid="link-tab-root"
-      data-reel-full={reelFull ? 'true' : 'false'}
+      data-reel-full="false"
     >
-      {/* v235 in-page top row - feed switcher + payouts. v264: inside the
-          reel it gains the back chevron and the slide counter. */}
+      {/* v235 in-page top row - feed switcher + payouts. v264's back chevron
+          is gone with the full-screen shell (v272). */}
       <div className="shrink-0 flex items-center gap-2 pl-2 pr-2.5 pb-2 bg-background/95 backdrop-blur border-b border-border" data-testid="link-topbar">
-        {reelFull && (
-          <button
-            type="button"
-            onClick={() => setReelFull(false)}
-            aria-label="Leave the full-screen reel"
-            title="Back to the normal tab"
-            data-testid="reel-back"
-            className="shrink-0 w-9 h-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center cursor-pointer transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-        )}
 
         {/* v229 FEED MODE SWITCHER - the mockup's TikTok mode pills, fed with
             REAL counts (open bounties / registered talent). Bounties stay the
@@ -999,18 +969,7 @@ export function LiveZoneTab({ me, onMessage, onJoinTalent, onRequireSignUp, high
 
         {/* My Payouts & Escrow - the one action the user asked to keep in the
             header ("only keep the toggle and my escrow"). Icon-only on
-            phones, full label from md up. v264: inside the reel a slim slide
-            counter rides beside it. */}
-        {reelFull && (
-          <span
-            data-testid="reel-counter"
-            className="shrink-0 rounded-full bg-accent border border-border px-2 py-1 text-[10px] font-bold text-muted-foreground tabular-nums"
-          >
-            {feed === 'bounties'
-              ? `${filteredQuests.length ? Math.min(bountyIdx + 1, filteredQuests.length) : 0} / ${filteredQuests.length}`
-              : `${visibleGuides.length ? Math.min(talentIdx + 1, visibleGuides.length) : 0} / ${visibleGuides.length}`}
-          </span>
-        )}
+            phones, full label from md up. */}
         {/* v265 THE SEARCH, NEXT TO THE ESCROW (user: "remove the post
             button and make the search next to the escrow"): ONE round
             search icon rides the top bar beside My Payouts & Escrow and

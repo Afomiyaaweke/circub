@@ -104,11 +104,14 @@ function HomeInner() {
     avatarColor: 'slate',
     postsCount: 0,
   } as User)
-  // v252: the app opens on the LOCAL feed (user: "remove the battle form the
-  // home page and start form the local") - the Battle tab is gone from the
-  // dock and lives in the Profile now; fresh visits land on Local. The
-  // position memory below still restores the tab the user was really on.
-  const [activeTab, setActiveTab] = useState<TabKey>('local')
+  // v252: the app stopped opening on the old Battle tab (user: "remove the
+  // battle form the home page and start form the local") and opened on Local.
+  // v272: the app opens on the FEED - the receipt feed (user: "make the
+  // recipt feed infront of the local"): the community tab where every
+  // receipt lives since v267 is the first dock tab and the default landing
+  // tab. The position memory below still restores the tab the user was
+  // really on.
+  const [activeTab, setActiveTab] = useState<TabKey>('community')
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [messagesOpen, setMessagesOpen] = useState(false)
   const [messageTargetId, setMessageTargetId] = useState<string | null>(null)
@@ -394,8 +397,8 @@ function HomeInner() {
   useEffect(() => {
     const pos = recallPosition()
     // v252: 'feed' (Battle) is no longer a tab - old saved positions pointing
-    // at it fall back to the new default (Local). Every existing tab still
-    // wins over the default.
+    // at it fall back to the default (v272: the Feed tab). Every existing
+    // tab still wins over the default.
     if (!pos || pos.tab === 'feed') return
     setActiveTab(pos.tab)
     if (pos.tab === 'profile' && pos.section) {

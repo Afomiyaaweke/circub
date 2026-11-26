@@ -32,14 +32,17 @@ interface HeaderProps {
 // label (the old separate Feed button is gone - no more double entries).
 // v252: the Battle tab is GONE from the dock + desktop pills (user: "remove
 // the battle form the home page") - the Weekly Hustle Battle lives in the
-// PROFILE now, in the strip cell the Top score board used to hold, and the
-// app opens on Local.
+// PROFILE now, in the strip cell the Top score board used to hold.
+// v272: the FEED (the receipt feed - every receipt lives there since v267)
+// leads the nav (user: "make the recipt feed infront of the local"): the
+// desktop pills and the bottom dock both open with Feed, then Local, Link
+// and Profile, and a fresh visit lands on the Feed tab.
 // labelKey - the i18n dictionary key for the tab label (translated at render).
 const TABS: { key: TabKey; labelKey: 'nav.feed' | 'nav.local' | 'nav.link' | 'nav.profile' | 'nav.messages'; icon: typeof MapPin }[] = [
+  { key: 'community', labelKey: 'nav.messages', icon: MessageSquare },
   { key: 'local', labelKey: 'nav.local', icon: MapPin },
   { key: 'guides', labelKey: 'nav.link', icon: Compass },
   { key: 'profile', labelKey: 'nav.profile', icon: UserCircle },
-  { key: 'community', labelKey: 'nav.messages', icon: MessageSquare },
 ]
 
 // The app-wide language option - a compact globe menu. Rendered in the
